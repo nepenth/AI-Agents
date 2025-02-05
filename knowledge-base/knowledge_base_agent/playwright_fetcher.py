@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 from knowledge_base_agent.exceptions import KnowledgeBaseError
 

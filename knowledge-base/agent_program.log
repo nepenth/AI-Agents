@@ -1,69 +1,202 @@
-2025-02-05 11:09:20,481 - DEBUG - Using proactor: IocpProactor
-2025-02-05 11:09:22,664 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
-2025-02-05 11:09:24,796 - INFO - Loaded 4 categories from file
-2025-02-05 11:09:33,202 - INFO - Starting processing of 45 tweets...
-2025-02-05 11:09:33,203 - INFO - Using cached data for tweet 1885612358875197666
-2025-02-05 11:09:33,204 - DEBUG - Starting new HTTPS connection (1): pbs.twimg.com:443
-2025-02-05 11:09:33,671 - DEBUG - https://pbs.twimg.com:443 "GET /media/GisKacaXcAAxMWo?format=jpg&name=small HTTP/1.1" 200 72082
-2025-02-05 11:09:33,925 - INFO - Downloaded image 1 for tweet 1885612358875197666: https://pbs.twimg.com/media/GisKacaXcAAxMWo?format=jpg&name=small
-2025-02-05 11:09:33,926 - DEBUG - Starting new HTTP connection (1): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:10:08,799 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
-2025-02-05 11:11:25,636 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:12:31,134 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:13:25,585 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:13:25,586 - ERROR - Error processing category response: Response must have three parts
-2025-02-05 11:14:21,676 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:15:03,547 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:16:00,327 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:16:00,499 - INFO - Successfully processed tweet 1885612358875197666 -> software_engineering/best_practices/kubernetes_scaling_strategies_tweet
-2025-02-05 11:16:00,499 - INFO - Using cached data for tweet 1883731027442778402
-2025-02-05 11:16:00,527 - DEBUG - https://pbs.twimg.com:443 "GET /media/GiRbYPabQAEES6y?format=jpg&name=small HTTP/1.1" 200 71982
-2025-02-05 11:16:00,556 - INFO - Downloaded image 1 for tweet 1883731027442778402: https://pbs.twimg.com/media/GiRbYPabQAEES6y?format=jpg&name=small
-2025-02-05 11:16:36,639 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 2023
-2025-02-05 11:18:36,651 - ERROR - Attempt 1 for tweet 1883731027442778402 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:18:36,651 - INFO - Using cached data for tweet 1884518401286037894
-2025-02-05 11:18:36,652 - DEBUG - Starting new HTTP connection (2): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:20:36,654 - ERROR - Attempt 1 for tweet 1884518401286037894 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:20:36,654 - INFO - Using cached data for tweet 1884106639760056387
-2025-02-05 11:20:36,685 - DEBUG - https://pbs.twimg.com:443 "GET /media/GiWxAHqaUAAevlZ?format=jpg&name=900x900 HTTP/1.1" 200 126996
-2025-02-05 11:20:36,705 - INFO - Downloaded image 1 for tweet 1884106639760056387: https://pbs.twimg.com/media/GiWxAHqaUAAevlZ?format=jpg&name=900x900
-2025-02-05 11:20:36,707 - DEBUG - Starting new HTTP connection (3): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:21:30,450 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
-2025-02-05 11:23:30,459 - ERROR - Attempt 1 for tweet 1884106639760056387 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:23:30,459 - INFO - Using cached data for tweet 1870132960990474730
-2025-02-05 11:23:30,491 - DEBUG - https://pbs.twimg.com:443 "GET /media/GfQLzlyXoAA0raR?format=jpg&name=medium HTTP/1.1" 200 234304
-2025-02-05 11:23:30,511 - INFO - Downloaded image 1 for tweet 1870132960990474730: https://pbs.twimg.com/media/GfQLzlyXoAA0raR?format=jpg&name=medium
-2025-02-05 11:23:30,513 - DEBUG - Starting new HTTP connection (4): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:24:21,055 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
-2025-02-05 11:26:21,059 - ERROR - Attempt 1 for tweet 1870132960990474730 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:26:21,059 - INFO - Using cached data for tweet 1883731027442778402
-2025-02-05 11:26:21,088 - DEBUG - https://pbs.twimg.com:443 "GET /media/GiRbYPabQAEES6y?format=jpg&name=small HTTP/1.1" 200 71982
-2025-02-05 11:26:21,096 - INFO - Downloaded image 1 for tweet 1883731027442778402: https://pbs.twimg.com/media/GiRbYPabQAEES6y?format=jpg&name=small
-2025-02-05 11:26:21,097 - DEBUG - Starting new HTTP connection (5): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:27:09,750 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 1889
-2025-02-05 11:29:09,752 - ERROR - Attempt 1 for tweet 1883731027442778402 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:29:09,752 - INFO - Using cached data for tweet 1885379904188866994
-2025-02-05 11:29:09,782 - DEBUG - https://pbs.twimg.com:443 "GET /media/Gio3B9QbYAEXfYL?format=jpg&name=900x900 HTTP/1.1" 200 78785
-2025-02-05 11:29:09,794 - INFO - Downloaded image 1 for tweet 1885379904188866994: https://pbs.twimg.com/media/Gio3B9QbYAEXfYL?format=jpg&name=900x900
-2025-02-05 11:29:09,796 - DEBUG - Starting new HTTP connection (6): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:30:01,200 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 1962
-2025-02-05 11:32:01,211 - ERROR - Attempt 1 for tweet 1885379904188866994 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:32:01,211 - INFO - Using cached data for tweet 1881036704251080733
-2025-02-05 11:32:01,263 - DEBUG - https://pbs.twimg.com:443 "GET /media/GhrI6bsbwAAwfLT?format=jpg&name=900x900 HTTP/1.1" 200 160775
-2025-02-05 11:32:01,275 - INFO - Downloaded image 1 for tweet 1881036704251080733: https://pbs.twimg.com/media/GhrI6bsbwAAwfLT?format=jpg&name=900x900
-2025-02-05 11:32:01,277 - DEBUG - Starting new HTTP connection (7): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:33:05,433 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
-2025-02-05 11:34:37,849 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:35:54,007 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:37:52,894 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
-2025-02-05 11:37:52,902 - INFO - Successfully processed tweet 1881036704251080733 -> software_engineering/best_practices/linux_cheat_sheet_enjoy
-2025-02-05 11:37:52,902 - INFO - Using cached data for tweet 1885197578389905733
-2025-02-05 11:37:52,930 - DEBUG - https://pbs.twimg.com:443 "GET /media/GimRNGrbgAArNon?format=jpg&name=900x900 HTTP/1.1" 200 127951
-2025-02-05 11:37:52,941 - INFO - Downloaded image 1 for tweet 1885197578389905733: https://pbs.twimg.com/media/GimRNGrbgAArNon?format=jpg&name=900x900
-2025-02-05 11:38:43,021 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 1906
-2025-02-05 11:40:43,025 - ERROR - Attempt 1 for tweet 1885197578389905733 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:40:43,025 - INFO - Using cached data for tweet 1883730238712246422
-2025-02-05 11:40:43,025 - DEBUG - Starting new HTTP connection (8): whyland-ai.nakedsun.xyz:11434
-2025-02-05 11:42:43,032 - ERROR - Attempt 1 for tweet 1883730238712246422 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
-2025-02-05 11:47:38,273 - DEBUG - Using proactor: IocpProactor
-2025-02-05 11:47:39,561 - INFO - Cache file data\tweet_cache.json does not exist. Initializing new cache.
+2025-02-05 11:56:38,913 - DEBUG - Using proactor: IocpProactor
+2025-02-05 11:56:40,666 - INFO - Cache file data\tweet_cache.json does not exist. Initializing new cache.
+2025-02-05 11:56:43,607 - INFO - Saved cache with 0 entries to data\tweet_cache.json.
+2025-02-05 11:56:43,607 - INFO - Cache cleared.
+2025-02-05 11:56:43,609 - INFO - Loaded 4 categories from file
+2025-02-05 11:56:51,722 - INFO - Starting processing of 45 tweets...
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1885612358875197666
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1883731027442778402
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1884518401286037894
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1884106639760056387
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1870132960990474730
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1883731027442778402
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1885379904188866994
+2025-02-05 11:56:51,723 - INFO - Fetching tweet data for tweet 1881036704251080733
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1885197578389905733
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1883730238712246422
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1878851674132865404
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1886045874536558683
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1881036704251080733
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1880168987243225105
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1880271036781928683
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1885366814265217275
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1877813420260536777
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1883535445583438263
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1884479345584136603
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1868986248318124066
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1886292559145918555
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1877700730875674820
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1885699330553643249
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1875281576969564303
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1878866744833347762
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1886636635527278756
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1881314782474584560
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1868061408161911248
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1884514150606315598
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1878802958004957344
+2025-02-05 11:56:51,724 - INFO - Fetching tweet data for tweet 1885755816365400433
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1871801375325298895
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1880218561303703586
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1886338847698518229
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1876037059367915804
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1884553905226592463
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1867612062039650725
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1884306371631538367
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1878889570550559004
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1880156595092615668
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1878097595832177129
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1866615462844383425
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1880835226298945706
+2025-02-05 11:56:51,725 - INFO - Fetching tweet data for tweet 1886052013386944616
+2025-02-05 11:56:51,726 - INFO - Fetching tweet data for tweet 1878002570192368073
+2025-02-05 11:57:32,341 - ERROR - Playwright failed for Tweet ID 1878866744833347762: name 're' is not defined
+2025-02-05 11:57:32,342 - ERROR - Failed to fetch tweet data for 1878866744833347762: Failed to fetch tweet data for ID 1878866744833347762
+2025-02-05 11:57:32,523 - ERROR - Playwright failed for Tweet ID 1875281576969564303: name 're' is not defined
+2025-02-05 11:57:32,523 - ERROR - Failed to fetch tweet data for 1875281576969564303: Failed to fetch tweet data for ID 1875281576969564303
+2025-02-05 11:57:32,693 - ERROR - Playwright failed for Tweet ID 1885197578389905733: name 're' is not defined
+2025-02-05 11:57:32,694 - ERROR - Failed to fetch tweet data for 1885197578389905733: Failed to fetch tweet data for ID 1885197578389905733
+2025-02-05 11:57:32,694 - ERROR - Playwright failed for Tweet ID 1880271036781928683: name 're' is not defined
+2025-02-05 11:57:32,694 - ERROR - Failed to fetch tweet data for 1880271036781928683: Failed to fetch tweet data for ID 1880271036781928683
+2025-02-05 11:57:32,781 - ERROR - Playwright failed for Tweet ID 1878002570192368073: name 're' is not defined
+2025-02-05 11:57:32,781 - ERROR - Failed to fetch tweet data for 1878002570192368073: Failed to fetch tweet data for ID 1878002570192368073
+2025-02-05 11:57:32,784 - ERROR - Playwright failed for Tweet ID 1886338847698518229: name 're' is not defined
+2025-02-05 11:57:32,784 - ERROR - Failed to fetch tweet data for 1886338847698518229: Failed to fetch tweet data for ID 1886338847698518229
+2025-02-05 11:57:32,797 - ERROR - Playwright failed for Tweet ID 1870132960990474730: name 're' is not defined
+2025-02-05 11:57:32,797 - ERROR - Failed to fetch tweet data for 1870132960990474730: Failed to fetch tweet data for ID 1870132960990474730
+2025-02-05 11:57:33,150 - ERROR - Playwright failed for Tweet ID 1881036704251080733: name 're' is not defined
+2025-02-05 11:57:33,150 - ERROR - Failed to fetch tweet data for 1881036704251080733: Failed to fetch tweet data for ID 1881036704251080733
+2025-02-05 11:57:33,155 - ERROR - Playwright failed for Tweet ID 1880218561303703586: name 're' is not defined
+2025-02-05 11:57:33,155 - ERROR - Failed to fetch tweet data for 1880218561303703586: Failed to fetch tweet data for ID 1880218561303703586
+2025-02-05 11:57:33,193 - ERROR - Playwright failed for Tweet ID 1884553905226592463: name 're' is not defined
+2025-02-05 11:57:33,193 - ERROR - Failed to fetch tweet data for 1884553905226592463: Failed to fetch tweet data for ID 1884553905226592463
+2025-02-05 11:57:33,245 - ERROR - Playwright failed for Tweet ID 1877813420260536777: name 're' is not defined
+2025-02-05 11:57:33,245 - ERROR - Failed to fetch tweet data for 1877813420260536777: Failed to fetch tweet data for ID 1877813420260536777
+2025-02-05 11:57:33,315 - ERROR - Playwright failed for Tweet ID 1881314782474584560: name 're' is not defined
+2025-02-05 11:57:33,315 - ERROR - Failed to fetch tweet data for 1881314782474584560: Failed to fetch tweet data for ID 1881314782474584560
+2025-02-05 11:57:33,333 - ERROR - Playwright failed for Tweet ID 1884514150606315598: name 're' is not defined
+2025-02-05 11:57:33,333 - ERROR - Failed to fetch tweet data for 1884514150606315598: Failed to fetch tweet data for ID 1884514150606315598
+2025-02-05 11:57:33,348 - ERROR - Playwright failed for Tweet ID 1878802958004957344: name 're' is not defined
+2025-02-05 11:57:33,348 - ERROR - Failed to fetch tweet data for 1878802958004957344: Failed to fetch tweet data for ID 1878802958004957344
+2025-02-05 11:57:33,371 - ERROR - Playwright failed for Tweet ID 1881036704251080733: name 're' is not defined
+2025-02-05 11:57:33,372 - ERROR - Failed to fetch tweet data for 1881036704251080733: Failed to fetch tweet data for ID 1881036704251080733
+2025-02-05 11:57:33,431 - ERROR - Playwright failed for Tweet ID 1886636635527278756: name 're' is not defined
+2025-02-05 11:57:33,431 - ERROR - Failed to fetch tweet data for 1886636635527278756: Failed to fetch tweet data for ID 1886636635527278756
+2025-02-05 11:57:33,431 - ERROR - Playwright failed for Tweet ID 1886292559145918555: name 're' is not defined
+2025-02-05 11:57:33,431 - ERROR - Failed to fetch tweet data for 1886292559145918555: Failed to fetch tweet data for ID 1886292559145918555
+2025-02-05 11:57:33,433 - ERROR - Playwright failed for Tweet ID 1885612358875197666: name 're' is not defined
+2025-02-05 11:57:33,433 - ERROR - Failed to fetch tweet data for 1885612358875197666: Failed to fetch tweet data for ID 1885612358875197666
+2025-02-05 11:57:33,441 - ERROR - Playwright failed for Tweet ID 1878851674132865404: name 're' is not defined
+2025-02-05 11:57:33,441 - ERROR - Failed to fetch tweet data for 1878851674132865404: Failed to fetch tweet data for ID 1878851674132865404
+2025-02-05 11:57:33,441 - ERROR - Playwright failed for Tweet ID 1886045874536558683: name 're' is not defined
+2025-02-05 11:57:33,441 - ERROR - Failed to fetch tweet data for 1886045874536558683: Failed to fetch tweet data for ID 1886045874536558683
+2025-02-05 11:57:33,454 - ERROR - Playwright failed for Tweet ID 1878097595832177129: name 're' is not defined
+2025-02-05 11:57:33,454 - ERROR - Failed to fetch tweet data for 1878097595832177129: Failed to fetch tweet data for ID 1878097595832177129
+2025-02-05 11:57:33,463 - ERROR - Playwright failed for Tweet ID 1877700730875674820: name 're' is not defined
+2025-02-05 11:57:33,463 - ERROR - Failed to fetch tweet data for 1877700730875674820: Failed to fetch tweet data for ID 1877700730875674820
+2025-02-05 11:57:33,485 - ERROR - Playwright failed for Tweet ID 1884479345584136603: name 're' is not defined
+2025-02-05 11:57:33,485 - ERROR - Failed to fetch tweet data for 1884479345584136603: Failed to fetch tweet data for ID 1884479345584136603
+2025-02-05 11:57:34,003 - ERROR - Playwright failed for Tweet ID 1885699330553643249: name 're' is not defined
+2025-02-05 11:57:34,003 - ERROR - Failed to fetch tweet data for 1885699330553643249: Failed to fetch tweet data for ID 1885699330553643249
+2025-02-05 11:57:34,145 - ERROR - Playwright failed for Tweet ID 1883731027442778402: name 're' is not defined
+2025-02-05 11:57:34,145 - ERROR - Failed to fetch tweet data for 1883731027442778402: Failed to fetch tweet data for ID 1883731027442778402
+2025-02-05 11:57:34,283 - ERROR - Playwright failed for Tweet ID 1876037059367915804: name 're' is not defined
+2025-02-05 11:57:34,283 - ERROR - Failed to fetch tweet data for 1876037059367915804: Failed to fetch tweet data for ID 1876037059367915804
+2025-02-05 11:57:34,443 - ERROR - Playwright failed for Tweet ID 1880835226298945706: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:34,443 - ERROR - Failed to fetch tweet data for 1880835226298945706: Failed to fetch tweet data for ID 1880835226298945706
+2025-02-05 11:57:35,175 - ERROR - Playwright failed for Tweet ID 1880168987243225105: name 're' is not defined
+2025-02-05 11:57:35,175 - ERROR - Failed to fetch tweet data for 1880168987243225105: Failed to fetch tweet data for ID 1880168987243225105
+2025-02-05 11:57:38,329 - ERROR - Playwright failed for Tweet ID 1883731027442778402: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:38,331 - ERROR - Failed to fetch tweet data for 1883731027442778402: Failed to fetch tweet data for ID 1883731027442778402
+2025-02-05 11:57:42,701 - ERROR - Playwright failed for Tweet ID 1884306371631538367: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:42,701 - ERROR - Failed to fetch tweet data for 1884306371631538367: Failed to fetch tweet data for ID 1884306371631538367
+2025-02-05 11:57:44,973 - ERROR - Playwright failed for Tweet ID 1866615462844383425: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:44,973 - ERROR - Failed to fetch tweet data for 1866615462844383425: Failed to fetch tweet data for ID 1866615462844383425
+2025-02-05 11:57:46,071 - ERROR - Playwright failed for Tweet ID 1886052013386944616: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:46,071 - ERROR - Failed to fetch tweet data for 1886052013386944616: Failed to fetch tweet data for ID 1886052013386944616
+2025-02-05 11:57:53,835 - ERROR - Playwright failed for Tweet ID 1885379904188866994: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:53,835 - ERROR - Failed to fetch tweet data for 1885379904188866994: Failed to fetch tweet data for ID 1885379904188866994
+2025-02-05 11:57:56,106 - ERROR - Playwright failed for Tweet ID 1885755816365400433: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:56,106 - ERROR - Failed to fetch tweet data for 1885755816365400433: Failed to fetch tweet data for ID 1885755816365400433
+2025-02-05 11:57:56,523 - ERROR - Playwright failed for Tweet ID 1868986248318124066: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:56,523 - ERROR - Failed to fetch tweet data for 1868986248318124066: Failed to fetch tweet data for ID 1868986248318124066
+2025-02-05 11:57:56,562 - ERROR - Playwright failed for Tweet ID 1867612062039650725: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:56,562 - ERROR - Failed to fetch tweet data for 1867612062039650725: Failed to fetch tweet data for ID 1867612062039650725
+2025-02-05 11:57:57,549 - ERROR - Playwright failed for Tweet ID 1884106639760056387: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:57,549 - ERROR - Failed to fetch tweet data for 1884106639760056387: Failed to fetch tweet data for ID 1884106639760056387
+2025-02-05 11:57:59,107 - ERROR - Playwright failed for Tweet ID 1871801375325298895: Page.wait_for_selector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("article div[data-testid=\"tweetText\"]") to be visible
+
+2025-02-05 11:57:59,107 - ERROR - Failed to fetch tweet data for 1871801375325298895: Failed to fetch tweet data for ID 1871801375325298895
+2025-02-05 11:57:59,300 - INFO - No replies found for tweet 1884518401286037894 within timeout; proceeding with empty replies.
+2025-02-05 11:57:59,339 - INFO - Updated cache for tweet ID 1884518401286037894.
+2025-02-05 11:57:59,340 - INFO - Saved cache with 1 entries to data\tweet_cache.json.
+2025-02-05 11:57:59,340 - INFO - Updated cache for tweet ID 1884518401286037894.
+2025-02-05 11:57:59,341 - INFO - Saved cache with 1 entries to data\tweet_cache.json.
+2025-02-05 11:57:59,343 - DEBUG - Starting new HTTP connection (1): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:59:59,396 - ERROR - Attempt 1 for tweet 1884518401286037894 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:59:59,397 - INFO - No replies found for tweet 1868061408161911248 within timeout; proceeding with empty replies.
+2025-02-05 11:59:59,400 - INFO - No replies found for tweet 1878889570550559004 within timeout; proceeding with empty replies.
+2025-02-05 11:59:59,405 - INFO - No replies found for tweet 1883730238712246422 within timeout; proceeding with empty replies.
+2025-02-05 11:59:59,409 - INFO - No replies found for tweet 1885366814265217275 within timeout; proceeding with empty replies.
+2025-02-05 11:59:59,413 - INFO - No replies found for tweet 1880156595092615668 within timeout; proceeding with empty replies.
+2025-02-05 11:59:59,551 - INFO - Updated cache for tweet ID 1868061408161911248.
+2025-02-05 11:59:59,552 - INFO - Saved cache with 2 entries to data\tweet_cache.json.
+2025-02-05 11:59:59,552 - INFO - Updated cache for tweet ID 1868061408161911248.
+2025-02-05 11:59:59,553 - INFO - Saved cache with 2 entries to data\tweet_cache.json.
+2025-02-05 11:59:59,553 - DEBUG - Starting new HTTP connection (2): whyland-ai.nakedsun.xyz:11434
+2025-02-05 12:00:52,427 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 12:01:34,449 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 12:02:21,521 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 12:02:21,524 - INFO - Successfully processed tweet 1868061408161911248 -> software_engineering/best_practices/markitdown_tool_from_microsoft
+2025-02-05 12:04:21,538 - ERROR - Attempt 2 for tweet 1884518401286037894 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 12:04:21,538 - INFO - Updated cache for tweet ID 1883730238712246422.
+2025-02-05 12:04:21,539 - INFO - Saved cache with 3 entries to data\tweet_cache.json.
+2025-02-05 12:04:21,539 - INFO - Updated cache for tweet ID 1883730238712246422.
+2025-02-05 12:04:21,539 - INFO - Saved cache with 3 entries to data\tweet_cache.json.
+2025-02-05 12:04:21,540 - DEBUG - Starting new HTTP connection (3): whyland-ai.nakedsun.xyz:11434
+2025-02-05 12:05:40,113 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 12:07:40,115 - ERROR - Attempt 2 for tweet 1883730238712246422 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 12:07:40,116 - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-63' coro=<Connection.run() done, defined at C:\Users\chris\iCloudDrive\git_repo\agents\knowledge-base\venv\Lib\site-packages\playwright\_impl\_connection.py:272> exception=InvalidStateError('CANCELLED: <Future cancelled>')>
+Traceback (most recent call last):
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2288.0_x64__qbz5n2kfra8p0\Lib\asyncio\tasks.py", line 314, in __step_run_and_handle_result
+    result = coro.send(None)
+             ^^^^^^^^^^^^^^^
+  File "C:\Users\chris\iCloudDrive\git_repo\agents\knowledge-base\venv\Lib\site-packages\playwright\_impl\_connection.py", line 281, in run
+    await self._transport.run()
+  File "C:\Users\chris\iCloudDrive\git_repo\agents\knowledge-base\venv\Lib\site-packages\playwright\_impl\_transport.py", line 171, in run
+    self._stopped_future.set_result(None)
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2288.0_x64__qbz5n2kfra8p0\Lib\asyncio\futures.py", line 258, in set_result
+    raise exceptions.InvalidStateError(f'{self._state}: {self!r}')
+asyncio.exceptions.InvalidStateError: CANCELLED: <Future cancelled>
