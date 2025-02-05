@@ -22,8 +22,8 @@ playwright-report/
 data/tweet_cache.json
 
 # knowledge-base source (commited separately)
-knowledge-base/*
 knowledge-base
+knowledge-base/*
 
 # Virtual Env stuff
 venv
@@ -35,14 +35,22 @@ data/processed_tweets.json
 data/tweet_cache.json
 data/categories.json
 
-# Node Modules
+# Python Cache
+__pycache__
+
+# Temporary Images
+*.jpg
+*.gif
+*.png
+*.jpeg
+
+# MacOS 
+.ds_store
+.DS_Store
+# Node Modules stuff
+frontend/node_modules
+frontend/package-lock.json
 node_modules
 
 # Logs
-Logs
-
-# pycache
-__Pycache__
-
-# python packages
-package-lock.json
+log

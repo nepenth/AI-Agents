@@ -1202,3 +1202,5 @@ Call log:
 2025-02-04 21:23:57,088 - INFO - Successfully processed tweet 1884553905226592463 -> cloud_computing/cloud_native/learn_build_tier_containerized
 2025-02-04 21:23:57,104 - INFO - Successfully processed tweet 1881036704251080733 -> software_engineering/best_practices/linux_cheat_sheet_enjoy
 2025-02-04 21:24:01,089 - INFO - Successfully processed tweet 1881036704251080733 -> software_engineering/design_patterns/linux_cheat_sheet_enjoy
+2025-02-04 21:25:01,969 - ERROR - Git command git push origin main --force failed: Command '['git', 'push', 'origin', 'main', '--force']' returned non-zero exit status 128.
+2025-02-04 21:25:01,969 - ERROR - Failed to push changes to GitHub: Git command failed: git push origin main --force
