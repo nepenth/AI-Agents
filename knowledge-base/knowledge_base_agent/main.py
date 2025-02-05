@@ -45,44 +45,65 @@ async def process_tweet(tweet_url: str, config: Config, category_manager: Catego
         logging.info(f"Fetching tweet data for tweet {tweet_id}")
         try:
             tweet_data = await fetch_tweet_data_playwright(tweet_id)
-            # (Optional: extend tweet_data with replies or additional media as needed.)
+            # Initialize downloaded_media as empty list.
+            tweet_data["downloaded_media"] = []
             update_cache(tweet_id, tweet_data, tweet_cache)
             save_cache(tweet_cache)  # persist the new cache entry
         except Exception as e:
             logging.error(f"Failed to fetch tweet data for {tweet_id}: {e}")
             return
 
-    # Process tweet content as before.
-    tweet_text = tweet_data.get("full_text", "")
-    extended_media = tweet_data.get("extended_media", [])
+    # Process media.
     image_descriptions = []
     image_files = []
 
-    for i, media_obj in enumerate(extended_media):
-        image_url = media_obj.get("media_url_https")
-        if not image_url:
-            continue
-
-        local_img_path = Path(f"temp_image_{tweet_id}_{i}.jpg")
-        try:
-            resp = http_client.get(image_url, stream=True, timeout=60)
-            resp.raise_for_status()
-            with local_img_path.open("wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            from PIL import Image
-            with Image.open(local_img_path) as img:
-                if img.format not in ['JPEG', 'PNG']:
-                    raise ValueError(f"Invalid image format: {img.format}")
-            logging.info(f"Downloaded image {i+1} for tweet {tweet_id}: {image_url}")
-            desc = interpret_image(config.ollama_url, local_img_path, config.vision_model,
-                                   http_client=http_client)
-            image_descriptions.append(desc)
+    # Check if we already have downloaded media in cache.
+    downloaded_media = tweet_data.get("downloaded_media", [])
+    if downloaded_media:
+        logging.info(f"Found {len(downloaded_media)} cached media files for tweet {tweet_id}.")
+        for file_path_str in downloaded_media:
+            local_img_path = Path(file_path_str)
             image_files.append(local_img_path)
-        except Exception as e:
-            logging.error(f"Error processing image {image_url} for tweet {tweet_id}: {e}")
-            continue
+            try:
+                desc = interpret_image(config.ollama_url, local_img_path, config.vision_model,
+                                       http_client=http_client)
+                image_descriptions.append(desc)
+            except Exception as e:
+                logging.error(f"Error re-interpreting cached image {local_img_path} for tweet {tweet_id}: {e}")
+    else:
+        extended_media = tweet_data.get("extended_media", [])
+        for i, media_obj in enumerate(extended_media):
+            image_url = media_obj.get("media_url_https")
+            if not image_url:
+                continue
 
+            local_img_path = Path(f"temp_image_{tweet_id}_{i}.jpg")
+            try:
+                resp = http_client.get(image_url, stream=True, timeout=60)
+                resp.raise_for_status()
+                with local_img_path.open("wb") as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                from PIL import Image
+                with Image.open(local_img_path) as img:
+                    if img.format not in ['JPEG', 'PNG']:
+                        raise ValueError(f"Invalid image format: {img.format}")
+                logging.info(f"Downloaded image {i+1} for tweet {tweet_id}: {image_url}")
+                desc = interpret_image(config.ollama_url, local_img_path, config.vision_model,
+                                       http_client=http_client)
+                image_descriptions.append(desc)
+                image_files.append(local_img_path)
+            except Exception as e:
+                logging.error(f"Error processing image {image_url} for tweet {tweet_id}: {e}")
+                continue
+
+        # Update cache with the local paths for downloaded media.
+        downloaded_paths = [str(path.resolve()) for path in image_files]
+        tweet_data["downloaded_media"] = downloaded_paths
+        update_cache(tweet_id, tweet_data, tweet_cache)
+        save_cache(tweet_cache)
+
+    tweet_text = tweet_data.get("full_text", "")
     combined_text = tweet_text.strip()
     if tweet_text:
         combined_text += f"\nTweet text: {tweet_text}\n\n"
@@ -160,9 +181,8 @@ async def main_async():
 
     category_manager = CategoryManager(config.categories_file)
     processed_tweets = load_processed_tweets(config.processed_tweets_file)
-
-    # Report on tweet processing counts.
     tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
+
     total_urls = len(tweet_urls)
     already_processed_count = sum(1 for url in tweet_urls if parse_tweet_id_from_url(url) in processed_tweets)
     not_processed_count = total_urls - already_processed_count
@@ -229,4 +249,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
