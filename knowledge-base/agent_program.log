@@ -4,3 +4,6 @@
 2025-02-05 10:56:26,677 - DEBUG - Using proactor: IocpProactor
 2025-02-05 10:56:28,362 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
 2025-02-05 10:56:29,616 - INFO - Loaded 4 categories from file
+2025-02-05 10:59:11,585 - DEBUG - Using proactor: IocpProactor
+2025-02-05 10:59:15,054 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
+2025-02-05 10:59:16,225 - INFO - Loaded 4 categories from file
