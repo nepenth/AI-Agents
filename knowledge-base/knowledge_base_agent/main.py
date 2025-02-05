@@ -31,8 +31,9 @@ def filter_new_tweet_urls(tweet_urls: list, processed_tweets: dict) -> list:
 
 def validate_processed_items(processed_tweets: dict, knowledge_base_dir: Path) -> dict:
     """
-    Iterate over the processed tweets state and verify that each tweet's corresponding
-    knowledge base item folder exists. Returns a new dictionary containing only valid entries.
+    Validate that for each tweet in the processed state, the corresponding
+    knowledge base item folder exists.
+    Returns a new dictionary containing only the valid entries.
     """
     valid_state = {}
     for tweet_id, entry in processed_tweets.items():
@@ -51,16 +52,15 @@ def validate_processed_items(processed_tweets: dict, knowledge_base_dir: Path) -
 
 async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: dict, http_client: requests.Session) -> None:
     """
-    Pre-fetch and cache tweet data (including media downloads and image interpretation).
-    This function is similar to process_tweet(), but stops before generating the knowledge base item.
-    It ensures that tweet data (with high-res media and image descriptions) is stored in the cache.
+    Pre-fetch and cache tweet data for a tweet URL.
+    Downloads all associated media to the media cache directory and stores
+    high-resolution URLs and local file paths in the tweet cache.
     """
     tweet_id = parse_tweet_id_from_url(tweet_url)
     if not tweet_id:
         logging.warning(f"Invalid tweet URL skipped during caching: {tweet_url}")
         return
 
-    # If already cached, skip re-fetching.
     if get_cached_tweet(tweet_id, tweet_cache):
         logging.info(f"Tweet {tweet_id} already cached.")
         return
@@ -68,21 +68,22 @@ async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: dict, ht
     logging.info(f"Caching data for tweet {tweet_id}")
     try:
         tweet_data = await fetch_tweet_data_playwright(tweet_id)
-        tweet_data["downloaded_media"] = []  # initialize downloaded media list
+        tweet_data["downloaded_media"] = []  # initialize list for local media paths
     except Exception as e:
         logging.error(f"Failed to fetch tweet data for caching for {tweet_id}: {e}")
         return
 
-    # Download media and process image data.
     image_descriptions = []
     image_files = []
     extended_media = tweet_data.get("extended_media", [])
+    # Ensure media cache directory exists.
+    config.media_cache_dir.mkdir(parents=True, exist_ok=True)
     for i, media_obj in enumerate(extended_media):
         image_url = media_obj.get("media_url_https")
         if not image_url:
             continue
 
-        local_img_path = Path(f"temp_image_{tweet_id}_{i}.jpg")
+        local_img_path = config.media_cache_dir / f"{tweet_id}_{i}.jpg"
         try:
             resp = http_client.get(image_url, stream=True, timeout=60)
             resp.raise_for_status()
@@ -94,7 +95,8 @@ async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: dict, ht
                 if img.format not in ['JPEG', 'PNG']:
                     raise ValueError(f"Invalid image format: {img.format}")
             logging.info(f"Downloaded image {i+1} for tweet {tweet_id}: {image_url}")
-            desc = interpret_image(config.ollama_url, local_img_path, config.vision_model, http_client=http_client)
+            desc = interpret_image(config.ollama_url, local_img_path, config.vision_model,
+                                   http_client=http_client)
             image_descriptions.append(desc)
             image_files.append(local_img_path)
         except Exception as e:
@@ -103,9 +105,7 @@ async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: dict, ht
 
     downloaded_paths = [str(path.resolve()) for path in image_files]
     tweet_data["downloaded_media"] = downloaded_paths
-    # Optionally, you can add image descriptions to the tweet_data if needed.
     tweet_data["image_descriptions"] = image_descriptions
-
     update_cache(tweet_id, tweet_data, tweet_cache)
     save_cache(tweet_cache)
     logging.info(f"Cached tweet data for {tweet_id}")
@@ -114,8 +114,6 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
                                        http_client: requests.Session, tweet_cache: dict) -> None:
     """
     Generate the knowledge base item for a tweet using the cached tweet data.
-    This function uses the cached tweet data (which should already include media and image descriptions)
-    and then performs categorization and Markdown generation.
     """
     tweet_id = parse_tweet_id_from_url(tweet_url)
     if not tweet_id:
@@ -129,7 +127,6 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
 
     tweet_data = cached_data
     tweet_text = tweet_data.get("full_text", "")
-    # Use cached image descriptions if available; otherwise, reprocess media.
     image_descriptions = tweet_data.get("image_descriptions", [])
     downloaded_media = tweet_data.get("downloaded_media", [])
     image_files = [Path(path) for path in downloaded_media]
@@ -180,7 +177,7 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
     logging.info(f"Successfully processed tweet {tweet_id} -> {main_cat}/{sub_cat}/{item_name}")
 
 async def main_async():
-    # 1. Prompt for bookmarks update.
+    # 1. Prompt to update bookmarks.
     update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
     if update_bookmarks_choice == 'y':
         print("Updating bookmarks...")
@@ -191,7 +188,7 @@ async def main_async():
             logging.error(f"Error updating bookmarks: {e}")
             print("An error occurred while updating bookmarks. Proceeding with existing bookmarks.")
 
-    # 2. Prompt for cache rebuild.
+    # 2. Prompt to rebuild tweet cache if any cache exists.
     tweet_cache = load_cache()
     if tweet_cache:
         rebuild_choice = input("Do you want to rebuild the tweet cache (force re-fetch all tweet data)? (y/n): ").strip().lower()
@@ -204,8 +201,10 @@ async def main_async():
     else:
         print("No tweet cache found; proceeding to fetch tweet data.")
 
+    # 3. Load configuration and ensure media cache directory exists.
     setup_logging()
     config = Config.from_env()
+    config.media_cache_dir.mkdir(parents=True, exist_ok=True)
     try:
         config.verify()
     except Exception as e:
@@ -225,7 +224,7 @@ async def main_async():
     print(f"Tweets already processed: {already_processed_count}")
     print(f"Tweets not yet processed: {not_processed_count}")
 
-    # 3. Ask if reprocessing of already processed tweets is desired.
+    # 4. Ask if reprocessing already processed tweets is desired.
     user_choice = input("Reprocess already processed tweets? (This will delete existing items and re-create them.) (y/n): ").strip().lower()
     if user_choice == 'y':
         print("Reprocessing all tweets: deleting existing items...")
@@ -238,7 +237,7 @@ async def main_async():
         tweet_urls = filter_new_tweet_urls(tweet_urls, processed_tweets)
         print(f"Processing {len(tweet_urls)} new tweets...")
 
-    # 4. Preprocessing Stage: Cache tweet data (with media & image interpretations) for all tweets.
+    # 5. Preprocessing Stage: Cache tweet data (including media and image interpretations) for all tweets.
     if tweet_urls:
         logging.info(f"Starting caching of tweet data for {len(tweet_urls)} tweets...")
         http_client = create_http_client()
@@ -248,7 +247,7 @@ async def main_async():
     else:
         print("No new tweet URLs to cache.")
 
-    # 5. Processing Stage: Generate knowledge base items for each tweet using cached data.
+    # 6. Processing Stage: Generate knowledge base items for each tweet using cached data.
     if tweet_urls:
         logging.info(f"Starting knowledge base generation for {len(tweet_urls)} tweets...")
         http_client = create_http_client()
@@ -259,12 +258,12 @@ async def main_async():
     else:
         print("No tweet URLs to process for knowledge base generation.")
 
-    # 6. Prompt for re-review of existing items for improved categorization.
+    # 7. Prompt for re-review of existing items for improved categorization.
     review_choice = input("Do you want to re-review existing knowledge base items for improved categorization? (y/n): ").strip().lower()
     if review_choice == 'y':
         reprocess_existing_items(config.knowledge_base_dir, category_manager)
 
-    # 7. Prompt for README regeneration.
+    # 8. Prompt for regenerating the root README.
     regenerate_readme = input("Do you want to regenerate the root README? (y/n): ").strip().lower()
     if regenerate_readme == 'y' or not (config.knowledge_base_dir / "README.md").exists():
         generate_root_readme(config.knowledge_base_dir, category_manager)
@@ -272,7 +271,7 @@ async def main_async():
     else:
         print("Skipping regeneration of the root README.")
 
-    # 8. Prompt for Git sync.
+    # 9. Prompt for Git sync.
     force_push = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
     if force_push == 'y':
         if config.github_token:
