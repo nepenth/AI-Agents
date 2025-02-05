@@ -1,0 +1,48 @@
+### .gitignore
+
+```gitignore
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# dotenv
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Playwright artifacts
+playwright-report/
+
+# Cache Data
+data/tweet_cache.json
+
+# knowledge-base source (commited separately)
+knowledge-base
+
+# Virtual Env stuff
+venv
+
+# Data tweets/processed tweets
+data/archive_bookmarks
+data/bookmarks_links.txt
+data/processed_tweets.json
+data/tweet_cache.json
+data/categories.json
+
+# Python Cache
+__pycache__
+
+# Temporary Images
+*.jpg
+*.gif
+*.png
+*.jpeg
+
+# MacOS 
+.ds_store
+.DS_Store
