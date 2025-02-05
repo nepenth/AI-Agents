@@ -2,8 +2,6 @@ import asyncio
 import datetime
 import logging
 from pathlib import Path
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
 import requests
 
 from knowledge_base_agent.config import Config
@@ -19,8 +17,18 @@ from knowledge_base_agent.cleanup import delete_knowledge_base_item, clean_untit
 from knowledge_base_agent.git_helper import push_to_github
 from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
+
+from knowledge_base_agent.http_client import create_http_client  # Our helper for the HTTP session
 from knowledge_base_agent.fetch_bookmarks import scrape_x_bookmarks
-from knowledge_base_agent.http_client import create_http_client
+
+def filter_new_tweet_urls(tweet_urls: list, processed_tweets: dict) -> list:
+    """Return only the URLs whose tweet IDs are not already processed."""
+    new_urls = []
+    for url in tweet_urls:
+        tweet_id = parse_tweet_id_from_url(url)
+        if tweet_id and tweet_id not in processed_tweets:
+            new_urls.append(url)
+    return new_urls
 
 async def process_tweet(tweet_url: str, config: Config, category_manager: CategoryManager,
                         http_client: requests.Session, tweet_cache: dict) -> None:
@@ -122,7 +130,7 @@ async def process_tweet(tweet_url: str, config: Config, category_manager: Catego
     logging.info(f"Successfully processed tweet {tweet_id} -> {main_cat}/{sub_cat}/{item_name}")
 
 async def main_async():
-    # Prompt the user if they want to update bookmarks before processing tweets.
+    # Prompt to update bookmarks.
     update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
     if update_bookmarks_choice == 'y':
         print("Updating bookmarks...")
@@ -135,7 +143,6 @@ async def main_async():
 
     # Load the existing tweet cache.
     tweet_cache = load_cache()
-
     rebuild_choice = input("Do you want to rebuild the tweet cache (force re-fetch all tweet data)? (y/n): ").strip().lower()
     if rebuild_choice == 'y':
         clear_cache()
@@ -155,27 +162,38 @@ async def main_async():
     category_manager = CategoryManager(config.categories_file)
     processed_tweets = load_processed_tweets(config.processed_tweets_file)
 
-    user_choice = input(f"Found {len(processed_tweets)} previously processed tweets. Reprocess them from scratch? (y/n): ").strip().lower()
-    if user_choice == 'y':
-        for tweet_id in list(processed_tweets.keys()):
-            delete_knowledge_base_item(tweet_id, processed_tweets, config.knowledge_base_dir)
-            del processed_tweets[tweet_id]
-        save_processed_tweets(config.processed_tweets_file, processed_tweets)
-        print("All previously processed tweets will be reprocessed from scratch.")
-    else:
-        print("Skipping reprocessing of previously processed tweets.")
-
-    clean_untitled_directories(config.knowledge_base_dir)
+    # Report on tweet processing counts.
     tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
+    total_urls = len(tweet_urls)
+    already_processed_count = 0
+    for url in tweet_urls:
+        tweet_id = parse_tweet_id_from_url(url)
+        if tweet_id and tweet_id in processed_tweets:
+            already_processed_count += 1
+    not_processed_count = total_urls - already_processed_count
+
+    print(f"Total tweet URLs found in bookmarks: {total_urls}")
+    print(f"Tweets already processed: {already_processed_count}")
+    print(f"Tweets not yet processed: {not_processed_count}")
+
+    user_choice = input(f"Reprocess already processed tweets? (y/n): ").strip().lower()
+    if user_choice == 'y':
+        print("All tweets will be reprocessed.")
+    else:
+        # Filter out URLs whose tweet IDs are already processed.
+        tweet_urls = [url for url in tweet_urls if parse_tweet_id_from_url(url) not in processed_tweets]
+        print(f"Processing {len(tweet_urls)} new tweets...")
+
     if not tweet_urls:
-        print("No valid tweet URLs found. Exiting.")
+        print("No new tweet URLs to process. Exiting.")
         return
 
     logging.info(f"Starting processing of {len(tweet_urls)} tweets...")
 
+    # Create an HTTP client with connection pooling and retry logic.
+    from knowledge_base_agent.http_client import create_http_client
     http_client = create_http_client()
 
-    # Pass tweet_cache to each process_tweet call.
     tasks = [process_tweet(url, config, category_manager, http_client, tweet_cache)
              for url in tweet_urls]
     await asyncio.gather(*tasks)
