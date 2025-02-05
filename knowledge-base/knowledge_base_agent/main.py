@@ -175,31 +175,36 @@ async def main_async():
     print(f"Tweets already processed: {already_processed_count}")
     print(f"Tweets not yet processed: {not_processed_count}")
 
-    user_choice = input(f"Reprocess already processed tweets? (y/n): ").strip().lower()
+    user_choice = input("Reprocess already processed tweets? (y/n): ").strip().lower()
     if user_choice == 'y':
         print("All tweets will be reprocessed.")
     else:
         tweet_urls = [url for url in tweet_urls if parse_tweet_id_from_url(url) not in processed_tweets]
         print(f"Processing {len(tweet_urls)} new tweets...")
 
-    if not tweet_urls:
-        print("No new tweet URLs to process.")
-    else:
+    if tweet_urls:
         logging.info(f"Starting processing of {len(tweet_urls)} tweets...")
         http_client = create_http_client()
         tasks = [process_tweet(url, config, category_manager, http_client, tweet_cache)
                  for url in tweet_urls]
         await asyncio.gather(*tasks)
         print("All tweets have been processed.")
+    else:
+        print("No new tweet URLs to process.")
 
-    # Always ask whether to re-review and update existing items.
     user_choice = input("Do you want to re-review existing knowledge base items for improved categorization? (y/n): ").strip().lower()
     if user_choice == 'y':
         reprocess_existing_items(config.knowledge_base_dir, category_manager)
 
-    generate_root_readme(config.knowledge_base_dir, category_manager)
+    # Prompt for regenerating the root README.
+    regenerate_readme = input("Do you want to regenerate the root README? (y/n): ").strip().lower()
+    if regenerate_readme == 'y':
+        generate_root_readme(config.knowledge_base_dir, category_manager)
+        print("Root README regenerated.")
+    else:
+        print("Skipping regeneration of the root README.")
 
-    # Prompt for Git push/sync
+    # Prompt for Git push/sync.
     push_choice = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
     if push_choice == 'y':
         if config.github_token:
