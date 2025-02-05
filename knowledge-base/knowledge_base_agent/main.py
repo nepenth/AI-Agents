@@ -29,6 +29,26 @@ def filter_new_tweet_urls(tweet_urls: list, processed_tweets: dict) -> list:
             new_urls.append(url)
     return new_urls
 
+def validate_processed_items(processed_tweets: dict, knowledge_base_dir: Path) -> dict:
+    """
+    Iterate over the processed tweets state and verify that each tweet's corresponding
+    knowledge base folder exists. Returns a new dictionary containing only valid entries.
+    """
+    valid_state = {}
+    for tweet_id, entry in processed_tweets.items():
+        main_cat = entry.get("main_category")
+        sub_cat = entry.get("sub_category")
+        item_name = entry.get("item_name")
+        if main_cat and sub_cat and item_name:
+            item_folder = knowledge_base_dir / main_cat / sub_cat / item_name
+            if item_folder.exists() and item_folder.is_dir():
+                valid_state[tweet_id] = entry
+            else:
+                logging.warning(f"Processed tweet {tweet_id} marked in state, but folder {item_folder} does not exist.")
+        else:
+            logging.warning(f"Processed tweet {tweet_id} missing required metadata.")
+    return valid_state
+
 async def process_tweet(tweet_url: str, config: Config, category_manager: CategoryManager,
                         http_client: requests.Session, tweet_cache: dict) -> None:
     tweet_id = parse_tweet_id_from_url(tweet_url)
@@ -53,7 +73,7 @@ async def process_tweet(tweet_url: str, config: Config, category_manager: Catego
             logging.error(f"Failed to fetch tweet data for {tweet_id}: {e}")
             return
 
-    # Process media.
+    # Process media:
     image_descriptions = []
     image_files = []
 
@@ -181,8 +201,126 @@ async def main_async():
 
     category_manager = CategoryManager(config.categories_file)
     processed_tweets = load_processed_tweets(config.processed_tweets_file)
+    # Validate that processed tweets have corresponding KB items.
+    processed_tweets = validate_processed_items(processed_tweets, config.knowledge_base_dir)
+    
     tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
+    total_urls = len(tweet_urls)
+    already_processed_count = sum(1 for url in tweet_urls if parse_tweet_id_from_url(url) in processed_tweets)
+    not_processed_count = total_urls - already_processed_count
 
+    print(f"Total tweet URLs found in bookmarks: {total_urls}")
+    print(f"Tweets already processed: {already_processed_count}")
+    print(f"Tweets not yet processed: {not_processed_count}")
+
+    user_choice = input("Reprocess already processed tweets? (This will delete existing items and re-create them.) (y/n): ").strip().lower()
+    if user_choice == 'y':
+        print("Reprocessing all tweets: deleting existing items...")
+        for tweet_id in list(processed_tweets.keys()):
+            delete_knowledge_base_item(tweet_id, processed_tweets, config.knowledge_base_dir)
+            del processed_tweets[tweet_id]
+        save_processed_tweets(config.processed_tweets_file, processed_tweets)
+        print("Existing items deleted. All tweets will be reprocessed.")
+    else:
+        tweet_urls = filter_new_tweet_urls(tweet_urls, processed_tweets)
+        print(f"Processing {len(tweet_urls)} new tweets...")
+
+    if tweet_urls:
+        logging.info(f"Starting processing of {len(tweet_urls)} tweets...")
+        http_client = create_http_client()
+        tasks = [process_tweet(url, config, category_manager, http_client, tweet_cache)
+                 for url in tweet_urls]
+        await asyncio.gather(*tasks)
+        print("All tweets have been processed.")
+    else:
+        print("No new tweet URLs to process.")
+
+    user_choice = input("Do you want to re-review existing knowledge base items for improved categorization? (y/n): ").strip().lower()
+    if user_choice == 'y':
+        reprocess_existing_items(config.knowledge_base_dir, category_manager)
+
+    regenerate_readme = input("Do you want to regenerate the root README? (y/n): ").strip().lower()
+    if regenerate_readme == 'y':
+        generate_root_readme(config.knowledge_base_dir, category_manager)
+        print("Root README regenerated.")
+    else:
+        print("Skipping regeneration of the root README.")
+
+    force_push = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
+    if force_push == 'y':
+        if config.github_token:
+            try:
+                push_to_github(
+                    knowledge_base_dir=config.knowledge_base_dir,
+                    github_repo_url=config.github_repo_url,
+                    github_token=config.github_token,
+                    git_user_name=config.github_user_name,
+                    git_user_email=config.github_user_email
+                )
+                print("Pushed changes to GitHub.")
+            except Exception as e:
+                logging.error(f"Failed to push changes to GitHub: {e}")
+                print("Failed to push changes to GitHub.")
+        else:
+            print("GitHub token not found. Skipping GitHub push.")
+    else:
+        print("Skipping GitHub sync.")
+
+def validate_processed_items(processed_tweets: dict, knowledge_base_dir: Path) -> dict:
+    """
+    Validate that for each tweet in the processed state, the corresponding knowledge base item folder exists.
+    Returns a new dictionary containing only the valid entries.
+    """
+    valid_state = {}
+    for tweet_id, entry in processed_tweets.items():
+        main_cat = entry.get("main_category")
+        sub_cat = entry.get("sub_category")
+        item_name = entry.get("item_name")
+        if main_cat and sub_cat and item_name:
+            item_folder = knowledge_base_dir / main_cat / sub_cat / item_name
+            if item_folder.exists() and item_folder.is_dir():
+                valid_state[tweet_id] = entry
+            else:
+                logging.warning(f"Processed tweet {tweet_id} is in state but folder {item_folder} does not exist.")
+        else:
+            logging.warning(f"Processed tweet {tweet_id} missing required metadata.")
+    return valid_state
+
+async def main_async():
+    # Prompt to update bookmarks.
+    update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
+    if update_bookmarks_choice == 'y':
+        print("Updating bookmarks...")
+        try:
+            await scrape_x_bookmarks()
+            print("Bookmarks updated successfully.")
+        except Exception as e:
+            logging.error(f"Error updating bookmarks: {e}")
+            print("An error occurred while updating bookmarks. Proceeding with existing bookmarks.")
+
+    # Load the existing tweet cache.
+    tweet_cache = load_cache()
+    rebuild_choice = input("Do you want to rebuild the tweet cache (force re-fetch all tweet data)? (y/n): ").strip().lower()
+    if rebuild_choice == 'y':
+        clear_cache()
+        tweet_cache = {}  # start with an empty cache
+        print("Tweet cache cleared.")
+    else:
+        print(f"Using cached data for {len(tweet_cache)} tweets if available.")
+
+    setup_logging()
+    config = Config.from_env()
+    try:
+        config.verify()
+    except Exception as e:
+        logging.error(f"Configuration error: {e}")
+        return
+
+    category_manager = CategoryManager(config.categories_file)
+    processed_tweets = load_processed_tweets(config.processed_tweets_file)
+    processed_tweets = validate_processed_items(processed_tweets, config.knowledge_base_dir)
+    
+    tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
     total_urls = len(tweet_urls)
     already_processed_count = sum(1 for url in tweet_urls if parse_tweet_id_from_url(url) in processed_tweets)
     not_processed_count = total_urls - already_processed_count
