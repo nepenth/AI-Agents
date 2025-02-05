@@ -48,3 +48,6 @@ __pycache__
 # MacOS 
 .ds_store
 .DS_Store
+
+# Logs
+*.log
