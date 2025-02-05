@@ -52,3 +52,7 @@ __pycache__
 # Logs
 *.log
 agent_program.log
+
+# Downloaded Media Cache
+downloaded_media
+downloaded_media/*

@@ -65,3 +65,5 @@
 2025-02-05 11:40:43,025 - INFO - Using cached data for tweet 1883730238712246422
 2025-02-05 11:40:43,025 - DEBUG - Starting new HTTP connection (8): whyland-ai.nakedsun.xyz:11434
 2025-02-05 11:42:43,032 - ERROR - Attempt 1 for tweet 1883730238712246422 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:47:38,273 - DEBUG - Using proactor: IocpProactor
+2025-02-05 11:47:39,561 - INFO - Cache file data\tweet_cache.json does not exist. Initializing new cache.
