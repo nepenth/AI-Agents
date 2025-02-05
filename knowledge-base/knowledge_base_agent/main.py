@@ -164,22 +164,23 @@ async def main_async():
     # Report on tweet processing counts.
     tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
     total_urls = len(tweet_urls)
-    already_processed_count = 0
-    for url in tweet_urls:
-        tweet_id = parse_tweet_id_from_url(url)
-        if tweet_id and tweet_id in processed_tweets:
-            already_processed_count += 1
+    already_processed_count = sum(1 for url in tweet_urls if parse_tweet_id_from_url(url) in processed_tweets)
     not_processed_count = total_urls - already_processed_count
 
     print(f"Total tweet URLs found in bookmarks: {total_urls}")
     print(f"Tweets already processed: {already_processed_count}")
     print(f"Tweets not yet processed: {not_processed_count}")
 
-    user_choice = input("Reprocess already processed tweets? (y/n): ").strip().lower()
+    user_choice = input("Reprocess already processed tweets? (This will delete existing items and re-create them.) (y/n): ").strip().lower()
     if user_choice == 'y':
-        print("All tweets will be reprocessed.")
+        print("Reprocessing all tweets: deleting existing items...")
+        for tweet_id in list(processed_tweets.keys()):
+            delete_knowledge_base_item(tweet_id, processed_tweets, config.knowledge_base_dir)
+            del processed_tweets[tweet_id]
+        save_processed_tweets(config.processed_tweets_file, processed_tweets)
+        print("Existing items deleted. All tweets will be reprocessed.")
     else:
-        tweet_urls = [url for url in tweet_urls if parse_tweet_id_from_url(url) not in processed_tweets]
+        tweet_urls = filter_new_tweet_urls(tweet_urls, processed_tweets)
         print(f"Processing {len(tweet_urls)} new tweets...")
 
     if tweet_urls:
@@ -196,7 +197,6 @@ async def main_async():
     if user_choice == 'y':
         reprocess_existing_items(config.knowledge_base_dir, category_manager)
 
-    # Prompt for regenerating the root README.
     regenerate_readme = input("Do you want to regenerate the root README? (y/n): ").strip().lower()
     if regenerate_readme == 'y':
         generate_root_readme(config.knowledge_base_dir, category_manager)
@@ -204,9 +204,8 @@ async def main_async():
     else:
         print("Skipping regeneration of the root README.")
 
-    # Prompt for Git push/sync.
-    push_choice = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
-    if push_choice == 'y':
+    force_push = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
+    if force_push == 'y':
         if config.github_token:
             try:
                 push_to_github(
@@ -230,3 +229,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

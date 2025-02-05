@@ -1,9 +1,67 @@
-2025-02-05 10:54:53,827 - DEBUG - Using proactor: IocpProactor
-2025-02-05 10:54:55,620 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
-2025-02-05 10:54:57,549 - INFO - Loaded 4 categories from file
-2025-02-05 10:56:26,677 - DEBUG - Using proactor: IocpProactor
-2025-02-05 10:56:28,362 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
-2025-02-05 10:56:29,616 - INFO - Loaded 4 categories from file
-2025-02-05 10:59:11,585 - DEBUG - Using proactor: IocpProactor
-2025-02-05 10:59:15,054 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
-2025-02-05 10:59:16,225 - INFO - Loaded 4 categories from file
+2025-02-05 11:09:20,481 - DEBUG - Using proactor: IocpProactor
+2025-02-05 11:09:22,664 - INFO - Loaded cache from data\tweet_cache.json with 43 entries.
+2025-02-05 11:09:24,796 - INFO - Loaded 4 categories from file
+2025-02-05 11:09:33,202 - INFO - Starting processing of 45 tweets...
+2025-02-05 11:09:33,203 - INFO - Using cached data for tweet 1885612358875197666
+2025-02-05 11:09:33,204 - DEBUG - Starting new HTTPS connection (1): pbs.twimg.com:443
+2025-02-05 11:09:33,671 - DEBUG - https://pbs.twimg.com:443 "GET /media/GisKacaXcAAxMWo?format=jpg&name=small HTTP/1.1" 200 72082
+2025-02-05 11:09:33,925 - INFO - Downloaded image 1 for tweet 1885612358875197666: https://pbs.twimg.com/media/GisKacaXcAAxMWo?format=jpg&name=small
+2025-02-05 11:09:33,926 - DEBUG - Starting new HTTP connection (1): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:10:08,799 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
+2025-02-05 11:11:25,636 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:12:31,134 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:13:25,585 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:13:25,586 - ERROR - Error processing category response: Response must have three parts
+2025-02-05 11:14:21,676 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:15:03,547 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:16:00,327 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:16:00,499 - INFO - Successfully processed tweet 1885612358875197666 -> software_engineering/best_practices/kubernetes_scaling_strategies_tweet
+2025-02-05 11:16:00,499 - INFO - Using cached data for tweet 1883731027442778402
+2025-02-05 11:16:00,527 - DEBUG - https://pbs.twimg.com:443 "GET /media/GiRbYPabQAEES6y?format=jpg&name=small HTTP/1.1" 200 71982
+2025-02-05 11:16:00,556 - INFO - Downloaded image 1 for tweet 1883731027442778402: https://pbs.twimg.com/media/GiRbYPabQAEES6y?format=jpg&name=small
+2025-02-05 11:16:36,639 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 2023
+2025-02-05 11:18:36,651 - ERROR - Attempt 1 for tweet 1883731027442778402 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:18:36,651 - INFO - Using cached data for tweet 1884518401286037894
+2025-02-05 11:18:36,652 - DEBUG - Starting new HTTP connection (2): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:20:36,654 - ERROR - Attempt 1 for tweet 1884518401286037894 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:20:36,654 - INFO - Using cached data for tweet 1884106639760056387
+2025-02-05 11:20:36,685 - DEBUG - https://pbs.twimg.com:443 "GET /media/GiWxAHqaUAAevlZ?format=jpg&name=900x900 HTTP/1.1" 200 126996
+2025-02-05 11:20:36,705 - INFO - Downloaded image 1 for tweet 1884106639760056387: https://pbs.twimg.com/media/GiWxAHqaUAAevlZ?format=jpg&name=900x900
+2025-02-05 11:20:36,707 - DEBUG - Starting new HTTP connection (3): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:21:30,450 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
+2025-02-05 11:23:30,459 - ERROR - Attempt 1 for tweet 1884106639760056387 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:23:30,459 - INFO - Using cached data for tweet 1870132960990474730
+2025-02-05 11:23:30,491 - DEBUG - https://pbs.twimg.com:443 "GET /media/GfQLzlyXoAA0raR?format=jpg&name=medium HTTP/1.1" 200 234304
+2025-02-05 11:23:30,511 - INFO - Downloaded image 1 for tweet 1870132960990474730: https://pbs.twimg.com/media/GfQLzlyXoAA0raR?format=jpg&name=medium
+2025-02-05 11:23:30,513 - DEBUG - Starting new HTTP connection (4): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:24:21,055 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
+2025-02-05 11:26:21,059 - ERROR - Attempt 1 for tweet 1870132960990474730 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:26:21,059 - INFO - Using cached data for tweet 1883731027442778402
+2025-02-05 11:26:21,088 - DEBUG - https://pbs.twimg.com:443 "GET /media/GiRbYPabQAEES6y?format=jpg&name=small HTTP/1.1" 200 71982
+2025-02-05 11:26:21,096 - INFO - Downloaded image 1 for tweet 1883731027442778402: https://pbs.twimg.com/media/GiRbYPabQAEES6y?format=jpg&name=small
+2025-02-05 11:26:21,097 - DEBUG - Starting new HTTP connection (5): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:27:09,750 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 1889
+2025-02-05 11:29:09,752 - ERROR - Attempt 1 for tweet 1883731027442778402 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:29:09,752 - INFO - Using cached data for tweet 1885379904188866994
+2025-02-05 11:29:09,782 - DEBUG - https://pbs.twimg.com:443 "GET /media/Gio3B9QbYAEXfYL?format=jpg&name=900x900 HTTP/1.1" 200 78785
+2025-02-05 11:29:09,794 - INFO - Downloaded image 1 for tweet 1885379904188866994: https://pbs.twimg.com/media/Gio3B9QbYAEXfYL?format=jpg&name=900x900
+2025-02-05 11:29:09,796 - DEBUG - Starting new HTTP connection (6): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:30:01,200 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 1962
+2025-02-05 11:32:01,211 - ERROR - Attempt 1 for tweet 1885379904188866994 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:32:01,211 - INFO - Using cached data for tweet 1881036704251080733
+2025-02-05 11:32:01,263 - DEBUG - https://pbs.twimg.com:443 "GET /media/GhrI6bsbwAAwfLT?format=jpg&name=900x900 HTTP/1.1" 200 160775
+2025-02-05 11:32:01,275 - INFO - Downloaded image 1 for tweet 1881036704251080733: https://pbs.twimg.com/media/GhrI6bsbwAAwfLT?format=jpg&name=900x900
+2025-02-05 11:32:01,277 - DEBUG - Starting new HTTP connection (7): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:33:05,433 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 None
+2025-02-05 11:34:37,849 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:35:54,007 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:37:52,894 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/generate HTTP/1.1" 200 None
+2025-02-05 11:37:52,902 - INFO - Successfully processed tweet 1881036704251080733 -> software_engineering/best_practices/linux_cheat_sheet_enjoy
+2025-02-05 11:37:52,902 - INFO - Using cached data for tweet 1885197578389905733
+2025-02-05 11:37:52,930 - DEBUG - https://pbs.twimg.com:443 "GET /media/GimRNGrbgAArNon?format=jpg&name=900x900 HTTP/1.1" 200 127951
+2025-02-05 11:37:52,941 - INFO - Downloaded image 1 for tweet 1885197578389905733: https://pbs.twimg.com/media/GimRNGrbgAArNon?format=jpg&name=900x900
+2025-02-05 11:38:43,021 - DEBUG - http://whyland-ai.nakedsun.xyz:11434 "POST /api/chat HTTP/1.1" 200 1906
+2025-02-05 11:40:43,025 - ERROR - Attempt 1 for tweet 1885197578389905733 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)
+2025-02-05 11:40:43,025 - INFO - Using cached data for tweet 1883730238712246422
+2025-02-05 11:40:43,025 - DEBUG - Starting new HTTP connection (8): whyland-ai.nakedsun.xyz:11434
+2025-02-05 11:42:43,032 - ERROR - Attempt 1 for tweet 1883730238712246422 failed: HTTPConnectionPool(host='whyland-ai.nakedsun.xyz', port=11434): Read timed out. (read timeout=120)

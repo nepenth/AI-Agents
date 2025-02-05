@@ -6,13 +6,14 @@ def delete_knowledge_base_item(tweet_id: str, processed_tweets: dict, knowledge_
     if tweet_id not in processed_tweets:
         return
     entry = processed_tweets[tweet_id]
-    main_category = entry["main_category"]
-    sub_category = entry["sub_category"]
-    item_name = entry["item_name"]
+    main_category = entry.get("main_category")
+    sub_category = entry.get("sub_category")
+    item_name = entry.get("item_name")
     tweet_folder = knowledge_base_dir / main_category / sub_category / item_name
     if tweet_folder.exists() and tweet_folder.is_dir():
         try:
             shutil.rmtree(tweet_folder)
+            logging.info(f"Deleted knowledge base item: {tweet_folder}")
         except Exception as e:
             logging.error(f"Failed to delete directory {tweet_folder}: {e}")
 
