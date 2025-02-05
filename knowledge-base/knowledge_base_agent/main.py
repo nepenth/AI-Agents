@@ -17,8 +17,7 @@ from knowledge_base_agent.cleanup import delete_knowledge_base_item, clean_untit
 from knowledge_base_agent.git_helper import push_to_github
 from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
-
-from knowledge_base_agent.http_client import create_http_client  # Our helper for the HTTP session
+from knowledge_base_agent.http_client import create_http_client
 from knowledge_base_agent.fetch_bookmarks import scrape_x_bookmarks
 
 def filter_new_tweet_urls(tweet_urls: list, processed_tweets: dict) -> list:
@@ -180,47 +179,46 @@ async def main_async():
     if user_choice == 'y':
         print("All tweets will be reprocessed.")
     else:
-        # Filter out URLs whose tweet IDs are already processed.
         tweet_urls = [url for url in tweet_urls if parse_tweet_id_from_url(url) not in processed_tweets]
         print(f"Processing {len(tweet_urls)} new tweets...")
 
     if not tweet_urls:
-        print("No new tweet URLs to process. Exiting.")
-        return
+        print("No new tweet URLs to process.")
+    else:
+        logging.info(f"Starting processing of {len(tweet_urls)} tweets...")
+        http_client = create_http_client()
+        tasks = [process_tweet(url, config, category_manager, http_client, tweet_cache)
+                 for url in tweet_urls]
+        await asyncio.gather(*tasks)
+        print("All tweets have been processed.")
 
-    logging.info(f"Starting processing of {len(tweet_urls)} tweets...")
-
-    # Create an HTTP client with connection pooling and retry logic.
-    from knowledge_base_agent.http_client import create_http_client
-    http_client = create_http_client()
-
-    tasks = [process_tweet(url, config, category_manager, http_client, tweet_cache)
-             for url in tweet_urls]
-    await asyncio.gather(*tasks)
-
-    print("All tweets have been processed.")
-
+    # Always ask whether to re-review and update existing items.
     user_choice = input("Do you want to re-review existing knowledge base items for improved categorization? (y/n): ").strip().lower()
     if user_choice == 'y':
         reprocess_existing_items(config.knowledge_base_dir, category_manager)
 
     generate_root_readme(config.knowledge_base_dir, category_manager)
 
-    if config.github_token:
-        try:
-            push_to_github(
-                knowledge_base_dir=config.knowledge_base_dir,
-                github_repo_url=config.github_repo_url,
-                github_token=config.github_token,
-                git_user_name=config.github_user_name,
-                git_user_email=config.github_user_email
-            )
-            print("Pushed changes to GitHub.")
-        except Exception as e:
-            logging.error(f"Failed to push changes to GitHub: {e}")
-            print("Failed to push changes to GitHub.")
+    # Prompt for Git push/sync
+    push_choice = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
+    if push_choice == 'y':
+        if config.github_token:
+            try:
+                push_to_github(
+                    knowledge_base_dir=config.knowledge_base_dir,
+                    github_repo_url=config.github_repo_url,
+                    github_token=config.github_token,
+                    git_user_name=config.github_user_name,
+                    git_user_email=config.github_user_email
+                )
+                print("Pushed changes to GitHub.")
+            except Exception as e:
+                logging.error(f"Failed to push changes to GitHub: {e}")
+                print("Failed to push changes to GitHub.")
+        else:
+            print("GitHub token not found. Skipping GitHub push.")
     else:
-        print("GitHub token not found. Skipping GitHub push.")
+        print("Skipping GitHub sync.")
 
 def main():
     asyncio.run(main_async())
