@@ -51,3 +51,4 @@ __pycache__
 
 # Logs
 *.log
+agent_program.log
