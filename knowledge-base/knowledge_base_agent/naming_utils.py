@@ -94,7 +94,7 @@ def fix_invalid_name(
             resp = client.post(
                 f"{ollama_url}/api/generate",
                 json={"prompt": fix_prompt, "model": text_model, "stream": False},
-                timeout=timeout  # extended timeout
+                timeout=timeout 
             )
             resp.raise_for_status()
             raw_response = resp.json().get("response", "").strip()
