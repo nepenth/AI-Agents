@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
+from .file_utils import safe_read_json, safe_write_json
 
 # Default location for the tweet cache file
 DEFAULT_CACHE_FILE = Path("data/tweet_cache.json")
@@ -12,30 +13,14 @@ def load_cache(cache_file: Optional[Path] = None) -> Dict[str, Any]:
     If the file does not exist or is empty, return an empty dict.
     """
     cache_file = cache_file or DEFAULT_CACHE_FILE
-    if not cache_file.exists():
-        logging.info(f"Cache file {cache_file} does not exist. Initializing new cache.")
-        return {}
-    try:
-        with cache_file.open('r', encoding='utf-8') as f:
-            cache = json.load(f)
-        logging.info(f"Loaded cache from {cache_file} with {len(cache)} entries.")
-        return cache
-    except Exception as e:
-        logging.error(f"Error loading cache from {cache_file}: {e}")
-        return {}
+    return safe_read_json(cache_file)
 
 def save_cache(cache: Dict[str, Any], cache_file: Optional[Path] = None) -> None:
     """
     Save the tweet cache dictionary to disk.
     """
     cache_file = cache_file or DEFAULT_CACHE_FILE
-    try:
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
-        with cache_file.open('w', encoding='utf-8') as f:
-            json.dump(cache, f, indent=4)
-        logging.info(f"Saved cache with {len(cache)} entries to {cache_file}.")
-    except Exception as e:
-        logging.error(f"Error saving cache to {cache_file}: {e}")
+    safe_write_json(cache_file, cache)
 
 def get_cached_tweet(tweet_id: str, cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
