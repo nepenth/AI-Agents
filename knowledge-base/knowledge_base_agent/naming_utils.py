@@ -3,6 +3,7 @@ import uuid
 import logging
 import requests
 from typing import Optional
+from pathlib import Path
 
 def validate_directory_name(name: str, max_length: int = 50) -> bool:
     if len(name) > max_length:
@@ -23,10 +24,18 @@ def normalize_name_for_filesystem(name: str, max_length: int = 30) -> str:
         return f"unnamed_{uuid.uuid4().hex[:8]}"
     return name
 
-def safe_directory_name(name: str) -> str:
+def safe_directory_name(name: str, existing_path: Optional[Path] = None) -> str:
     safe_name = normalize_name_for_filesystem(name)
     if not safe_name:
         return f"unnamed_{uuid.uuid4().hex[:8]}"
+    
+    if existing_path and (existing_path / safe_name).exists():
+        base_name = safe_name
+        counter = 1
+        while (existing_path / f"{base_name}_{counter}").exists():
+            counter += 1
+        safe_name = f"{base_name}_{counter}"
+    
     return safe_name
 
 def is_valid_item_name(item_name: str) -> bool:

@@ -13,7 +13,7 @@ from knowledge_base_agent.image_interpreter import interpret_image
 from knowledge_base_agent.ai_categorization import categorize_and_name_content
 from knowledge_base_agent.markdown_writer import write_tweet_markdown, generate_root_readme
 from knowledge_base_agent.state_manager import load_processed_tweets, save_processed_tweets
-from knowledge_base_agent.cleanup import delete_knowledge_base_item, clean_untitled_directories
+from knowledge_base_agent.cleanup import delete_knowledge_base_item, clean_untitled_directories, clean_duplicate_folders
 from knowledge_base_agent.git_helper import push_to_github
 from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
@@ -241,23 +241,26 @@ async def main_async():
     # 5. Preprocessing Stage: Cache tweet data (including media and image interpretations) for all tweets.
     if tweet_urls:
         logging.info(f"Starting caching of tweet data for {len(tweet_urls)} tweets...")
-        http_client = create_http_client()
+        http_client = create_http_http_client()
         caching_tasks = [cache_tweet_data(url, config, tweet_cache, http_client) for url in tweet_urls]
         await asyncio.gather(*caching_tasks)
         print("Caching of tweet data complete.")
     else:
         print("No new tweet URLs to cache.")
 
-    # 6. Processing Stage: Generate knowledge base items for each tweet using cached data.
-    if tweet_urls:
-        logging.info(f"Starting knowledge base generation for {len(tweet_urls)} tweets...")
-        http_client = create_http_client()
+    # Add cleanup before processing
+    clean_duplicate_folders(config.knowledge_base_dir)
+    
+    # Process in smaller batches to reduce concurrency issues
+    batch_size = 5
+    for i in range(0, len(tweet_urls), batch_size):
+        batch = tweet_urls[i:i + batch_size]
         processing_tasks = [generate_knowledge_base_item(url, config, category_manager, http_client, tweet_cache)
-                            for url in tweet_urls]
+                          for url in batch]
         await asyncio.gather(*processing_tasks)
-        print("Knowledge base generation complete.")
-    else:
-        print("No tweet URLs to process for knowledge base generation.")
+        
+    # Add cleanup after processing
+    clean_duplicate_folders(config.knowledge_base_dir)
 
     # 7. Prompt for re-review of existing items for improved categorization.
     review_choice = input("Do you want to re-review existing knowledge base items for improved categorization? (y/n): ").strip().lower()

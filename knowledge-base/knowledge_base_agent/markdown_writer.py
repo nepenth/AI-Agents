@@ -5,6 +5,9 @@ import datetime
 import logging
 from pathlib import Path
 from .naming_utils import safe_directory_name
+import asyncio
+
+_folder_creation_lock = asyncio.Lock()
 
 def sanitize_markdown_cell(text: str) -> str:
     """Escape vertical bars for markdown tables."""
@@ -38,7 +41,7 @@ def generate_tweet_markdown_content(
         lines.append("")
     return "\n".join(lines)
 
-def write_tweet_markdown(
+async def write_tweet_markdown(
     root_dir: Path,
     tweet_id: str,
     main_category: str,
@@ -52,10 +55,11 @@ def write_tweet_markdown(
     safe_item_name = safe_directory_name(item_name)
     tweet_folder = root_dir / main_category / sub_category / safe_item_name
 
-    if tweet_folder.exists():
-        unique_suffix = uuid.uuid4().hex[:6]
-        safe_item_name = f"{safe_item_name}_{unique_suffix}"
-        tweet_folder = root_dir / main_category / sub_category / safe_item_name
+    async with _folder_creation_lock:
+        if tweet_folder.exists():
+            unique_suffix = uuid.uuid4().hex[:6]
+            safe_item_name = f"{safe_item_name}_{unique_suffix}"
+            tweet_folder = root_dir / main_category / sub_category / safe_item_name
 
     temp_folder = tweet_folder.with_suffix('.temp')
     temp_folder.mkdir(parents=True, exist_ok=True)
