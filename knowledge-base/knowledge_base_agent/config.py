@@ -3,9 +3,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
-import logging
-import sys
-from datetime import datetime
 
 load_dotenv()
 
@@ -57,23 +54,18 @@ class Config:
         if missing_vars:
             raise ValueError(f"Missing configuration values: {', '.join(missing_vars)}")
 
-def setup_logging(log_dir: Path) -> None:
-    """Configure logging with both file and console handlers."""
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / f"kb_agent_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    
-    # Configure root logger
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+@dataclass
+class FileConfig:
+    knowledge_base_dir: Path
+    cache_dir: Path
+    log_dir: Path
+    categories_file: Path
+    bookmarks_file: Path
+    processed_tweets_file: Path
+    media_cache_dir: Path
 
-    # Add custom logging levels for different types of events
-    logging.addLevelName(25, "SUCCESS")
-    def success(self, message, *args, **kwargs):
-        self._log(25, message, args, **kwargs)
-    logging.Logger.success = success
+    def create_directories(self) -> None:
+        """Ensure all required directories exist."""
+        for path in [self.knowledge_base_dir, self.cache_dir, self.log_dir, 
+                    self.media_cache_dir]:
+            path.mkdir(parents=True, exist_ok=True)
