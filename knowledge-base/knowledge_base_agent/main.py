@@ -3,10 +3,8 @@ import datetime
 import logging
 from pathlib import Path
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from knowledge_base_agent.config import Config
-from knowledge_base_agent.logging_setup import setup_logging
+from knowledge_base_agent.config import Config, setup_logging
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.tweet_utils import load_tweet_urls_from_links, parse_tweet_id_from_url
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
@@ -177,16 +175,17 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
     save_processed_tweets(config.processed_tweets_file, processed_tweets)
     logging.info(f"Successfully processed tweet {tweet_id} -> {main_cat}/{sub_cat}/{item_name}")
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-async def fetch_tweet_with_retry(tweet_id: str, http_client: requests.Session) -> dict:
-    """Fetch tweet data with automatic retries on failure."""
-    try:
-        return await fetch_tweet(tweet_id, http_client)
-    except Exception as e:
-        logging.error(f"Error fetching tweet {tweet_id}: {e}")
-        raise
+def load_config() -> Config:
+    # Use the complete configuration provided by environment variables
+    return Config.from_env()
 
 async def main_async():
+    config = load_config()
+    
+    # Create log directory if it doesn't exist
+    log_dir = config.knowledge_base_dir / "logs"
+    setup_logging(log_dir)
+
     # 1. Prompt to update bookmarks.
     update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
     if update_bookmarks_choice == 'y':
@@ -213,7 +212,6 @@ async def main_async():
         print("No tweet cache found; proceeding to fetch tweet data.")
 
     # 3. Load configuration and ensure media cache directory exists.
-    setup_logging()
     config = Config.from_env()
     config.media_cache_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -251,7 +249,7 @@ async def main_async():
     # 5. Preprocessing Stage: Cache tweet data (including media and image interpretations) for all tweets.
     if tweet_urls:
         logging.info(f"Starting caching of tweet data for {len(tweet_urls)} tweets...")
-        http_client = create_http_http_client()
+        http_client = create_http_client()
         caching_tasks = [cache_tweet_data(url, config, tweet_cache, http_client) for url in tweet_urls]
         await asyncio.gather(*caching_tasks)
         print("Caching of tweet data complete.")
