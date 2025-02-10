@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 from .file_utils import safe_read_json, safe_write_json
+import time
 
 # Default location for the tweet cache file
 DEFAULT_CACHE_FILE = Path("data/tweet_cache.json")
@@ -41,3 +42,27 @@ def clear_cache(cache_file: Optional[Path] = None) -> None:
     """
     save_cache({}, cache_file)
     logging.info("Cache cleared.")
+
+class CacheManager:
+    def __init__(self, cache_file: Path, expiry: int = 86400):
+        self.cache_file = cache_file
+        self.expiry = expiry
+        self._cache = {}
+        self._load_cache()
+
+    def is_cached(self, key: str) -> bool:
+        if key not in self._cache:
+            return False
+        timestamp = self._cache[key].get('timestamp', 0)
+        return (time.time() - timestamp) < self.expiry
+
+    async def get_or_fetch(self, key: str, fetch_func) -> Any:
+        if self.is_cached(key):
+            return self._cache[key]['data']
+        data = await fetch_func()
+        self._cache[key] = {
+            'data': data,
+            'timestamp': time.time()
+        }
+        await self._save_cache()
+        return data

@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from .naming_utils import safe_directory_name
 import asyncio
+import aiofiles
 
 _folder_creation_lock = asyncio.Lock()
 
@@ -67,7 +68,8 @@ async def write_tweet_markdown(
     try:
         content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
         content_md_path = temp_folder / "content.md"
-        content_md_path.write_text(content_md, encoding="utf-8")
+        async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
+            await f.write(content_md)
 
         for i, img_path in enumerate(image_files):
             if img_path.exists():

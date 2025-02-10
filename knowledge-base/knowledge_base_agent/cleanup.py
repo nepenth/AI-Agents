@@ -2,6 +2,7 @@ import shutil
 import logging
 from pathlib import Path
 import re
+import aiofiles
 
 def delete_knowledge_base_item(tweet_id: str, processed_tweets: dict, knowledge_base_dir: Path):
     if tweet_id not in processed_tweets:
@@ -67,3 +68,14 @@ def clean_duplicate_folders(root_dir: Path) -> None:
                             
     except Exception as e:
         logging.error(f"Error cleaning duplicate directories in {root_dir}: {e}")
+
+async def cleanup_orphaned_media(knowledge_base_dir: Path) -> None:
+    """Remove media files that aren't referenced in any content.md"""
+    referenced_media = set()
+    for content_file in knowledge_base_dir.rglob('content.md'):
+        text = await aiofiles.open(content_file, 'r').read()
+        referenced_media.update(re.findall(r'!\[.*?\]\((.*?)\)', text))
+    
+    for media_file in knowledge_base_dir.rglob('*.jpg'):
+        if media_file.name not in referenced_media:
+            media_file.unlink()
