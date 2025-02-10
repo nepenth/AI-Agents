@@ -3,6 +3,7 @@ import datetime
 import logging
 from pathlib import Path
 import requests
+from logging.handlers import RotatingFileHandler
 
 from knowledge_base_agent.config import Config, setup_logging
 from knowledge_base_agent.category_manager import CategoryManager
@@ -176,15 +177,20 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
     logging.info(f"Successfully processed tweet {tweet_id} -> {main_cat}/{sub_cat}/{item_name}")
 
 def load_config() -> Config:
-    # Use the complete configuration provided by environment variables
-    return Config.from_env()
+    """Load configuration with default values."""
+    return Config(
+        knowledge_base_dir=Path("knowledge_base"),
+        processed_tweets_file=Path("processed_tweets.json"),
+        max_concurrent_requests=5,
+        cache_dir=Path("cache")
+    )
 
 async def main_async():
     config = load_config()
     
     # Create log directory if it doesn't exist
     log_dir = config.knowledge_base_dir / "logs"
-    setup_logging(log_dir)
+    setup_logging(config)
 
     # 1. Prompt to update bookmarks.
     update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
