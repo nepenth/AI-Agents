@@ -30,7 +30,9 @@ DATA_DIR = Path("data")
 BOOKMARKS_FILE = DATA_DIR / "bookmarks_links.txt"
 ARCHIVE_DIR = DATA_DIR / "archive_bookmarks"
 
-async def scrape_x_bookmarks():
+async def scrape_x_bookmarks(headless: bool = False):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=headless, args=['--no-sandbox', '--disable-setuid-sandbox'])
     # Ensure necessary directories exist.
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)

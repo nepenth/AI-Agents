@@ -180,9 +180,10 @@ async def main_async():
     # 1. Prompt to update bookmarks.
     update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
     if update_bookmarks_choice == 'y':
-        print("Updating bookmarks...")
+        headless_choice = input("Run bookmarks update in headless mode? (y/n): ").strip().lower()
+        headless_mode = True if headless_choice == 'y' else False
         try:
-            await scrape_x_bookmarks()
+            await scrape_x_bookmarks(headless=headless_mode)
             print("Bookmarks updated successfully.")
         except Exception as e:
             logging.error(f"Error updating bookmarks: {e}")
