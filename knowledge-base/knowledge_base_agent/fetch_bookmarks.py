@@ -30,9 +30,7 @@ DATA_DIR = Path("data")
 BOOKMARKS_FILE = DATA_DIR / "bookmarks_links.txt"
 ARCHIVE_DIR = DATA_DIR / "archive_bookmarks"
 
-async def scrape_x_bookmarks(headless: bool = False):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless, args=['--no-sandbox', '--disable-setuid-sandbox'])
+async def scrape_x_bookmarks(headless: bool = True):
     # Ensure necessary directories exist.
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,7 +43,17 @@ async def scrape_x_bookmarks(headless: bool = False):
         raise ValueError("X_USERNAME, X_PASSWORD, and X_BOOKMARKS_URL must be set in the environment.")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False, args=['--no-sandbox', '--disable-setuid-sandbox'])
+        # Updated browser launch with container-friendly arguments
+        browser = await p.chromium.launch(
+            headless=headless,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',  # Overcome limited resource problems
+                '--disable-gpu',  # Disable GPU hardware acceleration
+                '--disable-software-rasterizer'  # Disable software rasterizer
+            ]
+        )
         page = await browser.new_page()
 
         # 1. Navigate to the login page and log in.
