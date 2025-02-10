@@ -3,6 +3,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
+import logging
+import sys
+from datetime import datetime
 
 load_dotenv()
 
@@ -53,3 +56,24 @@ class Config:
                 missing_vars.append(field.name)
         if missing_vars:
             raise ValueError(f"Missing configuration values: {', '.join(missing_vars)}")
+
+def setup_logging(log_dir: Path) -> None:
+    """Configure logging with both file and console handlers."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"kb_agent_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
+    # Add custom logging levels for different types of events
+    logging.addLevelName(25, "SUCCESS")
+    def success(self, message, *args, **kwargs):
+        self._log(25, message, args, **kwargs)
+    logging.Logger.success = success

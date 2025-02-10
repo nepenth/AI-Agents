@@ -3,6 +3,7 @@ import datetime
 import logging
 from pathlib import Path
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.logging_setup import setup_logging
@@ -175,6 +176,15 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
     }
     save_processed_tweets(config.processed_tweets_file, processed_tweets)
     logging.info(f"Successfully processed tweet {tweet_id} -> {main_cat}/{sub_cat}/{item_name}")
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+async def fetch_tweet_with_retry(tweet_id: str, http_client: requests.Session) -> dict:
+    """Fetch tweet data with automatic retries on failure."""
+    try:
+        return await fetch_tweet(tweet_id, http_client)
+    except Exception as e:
+        logging.error(f"Error fetching tweet {tweet_id}: {e}")
+        raise
 
 async def main_async():
     # 1. Prompt to update bookmarks.
