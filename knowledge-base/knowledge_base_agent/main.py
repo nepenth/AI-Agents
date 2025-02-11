@@ -3,7 +3,7 @@ import datetime
 import logging
 from pathlib import Path
 import requests
-from logging.handlers import RotatingFileHandler
+from dotenv import load_dotenv
 
 from knowledge_base_agent.config import Config, setup_logging
 from knowledge_base_agent.category_manager import CategoryManager
@@ -19,6 +19,9 @@ from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
 from knowledge_base_agent.http_client import create_http_client
 from knowledge_base_agent.fetch_bookmarks import scrape_x_bookmarks
+
+# Load environment variables at the start
+load_dotenv()
 
 def filter_new_tweet_urls(tweet_urls: list, processed_tweets: dict) -> list:
     """Return only the URLs whose tweet IDs are not already processed."""
@@ -178,19 +181,14 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
 
 def load_config() -> Config:
     """Load configuration with default values."""
-    return Config(
-        knowledge_base_dir=Path("knowledge_base"),
-        processed_tweets_file=Path("processed_tweets.json"),
-        max_concurrent_requests=5,
-        cache_dir=Path("cache")
-    )
+    return Config.from_env()
 
 async def main_async():
     config = load_config()
     
     # Create log directory if it doesn't exist
     log_dir = config.knowledge_base_dir / "logs"
-    setup_logging(config)
+    setup_logging(log_dir)
 
     # 1. Prompt to update bookmarks.
     update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()

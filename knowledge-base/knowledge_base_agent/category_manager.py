@@ -112,16 +112,39 @@ class CategoryManager:
             self.save_categories()
             logging.info("Created new categories file with defaults")
 
+    def _validate_category_structure(self, category: Category) -> bool:
+        """Validate category structure and data"""
+        try:
+            if not category.name or not isinstance(category.name, str):
+                return False
+            if not isinstance(category.subcategories, set):
+                return False
+            if not isinstance(category.keywords, set):
+                return False
+            if not category.description or not isinstance(category.description, str):
+                return False
+            return True
+        except Exception as e:
+            logging.error(f"Category validation error: {e}")
+            return False
+
     def add_category(self, name: str, description: str, keywords: Set[str]) -> bool:
         normalized_name = self._normalize_name(name)
         if normalized_name in self.categories:
             return False
-        self.categories[normalized_name] = Category(
+        
+        new_category = Category(
             name=normalized_name,
             subcategories=set(),
             description=description,
             keywords={word.lower() for word in keywords}
         )
+        
+        if not self._validate_category_structure(new_category):
+            logging.error(f"Invalid category structure for {name}")
+            return False
+        
+        self.categories[normalized_name] = new_category
         self.save_categories()
         return True
 

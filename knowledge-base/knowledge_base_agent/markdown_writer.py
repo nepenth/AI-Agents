@@ -66,6 +66,15 @@ async def write_tweet_markdown(
     temp_folder.mkdir(parents=True, exist_ok=True)
 
     try:
+        # Add content validation before writing
+        if not tweet_text.strip():
+            logging.warning(f"Empty tweet text for {tweet_id}")
+            
+        # Ensure image files exist before copying
+        valid_image_files = [img for img in image_files if img.exists()]
+        if len(valid_image_files) != len(image_files):
+            logging.warning(f"Some image files missing for {tweet_id}")
+
         content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
         content_md_path = temp_folder / "content.md"
         async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
