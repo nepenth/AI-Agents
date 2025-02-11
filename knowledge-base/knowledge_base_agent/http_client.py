@@ -1,7 +1,10 @@
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from ratelimit import RateLimiter
+import httpx
+from typing import Optional
+import asyncio
+from contextlib import asynccontextmanager
 
 def create_http_client():
     session = requests.Session()
@@ -11,15 +14,40 @@ def create_http_client():
     session.mount("https://", adapter)
     return session
 
-class RateLimitedClient:
-    def __init__(self, requests_per_minute: int = 60):
-        self.session = create_http_client()
-        self.rate_limit = RateLimiter(requests_per_minute)
+class OllamaClient:
+    def __init__(self, base_url: str, timeout: int = 180, max_pool_size: int = 1):
+        if not base_url or not base_url.startswith(('http://', 'https://')):
+            raise ValueError("Invalid base URL for Ollama client")
+        self.base_url = base_url
+        self.timeout = timeout
+        self._client: Optional[httpx.AsyncClient] = None
+        self.limits = httpx.Limits(max_keepalive_connections=max_pool_size)
+        self._lock = asyncio.Lock()  # Ensure single concurrent request
 
-    async def get(self, url: str, **kwargs) -> requests.Response:
-        async with self.rate_limit:
-            return await self.session.get(url, **kwargs)
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=self.timeout,
+                limits=self.limits,
+                http2=True  # Enable HTTP/2 for better connection reuse
+            )
+        return self._client
 
-    async def post(self, url: str, **kwargs) -> requests.Response:
-        async with self.rate_limit:
-            return await self.session.post(url, **kwargs)
+    @asynccontextmanager
+    async def request(self):
+        client = await self._get_client()
+        async with self._lock:  # Ensure one request at a time
+            try:
+                yield client
+            except httpx.TimeoutException as e:
+                logger.error(f"Request timed out after {self.timeout} seconds: {e}")
+                raise
+            except Exception as e:
+                logger.error(f"Request failed: {e}")
+                raise
+
+    async def close(self):
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None

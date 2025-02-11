@@ -82,6 +82,9 @@ async def fetch_tweet_data_playwright(tweet_id: str) -> dict:
             "extended_media": [{"media_url_https": url} for url in media_urls],
             "replies": replies
         }
+    except PlaywrightTimeoutError as e:
+        logging.error(f"Timeout error fetching tweet {tweet_id}: {e}")
+        raise KnowledgeBaseError(f"Timeout fetching tweet {tweet_id}") from e
     except Exception as e:
         logging.error(f"Playwright failed for Tweet ID {tweet_id}: {e}")
         raise KnowledgeBaseError(f"Failed to fetch tweet data for ID {tweet_id}") from e

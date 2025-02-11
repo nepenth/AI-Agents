@@ -9,6 +9,7 @@ def process_category_response(response: str, tweet_id: str) -> Tuple[str, str, s
     try:
         parts = [x.strip() for x in response.split('|', 2)]
         if len(parts) != 3:
+            logging.warning(f"Invalid category response format for tweet {tweet_id}")
             raise ValueError("Response must have three parts")
         main_category, sub_category, item_name = parts
         return (

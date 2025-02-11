@@ -1,6 +1,6 @@
 import os
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
@@ -32,10 +32,8 @@ class Config:
     retry_attempts: int = 3
     cache_dir: Optional[Path] = None
     log_dir: Optional[Path] = None
-    request_timeout: int = 60
-    concurrent_downloads: int = 5
-    image_quality: str = "high"
-    cache_expiry: int = 86400  # 24 hours in seconds
+    request_timeout: int = field(default_factory=lambda: int(os.getenv("REQUEST_TIMEOUT", "180")))
+    max_pool_size: int = field(default_factory=lambda: int(os.getenv("MAX_POOL_SIZE", "1")))
 
     @classmethod
     def from_env(cls) -> 'Config':
@@ -60,10 +58,8 @@ class Config:
             retry_attempts=int(os.getenv("RETRY_ATTEMPTS", "3")),
             cache_dir=Path(os.getenv("CACHE_DIR")) if os.getenv("CACHE_DIR") else None,
             log_dir=Path(os.getenv("LOG_DIR")) if os.getenv("LOG_DIR") else None,
-            request_timeout=int(os.getenv("REQUEST_TIMEOUT", "60")),
-            concurrent_downloads=int(os.getenv("CONCURRENT_DOWNLOADS", "5")),
-            image_quality=os.getenv("IMAGE_QUALITY", "high"),
-            cache_expiry=int(os.getenv("CACHE_EXPIRY", "86400"))
+            request_timeout=int(os.getenv("REQUEST_TIMEOUT", "180")),
+            max_pool_size=int(os.getenv("MAX_POOL_SIZE", "1"))
         )
 
     def verify(self):
@@ -74,12 +70,6 @@ class Config:
                 missing_vars.append(field.name)
         if missing_vars:
             raise ValueError(f"Missing configuration values: {', '.join(missing_vars)}")
-
-    def validate(self) -> None:
-        if self.request_timeout <= 0:
-            raise ValueError("request_timeout must be positive")
-        if self.max_retries < 0:
-            raise ValueError("max_retries cannot be negative")
 
 def setup_logging(log_dir: Path) -> None:
     """Configure logging with both file and console handlers."""
