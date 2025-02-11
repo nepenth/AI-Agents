@@ -53,3 +53,4 @@ class ProcessingStats:
 
     def add_processing_time(self, duration: float) -> None:
         self.processing_times.append(duration) 
+        
