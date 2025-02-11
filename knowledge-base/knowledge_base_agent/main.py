@@ -154,7 +154,7 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
         return
 
     try:
-        write_tweet_markdown(
+        await write_tweet_markdown(
             root_dir=config.knowledge_base_dir,
             tweet_id=tweet_id,
             main_category=main_cat,
