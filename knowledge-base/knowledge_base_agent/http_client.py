@@ -1,10 +1,14 @@
 import requests
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 import httpx
 from typing import Optional
 import asyncio
 from contextlib import asynccontextmanager
+import logging
+
+# Initialize logger at module level
+logger = logging.getLogger(__name__)
 
 def create_http_client():
     session = requests.Session()
@@ -16,8 +20,6 @@ def create_http_client():
 
 class OllamaClient:
     def __init__(self, base_url: str, timeout: int = 180, max_pool_size: int = 1):
-        if not base_url or not base_url.startswith(('http://', 'https://')):
-            raise ValueError("Invalid base URL for Ollama client")
         self.base_url = base_url
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
