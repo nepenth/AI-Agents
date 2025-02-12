@@ -15,7 +15,7 @@ class Category:
 class CategoryManager:
     def __init__(self, categories_file: Path):
         self.categories_file = categories_file
-        self.categories: Dict[str, Category] = {}
+        self.categories: Dict[str, dict] = {}
         self._lock = asyncio.Lock()
         self._initialize_default_categories()
         self.load_categories()
@@ -66,19 +66,18 @@ class CategoryManager:
             },
         }
         for cat_name, details in default_structure.items():
-            self.categories[cat_name] = Category(
-                name=cat_name,
-                subcategories=details["subcategories"],
-                description=details["description"],
-                keywords={word.lower() for word in details["keywords"]}
-            )
+            self.categories[cat_name] = {
+                'description': details["description"],
+                'subcategories': {sub: {} for sub in details["subcategories"]},
+                'keywords': {word.lower() for word in details["keywords"]}
+            }
 
     def save_categories(self):
         categories_dict = {
             name: {
-                "subcategories": list(cat.subcategories),
-                "description": cat.description,
-                "keywords": list(cat.keywords)
+                "subcategories": list(cat['subcategories'].keys()),
+                "description": cat['description'],
+                "keywords": list(cat['keywords'])
             }
             for name, cat in self.categories.items()
         }
@@ -97,12 +96,11 @@ class CategoryManager:
                 with self.categories_file.open('r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.categories = {
-                        name: Category(
-                            name=name,
-                            subcategories=set(details["subcategories"]),
-                            description=details["description"],
-                            keywords={word.lower() for word in details["keywords"]}
-                        )
+                        name: {
+                            'description': details["description"],
+                            'subcategories': {sub: {} for sub in details["subcategories"]},
+                            'keywords': set(details["keywords"])
+                        }
                         for name, details in data.items()
                     }
                 logging.info(f"Loaded {len(self.categories)} categories from file")
@@ -112,16 +110,16 @@ class CategoryManager:
             self.save_categories()
             logging.info("Created new categories file with defaults")
 
-    def _validate_category_structure(self, category: Category) -> bool:
+    def _validate_category_structure(self, category: dict) -> bool:
         """Validate category structure and data"""
         try:
-            if not category.name or not isinstance(category.name, str):
+            if not category['name'] or not isinstance(category['name'], str):
                 return False
-            if not isinstance(category.subcategories, set):
+            if not isinstance(category['subcategories'], dict):
                 return False
-            if not isinstance(category.keywords, set):
+            if not isinstance(category['keywords'], set):
                 return False
-            if not category.description or not isinstance(category.description, str):
+            if not category['description'] or not isinstance(category['description'], str):
                 return False
             return True
         except Exception as e:
@@ -133,12 +131,11 @@ class CategoryManager:
         if normalized_name in self.categories:
             return False
         
-        new_category = Category(
-            name=normalized_name,
-            subcategories=set(),
-            description=description,
-            keywords={word.lower() for word in keywords}
-        )
+        new_category = {
+            'description': description,
+            'subcategories': {},
+            'keywords': {word.lower() for word in keywords}
+        }
         
         if not self._validate_category_structure(new_category):
             logging.error(f"Invalid category structure for {name}")
@@ -148,11 +145,13 @@ class CategoryManager:
         self.save_categories()
         return True
 
-    def add_subcategory(self, category: str, subcategory: str) -> bool:
-        if category not in self.categories:
+    def add_subcategory(self, main_category: str, subcategory: str) -> bool:
+        if main_category not in self.categories:
             return False
         normalized_sub = self._normalize_name(subcategory)
-        self.categories[category].subcategories.add(normalized_sub)
+        if normalized_sub not in self.categories[main_category]['subcategories']:
+            return False
+        self.categories[main_category]['subcategories'][normalized_sub] = {}
         self.save_categories()
         return True
 
@@ -160,11 +159,11 @@ class CategoryManager:
         content_words = set(self._normalize_name(content).split('_'))
         suggestions = []
         for cat_name, category in self.categories.items():
-            keyword_matches = len(content_words & category.keywords)
+            keyword_matches = len(content_words & category['keywords'])
             if keyword_matches > 0:
                 best_subcategory = None
                 best_subscore = 0
-                for subcategory in category.subcategories:
+                for subcategory in category['subcategories']:
                     subscore = len(content_words & set(subcategory.split('_')))
                     if subscore > best_subscore:
                         best_subscore = subscore
@@ -180,9 +179,19 @@ class CategoryManager:
         return sorted(self.categories.keys())
 
     def get_subcategories(self, category: str) -> List[str]:
-        if category in self.categories:
-            return sorted(self.categories[category].subcategories)
-        return []
+        """Get subcategories for a main category"""
+        return list(self.categories.get(category, {}).get('subcategories', {}).keys())
 
-    def get_category_info(self, category: str) -> Optional[Category]:
+    def get_category_info(self, category: str) -> Optional[dict]:
         return self.categories.get(category)
+
+    def add_main_category(self, category: str, description: str) -> None:
+        """Add a main category with description"""
+        self.categories[category] = {
+            'description': description,
+            'subcategories': {}
+        }
+
+    def get_categories(self) -> Dict[str, dict]:
+        """Get all categories and their details"""
+        return self.categories

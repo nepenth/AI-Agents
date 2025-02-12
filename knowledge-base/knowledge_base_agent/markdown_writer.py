@@ -7,6 +7,7 @@ from pathlib import Path
 from .naming_utils import safe_directory_name
 import asyncio
 import aiofiles
+from typing import Dict
 
 _folder_creation_lock = asyncio.Lock()
 
@@ -196,3 +197,19 @@ def generate_root_readme(root_dir: Path, category_manager) -> None:
         logging.info(f"Generated enhanced README at {readme_path}")
     except Exception as e:
         logging.error(f"Failed to write README: {e}")
+
+class MarkdownWriter:
+    def generate_filename(self, tweet) -> str:
+        """Generate a filename for the knowledge base entry"""
+        # Implementation details
+        pass
+
+    def generate_content(self, tweet) -> str:
+        """Generate markdown content for the knowledge base entry"""
+        # Implementation details
+        pass
+
+    def generate_root_readme(self, root_dir: Path, category_manager) -> None:
+        """Generate the root README.md file"""
+        # Implementation as discussed in previous response
+        pass

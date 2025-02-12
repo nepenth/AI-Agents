@@ -20,6 +20,7 @@ from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cache
 from knowledge_base_agent.http_client import create_http_client
 from knowledge_base_agent.fetch_bookmarks import scrape_x_bookmarks
 from knowledge_base_agent.migration import migrate_content_to_readme
+from knowledge_base_agent.agent import KnowledgeBaseAgent
 
 # Load environment variables at the start
 load_dotenv()
@@ -319,7 +320,9 @@ async def main_async():
         print("Skipping GitHub sync.")
 
 def main():
-    asyncio.run(main_async())
+    root_dir = Path("knowledge-base")
+    agent = KnowledgeBaseAgent(root_dir)
+    agent.process_tweets()
 
 if __name__ == "__main__":
     main()
