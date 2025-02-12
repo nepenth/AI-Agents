@@ -19,6 +19,7 @@ from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
 from knowledge_base_agent.http_client import create_http_client
 from knowledge_base_agent.fetch_bookmarks import scrape_x_bookmarks
+from knowledge_base_agent.migration import migrate_content_to_readme
 
 # Load environment variables at the start
 load_dotenv()
@@ -185,6 +186,15 @@ def load_config() -> Config:
 
 async def main_async():
     config = load_config()
+    
+    print("\n=== Knowledge Base Agent Configuration ===\n")
+    
+    # Add migration option
+    if any(Path(config.knowledge_base_dir).rglob('content.md')):
+        migrate_files = input("Found existing content.md files. Migrate to README.md? (y/n): ").strip().lower() == 'y'
+        if migrate_files:
+            await migrate_content_to_readme(config.knowledge_base_dir)
+            print("✓ Content files migrated to README.md")
     
     # Create log directory if it doesn't exist
     log_dir = config.knowledge_base_dir / "logs"

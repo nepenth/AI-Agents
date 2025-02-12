@@ -99,109 +99,100 @@ async def write_tweet_markdown(
 
 def generate_root_readme(root_dir: Path, category_manager) -> None:
     """
-    Generates a README.md in the root of the knowledge base directory that contains:
-      - An Overview with total counts.
-      - A Knowledge Tree section with a bullet list of items (with links).
-      - A Detailed Contents section with tables listing each item.
+    Generates an enhanced README.md in the root directory with:
+    - Overview statistics
+    - Clear hierarchical knowledge tree
+    - Detailed category summaries with item descriptions
     """
     readme_path = root_dir / "README.md"
-    total_items = 0
-    total_categories = 0
-    total_subcategories = 0
-    knowledge_tree = {}  # { main_category: { sub_category: [ {title, rel_path, description} ] } }
-
-    # Traverse main categories (skip hidden directories)
+    knowledge_tree = {}
+    stats = {
+        'total_items': 0,
+        'total_categories': 0,
+        'total_subcategories': 0
+    }
+    
+    # Build knowledge tree structure
     for main_cat in sorted(root_dir.iterdir()):
         if not main_cat.is_dir() or main_cat.name.startswith("."):
             continue
-        total_categories += 1
-        knowledge_tree[main_cat.name] = {}
-        # Traverse subcategories
+        stats['total_categories'] += 1
+        knowledge_tree[main_cat.name] = {
+            'description': category_manager.get_category_info(main_cat.name).description,
+            'subcategories': {}
+        }
+        
         for sub_cat in sorted(main_cat.iterdir()):
             if not sub_cat.is_dir() or sub_cat.name.startswith("."):
                 continue
-            total_subcategories += 1
-            items = [item for item in sorted(sub_cat.iterdir()) if item.is_dir() and not item.name.startswith(".")]
-            knowledge_tree[main_cat.name][sub_cat.name] = []
-            for item in items:
-                content_md = item / "content.md"
-                if content_md.exists():
-                    total_items += 1
+            stats['total_subcategories'] += 1
+            knowledge_tree[main_cat.name]['subcategories'][sub_cat.name] = []
+            
+            for item in sorted(sub_cat.iterdir()):
+                if not item.is_dir() or item.name.startswith("."):
+                    continue
+                readme_md = item / "README.md"
+                if readme_md.exists():
+                    stats['total_items'] += 1
                     try:
-                        with content_md.open('r', encoding='utf-8') as f:
-                            lines = f.readlines()
-                        title = None
-                        description = ""
-                        # Extract the title: first header line that starts with "# "
-                        for line in lines:
-                            if line.startswith("# "):
-                                title = line.strip()[2:]
-                                break
-                        if not title:
-                            title = item.name
-                        # Extract a description: first non-header, non-empty line.
-                        for line in lines:
-                            if line.strip() and not line.startswith("#"):
-                                description = line.strip()
-                                break
-                        knowledge_tree[main_cat.name][sub_cat.name].append({
-                            "title": title,
-                            "rel_path": content_md.relative_to(root_dir).as_posix(),
-                            "description": description
-                        })
+                        with readme_md.open('r', encoding='utf-8') as f:
+                            content = f.read()
+                            title = next((line.strip('# \n') for line in content.split('\n') if line.startswith('# ')), item.name)
+                            description = next((line for line in content.split('\n') if line and not line.startswith('#')), '')
+                            
+                            knowledge_tree[main_cat.name]['subcategories'][sub_cat.name].append({
+                                'name': item.name,
+                                'title': title,
+                                'description': description[:200] + '...' if len(description) > 200 else description,
+                                'path': readme_md.relative_to(root_dir).parent.as_posix()
+                            })
                     except Exception as e:
-                        logging.error(f"Error processing {content_md}: {e}")
-                else:
-                    logging.warning(f"Missing content.md in {item}")
+                        logging.error(f"Error processing {readme_md}: {e}")
 
-    # Start generating README content.
-    lines = []
-    lines.append("# Technical Knowledge Base")
-    lines.append("")
-    lines.append("## Overview")
-    lines.append("")
-    lines.append(f"- **Total Knowledge Items:** {total_items}")
-    lines.append(f"- **Categories:** {total_categories}")
-    lines.append(f"- **Subcategories:** {total_subcategories}")
-    lines.append("")
-    lines.append("## Knowledge Tree")
-    lines.append("")
-    for main_cat, subcats in knowledge_tree.items():
+    # Generate README content
+    lines = [
+        "# Technical Knowledge Base",
+        "",
+        "## Overview",
+        "",
+        f"📚 **Total Knowledge Items:** {stats['total_items']}",
+        f"📂 **Main Categories:** {stats['total_categories']}",
+        f"📁 **Subcategories:** {stats['total_subcategories']}",
+        "",
+        "## Knowledge Tree",
+        "",
+    ]
+
+    # Generate hierarchical tree view
+    for main_cat, main_data in knowledge_tree.items():
         main_cat_display = main_cat.replace('_', ' ').title()
-        lines.append(f"- **{main_cat_display}**")
-        for sub_cat, items in subcats.items():
-            sub_cat_display = sub_cat.replace('_', ' ').title()
-            lines.append(f"  - **{sub_cat_display}**")
-            for item in items:
-                # Create a markdown link with title and relative path
-                lines.append(f"    - [{item['title']}](./{item['rel_path']}) - {item['description']}")
+        lines.append(f"### 📚 {main_cat_display}")
+        lines.append(f"_{main_data['description']}_")
         lines.append("")
-    lines.append("## Detailed Contents")
-    lines.append("")
-    for main_cat, subcats in knowledge_tree.items():
-        main_cat_display = main_cat.replace('_', ' ').title()
-        lines.append(f"### {main_cat_display}")
-        for sub_cat, items in subcats.items():
+        
+        for sub_cat, items in main_data['subcategories'].items():
             sub_cat_display = sub_cat.replace('_', ' ').title()
-            lines.append(f"#### {sub_cat_display}")
+            lines.append(f"#### 📁 {sub_cat_display}")
+            if items:
+                lines.append("")
+                lines.append("| Title | Description |")
+                lines.append("|-------|-------------|")
+                for item in items:
+                    title = sanitize_markdown_cell(item['title'])
+                    desc = sanitize_markdown_cell(item['description'])
+                    lines.append(f"| [`{title}`]({item['path']}) | {desc} |")
             lines.append("")
-            lines.append("| Item | Description |")
-            lines.append("| --- | --- |")
-            for item in items:
-                title = sanitize_markdown_cell(item['title'])
-                description = sanitize_markdown_cell(item['description'])
-                rel_path = item['rel_path']
-                lines.append(f"| [{title}](./{rel_path}) | {description} |")
-            lines.append("")
-    lines.append("---")
-    lines.append("")
-    lines.append(f"Last updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("")
-    lines.append("_This README is automatically generated by the Knowledge Base Agent._")
 
-    readme_content = "\n".join(lines)
+    lines.extend([
+        "---",
+        "",
+        f"Last updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        "_This README is automatically generated by the Knowledge Base Agent._"
+    ])
+
     try:
-        readme_path.write_text(readme_content, encoding="utf-8")
-        logging.info(f"Generated README at {readme_path}")
+        readme_path.write_text('\n'.join(lines), encoding='utf-8')
+        logging.info(f"Generated enhanced README at {readme_path}")
     except Exception as e:
         logging.error(f"Failed to write README: {e}")
