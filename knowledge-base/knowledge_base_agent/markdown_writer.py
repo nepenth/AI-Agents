@@ -183,17 +183,9 @@ class MarkdownWriter:
         except Exception as e:
             raise StorageError(f"Failed to copy images: {e}")
 
-def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryManager) -> None:
-    """
-    Generate the root README.md file.
-    
-    Raises:
-        StorageError: If writing fails
-    """
+async def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryManager) -> None:
+    """Generate the root README.md file."""
     try:
-        # Ensure knowledge base directory exists
-        knowledge_base_dir.mkdir(parents=True, exist_ok=True)
-        
         logging.info(f"Generating root README.md in {knowledge_base_dir}")
         content = ["# Knowledge Base\n"]
         
@@ -211,11 +203,11 @@ def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryMan
                 content.append("")
         
         readme_path = knowledge_base_dir / "README.md"
-        with readme_path.open('w', encoding='utf-8') as f:
-            f.write("\n".join(content))
+        async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
+            await f.write("\n".join(content))
             
         logging.info("Root README.md generated successfully")
             
     except Exception as e:
-        logging.error(f"Failed to generate root README: {e}", exc_info=True)
+        logging.error(f"Failed to generate root README: {e}")
         raise StorageError(f"Failed to generate root README: {e}")

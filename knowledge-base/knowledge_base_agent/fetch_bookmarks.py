@@ -95,11 +95,9 @@ class BookmarksFetcher:
         last_height = await page.evaluate('document.body.scrollHeight')
         
         while True:
-            # Get all tweet links
-            links = await page.eval_all(
-                'article a[href*="/status/"]',
-                'elements => elements.map(el => el.href)'
-            )
+            # Get all tweet links using locator instead of eval_all
+            elements = await page.locator('article a[href*="/status/"]').all()
+            links = [await el.get_attribute('href') for el in elements]
             bookmark_links.update(links)
             
             # Scroll down
