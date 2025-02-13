@@ -97,12 +97,12 @@ class KnowledgeBaseAgent:
                     logging.warning(f"No cached data found for tweet {tweet_id}")
                     continue
                 
-                # Categorize and process tweet
+                # Categorize and process tweet - remove keyword arguments
                 main_cat, sub_cat, name = await categorize_and_name_content(
-                    tweet_data=tweet_data,
-                    category_manager=self.category_manager,
-                    text_model=self.config.text_model,
-                    tweet_id=tweet_id
+                    tweet_data,
+                    self.category_manager,
+                    self.config.text_model,
+                    tweet_id
                 )
                 
                 # Create knowledge base entry

@@ -6,9 +6,15 @@ from typing import Optional
 import asyncio
 from contextlib import asynccontextmanager
 import logging
+import aiohttp
 
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
+
+def create_http_client():
+    """Create and return a new aiohttp ClientSession with a timeout."""
+    timeout = aiohttp.ClientTimeout(total=30)
+    return aiohttp.ClientSession(timeout=timeout)
 
 def create_http_client():
     session = requests.Session()

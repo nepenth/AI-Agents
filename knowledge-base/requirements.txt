@@ -11,3 +11,4 @@ requests>=2.31.0
 ratelimit>=2.2.1
 httpx>=0.25.0
 gitpython>=3.1.40
+aiohttp>=3.8.5

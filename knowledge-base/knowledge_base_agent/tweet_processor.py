@@ -9,9 +9,10 @@ from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError
 from knowledge_base_agent.state_manager import save_processed_tweets, load_processed_tweets
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
-from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache
+from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
 from knowledge_base_agent.markdown_writer import MarkdownWriter
+from knowledge_base_agent.http_client import create_http_client
 
 async def process_tweets(
     urls: List[str],
@@ -37,13 +38,13 @@ async def process_tweets(
             image_descriptions = tweet_data.get('image_descriptions', [])
             combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions)
 
-            # Get AI categorization
+            # Get AI categorization (pass positional arguments only)
             main_cat, sub_cat, item_name = await categorize_and_name_content(
-                text=combined_text,
-                category_manager=category_manager,
-                http_client=http_client,
-                ollama_url=config.ollama_url,
-                model=config.text_model
+                config.ollama_url,
+                combined_text,
+                config.text_model,
+                tweet_id,
+                category_manager
             )
 
             # Write to knowledge base
@@ -90,28 +91,22 @@ async def process_single_tweet(
         # Combine tweet text and image descriptions
         combined_text = _prepare_tweet_content(tweet_data)
         
-        # Get categorization from AI
-        try:
-            main_cat, sub_cat, item_name = await categorize_and_name_content(
-                text=combined_text,
-                category_manager=category_manager,
-                http_client=http_client,
-                ollama_url=config.ollama_url,
-                model=config.text_model
-            )
-        except Exception as e:
-            raise AIError(f"Failed to categorize tweet {tweet_id}: {e}")
+        # Get categorization from AI (using positional arguments)
+        main_cat, sub_cat, item_name = await categorize_and_name_content(
+            config.ollama_url,
+            combined_text,
+            config.text_model,
+            tweet_id,
+            category_manager
+        )
 
         # Write to knowledge base
-        try:
-            await write_to_knowledge_base(
-                tweet_id=tweet_id,
-                tweet_data=tweet_data,
-                categories=(main_cat, sub_cat, item_name),
-                config=config
-            )
-        except Exception as e:
-            raise StorageError(f"Failed to write tweet {tweet_id} to knowledge base: {e}")
+        await write_to_knowledge_base(
+            tweet_id=tweet_id,
+            tweet_data=tweet_data,
+            categories=(main_cat, sub_cat, item_name),
+            config=config
+        )
 
         # Update processed state
         processed_tweets[tweet_id] = {
@@ -157,4 +152,47 @@ async def write_to_knowledge_base(
             config=config
         )
     except Exception as e:
-        raise StorageError(f"Failed to write to knowledge base: {e}") 
+        raise StorageError(f"Failed to write to knowledge base: {e}")
+
+class TweetProcessor:
+    def __init__(self, config: Config, category_manager: CategoryManager):
+        self.config = config
+        self.category_manager = category_manager
+        self.http_client = create_http_client()
+        self.tweet_cache = load_cache()
+
+    async def process_tweet(self, tweet_url: str) -> None:
+        try:
+            tweet_id = parse_tweet_id_from_url(tweet_url)
+            if not tweet_id:
+                logging.warning(f"Invalid tweet URL: {tweet_url}")
+                return
+
+            tweet_data = get_cached_tweet(tweet_id, self.tweet_cache)
+            if not tweet_data:
+                logging.warning(f"No cached data found for tweet {tweet_id}")
+                return
+
+            content_text = _prepare_tweet_content(tweet_data)
+
+            main_cat, sub_cat, name = await categorize_and_name_content(
+                self.config.ollama_url,
+                content_text,
+                self.config.text_model,
+                tweet_id,
+                self.category_manager
+            )
+
+            # Create knowledge base entry
+            await create_knowledge_base_entry(
+                tweet_id,
+                tweet_data,
+                (main_cat, sub_cat, name),
+                self.config
+            )
+
+            logging.info(f"Successfully processed tweet {tweet_id}")
+
+        except Exception as e:
+            logging.error(f"Failed to process tweet {tweet_url}: {e}")
+            raise ProcessingError(f"Failed to process tweet {tweet_url}: {e}") 
