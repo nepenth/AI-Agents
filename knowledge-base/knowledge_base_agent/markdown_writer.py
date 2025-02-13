@@ -117,50 +117,49 @@ class MarkdownWriter:
         image_files: Optional[List[Path]] = None,
         image_descriptions: Optional[List[str]] = None
     ) -> None:
-        """
-        Write tweet content to a markdown file.
-        
-        Raises:
-            StorageError: If writing fails
-        """
+        """Write tweet content to a markdown file."""
         try:
-            # Create directory structure
-            item_dir = config.knowledge_base_dir / main_category / sub_category / item_name
-            item_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = safe_directory_name(item_name)
+            item_dir = config.knowledge_base_dir / main_category / sub_category / safe_name
             
-            readme_path = item_dir / "README.md"
-            
-            # Prepare content
+            # Create temporary directory for atomic writes
+            temp_dir = item_dir.with_suffix('.temp')
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            # Prepare and write content
             content = self._prepare_markdown_content(
+                item_name=item_name,
                 tweet_text=tweet_text,
                 tweet_url=tweet_url,
                 image_files=image_files,
                 image_descriptions=image_descriptions
             )
             
-            # Write content
-            with readme_path.open('w', encoding='utf-8') as f:
-                f.write(content)
-                
+            async with aiofiles.open(temp_dir / "README.md", 'w', encoding='utf-8') as f:
+                await f.write(content)
+
             # Copy images if they exist
             if image_files:
-                await self._copy_images(image_files, item_dir)
+                await self._copy_images(image_files, temp_dir)
+
+            # Atomic directory rename
+            if item_dir.exists():
+                shutil.rmtree(item_dir)
+            temp_dir.rename(item_dir)
                 
         except Exception as e:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
             raise StorageError(f"Failed to write markdown for tweet {tweet_id}: {e}")
 
-    def _prepare_markdown_content(
-        self,
-        tweet_text: str,
-        tweet_url: str,
-        image_files: Optional[List[Path]] = None,
-        image_descriptions: Optional[List[str]] = None
-    ) -> str:
+    def _prepare_markdown_content(self, item_name: str, tweet_text: str, tweet_url: str,
+                                image_files: Optional[List[Path]] = None,
+                                image_descriptions: Optional[List[str]] = None) -> str:
         """Prepare markdown content with proper formatting."""
         content_parts = [
-            f"# Tweet Content\n",
-            f"Original Tweet: {tweet_url}\n",
-            f"## Content\n{tweet_text}\n"
+            f"# {item_name}\n",
+            f"**Original Tweet:** [{tweet_url}]({tweet_url})\n",
+            f"**Content:**\n{tweet_text}\n"
         ]
         
         if image_files and image_descriptions:
@@ -168,21 +167,15 @@ class MarkdownWriter:
             for idx, (image, desc) in enumerate(zip(image_files, image_descriptions), 1):
                 content_parts.extend([
                     f"### Image {idx}\n",
-                    f"![Image {idx}]({image.name})\n",
-                    f"**AI Interpretation**: {desc}\n"
+                    f"![Image {idx}](./{image.name})\n",
+                    f"**AI Interpretation:** {desc}\n"
                 ])
                 
         content_parts.append(f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
-        
         return "\n".join(content_parts)
 
     async def _copy_images(self, image_files: List[Path], target_dir: Path) -> None:
-        """
-        Copy images to the target directory.
-        
-        Raises:
-            StorageError: If copying fails
-        """
+        """Copy images to the target directory."""
         try:
             for image_file in image_files:
                 if image_file.exists():

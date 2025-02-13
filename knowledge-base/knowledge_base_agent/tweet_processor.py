@@ -10,6 +10,8 @@ from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageErr
 from knowledge_base_agent.state_manager import save_processed_tweets, load_processed_tweets
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache
+from knowledge_base_agent.ai_categorization import categorize_and_name_content
+from knowledge_base_agent.markdown_writer import MarkdownWriter
 
 async def process_tweets(
     urls: List[str],
@@ -18,47 +20,51 @@ async def process_tweets(
     http_client: Any,
     tweet_cache: Dict[str, Any]
 ) -> None:
-    """
-    Process a list of tweet URLs, categorizing and storing them in the knowledge base.
+    """Process a list of tweet URLs, categorizing and storing them."""
+    markdown_writer = MarkdownWriter()
     
-    Args:
-        urls: List of tweet URLs to process
-        config: Application configuration
-        category_manager: Category management instance
-        http_client: HTTP client for making requests
-        tweet_cache: Cache of tweet data
-    
-    Raises:
-        ProcessingError: If tweet processing fails
-    """
-    try:
-        processed_tweets = load_processed_tweets(config.processed_tweets_file)
-        
-        for url in urls:
-            tweet_id = parse_tweet_id_from_url(url)
-            if not tweet_id:
-                logging.warning(f"Invalid tweet URL skipped: {url}")
+    for url in urls:
+        try:
+            tweet_id = url.split('/')[-1]
+            tweet_data = get_cached_tweet(tweet_id, tweet_cache)
+            
+            if not tweet_data:
+                logging.warning(f"No cached data found for tweet {tweet_id}")
                 continue
-                
-            try:
-                await process_single_tweet(
-                    tweet_id=tweet_id,
-                    url=url,
-                    config=config,
-                    category_manager=category_manager,
-                    http_client=http_client,
-                    tweet_cache=tweet_cache,
-                    processed_tweets=processed_tweets
-                )
-            except Exception as e:
-                logging.error(f"Failed to process tweet {tweet_id}: {e}")
-                continue
-                
-        save_processed_tweets(config.processed_tweets_file, processed_tweets)
-        save_cache(tweet_cache)
-        
-    except Exception as e:
-        raise ProcessingError(f"Tweet processing failed: {e}")
+
+            # Combine tweet text and image descriptions for categorization
+            content_text = tweet_data.get('full_text', '')
+            image_descriptions = tweet_data.get('image_descriptions', [])
+            combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions)
+
+            # Get AI categorization
+            main_cat, sub_cat, item_name = await categorize_and_name_content(
+                text=combined_text,
+                category_manager=category_manager,
+                http_client=http_client,
+                ollama_url=config.ollama_url,
+                model=config.text_model
+            )
+
+            # Write to knowledge base
+            image_files = [Path(p) for p in tweet_data.get('downloaded_media', [])]
+            await markdown_writer.write_tweet_markdown(
+                config=config,
+                tweet_id=tweet_id,
+                main_category=main_cat,
+                sub_category=sub_cat,
+                item_name=item_name,
+                tweet_text=content_text,
+                tweet_url=url,
+                image_files=image_files,
+                image_descriptions=image_descriptions
+            )
+            
+            logging.info(f"Successfully processed tweet {tweet_id}")
+            
+        except Exception as e:
+            logging.error(f"Failed to process tweet {url}: {e}")
+            continue
 
 async def process_single_tweet(
     tweet_id: str,
@@ -86,11 +92,12 @@ async def process_single_tweet(
         
         # Get categorization from AI
         try:
-            main_cat, sub_cat, item_name = await categorize_content(
+            main_cat, sub_cat, item_name = await categorize_and_name_content(
                 text=combined_text,
-                config=config,
                 category_manager=category_manager,
-                http_client=http_client
+                http_client=http_client,
+                ollama_url=config.ollama_url,
+                model=config.text_model
             )
         except Exception as e:
             raise AIError(f"Failed to categorize tweet {tweet_id}: {e}")
@@ -128,27 +135,6 @@ def _prepare_tweet_content(tweet_data: Dict[str, Any]) -> str:
         content_parts.append(f"Image {idx} interpretation: {desc}")
         
     return "\n\n".join(content_parts)
-
-async def categorize_content(
-    text: str,
-    config: Config,
-    category_manager: CategoryManager,
-    http_client: Any
-) -> tuple[str, str, str]:
-    """
-    Categorize content using AI.
-    
-    Returns:
-        Tuple of (main_category, sub_category, item_name)
-        
-    Raises:
-        AIError: If categorization fails
-    """
-    try:
-        # AI categorization logic here
-        pass
-    except Exception as e:
-        raise AIError(f"Content categorization failed: {e}")
 
 async def write_to_knowledge_base(
     tweet_id: str,

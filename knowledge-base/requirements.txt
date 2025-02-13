@@ -10,3 +10,4 @@ pydantic>=2.0.0
 requests>=2.31.0
 ratelimit>=2.2.1
 httpx>=0.25.0
+gitpython>=3.1.40
