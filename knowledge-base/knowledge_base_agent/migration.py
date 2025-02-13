@@ -4,6 +4,12 @@ import shutil
 import asyncio
 import aiofiles
 
+async def check_and_prompt_migration(knowledge_base_dir: Path) -> None:
+    """Check if migration is needed and prompt user."""
+    if any(Path(knowledge_base_dir).rglob('content.md')):
+        if input("Found content.md files. Migrate to README.md? (y/n): ").lower() == 'y':
+            await migrate_content_to_readme(knowledge_base_dir)
+
 async def migrate_content_to_readme(knowledge_base_dir: Path) -> None:
     """
     Migrate existing content.md files to README.md in the knowledge base.

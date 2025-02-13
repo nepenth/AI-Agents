@@ -12,11 +12,12 @@ from .fetch_bookmarks import fetch_bookmarks
 from .tweet_utils import load_tweet_urls_from_links, parse_tweet_id_from_url
 from .state_manager import load_processed_tweets
 from .http_client import create_http_client, OllamaClient
-from .cache_manager import load_cache
+from .cache_manager import load_cache, save_cache
 from .prompts import prompt_yes_no
 from .migration import migrate_content_to_readme
 from .reprocess import reprocess_existing_items
 from .markdown_writer import generate_root_readme
+from .tweet_processor import process_tweets
 
 class KnowledgeBaseAgent:
     def __init__(self, config: Config):
@@ -29,6 +30,7 @@ class KnowledgeBaseAgent:
             timeout=config.request_timeout,
             max_pool_size=config.max_pool_size
         )
+        self.tweet_cache = load_cache()
 
     async def initialize(self):
         """Initialize the agent and ensure all required directories exist."""
@@ -36,10 +38,10 @@ class KnowledgeBaseAgent:
         self.config.media_cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize cache and state
-        self.tweet_cache = load_cache()
         self.processed_tweets = load_processed_tweets(self.config.processed_tweets_file)
 
-    async def run(self):
+    async def run(self, update_bookmarks: bool = True, process_new: bool = True,
+                 update_readme: bool = True, push_changes: bool = True) -> None:
         """Main execution flow of the agent."""
         try:
             await self.initialize()
@@ -50,20 +52,31 @@ class KnowledgeBaseAgent:
                     await migrate_content_to_readme(self.config.knowledge_base_dir)
 
             # 2. Update bookmarks if requested
-            if prompt_yes_no("Update bookmarks?"):
+            if update_bookmarks:
                 success = fetch_bookmarks(self.config)
                 if not success:
                     logging.warning("Failed to update bookmarks. Proceeding with existing bookmarks.")
 
-            # 3. Process tweets
-            tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
-            new_urls = self._filter_new_tweets(tweet_urls)
+            # 3. Process new tweets
+            if process_new:
+                tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
+                await process_tweets(tweet_urls, self.config, self.category_manager,
+                                  self.http_client, self.tweet_cache)
+                save_cache(self.tweet_cache)
 
-            if new_urls:
-                await self._process_new_tweets(new_urls)
+            # 4. Update README if requested
+            if update_readme:
+                generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
 
-            # 4. Maintenance operations
-            await self._perform_maintenance()
+            # 5. Push changes if requested
+            if push_changes:
+                push_to_github(
+                    knowledge_base_dir=self.config.knowledge_base_dir,
+                    github_repo_url=self.config.github_repo_url,
+                    github_token=self.config.github_token,
+                    git_user_name=self.config.github_user_name,
+                    git_user_email=self.config.github_user_email
+                )
 
         except Exception as e:
             logging.error(f"Agent execution failed: {e}")
@@ -76,7 +89,6 @@ class KnowledgeBaseAgent:
 
     async def _process_new_tweets(self, urls: list):
         """Process new tweets with proper error handling."""
-        from .tweet_processor import process_tweets
         if prompt_yes_no("Cache tweet data for new tweets?"):
             # Implement caching logic
             pass

@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 import requests
 from dotenv import load_dotenv
+from typing import List
 
 from knowledge_base_agent.config import Config, setup_logging
 from knowledge_base_agent.category_manager import CategoryManager
@@ -17,10 +18,12 @@ from knowledge_base_agent.cleanup import delete_knowledge_base_item, clean_untit
 from knowledge_base_agent.git_helper import push_to_github
 from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
+from .cache_manager import cache_tweet_data
 from knowledge_base_agent.http_client import create_http_client
 from knowledge_base_agent.fetch_bookmarks import fetch_bookmarks
-from knowledge_base_agent.migration import migrate_content_to_readme
+from knowledge_base_agent.migration import migrate_content_to_readme, check_and_prompt_migration
 from knowledge_base_agent.agent import KnowledgeBaseAgent
+from .tweet_processor import process_tweets
 
 # Load environment variables at the start
 load_dotenv()
@@ -180,6 +183,15 @@ async def generate_knowledge_base_item(tweet_url: str, config: Config, category_
     }
     save_processed_tweets(config.processed_tweets_file, processed_tweets)
     logging.info(f"Successfully processed tweet {tweet_id} -> {main_cat}/{sub_cat}/{item_name}")
+
+async def cache_tweets(urls: List[str], config: Config, tweet_cache: dict, http_client) -> None:
+    """Pre-fetch and cache tweet data for a list of URLs."""
+    for url in urls:
+        try:
+            await cache_tweet_data(url, config, tweet_cache, http_client)
+        except Exception as e:
+            logging.error(f"Failed to cache tweet data for {url}: {e}")
+            continue
 
 def load_config() -> Config:
     """Load configuration with default values."""

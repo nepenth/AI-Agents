@@ -2,8 +2,10 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
-from .file_utils import safe_read_json, safe_write_json
+from knowledge_base_agent.file_utils import safe_read_json, safe_write_json
 import time
+from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
+from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
 
 # Default location for the tweet cache file
 DEFAULT_CACHE_FILE = Path("data/tweet_cache.json")
@@ -66,3 +68,20 @@ class CacheManager:
         }
         await self._save_cache()
         return data
+
+async def cache_tweet_data(tweet_url: str, config, tweet_cache: dict, http_client) -> None:
+    """Pre-fetch and cache tweet data for a tweet URL."""
+    tweet_id = parse_tweet_id_from_url(tweet_url)
+    if not tweet_id:
+        logging.warning(f"Invalid tweet URL skipped during caching: {tweet_url}")
+        return
+
+    try:
+        tweet_data = await fetch_tweet_data_playwright(tweet_id)
+        update_cache(tweet_id, tweet_data, tweet_cache)
+        save_cache(tweet_cache)
+        logging.info(f"Cached tweet data for {tweet_id}")
+    except Exception as e:
+        logging.error(f"Failed to cache tweet data for {tweet_id}: {e}")
+
+__all__ = ['load_cache', 'save_cache', 'get_cached_tweet', 'update_cache', 'clear_cache', 'cache_tweet_data']

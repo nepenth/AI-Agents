@@ -1,3 +1,4 @@
+from typing import List, Optional
 import asyncio
 import os
 import time
@@ -6,7 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import FetchError, ConfigurationError
+from knowledge_base_agent.exceptions import FetchError, ConfigurationError, StorageError
 
 # Load environment variables
 load_dotenv()
