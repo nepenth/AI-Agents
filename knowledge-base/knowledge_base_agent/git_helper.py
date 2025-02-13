@@ -56,18 +56,20 @@ class GitHelper:
         self.repo: Optional[git.Repo] = None
 
     def initialize_repo(self) -> None:
-        """
-        Initialize or open the Git repository.
-        
-        Raises:
-            GitError: If initialization fails
-        """
+        """Initialize or verify the git repository."""
         try:
             if not (self.repo_path / '.git').exists():
                 self.repo = git.Repo.init(self.repo_path)
                 self._setup_remote()
+                # Set up initial branch and upstream
+                self.repo.git.checkout('-B', 'main')  # Create and switch to main branch
+                self.repo.git.push('--set-upstream', 'origin', 'main')  # Set upstream branch
             else:
                 self.repo = git.Repo(self.repo_path)
+                # Ensure remote exists
+                if 'origin' not in [r.name for r in self.repo.remotes]:
+                    self._setup_remote()
+                    self.repo.git.push('--set-upstream', 'origin', 'main')
         except Exception as e:
             raise KnowledgeBaseError(f"Failed to initialize repository: {e}")
 

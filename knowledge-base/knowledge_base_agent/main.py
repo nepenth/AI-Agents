@@ -5,6 +5,7 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 from typing import List
+import sys
 
 from knowledge_base_agent.config import Config, setup_logging
 from knowledge_base_agent.category_manager import CategoryManager
@@ -197,73 +198,36 @@ def load_config() -> Config:
     """Load configuration with default values."""
     return Config.from_env()
 
-async def main_async():
-    """Main async function for the Knowledge Base Agent."""
-    config = Config.from_env()
-    setup_logging(config.log_file.parent)
-    
-    print("\n=== Knowledge Base Agent ===\n")
-    
+async def main():
+    """Main entry point for the knowledge base agent."""
     try:
-        # 1. Migration check (if needed)
-        await check_and_prompt_migration(config.knowledge_base_dir)
+        print("\n=== Knowledge Base Agent ===\n")
         
-        # 2. Initialize managers
-        category_manager = CategoryManager(config.categories_file)
-        http_client = create_http_client()
-        tweet_cache = load_cache()
-
-        # 3. Bookmarks update
-        if prompt_yes_no("Update bookmarks?"):
-            success = fetch_bookmarks(config)
-            if not success:
-                print("Failed to update bookmarks. Proceeding with existing bookmarks.")
-
-        # 4. Load and filter tweets
-        tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
-        processed_tweets = load_processed_tweets(config.processed_tweets_file)
-        new_urls = filter_new_tweet_urls(tweet_urls, processed_tweets)
-
-        if new_urls:
-            # 5. Cache tweet data
-            if prompt_yes_no("Cache tweet data for new tweets?"):
-                await cache_tweets(new_urls, config, tweet_cache, http_client)
-            
-            # 6. Process tweets
-            await process_tweets(new_urls, config, category_manager, http_client, tweet_cache)
-
-        # 7. Maintenance operations
-        await perform_maintenance_operations(config, category_manager)
-
+        # Initialize configuration and agent
+        config = Config.from_env()
+        agent = KnowledgeBaseAgent(config)
+        
+        # Get user preferences
+        update_bookmarks = prompt_yes_no("Update bookmarks?")
+        review_existing = prompt_yes_no("Re-review existing items?")
+        update_readme = prompt_yes_no("Regenerate root README?")
+        push_changes = prompt_yes_no("Push changes to GitHub?")
+        
+        # Run agent with user preferences
+        await agent.run(
+            update_bookmarks=update_bookmarks,
+            process_new=True,
+            update_readme=update_readme,
+            push_changes=push_changes
+        )
+        
     except Exception as e:
-        logging.error(f"Error in main process: {e}")
-        raise
-
-async def perform_maintenance_operations(config: Config, category_manager: CategoryManager):
-    """Handle maintenance operations with proper prompts."""
-    operations = [
-        ("Re-review existing items?", lambda: reprocess_existing_items(config.knowledge_base_dir, category_manager)),
-        ("Regenerate root README?", lambda: generate_root_readme(config.knowledge_base_dir, category_manager)),
-        ("Push changes to GitHub?", lambda: push_to_github(
-            knowledge_base_dir=config.knowledge_base_dir,
-            github_repo_url=config.github_repo_url,
-            github_token=config.github_token,
-            git_user_name=config.github_user_name,
-            git_user_email=config.github_user_email
-        ))
-    ]
-
-    for prompt, operation in operations:
-        if prompt_yes_no(prompt):
-            try:
-                operation()
-            except Exception as e:
-                logging.error(f"Operation failed: {e}")
-                print(f"Operation failed: {e}")
+        logging.error(f"Agent execution failed: {e}", exc_info=True)
+        sys.exit(1)
 
 def prompt_yes_no(question: str) -> bool:
     """Standardized yes/no prompt."""
     return input(f"{question} (y/n): ").strip().lower() == 'y'
 
 if __name__ == "__main__":
-    asyncio.run(main_async())
+    asyncio.run(main())
