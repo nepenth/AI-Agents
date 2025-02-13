@@ -197,7 +197,11 @@ async def fetch_bookmarks(config: Config) -> bool:
     """
     try:
         fetcher = BookmarksFetcher(config)
-        await fetcher.fetch_bookmarks()
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await fetcher.fetch_bookmarks(page)
+            await browser.close()
         return True
     except Exception as e:
         logging.error(f"Failed to fetch bookmarks: {e}")
