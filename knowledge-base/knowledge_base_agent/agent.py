@@ -31,6 +31,12 @@ class KnowledgeBaseAgent:
             max_pool_size=config.max_pool_size
         )
         self.tweet_cache = load_cache()
+        self.processed_tweets = set()  # Initialize empty set
+        
+        # Load processed tweets if file exists
+        if self.config.processed_tweets_file.exists():
+            with open(self.config.processed_tweets_file, 'r') as f:
+                self.processed_tweets = set(line.strip() for line in f)
 
     async def run(self, update_bookmarks: bool = True, process_new: bool = True,
                  update_readme: bool = True, push_changes: bool = True) -> None:

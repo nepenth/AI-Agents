@@ -49,6 +49,7 @@ class Config:
     def __init__(
         self,
         knowledge_base_dir: Optional[Path] = None,
+        bookmarks_file: Optional[Path] = None,
         github_token: Optional[str] = None,
         github_repo_url: Optional[str] = None,
         github_user_name: Optional[str] = None,
@@ -63,15 +64,19 @@ class Config:
         request_timeout: Optional[int] = None,
         max_pool_size: Optional[int] = None
     ):
-        # Get absolute path for knowledge base directory
+        # Get the knowledge base directory from parameter or environment variable
         kb_dir = knowledge_base_dir or os.getenv('KNOWLEDGE_BASE_DIR', 'kb-generated')
         self.knowledge_base_dir = Path(kb_dir).absolute()
         
-        # Make sure the directory exists
-        self.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+        # Get bookmarks file path from parameter or environment variable
+        bookmarks_path = bookmarks_file or os.getenv('BOOKMARKS_FILE', 'data/bookmarks_links.txt')
+        self.bookmarks_file = Path(bookmarks_path).absolute()
         
-        # Set up other paths relative to knowledge base directory
-        self.bookmarks_file = self.knowledge_base_dir / "bookmarks.txt"
+        # Make sure directories exist
+        self.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+        self.bookmarks_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Rest of paths relative to knowledge base directory
         self.categories_file = self.knowledge_base_dir / "categories.json"
         self.cache_file = self.knowledge_base_dir / "tweet_cache.json"
         self.media_cache_dir = self.knowledge_base_dir / "media_cache"
@@ -108,6 +113,7 @@ class Config:
         try:
             return cls(
                 knowledge_base_dir=os.getenv('KNOWLEDGE_BASE_DIR'),
+                bookmarks_file=os.getenv('BOOKMARKS_FILE'),
                 github_token=os.getenv('GITHUB_TOKEN'),
                 github_repo_url=os.getenv('GITHUB_REPO_URL'),
                 github_user_name=os.getenv('GITHUB_USER_NAME'),
