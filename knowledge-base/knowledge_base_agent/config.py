@@ -46,62 +46,82 @@ class Config:
     retry_backoff: bool
     max_pool_size: int
 
+    def __init__(
+        self,
+        knowledge_base_dir: Optional[Path] = None,
+        github_token: Optional[str] = None,
+        github_repo_url: Optional[str] = None,
+        github_user_name: Optional[str] = None,
+        github_user_email: Optional[str] = None,
+        x_username: Optional[str] = None,
+        x_password: Optional[str] = None,
+        ollama_url: Optional[str] = None,
+        text_model: Optional[str] = None,
+        vision_model: Optional[str] = None,
+        log_file: Optional[str] = None,
+        log_level: Optional[str] = None,
+        request_timeout: Optional[int] = None,
+        max_pool_size: Optional[int] = None
+    ):
+        # Get absolute path for knowledge base directory
+        kb_dir = knowledge_base_dir or os.getenv('KNOWLEDGE_BASE_DIR', 'kb-generated')
+        self.knowledge_base_dir = Path(kb_dir).absolute()
+        
+        # Make sure the directory exists
+        self.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set up other paths relative to knowledge base directory
+        self.bookmarks_file = self.knowledge_base_dir / "bookmarks.txt"
+        self.categories_file = self.knowledge_base_dir / "categories.json"
+        self.cache_file = self.knowledge_base_dir / "tweet_cache.json"
+        self.media_cache_dir = self.knowledge_base_dir / "media_cache"
+        self.processed_tweets_file = self.knowledge_base_dir / "processed_tweets.txt"
+        
+        # Logging configuration from environment
+        self.log_file = Path(log_file or os.getenv('LOG_FILE', 'log/ai_agent.log'))
+        self.log_level = log_level or os.getenv('LOG_LEVEL', 'INFO')
+        
+        # GitHub configuration
+        self.github_token = github_token
+        self.github_repo_url = github_repo_url
+        self.github_user_name = github_user_name
+        self.github_user_email = github_user_email
+        
+        # X/Twitter configuration
+        self.x_username = x_username
+        self.x_password = x_password
+        
+        # AI model configuration
+        self.ollama_url = ollama_url or "http://localhost:11434"
+        self.text_model = text_model or "mistral"
+        self.vision_model = vision_model or "llava"
+        
+        # Request timeout configuration
+        self.request_timeout = request_timeout or int(os.getenv('REQUEST_TIMEOUT', '30'))
+        self.max_pool_size = max_pool_size or int(os.getenv('MAX_POOL_SIZE', '10'))
+        
+        # Rest of the config initialization...
+
     @classmethod
     def from_env(cls) -> 'Config':
-        """
-        Create a Config instance from environment variables with validation.
-        Raises ConfigurationError if required variables are missing or invalid.
-        """
+        """Create Config instance from environment variables."""
         try:
-            # Required settings
-            required_vars = {
-                'GITHUB_TOKEN': os.getenv('GITHUB_TOKEN'),
-                'GITHUB_USER_NAME': os.getenv('GITHUB_USER_NAME'),
-                'GITHUB_REPO_URL': os.getenv('GITHUB_REPO_URL'),
-                'X_USERNAME': os.getenv('X_USERNAME'),
-                'X_PASSWORD': os.getenv('X_PASSWORD'),
-            }
-
-            # Check for missing required variables
-            missing_vars = [k for k, v in required_vars.items() if not v]
-            if missing_vars:
-                raise ConfigurationError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
             return cls(
-                # API endpoints and models
-                ollama_url=os.getenv('OLLAMA_URL', 'http://localhost:11434'),
-                vision_model=os.getenv('VISION_MODEL', 'llama2-vision'),
-                text_model=os.getenv('TEXT_MODEL', 'llama2'),
-                
-                # GitHub settings
-                github_token=required_vars['GITHUB_TOKEN'],
-                github_user_name=required_vars['GITHUB_USER_NAME'],
-                github_repo_url=required_vars['GITHUB_REPO_URL'],
-                github_user_email=os.getenv('GITHUB_USER_EMAIL', f"{required_vars['GITHUB_USER_NAME']}@users.noreply.github.com"),
-                
-                # File paths
-                knowledge_base_dir=Path(os.getenv('KNOWLEDGE_BASE_DIR', 'kb-generated')),
-                categories_file=Path(os.getenv('CATEGORIES_FILE', 'data/categories.json')),
-                bookmarks_file=Path(os.getenv('BOOKMARKS_FILE', 'data/bookmarks_links.txt')),
-                processed_tweets_file=Path(os.getenv('PROCESSED_TWEETS_FILE', 'data/processed_tweets.json')),
-                media_cache_dir=Path(os.getenv('MEDIA_CACHE_DIR', 'data/media_cache')),
-                log_file=Path(os.getenv('LOG_FILE', 'log/ai_agent.log')),
-                
-                # X/Twitter credentials
-                x_username=required_vars['X_USERNAME'],
-                x_password=required_vars['X_PASSWORD'],
-                x_bookmarks_url=os.getenv('X_BOOKMARKS_URL', 'https://x.com/i/bookmarks'),
-                
-                # Performance settings
-                batch_size=int(os.getenv('BATCH_SIZE', '1')),
-                max_retries=int(os.getenv('MAX_RETRIES', '5')),
-                max_concurrent_requests=int(os.getenv('MAX_CONCURRENT_REQUESTS', '1')),
-                request_timeout=int(os.getenv('REQUEST_TIMEOUT', '180')),
-                retry_backoff=os.getenv('RETRY_BACKOFF', 'True').lower() == 'true',
-                max_pool_size=int(os.getenv('MAX_POOL_SIZE', '1')),
+                knowledge_base_dir=os.getenv('KNOWLEDGE_BASE_DIR'),
+                github_token=os.getenv('GITHUB_TOKEN'),
+                github_repo_url=os.getenv('GITHUB_REPO_URL'),
+                github_user_name=os.getenv('GITHUB_USER_NAME'),
+                github_user_email=os.getenv('GITHUB_USER_EMAIL'),
+                x_username=os.getenv('X_USERNAME'),
+                x_password=os.getenv('X_PASSWORD'),
+                ollama_url=os.getenv('OLLAMA_URL'),
+                text_model=os.getenv('TEXT_MODEL'),
+                vision_model=os.getenv('VISION_MODEL'),
+                log_file=os.getenv('LOG_FILE'),
+                log_level=os.getenv('LOG_LEVEL'),
+                request_timeout=os.getenv('REQUEST_TIMEOUT'),
+                max_pool_size=os.getenv('MAX_POOL_SIZE')
             )
-        except ValueError as e:
-            raise ConfigurationError(f"Invalid configuration value: {e}")
         except Exception as e:
             raise ConfigurationError(f"Configuration error: {e}")
 

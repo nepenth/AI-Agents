@@ -191,6 +191,10 @@ def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryMan
         StorageError: If writing fails
     """
     try:
+        # Ensure knowledge base directory exists
+        knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+        
+        logging.info(f"Generating root README.md in {knowledge_base_dir}")
         content = ["# Knowledge Base\n"]
         
         for main_cat in sorted(category_manager.get_all_main_categories()):
@@ -210,5 +214,8 @@ def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryMan
         with readme_path.open('w', encoding='utf-8') as f:
             f.write("\n".join(content))
             
+        logging.info("Root README.md generated successfully")
+            
     except Exception as e:
+        logging.error(f"Failed to generate root README: {e}", exc_info=True)
         raise StorageError(f"Failed to generate root README: {e}")
