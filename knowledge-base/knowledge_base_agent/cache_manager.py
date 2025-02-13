@@ -7,6 +7,8 @@ import time
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
 from knowledge_base_agent.exceptions import StorageError
+from knowledge_base_agent.config import Config
+import aiohttp
 
 # Default location for the tweet cache file
 DEFAULT_CACHE_FILE = Path("data/tweet_cache.json")
@@ -84,7 +86,7 @@ class CacheManager:
         await self._save_cache()
         return data
 
-async def cache_tweet_data(tweet_url: str, config, tweet_cache: dict, http_client) -> None:
+async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: Dict[str, Any], http_client) -> None:
     """Pre-fetch and cache tweet data for a tweet URL."""
     try:
         tweet_id = parse_tweet_id_from_url(tweet_url)
@@ -95,13 +97,46 @@ async def cache_tweet_data(tweet_url: str, config, tweet_cache: dict, http_clien
         if tweet_id not in tweet_cache:
             tweet_data = await fetch_tweet_data_playwright(tweet_id)
             if tweet_data:
-                tweet_cache[tweet_id] = tweet_data  # Store as dictionary
-                await save_cache(tweet_cache, config.cache_file)
+                tweet_cache[tweet_id] = tweet_data
+                await save_cache(tweet_cache, config.tweet_cache_file)  # Use config path
                 logging.info(f"Updated cache for tweet ID {tweet_id}.")
+
+        # Download and process media if present
+        if tweet_cache[tweet_id].get('media'):
+            media_paths = []
+            for img_url in tweet_cache[tweet_id]['media']:
+                media_path = await download_media(img_url, tweet_id, config.media_cache_dir)
+                if media_path:
+                    media_paths.append(media_path)
+            
+            # Update cache with downloaded media paths
+            tweet_cache[tweet_id]['downloaded_media'] = media_paths
+            await save_cache(tweet_cache, config.tweet_cache_file)
 
         logging.info(f"Cached tweet data for {tweet_id}")
 
     except Exception as e:
         logging.error(f"Failed to cache tweet data: {e}")
+
+async def download_media(url: str, tweet_id: str, media_cache_dir: Path) -> Optional[Path]:
+    """Download media from URL to the media cache directory."""
+    try:
+        media_cache_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{tweet_id}_{url.split('/')[-1]}"
+        media_path = media_cache_dir / filename
+        
+        if media_path.exists():
+            return media_path
+            
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    media_path.write_bytes(content)
+                    return media_path
+                    
+    except Exception as e:
+        logging.error(f"Failed to download media from {url}: {e}")
+        return None
 
 __all__ = ['load_cache', 'save_cache', 'get_cached_tweet', 'update_cache', 'clear_cache', 'cache_tweet_data']

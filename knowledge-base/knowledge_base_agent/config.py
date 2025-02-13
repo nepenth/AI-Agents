@@ -26,11 +26,13 @@ class Config:
     github_user_email: str
     
     # File paths
+    data_processing_dir: Path
     knowledge_base_dir: Path
     categories_file: Path
     bookmarks_file: Path
     processed_tweets_file: Path
     media_cache_dir: Path
+    tweet_cache_file: Path
     log_file: Path
     
     # X/Twitter credentials
@@ -48,6 +50,7 @@ class Config:
 
     def __init__(
         self,
+        data_processing_dir: Optional[Path] = None,
         knowledge_base_dir: Optional[Path] = None,
         bookmarks_file: Optional[Path] = None,
         github_token: Optional[str] = None,
@@ -64,26 +67,19 @@ class Config:
         request_timeout: Optional[int] = None,
         max_pool_size: Optional[int] = None
     ):
-        # Get the knowledge base directory from parameter or environment variable
-        kb_dir = knowledge_base_dir or os.getenv('KNOWLEDGE_BASE_DIR', 'kb-generated')
-        self.knowledge_base_dir = Path(kb_dir).absolute()
+        # Data directories setup
+        self.data_processing_dir = Path(data_processing_dir or os.getenv('DATA_PROCESSING_DIR', 'data'))
+        self.knowledge_base_dir = Path(knowledge_base_dir or os.getenv('KNOWLEDGE_BASE_DIR', 'kb-generated'))
         
-        # Get bookmarks file path from parameter or environment variable
-        bookmarks_path = bookmarks_file or os.getenv('BOOKMARKS_FILE', 'data/bookmarks_links.txt')
-        self.bookmarks_file = Path(bookmarks_path).absolute()
-        
-        # Make sure directories exist
-        self.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
-        self.bookmarks_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Rest of paths relative to knowledge base directory
-        self.categories_file = self.knowledge_base_dir / "categories.json"
-        self.cache_file = self.knowledge_base_dir / "tweet_cache.json"
-        self.media_cache_dir = self.knowledge_base_dir / "media_cache"
-        self.processed_tweets_file = self.knowledge_base_dir / "processed_tweets.txt"
+        # Update paths to use data_processing_dir
+        self.tweet_cache_file = self.data_processing_dir / 'tweet_cache.json'
+        self.categories_file = self.data_processing_dir / 'categories.json'
+        self.media_cache_dir = Path(os.getenv('MEDIA_CACHE_DIR', self.data_processing_dir / 'media_cache'))
+        self.processed_tweets_file = self.data_processing_dir / 'processed_tweets.json'
+        self.bookmarks_file = self.data_processing_dir / 'bookmarks.json'
+        self.log_file = self.data_processing_dir / 'logs' / f"kb_agent_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         
         # Logging configuration from environment
-        self.log_file = Path(log_file or os.getenv('LOG_FILE', 'log/ai_agent.log'))
         self.log_level = log_level or os.getenv('LOG_LEVEL', 'INFO')
         
         # GitHub configuration

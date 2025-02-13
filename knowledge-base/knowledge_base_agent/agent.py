@@ -24,6 +24,12 @@ from knowledge_base_agent.content_processor import create_knowledge_base_entry
 class KnowledgeBaseAgent:
     def __init__(self, config: Config):
         self.config = config
+        
+        # Ensure all required directories exist
+        self.config.data_processing_dir.mkdir(parents=True, exist_ok=True)
+        self.config.media_cache_dir.mkdir(parents=True, exist_ok=True)
+        self.config.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+        
         self.category_manager = CategoryManager(config.categories_file)
         self.markdown_writer = MarkdownWriter()
         self.http_client = create_http_client()
@@ -32,41 +38,44 @@ class KnowledgeBaseAgent:
             timeout=config.request_timeout,
             max_pool_size=config.max_pool_size
         )
-        self.tweet_cache = load_cache()
-        self.processed_tweets = set()  # Initialize empty set
+        self.tweet_cache = load_cache(config.tweet_cache_file)
+        self.processed_tweets = set()
         
         # Load processed tweets if file exists
         if self.config.processed_tweets_file.exists():
-            with open(self.config.processed_tweets_file, 'r') as f:
-                self.processed_tweets = set(line.strip() for line in f)
+            self.processed_tweets = load_processed_tweets(self.config.processed_tweets_file)
 
     async def run(self, update_bookmarks: bool = True, process_new: bool = True,
                  update_readme: bool = True, push_changes: bool = True) -> None:
         """Main execution flow of the agent."""
         try:
-            # 1. Check for content migration
-            if any(Path(self.config.knowledge_base_dir).rglob('content.md')):
-                if prompt_yes_no("Found existing content.md files. Migrate to README.md?"):
-                    await migrate_content_to_readme(self.config.knowledge_base_dir)
-
-            # 2. Update bookmarks if requested
+            # 1. Update bookmarks if requested
             if update_bookmarks:
-                success = await fetch_bookmarks(self.config)
-                if not success:
-                    logging.warning("Failed to update bookmarks. Proceeding with existing bookmarks.")
+                await fetch_bookmarks(
+                    self.config.x_username,
+                    self.config.x_password,
+                    self.config.bookmarks_file
+                )
 
-            # 3. Process new tweets if requested
+            # 2. Cache all tweet data first
+            tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
+            for url in tweet_urls:
+                await cache_tweet_data(url, self.config, self.tweet_cache, self.http_client)
+
+            # 3. Process vision model for all cached images
+            await self._process_cached_images()
+
+            # 4. Process new tweets if requested
             if process_new:
-                tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
                 new_urls = self._filter_new_tweets(tweet_urls)
                 if new_urls:
                     await self._process_new_tweets(new_urls)
 
-            # 4. Update README if requested
+            # 5. Update README if requested
             if update_readme:
                 await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
 
-            # 5. Push changes if requested
+            # 6. Push changes if requested
             if push_changes:
                 await self._git_push_changes()
 
