@@ -28,7 +28,23 @@ def save_cache(cache: Dict[str, Any], cache_file: Optional[Path] = None) -> None
 
 def get_cached_tweet(tweet_id: str, tweet_cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Get cached tweet data if it exists."""
-    return tweet_cache.get(tweet_id)
+    try:
+        if tweet_id in tweet_cache:
+            data = tweet_cache[tweet_id]
+            # Ensure data is a dictionary
+            if isinstance(data, list):
+                # Convert list to dictionary if needed
+                return {
+                    "full_text": data[0] if data else "",
+                    "media": data[1] if len(data) > 1 else [],
+                    "downloaded_media": data[2] if len(data) > 2 else [],
+                    "image_descriptions": data[3] if len(data) > 3 else []
+                }
+            return data
+        return None
+    except Exception as e:
+        logging.error(f"Error retrieving cached tweet {tweet_id}: {e}")
+        return None
 
 def update_cache(tweet_id: str, tweet_data: Dict[str, Any], cache: Dict[str, Any]) -> None:
     """
@@ -70,17 +86,22 @@ class CacheManager:
 
 async def cache_tweet_data(tweet_url: str, config, tweet_cache: dict, http_client) -> None:
     """Pre-fetch and cache tweet data for a tweet URL."""
-    tweet_id = parse_tweet_id_from_url(tweet_url)
-    if not tweet_id:
-        logging.warning(f"Invalid tweet URL skipped during caching: {tweet_url}")
-        return
-
     try:
-        tweet_data = await fetch_tweet_data_playwright(tweet_id)
-        update_cache(tweet_id, tweet_data, tweet_cache)
-        save_cache(tweet_cache)
+        tweet_id = parse_tweet_id_from_url(tweet_url)
+        if not tweet_id:
+            return
+
+        # If not in cache, fetch and store
+        if tweet_id not in tweet_cache:
+            tweet_data = await fetch_tweet_data_playwright(tweet_id)
+            if tweet_data:
+                tweet_cache[tweet_id] = tweet_data  # Store as dictionary
+                await save_cache(tweet_cache, config.cache_file)
+                logging.info(f"Updated cache for tweet ID {tweet_id}.")
+
         logging.info(f"Cached tweet data for {tweet_id}")
+
     except Exception as e:
-        logging.error(f"Failed to cache tweet data for {tweet_id}: {e}")
+        logging.error(f"Failed to cache tweet data: {e}")
 
 __all__ = ['load_cache', 'save_cache', 'get_cached_tweet', 'update_cache', 'clear_cache', 'cache_tweet_data']

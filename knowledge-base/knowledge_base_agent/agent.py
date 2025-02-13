@@ -97,12 +97,13 @@ class KnowledgeBaseAgent:
                     logging.warning(f"No cached data found for tweet {tweet_id}")
                     continue
                 
-                # Categorize and process tweet - remove keyword arguments
+                # Get categories and name using AI
                 main_cat, sub_cat, name = await categorize_and_name_content(
-                    tweet_data,
-                    self.category_manager,
+                    self.config.ollama_url,
+                    tweet_data.get('full_text', ''),  # Use .get() for dictionary access
                     self.config.text_model,
-                    tweet_id
+                    tweet_id,
+                    self.category_manager
                 )
                 
                 # Create knowledge base entry
