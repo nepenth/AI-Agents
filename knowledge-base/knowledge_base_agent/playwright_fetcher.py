@@ -15,7 +15,7 @@ def get_high_res_url(url: str) -> str:
     return url
 
 async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 60000) -> Dict[str, Any]:
-    """Fetch tweet data using Playwright with increased timeout."""
+    """Fetch tweet data using Playwright."""
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -28,14 +28,16 @@ async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 60000) -> Di
             tweet_selector = 'article div[data-testid="tweetText"]'
             await page.wait_for_selector(tweet_selector, timeout=timeout)
             
-            # Extract tweet text
-            tweet_text = await page.locator(tweet_selector).inner_text()
+            # Get first matching tweet text element
+            tweet_text = await page.locator(tweet_selector).first.inner_text()
             
             # Get images if any
-            image_urls = await page.eval_all(
-                'article img[src*="/media/"]',
-                'elements => elements.map(el => el.src)'
-            )
+            images = await page.locator('article img[src*="/media/"]').all()
+            image_urls = []
+            for img in images:
+                src = await img.get_attribute('src')
+                if src:
+                    image_urls.append(src)
             
             await browser.close()
             
@@ -44,9 +46,6 @@ async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 60000) -> Di
                 "extended_media": [{"media_url_https": url} for url in image_urls]
             }
             
-    except PlaywrightTimeoutError:
-        logging.error(f"Timeout error fetching tweet {tweet_id}")
-        raise
     except Exception as e:
         logging.error(f"Error fetching tweet {tweet_id}: {e}")
         raise
