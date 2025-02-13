@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
+from knowledge_base_agent.config import Config
+from knowledge_base_agent.exceptions import FetchError, ConfigurationError
 
 # Load environment variables
 load_dotenv()
@@ -26,166 +28,182 @@ SCROLL_PAUSE = 5  # seconds
 MAX_SCROLL_ITERATIONS = 100
 MAX_NO_CHANGE_TRIES = 3
 
-DATA_DIR = Path("data")
+# Update data directory to be relative to the project root
+DATA_DIR = Path("data")  # This stays the same as it's for configuration
 BOOKMARKS_FILE = DATA_DIR / "bookmarks_links.txt"
 ARCHIVE_DIR = DATA_DIR / "archive_bookmarks"
 
-async def scrape_x_bookmarks(headless: bool = True):
-    # Ensure necessary directories exist.
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+class BookmarksFetcher:
+    def __init__(self, config: Config):
+        if not config.x_username or not config.x_password:
+            raise ConfigurationError("X/Twitter credentials not provided")
+        
+        self.config = config
+        self.login_url = "https://x.com/login"
+        self.selectors = {
+            'username': 'input[name="text"]',
+            'password': 'input[name="password"]',
+            'tweet': 'article[data-testid="tweet"], article[role="article"], article'
+        }
+        self.scroll_settings = {
+            'pixels': 1000,
+            'pause': 5,
+            'max_iterations': 100,
+            'max_no_change_tries': 3
+        }
 
-    username = os.getenv("X_USERNAME")
-    password = os.getenv("X_PASSWORD")
-    bookmarks_url = os.getenv("X_BOOKMARKS_URL")
+    async def fetch_bookmarks(self, headless: bool = True) -> bool:
+        """
+        Main method to fetch bookmarks from X/Twitter.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            # Ensure necessary directories exist
+            self.config.bookmarks_file.parent.mkdir(parents=True, exist_ok=True)
+            archive_dir = self.config.bookmarks_file.parent / "archive_bookmarks"
+            archive_dir.mkdir(parents=True, exist_ok=True)
 
-    if not (username and password and bookmarks_url):
-        raise ValueError("X_USERNAME, X_PASSWORD, and X_BOOKMARKS_URL must be set in the environment.")
+            logging.info("Starting bookmark fetch process...")
+            
+            async with async_playwright() as p:
+                browser = await self._setup_browser(p, headless)
+                page = await browser.new_page()
 
-    async with async_playwright() as p:
-        # Updated browser launch with container-friendly arguments
-        browser = await p.chromium.launch(
+                try:
+                    await self._perform_login(page)
+                    await self._navigate_to_bookmarks(page)
+                    bookmarks = await self._scroll_and_collect_bookmarks(page)
+                    await self._save_bookmarks(bookmarks)
+                    return True
+                except PlaywrightTimeoutError as e:
+                    raise FetchError(f"Timeout during bookmark fetching: {e}")
+                except Exception as e:
+                    raise FetchError(f"Error during bookmark fetching: {e}")
+                finally:
+                    await browser.close()
+                    logging.info("Browser closed.")
+        except Exception as e:
+            logging.error(f"Bookmark fetching failed: {e}")
+            return False
+
+    async def _setup_browser(self, playwright, headless: bool):
+        """Setup and return a browser instance with appropriate settings"""
+        return await playwright.chromium.launch(
             headless=headless,
             args=[
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',  # Overcome limited resource problems
-                '--disable-gpu',  # Disable GPU hardware acceleration
-                '--disable-software-rasterizer'  # Disable software rasterizer
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-software-rasterizer'
             ]
         )
-        page = await browser.new_page()
 
-        # 1. Navigate to the login page and log in.
-        logging.info("Navigating to login page...")
-        await page.goto(LOGIN_URL, wait_until="networkidle")
-        await page.wait_for_selector(USERNAME_SELECTOR, timeout=30000)
-        await page.type(USERNAME_SELECTOR, username, delay=100)
-        await page.keyboard.press('Enter')
-        await page.wait_for_timeout(3000)  # wait for transition
-
-        await page.wait_for_selector(PASSWORD_SELECTOR, timeout=30000)
-        await page.type(PASSWORD_SELECTOR, password, delay=100)
-        await page.keyboard.press('Enter')
-
+    async def _perform_login(self, page) -> None:
+        """Handle the login process."""
         try:
-            # Attempt to wait for navigation after login.
-            await page.wait_for_navigation(timeout=30000, wait_until="domcontentloaded")
-        except Exception as nav_error:
-            logging.error(f"Navigation after login did not complete: {nav_error}")
+            logging.info("Navigating to login page...")
+            await page.goto(self.login_url, wait_until="networkidle")
+            
+            # Enter username
+            await page.wait_for_selector(self.selectors['username'], timeout=30000)
+            await page.type(self.selectors['username'], self.config.x_username, delay=100)
+            await page.keyboard.press('Enter')
+            await page.wait_for_timeout(3000)
 
-        current_url = page.url
-        logging.debug(f"After login attempt, current URL: {current_url}")
+            # Enter password
+            await page.wait_for_selector(self.selectors['password'], timeout=30000)
+            await page.type(self.selectors['password'], self.config.x_password, delay=100)
+            await page.keyboard.press('Enter')
 
-        if LOGIN_URL in current_url:
-            logging.error("Login appears to have failed. The page is still at the login URL.")
-            raise Exception("Login failed: still on login page. Please check credentials or additional login steps.")
+            # Wait for navigation and verify login
+            try:
+                await page.wait_for_navigation(timeout=30000, wait_until="domcontentloaded")
+            except Exception as e:
+                raise FetchError(f"Navigation error after login: {e}")
 
-        logging.info("Logged in successfully.")
-
-        # Attempt to dismiss any modal dialog (e.g., "Not now" prompt).
-        try:
-            await page.wait_for_selector('div[role="dialog"] button', timeout=5000)
-            buttons = await page.query_selector_all('div[role="dialog"] button')
-            for btn in buttons:
-                btn_text = await btn.inner_text()
-                if "Not now" in btn_text:
-                    await btn.click()
-                    logging.info("Dismissed 'Not now' dialog.")
-                    break
+            if self.login_url in page.url:
+                raise FetchError("Login failed: still on login page")
+            
+            logging.info("Login successful")
         except Exception as e:
-            logging.debug("No modal dialog to dismiss.")
+            raise FetchError(f"Login failed: {e}")
 
-        # 2. Navigate to the bookmarks page.
-        logging.info("Navigating to the bookmarks page...")
+    async def _navigate_to_bookmarks(self, page):
+        """Navigate to the bookmarks page"""
+        logging.info("Navigating to bookmarks page...")
+        await page.goto(self.config.x_bookmarks_url, wait_until="domcontentloaded", timeout=60000)
+        await page.wait_for_timeout(10000)  # Wait for dynamic content
+
+        # Verify navigation
+        if self.login_url in page.url:
+            raise Exception("Navigation to bookmarks failed")
+
+    async def _scroll_and_collect_bookmarks(self, page) -> List[str]:
+        """Scroll through the page and collect bookmark links."""
         try:
-            await page.goto(bookmarks_url, wait_until="domcontentloaded", timeout=60000)
-        except Exception as goto_error:
-            logging.error(f"Error navigating to bookmarks page: {goto_error}")
-            raise
+            logging.info("Starting bookmark collection...")
+            previous_height = await page.evaluate("() => document.body.scrollHeight")
+            no_change_tries = 0
+            all_bookmarks = set()
 
-        # Instead of waiting for networkidle, wait a fixed delay.
-        await page.wait_for_timeout(10000)  # wait 10 seconds for dynamic content to load
+            for i in range(1, self.scroll_settings['max_iterations'] + 1):
+                # Collect links
+                links = await page.query_selector_all(f'{self.selectors["tweet"]} a[href*="/status/"]')
+                current_links = [await link.get_attribute("href") for link in links if link]
+                all_bookmarks.update([link for link in current_links if link])
 
-        current_url = page.url
-        logging.debug(f"After navigating to bookmarks, URL is: {current_url}")
+                logging.info(f"Scroll #{i}. Found {len(all_bookmarks)} unique links.")
 
-        if LOGIN_URL in current_url:
-            logging.error("Navigation to bookmarks page failed, still at login page.")
-            raise Exception("Navigation to bookmarks page failed.")
+                # Scroll
+                await page.evaluate(f"window.scrollBy(0, {self.scroll_settings['pixels']});")
+                await asyncio.sleep(self.scroll_settings['pause'])
 
-        # Log page content length for debugging.
-        content = await page.content()
-        logging.debug(f"Bookmarks page content length: {len(content)}")
+                # Check for new content
+                current_height = await page.evaluate("() => document.body.scrollHeight")
+                if current_height == previous_height:
+                    no_change_tries += 1
+                    if no_change_tries >= self.scroll_settings['max_no_change_tries']:
+                        break
+                else:
+                    no_change_tries = 0
+                    previous_height = current_height
 
-        # Try finding tweet elements; if none are found, log a warning.
-        try:
-            tweet_elements = await page.query_selector_all(TWEET_SELECTOR)
-            if tweet_elements:
-                logging.info(f"Found {len(tweet_elements)} tweet/article elements on the bookmarks page.")
-            else:
-                logging.warning("No tweet/article elements found on the bookmarks page.")
+            return [link for link in all_bookmarks 
+                    if "/analytics" not in link and "/photo/" not in link]
         except Exception as e:
-            logging.error(f"Error querying tweet elements: {e}")
+            raise FetchError(f"Error collecting bookmarks: {e}")
 
-        # 3. Scroll to load all bookmarks.
-        logging.info("Starting scroll to load bookmarks...")
-        previous_height = await page.evaluate("() => document.body.scrollHeight")
-        no_change_tries = 0
-        all_bookmarks = set()
+    async def _save_bookmarks(self, bookmarks: List[str]) -> None:
+        """Save collected bookmarks to file."""
+        try:
+            if self.config.bookmarks_file.exists():
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                archive_file = self.config.bookmarks_file.parent / "archive_bookmarks" / f"bookmarks_links_{timestamp}.txt"
+                self.config.bookmarks_file.rename(archive_file)
+                logging.info(f"Archived existing bookmarks to: {archive_file}")
 
-        for i in range(1, MAX_SCROLL_ITERATIONS + 1):
-            links = await page.query_selector_all(f'{TWEET_SELECTOR} a[href*="/status/"]')
-            current_links = []
-            for link in links:
-                href = await link.get_attribute("href")
-                if href:
-                    current_links.append(href)
-            for link in current_links:
-                all_bookmarks.add(link)
+            with self.config.bookmarks_file.open('w', encoding='utf8') as f:
+                f.write("\n".join(bookmarks))
+            logging.info(f"Saved {len(bookmarks)} bookmarks to {self.config.bookmarks_file}")
+        except Exception as e:
+            raise StorageError(f"Failed to save bookmarks: {e}")
 
-            logging.info(f"Scroll iteration #{i}. Found so far: {len(all_bookmarks)} unique links.")
-
-            await page.evaluate(f"window.scrollBy(0, {SCROLL_PIXELS});")
-            await asyncio.sleep(SCROLL_PAUSE)
-
-            current_height = await page.evaluate("() => document.body.scrollHeight")
-            logging.info(f"Previous height: {previous_height}, Current height: {current_height}")
-
-            if current_height == previous_height:
-                no_change_tries += 1
-                logging.info(f"No new content detected #{no_change_tries} time(s).")
-                if no_change_tries >= MAX_NO_CHANGE_TRIES:
-                    logging.info("No new content after multiple attempts, ending scroll.")
-                    break
-            else:
-                no_change_tries = 0
-                previous_height = current_height
-
-        # Filter the bookmarks to remove unwanted links.
-        bookmarks = [link for link in all_bookmarks if isinstance(link, str)
-                     and "/analytics" not in link and "/photo/" not in link]
-        logging.info(f"Extracted {len(bookmarks)} unique bookmark links.")
-
-        # 4. Archive the existing bookmarks file if it exists.
-        if BOOKMARKS_FILE.exists():
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            archive_file = ARCHIVE_DIR / f"bookmarks_links_{timestamp}.txt"
-            BOOKMARKS_FILE.rename(archive_file)
-            logging.info(f"Existing bookmarks file archived as: {archive_file}")
-
-        # 5. Write the new bookmarks file.
-        with BOOKMARKS_FILE.open('w', encoding='utf8') as f:
-            f.write("\n".join(bookmarks))
-        logging.info(f"Saved new bookmarks to {BOOKMARKS_FILE}")
-        print(f"Saved {len(bookmarks)} bookmarks to {BOOKMARKS_FILE}")
-
-        await browser.close()
-        logging.info("Browser closed.")
+def fetch_bookmarks(config: Config) -> bool:
+    """
+    Main entry point for fetching bookmarks.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        fetcher = BookmarksFetcher(config)
+        asyncio.run(fetcher.fetch_bookmarks())
+        return True
+    except Exception as e:
+        logging.error(f"Failed to fetch bookmarks: {e}")
+        return False
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(scrape_x_bookmarks())
-    except Exception as e:
-        logging.error(f"An error occurred while updating bookmarks: {e}")
+    config = Config.from_env()
+    success = fetch_bookmarks(config)
+    if not success:
         print("An error occurred while updating bookmarks. Proceeding with existing bookmarks.")

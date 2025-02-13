@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Set, Optional
+from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError
 
 @dataclass
 class Category:
@@ -13,12 +14,135 @@ class Category:
     keywords: Set[str]
 
 class CategoryManager:
+    """Manages categories for the knowledge base."""
+    
     def __init__(self, categories_file: Path):
+        """
+        Initialize the CategoryManager.
+        
+        Args:
+            categories_file: Path to the categories JSON file
+            
+        Raises:
+            ConfigurationError: If the categories file is invalid
+        """
         self.categories_file = categories_file
-        self.categories: Dict[str, dict] = {}
-        self._lock = asyncio.Lock()
-        self._initialize_default_categories()
+        self.categories: Dict[str, List[str]] = {}
         self.load_categories()
+
+    def load_categories(self) -> None:
+        """
+        Load categories from the JSON file.
+        
+        Raises:
+            StorageError: If reading the categories file fails
+            CategoryError: If the categories format is invalid
+        """
+        try:
+            if not self.categories_file.exists():
+                self.categories = {}
+                self._save_categories()
+                return
+
+            with self.categories_file.open('r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            if not isinstance(data, dict):
+                raise CategoryError("Categories must be a dictionary")
+                
+            for main_cat, sub_cats in data.items():
+                if not isinstance(sub_cats, list):
+                    raise CategoryError(f"Subcategories for {main_cat} must be a list")
+                    
+            self.categories = data
+            
+        except json.JSONDecodeError as e:
+            raise StorageError(f"Invalid JSON in categories file: {e}")
+        except Exception as e:
+            raise StorageError(f"Failed to load categories: {e}")
+
+    def _save_categories(self) -> None:
+        """
+        Save categories to the JSON file.
+        
+        Raises:
+            StorageError: If writing the categories file fails
+        """
+        try:
+            self.categories_file.parent.mkdir(parents=True, exist_ok=True)
+            with self.categories_file.open('w', encoding='utf-8') as f:
+                json.dump(self.categories, f, indent=2)
+        except Exception as e:
+            raise StorageError(f"Failed to save categories: {e}")
+
+    def add_category(self, main_category: str, sub_category: Optional[str] = None) -> None:
+        """
+        Add a new category or subcategory.
+        
+        Args:
+            main_category: The main category name
+            sub_category: Optional subcategory name
+            
+        Raises:
+            CategoryError: If the category is invalid
+        """
+        try:
+            if not main_category:
+                raise CategoryError("Main category cannot be empty")
+
+            if main_category not in self.categories:
+                self.categories[main_category] = []
+
+            if sub_category:
+                if sub_category not in self.categories[main_category]:
+                    self.categories[main_category].append(sub_category)
+
+            self._save_categories()
+            
+        except Exception as e:
+            raise CategoryError(f"Failed to add category: {e}")
+
+    def get_categories(self) -> Dict[str, List[str]]:
+        """Return all categories."""
+        return self.categories
+
+    def get_subcategories(self, main_category: str) -> List[str]:
+        """
+        Get subcategories for a main category.
+        
+        Args:
+            main_category: The main category name
+            
+        Raises:
+            CategoryError: If the main category doesn't exist
+        """
+        if main_category not in self.categories:
+            raise CategoryError(f"Main category '{main_category}' does not exist")
+        return self.categories[main_category]
+
+    def validate_categories(self, main_category: str, sub_category: str) -> None:
+        """
+        Validate that a category combination exists.
+        
+        Args:
+            main_category: The main category name
+            sub_category: The subcategory name
+            
+        Raises:
+            CategoryError: If the category combination is invalid
+        """
+        if main_category not in self.categories:
+            raise CategoryError(f"Invalid main category: {main_category}")
+        if sub_category not in self.categories[main_category]:
+            raise CategoryError(f"Invalid sub-category '{sub_category}' for main category '{main_category}'")
+
+    def get_all_main_categories(self) -> Set[str]:
+        """Return all main categories."""
+        return set(self.categories.keys())
+
+    def get_all_sub_categories(self) -> Set[str]:
+        """Return all subcategories across all main categories."""
+        return {sub_cat for sub_cats in self.categories.values() for sub_cat in sub_cats}
 
     def _initialize_default_categories(self):
         default_structure = {
@@ -90,26 +214,6 @@ class CategoryManager:
             logging.error(f"Error saving categories: {e}")
             raise
 
-    def load_categories(self):
-        if self.categories_file.exists():
-            try:
-                with self.categories_file.open('r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.categories = {
-                        name: {
-                            'description': details["description"],
-                            'subcategories': {sub: {} for sub in details["subcategories"]},
-                            'keywords': set(details["keywords"])
-                        }
-                        for name, details in data.items()
-                    }
-                logging.info(f"Loaded {len(self.categories)} categories from file")
-            except Exception as e:
-                logging.error(f"Error loading categories: {e}")
-        else:
-            self.save_categories()
-            logging.info("Created new categories file with defaults")
-
     def _validate_category_structure(self, category: dict) -> bool:
         """Validate category structure and data"""
         try:
@@ -125,25 +229,6 @@ class CategoryManager:
         except Exception as e:
             logging.error(f"Category validation error: {e}")
             return False
-
-    def add_category(self, name: str, description: str, keywords: Set[str]) -> bool:
-        normalized_name = self._normalize_name(name)
-        if normalized_name in self.categories:
-            return False
-        
-        new_category = {
-            'description': description,
-            'subcategories': {},
-            'keywords': {word.lower() for word in keywords}
-        }
-        
-        if not self._validate_category_structure(new_category):
-            logging.error(f"Invalid category structure for {name}")
-            return False
-        
-        self.categories[normalized_name] = new_category
-        self.save_categories()
-        return True
 
     def add_subcategory(self, main_category: str, subcategory: str) -> bool:
         if main_category not in self.categories:
@@ -178,10 +263,6 @@ class CategoryManager:
     def get_all_categories(self) -> List[str]:
         return sorted(self.categories.keys())
 
-    def get_subcategories(self, category: str) -> List[str]:
-        """Get subcategories for a main category"""
-        return list(self.categories.get(category, {}).get('subcategories', {}).keys())
-
     def get_category_info(self, category: str) -> Optional[dict]:
         return self.categories.get(category)
 
@@ -191,7 +272,3 @@ class CategoryManager:
             'description': description,
             'subcategories': {}
         }
-
-    def get_categories(self) -> Dict[str, dict]:
-        """Get all categories and their details"""
-        return self.categories
