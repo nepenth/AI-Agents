@@ -14,39 +14,63 @@ def get_high_res_url(url: str) -> str:
         return re.sub(r"name=\w+", "name=orig", url)
     return url
 
-async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 60000) -> Dict[str, Any]:
+async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 30000) -> Dict[str, Any]:
     """Fetch tweet data using Playwright."""
     try:
+        logging.info(f"Starting Playwright fetch for tweet {tweet_id}")
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
-            # Go to tweet URL
-            await page.goto(f"https://twitter.com/i/web/status/{tweet_id}", wait_until="networkidle")
+            url = f"https://twitter.com/i/web/status/{tweet_id}"
+            logging.info(f"Navigating to {url}")
             
-            # Wait for tweet content with increased timeout
+            # Set shorter timeout for navigation
+            await page.goto(url, timeout=timeout)
+            
+            # Wait for content with shorter timeout
             tweet_selector = 'article div[data-testid="tweetText"]'
-            await page.wait_for_selector(tweet_selector, timeout=timeout)
+            logging.info("Waiting for tweet content...")
+            try:
+                await page.wait_for_selector(tweet_selector, timeout=10000)  # 10 second timeout
+            except Exception as e:
+                logging.warning(f"Timeout waiting for tweet content: {e}")
+                return {"full_text": "", "media": [], "downloaded_media": [], "image_descriptions": []}
             
-            # Get first matching tweet text element
-            tweet_text = await page.locator(tweet_selector).first.inner_text()
+            # Get tweet text with timeout
+            try:
+                tweet_text = await page.locator(tweet_selector).first.inner_text(timeout=5000)
+            except Exception as e:
+                logging.warning(f"Failed to get tweet text: {e}")
+                tweet_text = ""
             
-            # Get images if any
-            images = await page.locator('article img[src*="/media/"]').all()
+            # Get images with timeout
             image_urls = []
-            for img in images:
-                src = await img.get_attribute('src')
-                if src:
-                    image_urls.append(src)
+            try:
+                images = await page.locator('article img[src*="/media/"]').all()
+                for img in images:
+                    src = await img.get_attribute('src', timeout=5000)
+                    if src:
+                        image_urls.append(src)
+            except Exception as e:
+                logging.warning(f"Failed to get images: {e}")
             
             await browser.close()
+            logging.info(f"Successfully fetched tweet {tweet_id}")
             
             return {
                 "full_text": tweet_text,
-                "extended_media": [{"media_url_https": url} for url in image_urls]
+                "media": image_urls,
+                "downloaded_media": [],
+                "image_descriptions": []
             }
             
     except Exception as e:
-        logging.error(f"Error fetching tweet {tweet_id}: {e}")
-        raise
+        logging.error(f"Error in Playwright fetch for tweet {tweet_id}: {e}")
+        return {
+            "full_text": "",
+            "media": [],
+            "downloaded_media": [],
+            "image_descriptions": []
+        }
     
