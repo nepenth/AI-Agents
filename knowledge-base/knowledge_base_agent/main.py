@@ -18,7 +18,7 @@ from knowledge_base_agent.git_helper import push_to_github
 from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.cache_manager import load_cache, save_cache, get_cached_tweet, update_cache, clear_cache
 from knowledge_base_agent.http_client import create_http_client
-from knowledge_base_agent.fetch_bookmarks import scrape_x_bookmarks
+from knowledge_base_agent.fetch_bookmarks import fetch_bookmarks
 from knowledge_base_agent.migration import migrate_content_to_readme
 from knowledge_base_agent.agent import KnowledgeBaseAgent
 
@@ -186,156 +186,72 @@ def load_config() -> Config:
     return Config.from_env()
 
 async def main_async():
-    config = load_config()
-    
-    print("\n=== Knowledge Base Agent Configuration ===\n")
-    
-    # Add migration option
-    if any(Path(config.knowledge_base_dir).rglob('content.md')):
-        migrate_files = input("Found existing content.md files. Migrate to README.md? (y/n): ").strip().lower() == 'y'
-        if migrate_files:
-            await migrate_content_to_readme(config.knowledge_base_dir)
-            print("✓ Content files migrated to README.md")
-    
-    # Create log directory if it doesn't exist
-    log_dir = config.knowledge_base_dir / "logs"
-    setup_logging(log_dir)
-
-    # 1. Prompt to update bookmarks.
-    update_bookmarks_choice = input("Do you want to update bookmarks? (y/n): ").strip().lower()
-    if update_bookmarks_choice == 'y':
-        headless_choice = input("Run bookmarks update in headless mode? (y/n): ").strip().lower()
-        headless_mode = True if headless_choice == 'y' else False
-        try:
-            await scrape_x_bookmarks(headless=headless_mode)
-            print("Bookmarks updated successfully.")
-        except Exception as e:
-            logging.error(f"Error updating bookmarks: {e}")
-            print("An error occurred while updating bookmarks. Proceeding with existing bookmarks.")
-
-    # 2. Prompt to rebuild tweet cache if any cache exists.
-    tweet_cache = load_cache()
-    if tweet_cache:
-        rebuild_choice = input("Do you want to rebuild the tweet cache (force re-fetch all tweet data)? (y/n): ").strip().lower()
-        if rebuild_choice == 'y':
-            clear_cache()
-            tweet_cache = {}
-            print("Tweet cache cleared.")
-        else:
-            print(f"Using cached data for {len(tweet_cache)} tweets if available.")
-    else:
-        print("No tweet cache found; proceeding to fetch tweet data.")
-
-    # 3. Load configuration and ensure media cache directory exists.
+    """Main async function for the Knowledge Base Agent."""
     config = Config.from_env()
-    config.media_cache_dir.mkdir(parents=True, exist_ok=True)
+    setup_logging(config.log_file.parent)
+    
+    print("\n=== Knowledge Base Agent ===\n")
+    
     try:
-        config.verify()
-    except Exception as e:
-        logging.error(f"Configuration error: {e}")
-        return
-
-    category_manager = CategoryManager(config.categories_file)
-    processed_tweets = load_processed_tweets(config.processed_tweets_file)
-    processed_tweets = validate_processed_items(processed_tweets, config.knowledge_base_dir)
-    
-    tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
-    total_urls = len(tweet_urls)
-    already_processed_count = sum(1 for url in tweet_urls if parse_tweet_id_from_url(url) in processed_tweets)
-    not_processed_count = total_urls - already_processed_count
-
-    print(f"Total tweet URLs found in bookmarks: {total_urls}")
-    print(f"Tweets already processed: {already_processed_count}")
-    print(f"Tweets not yet processed: {not_processed_count}")
-
-    # 4. Ask if reprocessing already processed tweets is desired.
-    user_choice = input("Reprocess already processed tweets? (This will delete existing items and re-create them.) (y/n): ").strip().lower()
-    if user_choice == 'y':
-        print("Reprocessing all tweets: deleting existing items...")
-        for tweet_id in list(processed_tweets.keys()):
-            delete_knowledge_base_item(tweet_id, processed_tweets, config.knowledge_base_dir)
-            del processed_tweets[tweet_id]
-        save_processed_tweets(config.processed_tweets_file, processed_tweets)
-        print("Existing items deleted. All tweets will be reprocessed.")
-    else:
-        tweet_urls = filter_new_tweet_urls(tweet_urls, processed_tweets)
-        print(f"Processing {len(tweet_urls)} new tweets...")
-
-    # 5. Preprocessing Stage: Cache tweet data (including media and image interpretations) for all tweets.
-    if tweet_urls:
-        logging.info(f"Starting caching of tweet data for {len(tweet_urls)} tweets...")
-        http_client = create_http_client()
-        caching_tasks = [cache_tweet_data(url, config, tweet_cache, http_client) for url in tweet_urls]
-        await asyncio.gather(*caching_tasks)
-        print("Caching of tweet data complete.")
-    else:
-        print("No new tweet URLs to cache.")
-
-    # Add cleanup before processing
-    clean_duplicate_folders(config.knowledge_base_dir)
-    
-    # Process in smaller batches to reduce concurrency issues
-    batch_size = 5
-    for i in range(0, len(tweet_urls), batch_size):
-        batch = tweet_urls[i:i + batch_size]
-        processing_tasks = [generate_knowledge_base_item(url, config, category_manager, http_client, tweet_cache)
-                          for url in batch]
-        await asyncio.gather(*processing_tasks)
+        # 1. Migration check (if needed)
+        await check_and_prompt_migration(config.knowledge_base_dir)
         
-    # Add cleanup after processing
-    clean_duplicate_folders(config.knowledge_base_dir)
+        # 2. Initialize managers
+        category_manager = CategoryManager(config.categories_file)
+        http_client = create_http_client()
+        tweet_cache = load_cache()
 
-    # 7. Prompt for re-review of existing items for improved categorization.
-    review_choice = input("Do you want to re-review existing knowledge base items for improved categorization? (y/n): ").strip().lower()
-    if review_choice == 'y':
-        reprocess_existing_items(config.knowledge_base_dir, category_manager)
+        # 3. Bookmarks update
+        if prompt_yes_no("Update bookmarks?"):
+            success = fetch_bookmarks(config)
+            if not success:
+                print("Failed to update bookmarks. Proceeding with existing bookmarks.")
 
-    # 8. Prompt for regenerating the root README.
-    regenerate_readme = input("Do you want to regenerate the root README? (y/n): ").strip().lower()
-    if regenerate_readme == 'y' or not (config.knowledge_base_dir / "README.md").exists():
-        generate_root_readme(config.knowledge_base_dir, category_manager)
-        print("Root README regenerated.")
-    else:
-        print("Skipping regeneration of the root README.")
+        # 4. Load and filter tweets
+        tweet_urls = load_tweet_urls_from_links(config.bookmarks_file)
+        processed_tweets = load_processed_tweets(config.processed_tweets_file)
+        new_urls = filter_new_tweet_urls(tweet_urls, processed_tweets)
 
-    # 9. Prompt for Git sync.
-    force_push = input("Do you want to force sync (push) the local knowledge base to GitHub? (y/n): ").strip().lower()
-    if force_push == 'y':
-        if config.github_token:
+        if new_urls:
+            # 5. Cache tweet data
+            if prompt_yes_no("Cache tweet data for new tweets?"):
+                await cache_tweets(new_urls, config, tweet_cache, http_client)
+            
+            # 6. Process tweets
+            await process_tweets(new_urls, config, category_manager, http_client, tweet_cache)
+
+        # 7. Maintenance operations
+        await perform_maintenance_operations(config, category_manager)
+
+    except Exception as e:
+        logging.error(f"Error in main process: {e}")
+        raise
+
+async def perform_maintenance_operations(config: Config, category_manager: CategoryManager):
+    """Handle maintenance operations with proper prompts."""
+    operations = [
+        ("Re-review existing items?", lambda: reprocess_existing_items(config.knowledge_base_dir, category_manager)),
+        ("Regenerate root README?", lambda: generate_root_readme(config.knowledge_base_dir, category_manager)),
+        ("Push changes to GitHub?", lambda: push_to_github(
+            knowledge_base_dir=config.knowledge_base_dir,
+            github_repo_url=config.github_repo_url,
+            github_token=config.github_token,
+            git_user_name=config.github_user_name,
+            git_user_email=config.github_user_email
+        ))
+    ]
+
+    for prompt, operation in operations:
+        if prompt_yes_no(prompt):
             try:
-                push_to_github(
-                    knowledge_base_dir=config.knowledge_base_dir,
-                    github_repo_url=config.github_repo_url,
-                    github_token=config.github_token,
-                    git_user_name=config.github_user_name,
-                    git_user_email=config.github_user_email
-                )
-                print("Pushed changes to GitHub.")
+                operation()
             except Exception as e:
-                logging.error(f"Failed to push changes to GitHub: {e}")
-                print("Failed to push changes to GitHub.")
-        else:
-            print("GitHub token not found. Skipping GitHub push.")
-    else:
-        print("Skipping GitHub sync.")
+                logging.error(f"Operation failed: {e}")
+                print(f"Operation failed: {e}")
 
-def main():
-    logging.info("Starting Knowledge Base Agent...")
-    
-    root_dir = Path("knowledge-base")
-    
-    # GitHub configuration
-    github_config = {
-        'repo_url': 'https://github.com/username/repo',  # Should come from environment or config
-        'token': 'your-github-token',  # Should come from environment or config
-        'user_name': 'Git Username',  # Should come from environment or config
-        'user_email': 'git@email.com'  # Should come from environment or config
-    }
-    
-    agent = KnowledgeBaseAgent(root_dir, github_config)
-    agent.process_tweets()
-    
-    logging.info("Knowledge Base Agent completed")
+def prompt_yes_no(question: str) -> bool:
+    """Standardized yes/no prompt."""
+    return input(f"{question} (y/n): ").strip().lower() == 'y'
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main_async())

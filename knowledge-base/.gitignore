@@ -22,8 +22,8 @@ playwright-report/
 data/tweet_cache.json
 
 # knowledge-base source (commited separately)
-knowledge-base
-knowledge-base/*
+kb-generated
+kb-generated/*
 
 # Virtual Env stuff
 venv
