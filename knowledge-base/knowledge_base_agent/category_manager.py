@@ -16,6 +16,129 @@ class Category:
 class CategoryManager:
     """Manages categories for the knowledge base."""
     
+    DEFAULT_CATEGORIES = {
+        "software_engineering": [
+            "design_patterns",
+            "code_quality",
+            "testing",
+            "debugging",
+            "performance_optimization",
+            "security",
+            "documentation",
+            "code_review",
+            "refactoring",
+            "best_practices"
+        ],
+        "system_design": [
+            "architecture_patterns",
+            "distributed_systems",
+            "scalability",
+            "reliability",
+            "microservices",
+            "api_design",
+            "data_storage",
+            "caching",
+            "load_balancing",
+            "message_queues"
+        ],
+        "devops": [
+            "ci_cd",
+            "infrastructure_as_code",
+            "containerization",
+            "orchestration",
+            "monitoring",
+            "logging",
+            "security",
+            "automation",
+            "cloud_platforms",
+            "site_reliability"
+        ],
+        "cloud_computing": [
+            "aws",
+            "azure",
+            "gcp",
+            "serverless",
+            "containers",
+            "kubernetes",
+            "cloud_native",
+            "cost_optimization",
+            "security",
+            "networking"
+        ],
+        "data_engineering": [
+            "data_pipelines",
+            "etl_processes",
+            "data_warehousing",
+            "data_lakes",
+            "stream_processing",
+            "data_modeling",
+            "data_quality",
+            "data_governance",
+            "big_data",
+            "data_integration"
+        ],
+        "artificial_intelligence": [
+            "machine_learning",
+            "deep_learning",
+            "nlp",
+            "computer_vision",
+            "mlops",
+            "model_deployment",
+            "model_monitoring",
+            "data_preparation",
+            "feature_engineering",
+            "model_optimization"
+        ],
+        "development_tools": [
+            "version_control",
+            "ide_tools",
+            "build_tools",
+            "package_managers",
+            "debugging_tools",
+            "profiling_tools",
+            "testing_frameworks",
+            "deployment_tools",
+            "monitoring_tools",
+            "documentation_tools"
+        ],
+        "programming_languages": [
+            "python",
+            "javascript",
+            "typescript",
+            "go",
+            "rust",
+            "java",
+            "kotlin",
+            "swift",
+            "cpp",
+            "shell_scripting"
+        ],
+        "web_development": [
+            "frontend",
+            "backend",
+            "apis",
+            "frameworks",
+            "security",
+            "performance",
+            "accessibility",
+            "responsive_design",
+            "authentication",
+            "state_management"
+        ],
+        "career_development": [
+            "technical_leadership",
+            "mentoring",
+            "code_reviews",
+            "architecture_decisions",
+            "team_collaboration",
+            "project_management",
+            "communication",
+            "learning_resources",
+            "industry_trends",
+            "best_practices"
+        ]
+    }
+    
     def __init__(self, categories_file: Path):
         """
         Initialize the CategoryManager.
@@ -32,15 +155,16 @@ class CategoryManager:
 
     def load_categories(self) -> None:
         """
-        Load categories from the JSON file.
+        Load categories from the JSON file or create with defaults if it doesn't exist.
         
         Raises:
-            StorageError: If reading the categories file fails
+            StorageError: If reading/writing the categories file fails
             CategoryError: If the categories format is invalid
         """
         try:
             if not self.categories_file.exists():
-                self.categories = {}
+                logging.info("Categories file not found. Creating with default categories.")
+                self.categories = self.DEFAULT_CATEGORIES.copy()
                 self._save_categories()
                 return
 
