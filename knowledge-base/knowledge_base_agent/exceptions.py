@@ -45,3 +45,7 @@ class NetworkError(KnowledgeBaseError):
 class MediaProcessingError(KnowledgeBaseError):
     """Raised when media processing fails."""
     pass
+
+class ContentProcessingError(KnowledgeBaseError):
+    """Content processing related errors."""
+    pass

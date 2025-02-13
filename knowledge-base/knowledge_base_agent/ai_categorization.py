@@ -1,9 +1,9 @@
 import requests
 import logging
 import asyncio
-from typing import Tuple, Optional
-from .naming_utils import normalize_name_for_filesystem, is_valid_item_name, fix_invalid_name, fallback_snippet_based_name
-from .exceptions import KnowledgeBaseError
+from typing import Tuple, Optional, Dict, Any
+from knowledge_base_agent.naming_utils import normalize_name_for_filesystem, is_valid_item_name, fix_invalid_name, fallback_snippet_based_name
+from knowledge_base_agent.exceptions import KnowledgeBaseError, AIError
 
 def process_category_response(response: str, tweet_id: str) -> Tuple[str, str, str]:
     try:
@@ -147,3 +147,34 @@ def re_categorize_offline(
         fallback_title = normalize_name_for_filesystem(fallback_title)
         return (mc, sc, fallback_title)
     return ("software_engineering", "best_practices", "fallback_offline")
+
+async def classify_content(text: str, text_model: str) -> Dict[str, str]:
+    """
+    Classify content using AI.
+    
+    Args:
+        text: The text to classify
+        text_model: The AI model to use
+    """
+    try:
+        # AI classification logic here
+        return {
+            'main_category': 'software_engineering',  # placeholder
+            'sub_category': 'best_practices'  # placeholder
+        }
+    except Exception as e:
+        raise AIError(f"Failed to classify content: {e}")
+
+async def generate_content_name(text: str, text_model: str) -> str:
+    """
+    Generate a name for the content using AI.
+    
+    Args:
+        text: The text to generate a name from
+        text_model: The AI model to use
+    """
+    try:
+        # AI name generation logic here
+        return "placeholder_name"  # placeholder
+    except Exception as e:
+        raise AIError(f"Failed to generate content name: {e}")

@@ -6,6 +6,7 @@ from knowledge_base_agent.file_utils import safe_read_json, safe_write_json
 import time
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
+from knowledge_base_agent.exceptions import StorageError
 
 # Default location for the tweet cache file
 DEFAULT_CACHE_FILE = Path("data/tweet_cache.json")
@@ -25,11 +26,9 @@ def save_cache(cache: Dict[str, Any], cache_file: Optional[Path] = None) -> None
     cache_file = cache_file or DEFAULT_CACHE_FILE
     safe_write_json(cache_file, cache)
 
-def get_cached_tweet(tweet_id: str, cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Return the cached data for a given tweet_id, or None if not found.
-    """
-    return cache.get(tweet_id)
+def get_cached_tweet(tweet_id: str, tweet_cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Get cached tweet data if it exists."""
+    return tweet_cache.get(tweet_id)
 
 def update_cache(tweet_id: str, tweet_data: Dict[str, Any], cache: Dict[str, Any]) -> None:
     """

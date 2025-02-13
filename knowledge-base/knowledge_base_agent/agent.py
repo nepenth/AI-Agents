@@ -1,23 +1,25 @@
 from pathlib import Path
 import logging
 import asyncio
-from typing import Optional
+from typing import Optional, List
 
-from .config import Config
-from .category_manager import CategoryManager
-from .markdown_writer import MarkdownWriter
-from .git_helper import push_to_github
-from .exceptions import KnowledgeBaseError
-from .fetch_bookmarks import fetch_bookmarks
-from .tweet_utils import load_tweet_urls_from_links, parse_tweet_id_from_url
-from .state_manager import load_processed_tweets
-from .http_client import create_http_client, OllamaClient
-from .cache_manager import load_cache, save_cache
-from .prompts import prompt_yes_no
-from .migration import migrate_content_to_readme
-from .reprocess import reprocess_existing_items
-from .markdown_writer import generate_root_readme
-from .tweet_processor import process_tweets
+from knowledge_base_agent.config import Config
+from knowledge_base_agent.category_manager import CategoryManager
+from knowledge_base_agent.markdown_writer import MarkdownWriter
+from knowledge_base_agent.git_helper import push_to_github
+from knowledge_base_agent.exceptions import KnowledgeBaseError
+from knowledge_base_agent.fetch_bookmarks import fetch_bookmarks
+from knowledge_base_agent.tweet_utils import load_tweet_urls_from_links, parse_tweet_id_from_url
+from knowledge_base_agent.state_manager import load_processed_tweets
+from knowledge_base_agent.http_client import create_http_client, OllamaClient
+from knowledge_base_agent.cache_manager import load_cache, save_cache, cache_tweet_data, get_cached_tweet
+from knowledge_base_agent.prompts import prompt_yes_no
+from knowledge_base_agent.migration import migrate_content_to_readme
+from knowledge_base_agent.reprocess import reprocess_existing_items
+from knowledge_base_agent.markdown_writer import generate_root_readme
+from knowledge_base_agent.tweet_processor import process_tweets
+from knowledge_base_agent.ai_categorization import categorize_and_name_content
+from knowledge_base_agent.content_processor import create_knowledge_base_entry
 
 class KnowledgeBaseAgent:
     def __init__(self, config: Config):
@@ -77,13 +79,49 @@ class KnowledgeBaseAgent:
         return [url for url in tweet_urls 
                 if parse_tweet_id_from_url(url) not in self.processed_tweets]
 
-    async def _process_new_tweets(self, urls: list):
-        """Process new tweets with proper error handling."""
-        if prompt_yes_no("Cache tweet data for new tweets?"):
-            # Implement caching logic
-            pass
-        await process_tweets(urls, self.config, self.category_manager, 
-                           self.http_client, self.tweet_cache)
+    async def _process_new_tweets(self, tweet_urls: List[str]) -> None:
+        """Process new tweets and create knowledge base entries."""
+        for tweet_url in tweet_urls:
+            try:
+                tweet_id = parse_tweet_id_from_url(tweet_url)
+                if not tweet_id:
+                    logging.warning(f"Invalid tweet URL: {tweet_url}")
+                    continue
+                    
+                # Cache tweet data if not already cached
+                await cache_tweet_data(tweet_url, self.config, self.tweet_cache, self.http_client)
+                
+                # Get tweet data from cache
+                tweet_data = get_cached_tweet(tweet_id, self.tweet_cache)
+                if not tweet_data:
+                    logging.warning(f"No cached data found for tweet {tweet_id}")
+                    continue
+                
+                # Categorize and process tweet
+                main_cat, sub_cat, name = await categorize_and_name_content(
+                    tweet_data=tweet_data,
+                    category_manager=self.category_manager,
+                    text_model=self.config.text_model,
+                    tweet_id=tweet_id
+                )
+                
+                # Create knowledge base entry
+                await create_knowledge_base_entry(
+                    tweet_id=tweet_id,
+                    tweet_data=tweet_data,
+                    categories=(main_cat, sub_cat, name),
+                    config=self.config
+                )
+                
+                # Mark tweet as processed
+                self.processed_tweets.add(tweet_id)
+                self._save_processed_tweets()
+                
+                logging.info(f"Successfully processed tweet {tweet_id}")
+                
+            except Exception as e:
+                logging.error(f"Failed to process tweet {tweet_url}: {e}")
+                continue
 
     async def _perform_maintenance(self):
         """Handle maintenance operations."""

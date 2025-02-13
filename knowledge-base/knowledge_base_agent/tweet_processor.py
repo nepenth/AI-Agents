@@ -10,7 +10,7 @@ from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageErr
 from knowledge_base_agent.state_manager import save_processed_tweets, load_processed_tweets
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache
-from knowledge_base_agent.ai_categorization import categorize_and_name_content
+from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
 from knowledge_base_agent.markdown_writer import MarkdownWriter
 
 async def process_tweets(
@@ -150,6 +150,11 @@ async def write_to_knowledge_base(
     """
     try:
         # Knowledge base writing logic here
-        pass
+        await create_knowledge_base_entry(
+            tweet_id=tweet_id,
+            tweet_data=tweet_data,
+            categories=categories,
+            config=config
+        )
     except Exception as e:
         raise StorageError(f"Failed to write to knowledge base: {e}") 
