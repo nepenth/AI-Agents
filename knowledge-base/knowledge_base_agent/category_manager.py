@@ -162,26 +162,39 @@ class CategoryManager:
             CategoryError: If the categories format is invalid
         """
         try:
-            if not self.categories_file.exists():
-                logging.info("Categories file not found. Creating with default categories.")
+            # If file doesn't exist or is empty, create with defaults
+            if not self.categories_file.exists() or self.categories_file.stat().st_size == 0:
+                logging.info("Categories file not found or empty. Creating with default categories.")
                 self.categories = self.DEFAULT_CATEGORIES.copy()
                 self._save_categories()
                 return
 
-            with self.categories_file.open('r', encoding='utf-8') as f:
-                data = json.load(f)
-                
-            if not isinstance(data, dict):
-                raise CategoryError("Categories must be a dictionary")
-                
-            for main_cat, sub_cats in data.items():
-                if not isinstance(sub_cats, list):
-                    raise CategoryError(f"Subcategories for {main_cat} must be a list")
+            # Try to load existing categories
+            try:
+                with self.categories_file.open('r', encoding='utf-8') as f:
+                    data = json.load(f)
                     
-            self.categories = data
-            
-        except json.JSONDecodeError as e:
-            raise StorageError(f"Invalid JSON in categories file: {e}")
+                if not isinstance(data, dict):
+                    logging.warning("Invalid categories format. Resetting to defaults.")
+                    self.categories = self.DEFAULT_CATEGORIES.copy()
+                    self._save_categories()
+                    return
+                    
+                # Validate all subcategories are lists
+                for main_cat, sub_cats in data.items():
+                    if not isinstance(sub_cats, list):
+                        logging.warning(f"Invalid subcategories format for {main_cat}. Resetting to defaults.")
+                        self.categories = self.DEFAULT_CATEGORIES.copy()
+                        self._save_categories()
+                        return
+                        
+                self.categories = data
+                
+            except json.JSONDecodeError:
+                logging.warning("Invalid JSON in categories file. Resetting to defaults.")
+                self.categories = self.DEFAULT_CATEGORIES.copy()
+                self._save_categories()
+                
         except Exception as e:
             raise StorageError(f"Failed to load categories: {e}")
 
