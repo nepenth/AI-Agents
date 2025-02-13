@@ -95,14 +95,20 @@ class BookmarksFetcher:
         last_height = await page.evaluate('document.body.scrollHeight')
         
         while True:
-            # Get all tweet links using locator instead of eval_all
+            # Get all tweet links using locator (removed timeout parameter)
             elements = await page.locator('article a[href*="/status/"]').all()
-            links = [await el.get_attribute('href') for el in elements]
-            bookmark_links.update(links)
+            for element in elements:
+                try:
+                    href = await element.get_attribute('href')
+                    if href:
+                        bookmark_links.add(href)
+                except Exception as e:
+                    logging.warning(f"Failed to get href attribute: {e}")
+                    continue
             
             # Scroll down
             await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-            await page.wait_for_timeout(1000)  # Wait for content to load
+            await page.wait_for_timeout(2000)  # Increased wait time
             
             # Check if we've reached the bottom
             new_height = await page.evaluate('document.body.scrollHeight')
