@@ -9,24 +9,49 @@ from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
 from knowledge_base_agent.exceptions import StorageError
 from knowledge_base_agent.config import Config
 import aiohttp
+import aiofiles
 
 # Default location for the tweet cache file
 DEFAULT_CACHE_FILE = Path("data/tweet_cache.json")
 
-def load_cache(cache_file: Optional[Path] = None) -> Dict[str, Any]:
-    """
-    Load the tweet cache from disk. Returns a dictionary mapping tweet IDs to cached data.
-    If the file does not exist or is empty, return an empty dict.
-    """
-    cache_file = cache_file or DEFAULT_CACHE_FILE
-    return safe_read_json(cache_file)
+def load_cache(cache_file: Path = None) -> Dict[str, Any]:
+    """Load tweet data cache from file or return empty cache if file doesn't exist."""
+    try:
+        if cache_file and cache_file.exists():
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+                # Ensure cache data is a dictionary
+                if not isinstance(cache_data, dict):
+                    logging.warning(f"Cache file {cache_file} contained invalid data, starting fresh")
+                    return {}
+                return cache_data
+    except Exception as e:
+        logging.error(f"Failed to load cache from {cache_file}: {e}, starting fresh")
+    return {}
 
-def save_cache(cache: Dict[str, Any], cache_file: Optional[Path] = None) -> None:
-    """
-    Save the tweet cache dictionary to disk.
-    """
-    cache_file = cache_file or DEFAULT_CACHE_FILE
-    safe_write_json(cache_file, cache)
+async def save_cache(cache_data: Dict[str, Any], cache_file: Path) -> None:
+    """Save tweet data cache to file."""
+    try:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Convert Path objects to strings in the cache data
+        def convert_paths_to_strings(data):
+            if isinstance(data, dict):
+                return {k: convert_paths_to_strings(v) for k, v in data.items()}
+            elif isinstance(data, list):
+                return [convert_paths_to_strings(item) for item in data]
+            elif isinstance(data, Path):
+                return str(data)
+            return data
+        
+        serializable_cache = convert_paths_to_strings(cache_data)
+        
+        async with aiofiles.open(cache_file, 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(serializable_cache, indent=2))
+            
+    except Exception as e:
+        logging.error(f"Failed to save cache to {cache_file}: {e}")
+        raise StorageError(f"Failed to save cache: {e}")
 
 def get_cached_tweet(tweet_id: str, tweet_cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Get cached tweet data if it exists."""

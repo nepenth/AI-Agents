@@ -25,6 +25,7 @@ from knowledge_base_agent.fetch_bookmarks import fetch_bookmarks
 from knowledge_base_agent.migration import migrate_content_to_readme, check_and_prompt_migration
 from knowledge_base_agent.agent import KnowledgeBaseAgent
 from .tweet_processor import process_tweets
+from knowledge_base_agent.prompts import prompt_for_preferences
 
 # Load environment variables at the start
 load_dotenv()
@@ -207,27 +208,21 @@ async def main():
         config = Config.from_env()
         agent = KnowledgeBaseAgent(config)
         
-        # Get user preferences
-        update_bookmarks = prompt_yes_no("Update bookmarks?")
-        review_existing = prompt_yes_no("Re-review existing items?")
-        update_readme = prompt_yes_no("Regenerate root README?")
-        push_changes = prompt_yes_no("Push changes to GitHub?")
+        # Get all user preferences at once
+        prefs = prompt_for_preferences()
         
         # Run agent with user preferences
         await agent.run(
-            update_bookmarks=update_bookmarks,
+            update_bookmarks=prefs.update_bookmarks,
             process_new=True,
-            update_readme=update_readme,
-            push_changes=push_changes
+            update_readme=prefs.update_readme,
+            push_changes=prefs.push_changes,
+            recreate_cache=prefs.recreate_cache
         )
         
     except Exception as e:
         logging.error(f"Agent execution failed: {e}", exc_info=True)
         sys.exit(1)
-
-def prompt_yes_no(question: str) -> bool:
-    """Standardized yes/no prompt."""
-    return input(f"{question} (y/n): ").strip().lower() == 'y'
 
 if __name__ == "__main__":
     asyncio.run(main())
