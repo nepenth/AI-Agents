@@ -9,26 +9,27 @@ from knowledge_base_agent.ai_categorization import classify_content, generate_co
 from knowledge_base_agent.tweet_utils import sanitize_filename
 
 async def categorize_and_name_content(
-    tweet_data: Dict[str, Any],
-    category_manager: CategoryManager,
+    ollama_url: str,
+    text: str,
     text_model: str,
-    tweet_id: str
+    tweet_id: str,
+    category_manager: CategoryManager
 ) -> Tuple[str, str, str]:
     """
-    Categorize and name content based on tweet data.
-    
+    Categorize and name content for a tweet using AI.
+
     Args:
-        tweet_data: The tweet data including text and media
-        category_manager: CategoryManager instance
-        text_model: Name of the text model to use
-        tweet_id: ID of the tweet
-        
+        ollama_url: URL for the AI service.
+        text: The text to categorize.
+        text_model: The AI text model to use.
+        tweet_id: The tweet identifier.
+        category_manager: The category manager instance.
+
     Returns:
-        Tuple of (main_category, sub_category, name)
+        A tuple of (main_category, sub_category, name).
     """
-    text = tweet_data.get('full_text', '')
     if not text:
-        raise ContentProcessingError("No text content found in tweet")
+        raise ContentProcessingError("No text content found for tweet")
 
     try:
         categories = await classify_content(text, text_model)
