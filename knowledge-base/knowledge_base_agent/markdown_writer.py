@@ -165,24 +165,20 @@ def generate_root_readme(root_dir: Path, category_manager) -> None:
     ]
 
     # Generate hierarchical tree view
-    for main_cat, main_data in knowledge_tree.items():
-        main_cat_display = main_cat.replace('_', ' ').title()
-        lines.append(f"### 📚 {main_cat_display}")
-        lines.append(f"_{main_data['description']}_")
-        lines.append("")
+    for main_cat_name, main_cat_data in sorted(knowledge_tree.items()):
+        lines.append(f"\n### {main_cat_name.replace('_', ' ').title()}")
+        lines.append(f"\n_{main_cat_data['description']}_\n")
         
-        for sub_cat, items in main_data['subcategories'].items():
-            sub_cat_display = sub_cat.replace('_', ' ').title()
-            lines.append(f"#### 📁 {sub_cat_display}")
-            if items:
+        for sub_cat_name, items in sorted(main_cat_data['subcategories'].items()):
+            if items:  # Only show subcategories that have items
+                lines.append(f"\n#### {sub_cat_name.replace('_', ' ').title()}\n")
+                for item in sorted(items, key=lambda x: x['name']):
+                    # Create relative link to the item's README
+                    item_link = f"{item['path']}/README.md"
+                    lines.append(f"- [{item['title']}]({item_link})")
+                    if item['description']:
+                        lines.append(f"  - {item['description']}")
                 lines.append("")
-                lines.append("| Title | Description |")
-                lines.append("|-------|-------------|")
-                for item in items:
-                    title = sanitize_markdown_cell(item['title'])
-                    desc = sanitize_markdown_cell(item['description'])
-                    lines.append(f"| [`{title}`]({item['path']}) | {desc} |")
-            lines.append("")
 
     lines.extend([
         "---",

@@ -320,9 +320,22 @@ async def main_async():
         print("Skipping GitHub sync.")
 
 def main():
+    logging.info("Starting Knowledge Base Agent...")
+    
     root_dir = Path("knowledge-base")
-    agent = KnowledgeBaseAgent(root_dir)
+    
+    # GitHub configuration
+    github_config = {
+        'repo_url': 'https://github.com/username/repo',  # Should come from environment or config
+        'token': 'your-github-token',  # Should come from environment or config
+        'user_name': 'Git Username',  # Should come from environment or config
+        'user_email': 'git@email.com'  # Should come from environment or config
+    }
+    
+    agent = KnowledgeBaseAgent(root_dir, github_config)
     agent.process_tweets()
+    
+    logging.info("Knowledge Base Agent completed")
 
 if __name__ == "__main__":
     main()
