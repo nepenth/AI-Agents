@@ -190,14 +190,14 @@ class BookmarksFetcher:
         except Exception as e:
             raise StorageError(f"Failed to save bookmarks: {e}")
 
-def fetch_bookmarks(config: Config) -> bool:
+async def fetch_bookmarks(config: Config) -> bool:
     """
     Main entry point for fetching bookmarks.
     Returns True if successful, False otherwise.
     """
     try:
         fetcher = BookmarksFetcher(config)
-        asyncio.run(fetcher.fetch_bookmarks())
+        await fetcher.fetch_bookmarks()
         return True
     except Exception as e:
         logging.error(f"Failed to fetch bookmarks: {e}")

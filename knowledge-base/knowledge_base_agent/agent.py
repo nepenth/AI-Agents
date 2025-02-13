@@ -53,7 +53,7 @@ class KnowledgeBaseAgent:
 
             # 2. Update bookmarks if requested
             if update_bookmarks:
-                success = fetch_bookmarks(self.config)
+                success = await fetch_bookmarks(self.config)
                 if not success:
                     logging.warning("Failed to update bookmarks. Proceeding with existing bookmarks.")
 
