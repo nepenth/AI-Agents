@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 import asyncio
 from typing import Optional, List
+import shutil
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
@@ -13,13 +14,14 @@ from knowledge_base_agent.tweet_utils import load_tweet_urls_from_links, parse_t
 from knowledge_base_agent.state_manager import load_processed_tweets
 from knowledge_base_agent.http_client import create_http_client, OllamaClient
 from knowledge_base_agent.cache_manager import load_cache, save_cache, cache_tweet_data, get_cached_tweet
-from knowledge_base_agent.prompts import prompt_yes_no
+from knowledge_base_agent.prompts import prompt_yes_no, prompt_with_retry, prompt_for_maintenance
 from knowledge_base_agent.migration import migrate_content_to_readme
 from knowledge_base_agent.reprocess import reprocess_existing_items
 from knowledge_base_agent.markdown_writer import generate_root_readme
 from knowledge_base_agent.tweet_processor import process_tweets
 from knowledge_base_agent.ai_categorization import categorize_and_name_content
 from knowledge_base_agent.content_processor import create_knowledge_base_entry
+from knowledge_base_agent.utils import run_command
 
 class KnowledgeBaseAgent:
     def __init__(self, config: Config):
@@ -46,10 +48,37 @@ class KnowledgeBaseAgent:
             self.processed_tweets = load_processed_tweets(self.config.processed_tweets_file)
 
     async def run(self, update_bookmarks: bool = True, process_new: bool = True,
-                 update_readme: bool = True, push_changes: bool = True) -> None:
-        """Main execution flow of the agent."""
+                 update_readme: bool = True, push_changes: bool = True,
+                 recreate_cache: bool = None) -> None:
+        """
+        Run the knowledge base agent.
+        """
         try:
-            # 1. Update bookmarks if requested
+            # Handle cache recreation first
+            if recreate_cache:
+                logging.info("Recreating tweet cache...")
+                # Clear tweet cache dictionary
+                self.tweet_cache = {}
+                
+                # Remove existing cache files
+                if self.config.tweet_cache_file.exists():
+                    logging.info(f"Removing tweet cache file: {self.config.tweet_cache_file}")
+                    self.config.tweet_cache_file.unlink()
+                
+                # Clear media cache directory
+                if self.config.media_cache_dir.exists():
+                    logging.info(f"Clearing media cache directory: {self.config.media_cache_dir}")
+                    shutil.rmtree(self.config.media_cache_dir)
+                self.config.media_cache_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Load all tweet URLs and rebuild cache
+                tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
+                logging.info(f"Found {len(tweet_urls)} tweets to cache")
+                for url in tweet_urls:
+                    logging.info(f"Caching tweet data for: {url}")
+                    await cache_tweet_data(url, self.config, self.tweet_cache, self.http_client)
+
+            # Continue with other operations
             if update_bookmarks:
                 await fetch_bookmarks(
                     self.config.x_username,
@@ -57,25 +86,21 @@ class KnowledgeBaseAgent:
                     self.config.bookmarks_file
                 )
 
-            # 2. Cache all tweet data first
-            tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
-            for url in tweet_urls:
-                await cache_tweet_data(url, self.config, self.tweet_cache, self.http_client)
-
-            # 3. Process vision model for all cached images
+            # Process vision model for all cached images
             await self._process_cached_images()
 
-            # 4. Process new tweets if requested
+            # Process new tweets if requested
             if process_new:
+                tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
                 new_urls = self._filter_new_tweets(tweet_urls)
                 if new_urls:
                     await self._process_new_tweets(new_urls)
 
-            # 5. Update README if requested
+            # Update README if requested
             if update_readme:
                 await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
 
-            # 6. Push changes if requested
+            # Push changes if requested
             if push_changes:
                 await self._git_push_changes()
 
@@ -135,33 +160,90 @@ class KnowledgeBaseAgent:
 
     async def _perform_maintenance(self):
         """Handle maintenance operations."""
-        operations = [
-            ("Re-review existing items?", 
-             lambda: reprocess_existing_items(self.config.knowledge_base_dir, self.category_manager)),
-            ("Regenerate root README?", 
-             lambda: generate_root_readme(self.config.knowledge_base_dir, self.category_manager)),
-            ("Push changes to GitHub?", 
-             lambda: self._git_push_changes())
-        ]
+        prefs = prompt_for_maintenance()
+        
+        if prefs["reprocess"]:
+            await reprocess_existing_items(self.config.knowledge_base_dir, self.category_manager)
+            
+        if prefs["regenerate_readme"]:
+            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
+            
+        if prefs["push_changes"]:
+            await self._git_push_changes()
 
-        for prompt, operation in operations:
-            if prompt_yes_no(prompt):
-                try:
-                    operation()
-                except Exception as e:
-                    logging.error(f"Maintenance operation failed: {e}")
-
-    async def _git_push_changes(self) -> bool:
-        """Push changes to the git repository."""
+    async def _git_push_changes(self) -> None:
+        """Initialize repo, commit and push changes to GitHub."""
         try:
-            push_to_github(
-                knowledge_base_dir=self.config.knowledge_base_dir,
-                github_repo_url=self.config.github_repo_url,
-                github_token=self.config.github_token,
-                git_user_name=self.config.github_user_name,
-                git_user_email=self.config.github_user_email
-            )
-            return True
+            repo_dir = self.config.knowledge_base_dir
+            logging.info(f"Pushing changes from {repo_dir}")
+            
+            # Set git credentials helper to store the token
+            logging.info("Configuring git credentials")
+            await run_command(['git', 'config', '--global', 'credential.helper', 'store'], cwd=repo_dir)
+            
+            # Store the credentials
+            cred_string = f"https://{self.config.github_token}:x-oauth-basic@github.com\n"
+            home = Path.home()
+            cred_file = home / '.git-credentials'
+            cred_file.write_text(cred_string)
+            logging.info("Stored git credentials")
+            
+            # Initialize git if needed
+            if not (repo_dir / '.git').exists():
+                logging.info("Initializing new git repository")
+                await run_command(['git', 'init'], cwd=repo_dir)
+                await run_command(['git', 'remote', 'add', 'origin', self.config.github_repo_url], cwd=repo_dir)
+            
+            # Configure git
+            logging.info("Configuring git user")
+            await run_command(['git', 'config', 'user.email', self.config.github_user_email], cwd=repo_dir)
+            await run_command(['git', 'config', 'user.name', self.config.github_user_name], cwd=repo_dir)
+            
+            # Stage and commit
+            logging.info("Staging changes")
+            await run_command(['git', 'add', '-A'], cwd=repo_dir)
+            try:
+                logging.info("Committing changes")
+                await run_command(['git', 'commit', '-m', 'Update knowledge base'], cwd=repo_dir)
+            except Exception as e:
+                if 'nothing to commit' not in str(e):
+                    raise
+                logging.info("No changes to commit")
+            
+            # Push changes
+            logging.info("Pushing to remote")
+            await run_command(['git', 'checkout', '-B', 'main'], cwd=repo_dir)
+            await run_command(['git', 'push', '-f', 'origin', 'main'], cwd=repo_dir)
+            
+            # Clean up credentials file
+            if cred_file.exists():
+                cred_file.unlink()
+            logging.info("Successfully pushed changes to GitHub")
+            
         except Exception as e:
             logging.error(f"Failed to push to GitHub: {e}")
-            return False 
+            raise
+
+    async def _process_cached_images(self) -> None:
+        """Process all cached images through vision model."""
+        try:
+            for tweet_id, tweet_data in self.tweet_cache.items():
+                if 'downloaded_media' in tweet_data and not tweet_data.get('image_descriptions'):
+                    image_descriptions = []
+                    for image_path in tweet_data['downloaded_media']:
+                        if Path(image_path).exists():
+                            # Process image through vision model
+                            description = await self.ollama_client.analyze_image(
+                                image_path=Path(image_path),
+                                model=self.config.vision_model
+                            )
+                            image_descriptions.append(description)
+                    
+                    # Update cache with image descriptions
+                    tweet_data['image_descriptions'] = image_descriptions
+                    await save_cache(self.tweet_cache, self.config.tweet_cache_file)
+                    logging.info(f"Added vision analysis for tweet {tweet_id}")
+                    
+        except Exception as e:
+            logging.error(f"Failed to process cached images: {e}")
+            raise 

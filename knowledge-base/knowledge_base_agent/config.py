@@ -76,7 +76,7 @@ class Config:
         self.categories_file = self.data_processing_dir / 'categories.json'
         self.media_cache_dir = Path(os.getenv('MEDIA_CACHE_DIR', self.data_processing_dir / 'media_cache'))
         self.processed_tweets_file = self.data_processing_dir / 'processed_tweets.json'
-        self.bookmarks_file = self.data_processing_dir / 'bookmarks.json'
+        self.bookmarks_file = Path(os.getenv('BOOKMARKS_FILE', self.data_processing_dir / 'bookmarks_links.txt'))
         self.log_file = self.data_processing_dir / 'logs' / f"kb_agent_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         
         # Logging configuration from environment
