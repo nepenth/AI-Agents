@@ -1,9 +1,21 @@
 class KnowledgeBaseError(Exception):
-    """Base exception for all knowledge base related errors."""
+    """Base exception for knowledge base operations."""
+    pass
+
+class TweetProcessingError(KnowledgeBaseError):
+    """Raised when tweet processing fails."""
+    pass
+
+class ModelInferenceError(KnowledgeBaseError):
+    """Raised when AI model inference fails."""
+    pass
+
+class GitSyncError(KnowledgeBaseError):
+    """Raised when GitHub sync fails."""
     pass
 
 class ConfigurationError(KnowledgeBaseError):
-    """Raised when there's an issue with configuration."""
+    """Raised when configuration is invalid."""
     pass
 
 class FetchError(KnowledgeBaseError):

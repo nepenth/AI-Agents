@@ -7,11 +7,16 @@ from pathlib import Path
 from .naming_utils import safe_directory_name
 import asyncio
 import aiofiles
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from .exceptions import StorageError
 from .config import Config
 from .category_manager import CategoryManager
+from knowledge_base_agent.exceptions import KnowledgeBaseError
+from knowledge_base_agent.file_utils import async_json_load, async_write_text
+from .path_utils import PathNormalizer, DirectoryManager, create_kb_path
+from .types import KnowledgeBaseItem, CategoryInfo
+from .exceptions import MarkdownGenerationError
 
 _folder_creation_lock = asyncio.Lock()
 
@@ -105,83 +110,81 @@ async def write_tweet_markdown(
 class MarkdownWriter:
     """Handles writing content to markdown files in the knowledge base."""
 
-    async def write_tweet_markdown(
-        self,
-        config: Config,
-        tweet_id: str,
-        main_category: str,
-        sub_category: str,
-        item_name: str,
-        tweet_text: str,
-        tweet_url: str,
-        image_files: Optional[List[Path]] = None,
-        image_descriptions: Optional[List[str]] = None
-    ) -> None:
-        """Write tweet content to a markdown file."""
-        try:
-            safe_name = safe_directory_name(item_name)
-            item_dir = config.knowledge_base_dir / main_category / sub_category / safe_name
-            
-            # Create temporary directory for atomic writes
-            temp_dir = item_dir.with_suffix('.temp')
-            temp_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, config: Config):
+        self.config = config
+        self.path_normalizer = PathNormalizer()
+        self.dir_manager = DirectoryManager()
 
-            # Prepare and write content
-            content = self._prepare_markdown_content(
-                item_name=item_name,
-                tweet_text=tweet_text,
-                tweet_url=tweet_url,
-                image_files=image_files,
-                image_descriptions=image_descriptions
+    async def write_kb_item(
+        self,
+        item: KnowledgeBaseItem,
+        media_files: List[Path] = None,
+        media_descriptions: List[str] = None
+    ) -> None:
+        """Write knowledge base item to markdown with media."""
+        try:
+            kb_path = create_kb_path(
+                item['category_info']['category'],
+                item['category_info']['subcategory'],
+                item['title']
             )
             
-            async with aiofiles.open(temp_dir / "README.md", 'w', encoding='utf-8') as f:
-                await f.write(content)
+            # Create temp directory for atomic writes
+            temp_dir = kb_path.with_suffix('.temp')
+            await self.dir_manager.ensure_directory(temp_dir)
 
-            # Copy images if they exist
-            if image_files:
-                await self._copy_images(image_files, temp_dir)
+            # Generate and write content
+            content = self._generate_content(item, media_files, media_descriptions)
+            await async_write_text(content, temp_dir / "README.md")
+
+            # Copy media files if present
+            if media_files:
+                await self._copy_media_files(media_files, temp_dir)
 
             # Atomic directory rename
-            if item_dir.exists():
-                shutil.rmtree(item_dir)
-            temp_dir.rename(item_dir)
-                
+            if kb_path.exists():
+                kb_path.unlink()
+            temp_dir.rename(kb_path)
+
         except Exception as e:
             if temp_dir.exists():
-                shutil.rmtree(temp_dir)
-            raise StorageError(f"Failed to write markdown for tweet {tweet_id}: {e}")
+                temp_dir.unlink()
+            raise MarkdownGenerationError(f"Failed to write KB item: {e}")
 
-    def _prepare_markdown_content(self, item_name: str, tweet_text: str, tweet_url: str,
-                                image_files: Optional[List[Path]] = None,
-                                image_descriptions: Optional[List[str]] = None) -> str:
-        """Prepare markdown content with proper formatting."""
-        content_parts = [
-            f"# {item_name}\n",
-            f"**Original Tweet:** [{tweet_url}]({tweet_url})\n",
-            f"**Content:**\n{tweet_text}\n"
+    def _generate_content(
+        self,
+        item: KnowledgeBaseItem,
+        media_files: List[Path] = None,
+        media_descriptions: List[str] = None
+    ) -> str:
+        """Generate markdown content with proper formatting."""
+        parts = [
+            f"# {item['title']}\n",
+            f"## Description\n{item['description']}\n",
+            f"## Content\n{item['content']}\n",
+            "## Source\n",
+            f"- Original Tweet: [{item['source_tweet']['url']}]({item['source_tweet']['url']})",
+            f"- Author: {item['source_tweet']['author']}",
+            f"- Date: {item['source_tweet']['created_at'].strftime('%Y-%m-%d %H:%M:%S')}\n"
         ]
-        
-        if image_files and image_descriptions:
-            content_parts.append("## Images\n")
-            for idx, (image, desc) in enumerate(zip(image_files, image_descriptions), 1):
-                content_parts.extend([
-                    f"### Image {idx}\n",
-                    f"![Image {idx}](./{image.name})\n",
-                    f"**AI Interpretation:** {desc}\n"
-                ])
-                
-        content_parts.append(f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
-        return "\n".join(content_parts)
 
-    async def _copy_images(self, image_files: List[Path], target_dir: Path) -> None:
-        """Copy images to the target directory."""
-        try:
-            for image_file in image_files:
-                if image_file.exists():
-                    shutil.copy2(image_file, target_dir / image_file.name)
-        except Exception as e:
-            raise StorageError(f"Failed to copy images: {e}")
+        if media_files and media_descriptions:
+            parts.append("## Media\n")
+            for idx, (media, desc) in enumerate(zip(media_files, media_descriptions), 1):
+                parts.extend([
+                    f"### Media {idx}",
+                    f"![{media.stem}](./{media.name})",
+                    f"**Description:** {desc}\n"
+                ])
+
+        parts.append(f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
+        return "\n".join(parts)
+
+    async def _copy_media_files(self, media_files: List[Path], target_dir: Path) -> None:
+        """Copy media files to target directory."""
+        for media_file in media_files:
+            if media_file.exists():
+                await self.dir_manager.copy_file(media_file, target_dir / media_file.name)
 
 async def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryManager) -> None:
     """Generate the root README.md file."""
@@ -211,3 +214,109 @@ async def generate_root_readme(knowledge_base_dir: Path, category_manager: Categ
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
         raise StorageError(f"Failed to generate root README: {e}")
+
+class MarkdownGenerator:
+    """Generates and manages markdown documentation for the knowledge base."""
+
+    async def generate_readme(self) -> None:
+        """
+        Generate main README.md with category index.
+        
+        Creates a hierarchical index of all knowledge base content:
+        ```markdown
+        # Knowledge Base
+        
+        ## Category 1
+        - [Subcategory 1](#subcategory-1)
+          - [Item 1](path/to/item1.md)
+          - [Item 2](path/to/item2.md)
+        ...
+        ```
+        
+        Raises:
+            MarkdownGenerationError: If README generation fails
+        """
+        pass  # Implementation details...
+
+    async def write_kb_item(self, item: KnowledgeBaseItem) -> None:
+        """
+        Generate markdown file for a knowledge base item.
+        
+        Args:
+            item: Complete knowledge base item information
+            
+        Generated markdown structure:
+        ```markdown
+        # Title
+        
+        ## Description
+        [Description text]
+        
+        ## Content
+        [Main content]
+        
+        ## Source
+        - Original Tweet: [link]
+        - Author: [name]
+        - Date: [date]
+        
+        ## Media
+        [Media analysis and embedded content]
+        ```
+        
+        Raises:
+            MarkdownGenerationError: If file creation fails
+            PathValidationError: If path is invalid
+        """
+        pass  # Implementation details...
+
+    def _generate_category_index(self, categories: Dict[str, Dict[str, List[str]]]) -> str:
+        """
+        Generate markdown for category index.
+        
+        Args:
+            categories: Nested dictionary of category structure
+            
+        Returns:
+            Formatted markdown string with category hierarchy
+            
+        Notes:
+            - Uses relative paths for links
+            - Includes item counts per category
+            - Sorts categories and items alphabetically
+        """
+        pass  # Implementation details...
+
+    async def _format_kb_item(self, item: KnowledgeBaseItem) -> str:
+        """
+        Format knowledge base item as markdown.
+        
+        Args:
+            item: Knowledge base item to format
+            
+        Returns:
+            Formatted markdown string
+            
+        Notes:
+            - Embeds media with proper markdown syntax
+            - Formats code blocks with language hints
+            - Includes metadata in YAML frontmatter
+        """
+        pass  # Implementation details...
+
+    async def update_category_index(self, category_info: CategoryInfo) -> None:
+        """
+        Update category-specific index files.
+        
+        Args:
+            category_info: Category information for index update
+            
+        Notes:
+            - Creates/updates category README.md
+            - Updates subcategory indexes
+            - Maintains chronological and alphabetical lists
+        
+        Raises:
+            MarkdownGenerationError: If index update fails
+        """
+        pass  # Implementation details...
