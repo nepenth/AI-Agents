@@ -2,13 +2,14 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import httpx
-from typing import Optional
+from typing import Optional, Any, Dict
 import asyncio
 from contextlib import asynccontextmanager
 import logging
 import aiohttp
 import base64
 from pathlib import Path
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
@@ -26,6 +27,42 @@ def create_http_client():
     session.mount("https://", adapter)
     return session
 
+class HTTPClient:
+    def __init__(self, base_url: str = "", timeout: int = 30):
+        self.client = httpx.AsyncClient(
+            base_url=base_url,
+            timeout=timeout,
+            follow_redirects=True
+        )
+        
+    async def __aenter__(self):
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.client.aclose()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        reraise=True
+    )
+    async def get(self, url: str, **kwargs) -> httpx.Response:
+        """GET request with retry logic"""
+        response = await self.client.get(url, **kwargs)
+        response.raise_for_status()
+        return response
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        reraise=True
+    )
+    async def post(self, url: str, **kwargs) -> httpx.Response:
+        """POST request with retry logic"""
+        response = await self.client.post(url, **kwargs)
+        response.raise_for_status()
+        return response
+
 class OllamaClient:
     def __init__(self, base_url: str, timeout: int = 60, max_pool_size: int = 10):
         self.base_url = base_url.rstrip('/')
@@ -35,6 +72,7 @@ class OllamaClient:
         self._client: Optional[httpx.AsyncClient] = None
         self.limits = httpx.Limits(max_keepalive_connections=max_pool_size)
         self._lock = asyncio.Lock()  # Ensure single concurrent request
+        self.client = HTTPClient(base_url=base_url)
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -118,3 +156,31 @@ class OllamaClient:
         except Exception as e:
             logging.error(f"Failed to analyze image {image_path}: {e}")
             return f"Error analyzing image: {str(e)}"
+
+    async def generate(self, model: str, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Generate text with retry logic"""
+        try:
+            response = await self.client.post(
+                "/api/generate",
+                json={"model": model, "prompt": prompt, **kwargs}
+            )
+            return response.json()
+        except Exception as e:
+            logging.exception(f"Ollama generation failed for model {model}")
+            raise
+
+    async def analyze_image(self, model: str, image_data: bytes, prompt: str) -> Dict[str, Any]:
+        """Analyze image with retry logic"""
+        try:
+            response = await self.client.post(
+                "/api/analyze",
+                json={
+                    "model": model,
+                    "image": image_data.decode('utf-8'),
+                    "prompt": prompt
+                }
+            )
+            return response.json()
+        except Exception as e:
+            logging.exception(f"Image analysis failed for model {model}")
+            raise

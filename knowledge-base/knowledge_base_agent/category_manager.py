@@ -1,3 +1,27 @@
+"""
+Category Management Module
+
+This module handles the organization and management of knowledge base categories.
+It maintains the category hierarchy and ensures consistent category naming and
+structure across the knowledge base.
+
+Categories are organized in a two-level hierarchy:
+- Top-level categories (e.g., "Programming", "DevOps")
+- Subcategories (e.g., "Python", "Docker")
+
+The category structure is stored in a JSON file with the format:
+{
+    "programming": {
+        "python": ["description", "items_count"],
+        "javascript": ["description", "items_count"]
+    },
+    "devops": {
+        "docker": ["description", "items_count"],
+        "kubernetes": ["description", "items_count"]
+    }
+}
+"""
+
 import json
 import logging
 import asyncio
@@ -5,6 +29,9 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Set, Optional, Any
 from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError
+from knowledge_base_agent.file_utils import async_json_load, async_json_dump
+from .path_utils import PathNormalizer, DirectoryManager
+from .types import CategoryInfo
 
 @dataclass
 class Category:
@@ -14,7 +41,15 @@ class Category:
     keywords: Set[str]
 
 class CategoryManager:
-    """Manages categories for the knowledge base."""
+    """
+    Manages knowledge base categories and their organization.
+    
+    Handles category creation, validation, and maintenance of the
+    category hierarchy. Ensures consistent category naming and structure.
+    
+    Attributes:
+        config: Configuration instance containing category settings
+    """
     
     DEFAULT_CATEGORIES = {
         "software_engineering": [
@@ -199,32 +234,35 @@ class CategoryManager:
         except Exception as e:
             raise StorageError(f"Failed to save categories: {e}")
 
-    def add_category(self, main_category: str, sub_category: Optional[str] = None) -> None:
+    async def add_category(self, category_info: CategoryInfo) -> None:
         """
-        Add a new category or subcategory.
+        Add a new category or subcategory to the knowledge base.
         
         Args:
-            main_category: The main category name
-            sub_category: Optional subcategory name
+            category_info: CategoryInfo object containing category details
             
         Raises:
-            CategoryError: If the category is invalid
+            CategoryError: If category addition fails
         """
         try:
-            if not main_category:
-                raise CategoryError("Main category cannot be empty")
-
-            if main_category not in self.categories:
-                self.categories[main_category] = []
-
-            if sub_category:
-                if sub_category not in self.categories[main_category]:
-                    self.categories[main_category].append(sub_category)
-
-            self._save_categories()
+            norm_category = PathNormalizer.normalize_name(category_info['category'])
+            norm_subcategory = PathNormalizer.normalize_name(category_info['subcategory'])
+            
+            categories = await self.load_categories()
+            if norm_category not in categories:
+                categories[norm_category] = {}
+            if norm_subcategory not in categories[norm_category]:
+                categories[norm_category][norm_subcategory] = []
+                
+            await self.save_categories(categories)
+            
+            # Ensure directory structure exists
+            kb_path = self.config.knowledge_base_dir / norm_category / norm_subcategory
+            await DirectoryManager.ensure_directory(kb_path)
             
         except Exception as e:
-            raise CategoryError(f"Failed to add category: {e}")
+            logging.exception(f"Failed to add category: {category_info['category']}/{category_info['subcategory']}")
+            raise
 
     def get_categories(self) -> Dict[str, List[str]]:
         """Return all categories."""
@@ -449,3 +487,46 @@ class CategoryManager:
             'description': description,
             'subcategories': {}
         }
+
+    async def load_categories(self) -> dict:
+        """Load categories asynchronously."""
+        try:
+            return await async_json_load(self.categories_file)
+        except FileNotFoundError:
+            return {"categories": []}
+
+    async def save_categories(self, categories: dict) -> None:
+        """Save categories asynchronously."""
+        await async_json_dump(categories, self.categories_file)
+
+    async def get_category_path(self, category_info: CategoryInfo) -> str:
+        """
+        Get the filesystem path for a category.
+        
+        Args:
+            category_info: CategoryInfo object containing category details
+            
+        Returns:
+            str: Normalized filesystem path for the category
+            
+        Raises:
+            CategoryError: If path generation fails
+        """
+        # Implementation details...
+
+    async def validate_category(self, category_info: CategoryInfo) -> bool:
+        """
+        Validate category information.
+        
+        Args:
+            category_info: Category information to validate
+            
+        Returns:
+            True if category is valid, False otherwise
+            
+        Notes:
+            - Categories must be unique
+            - Names must conform to file system rules
+            - Maximum depth of 2 levels (category/subcategory)
+        """
+        pass  # Implementation details...

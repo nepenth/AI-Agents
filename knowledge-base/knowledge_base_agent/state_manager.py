@@ -1,15 +1,89 @@
 import json
-import logging
+import asyncio
+import aiofiles
 from pathlib import Path
-from .file_utils import safe_read_json, safe_write_json
+from typing import Set, Dict, Any
+import logging
+from .exceptions import StateError
+import tempfile
+import os
+import shutil
+from knowledge_base_agent.config import Config
 
-def load_processed_tweets(file_path: Path) -> dict:
-    data = safe_read_json(file_path)
-    processed = {}
-    for tweet_id, entry in data.items():
-        if all(entry.get(k) for k in ["item_name", "main_category", "sub_category"]):
-            processed[tweet_id] = entry
-    return processed
+class StateManager:
+    def __init__(self, config: Config):
+        self.config = config
+        self.processed_tweets: Set[str] = set()
+        self.unprocessed_tweets: Set[str] = set()
+        self._lock = asyncio.Lock()
+        
+    async def initialize(self) -> None:
+        """Load initial state."""
+        try:
+            async with self._lock:
+                await self._load_processed_tweets()
+        except Exception as e:
+            logging.exception("Failed to initialize state")
+            raise StateError("State initialization failed") from e
 
-def save_processed_tweets(file_path: Path, processed_tweets: dict) -> None:
-    safe_write_json(file_path, processed_tweets)
+    async def _atomic_write_json(self, data: Dict[str, Any], filepath: Path) -> None:
+        """Write JSON data atomically using a temporary file."""
+        temp_file = None
+        try:
+            # Create temporary file in the same directory
+            temp_fd, temp_path = tempfile.mkstemp(dir=filepath.parent)
+            os.close(temp_fd)
+            temp_file = Path(temp_path)
+            
+            # Write to temporary file
+            async with aiofiles.open(temp_file, 'w') as f:
+                await f.write(json.dumps(data, indent=2))
+            
+            # Atomic rename
+            shutil.move(str(temp_file), str(filepath))
+            
+        except Exception as e:
+            if temp_file and temp_file.exists():
+                temp_file.unlink()
+            raise StateError(f"Failed to write state file: {filepath}") from e
+
+    async def _load_processed_tweets(self) -> None:
+        """Load processed tweets from state file."""
+        try:
+            if self.config.processed_tweets_file.exists():
+                async with aiofiles.open(self.config.processed_tweets_file, 'r') as f:
+                    content = await f.read()
+                    self.processed_tweets = set(json.loads(content))
+        except Exception as e:
+            logging.error(f"Failed to load processed tweets: {e}")
+            self.processed_tweets = set()
+
+    async def mark_tweet_processed(self, tweet_id: str) -> None:
+        """Mark a tweet as processed with atomic write."""
+        async with self._lock:
+            try:
+                self.processed_tweets.add(tweet_id)
+                await self._atomic_write_json(
+                    list(self.processed_tweets),
+                    self.config.processed_tweets_file
+                )
+                logging.info(f"Marked tweet {tweet_id} as processed")
+            except Exception as e:
+                logging.exception(f"Failed to mark tweet {tweet_id} as processed")
+                raise StateError(f"Failed to update processed state for tweet {tweet_id}") from e
+
+    async def is_processed(self, tweet_id: str) -> bool:
+        """Check if a tweet has been processed."""
+        async with self._lock:
+            return tweet_id in self.processed_tweets
+
+    async def get_unprocessed_tweets(self, all_tweets: Set[str]) -> Set[str]:
+        """Get set of unprocessed tweets."""
+        async with self._lock:
+            return all_tweets - self.processed_tweets
+
+    async def clear_state(self) -> None:
+        """Clear all state (useful for testing or reset)."""
+        async with self._lock:
+            self.processed_tweets.clear()
+            await self._atomic_write_json([], self.config.processed_tweets_file)

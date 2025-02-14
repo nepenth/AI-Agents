@@ -7,8 +7,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import FetchError, ConfigurationError, StorageError
+from knowledge_base_agent.exceptions import FetchError, ConfigurationError, StorageError, BookmarksFetchError
 import aiofiles
+from knowledge_base_agent.http_client import HTTPClient
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+from playwright.async_api import ConnectionError
 
 # Load environment variables
 load_dotenv()
@@ -38,129 +42,139 @@ ARCHIVE_DIR = DATA_DIR / "archive_bookmarks"
 class BookmarksFetcher:
     def __init__(self, config: Config):
         self.config = config
-        self.login_url = "https://twitter.com/i/flow/login"
-
-    async def fetch_bookmarks(self, page) -> bool:
-        """Fetch bookmarks from X/Twitter."""
-        try:
-            logging.info("Navigating to login page...")
-            await page.goto(self.login_url)
-            
-            logging.info("Attempting login...")
-            await self._login(page)
-            
-            logging.info("Navigating to bookmarks...")
-            await page.goto("https://twitter.com/i/bookmarks")
-            
-            logging.info("Collecting bookmarks...")
-            bookmark_links = await self._scroll_and_collect_bookmarks(page)
-            
-            if bookmark_links:
-                logging.info(f"Found {len(bookmark_links)} bookmarks")
-                await self._save_bookmarks(bookmark_links)
-                return True
-            else:
-                logging.warning("No bookmarks found")
-                return False
-                
-        except Exception as e:
-            logging.error(f"Error in fetch_bookmarks: {str(e)}", exc_info=True)
-            return False
-
-    async def _login(self, page) -> None:
-        """Handle Twitter login."""
-        try:
-            # Wait for username field and enter username
-            username_selector = 'input[autocomplete="username"]'
-            await page.wait_for_selector(username_selector)
-            await page.fill(username_selector, self.config.x_username)
-            await page.keyboard.press('Enter')
-            
-            # Wait for password field and enter password
-            password_selector = 'input[name="password"]'
-            await page.wait_for_selector(password_selector)
-            await page.fill(password_selector, self.config.x_password)
-            await page.keyboard.press('Enter')
-            
-            # Wait for navigation to complete
-            await page.wait_for_load_state('networkidle')
-            
-        except Exception as e:
-            logging.error(f"Login failed: {e}")
-            raise
-
-    async def _scroll_and_collect_bookmarks(self, page) -> List[str]:
-        """Scroll through the page and collect bookmark links."""
-        bookmark_links = set()
-        last_height = await page.evaluate('document.body.scrollHeight')
+        self.browser = None
+        self.context = None
+        self.page = None
+        self.timeout = 30000  # 30 seconds in ms
         
-        while True:
-            # Get all tweet links using locator (removed timeout parameter)
-            elements = await page.locator('article a[href*="/status/"]').all()
-            for element in elements:
-                try:
-                    href = await element.get_attribute('href')
-                    if href:
-                        bookmark_links.add(href)
-                except Exception as e:
-                    logging.warning(f"Failed to get href attribute: {e}")
-                    continue
-            
-            # Scroll down
-            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-            await page.wait_for_timeout(2000)  # Increased wait time
-            
-            # Check if we've reached the bottom
-            new_height = await page.evaluate('document.body.scrollHeight')
-            if new_height == last_height:
-                break
-            last_height = new_height
-            
-        return list(bookmark_links)
+    async def __aenter__(self):
+        await self.initialize()
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.cleanup()
 
-    async def _save_bookmarks(self, links: List[str]) -> None:
-        """Save bookmark links to file."""
+    async def initialize(self) -> None:
+        """Initialize browser with retry logic."""
         try:
-            async with aiofiles.open(self.config.bookmarks_file, 'w', encoding='utf-8') as f:
-                await f.write('\n'.join(links))
-            logging.info(f"Saved {len(links)} bookmarks to {self.config.bookmarks_file}")
+            playwright = await async_playwright().start()
+            self.browser = await playwright.chromium.launch(headless=True)
+            self.context = await self.browser.new_context()
+            self.page = await self.context.new_page()
         except Exception as e:
-            logging.error(f"Failed to save bookmarks: {e}")
-            raise
+            logging.exception("Failed to initialize browser")
+            raise BookmarksFetchError("Browser initialization failed") from e
 
-async def fetch_bookmarks(config: Config) -> bool:
-    """
-    Main entry point for fetching bookmarks.
-    Returns True if successful, False otherwise.
-    """
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((PlaywrightTimeout, ConnectionError))
+    )
+    async def login(self) -> None:
+        """Handle X.com login with retry logic."""
+        try:
+            await self.page.goto('https://x.com/login', timeout=self.timeout)
+            
+            # Wait for and fill username
+            await self.page.wait_for_selector('input[name="username"]', timeout=self.timeout)
+            await self.page.fill('input[name="username"]', self.config.x_username)
+            await self.page.click('text=Next')
+            
+            # Wait for and fill password
+            await self.page.wait_for_selector('input[name="password"]', timeout=self.timeout)
+            await self.page.fill('input[name="password"]', self.config.x_password)
+            await self.page.click('text=Log in')
+            
+            # Wait for login completion
+            await self.page.wait_for_selector('[data-testid="AppTabBar_Home_Link"]', timeout=self.timeout)
+            
+        except PlaywrightTimeout as e:
+            logging.error(f"Timeout during login: {str(e)}")
+            raise
+        except Exception as e:
+            logging.exception("Login failed")
+            raise BookmarksFetchError("Failed to login to X.com") from e
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((PlaywrightTimeout, ConnectionError))
+    )
+    async def fetch_bookmarks(self) -> List[str]:
+        """Fetch bookmarks with retry logic."""
+        try:
+            await self.page.goto(f"https://x.com/{self.config.x_username}/bookmarks", timeout=self.timeout)
+            
+            # Wait for bookmarks to load
+            await self.page.wait_for_selector('[data-testid="tweet"]', timeout=self.timeout)
+            
+            # Scroll to load more bookmarks
+            previous_height = 0
+            while True:
+                current_height = await self.page.evaluate('document.body.scrollHeight')
+                if current_height == previous_height:
+                    break
+                await self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+                await asyncio.sleep(2)  # Wait for content to load
+                previous_height = current_height
+            
+            # Extract bookmark links
+            links = await self.page.eval_on_selector_all(
+                '[data-testid="tweet"] a[href*="/status/"]',
+                'elements => elements.map(el => el.href)'
+            )
+            
+            # Filter and clean links
+            bookmark_links = list(set(link for link in links if '/status/' in link))
+            
+            if not bookmark_links:
+                raise BookmarksFetchError("No bookmarks found")
+                
+            return bookmark_links
+            
+        except PlaywrightTimeout as e:
+            logging.error(f"Timeout while fetching bookmarks: {str(e)}")
+            raise
+        except Exception as e:
+            logging.exception("Failed to fetch bookmarks")
+            raise BookmarksFetchError("Failed to fetch bookmarks from X.com") from e
+
+    async def cleanup(self) -> None:
+        """Clean up browser resources."""
+        try:
+            if self.page:
+                await self.page.close()
+            if self.context:
+                await self.context.close()
+            if self.browser:
+                await self.browser.close()
+        except Exception as e:
+            logging.exception("Failed to cleanup browser resources")
+
+    async def run(self) -> List[str]:
+        """Main execution flow with proper resource handling."""
+        try:
+            async with self:
+                await self.login()
+                return await self.fetch_bookmarks()
+        except Exception as e:
+            logging.exception("Bookmark fetching failed")
+            raise BookmarksFetchError("Failed to complete bookmark fetching process") from e
+
+async def fetch_all_bookmarks(config: Config) -> List[str]:
+    """Main entry point for fetching bookmarks."""
     try:
         logging.info("Starting bookmarks fetch process...")
-        fetcher = BookmarksFetcher(config)
-        
-        if not config.x_username or not config.x_password:
-            logging.error("X/Twitter credentials not configured")
-            return False
-            
-        logging.info("Launching browser...")
-        async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=True)
-            page = await browser.new_page()
-            
-            logging.info("Attempting to fetch bookmarks...")
-            await fetcher.fetch_bookmarks(page)
-            
-            logging.info("Closing browser...")
-            await browser.close()
-            
-        logging.info("Bookmarks fetch completed successfully")
-        return True
-        
+        async with BookmarksFetcher(config) as fetcher:
+            return await fetcher.run()
     except Exception as e:
-        logging.error(f"Failed to fetch bookmarks: {str(e)}", exc_info=True)
-        return False
+        logging.error(f"Failed to fetch bookmarks: {str(e)}")
+        raise BookmarksFetchError("Bookmark fetch process failed") from e
 
 if __name__ == "__main__":
     config = Config.from_env()
-    success = fetch_bookmarks(config)
-    if not success:
-        print("An error occurred while updating bookmarks. Proceeding with existing bookmarks.")
+    try:
+        bookmarks = fetch_all_bookmarks(config)
+        print("Bookmarks fetched successfully")
+    except BookmarksFetchError as e:
+        print(f"Error: {e}")

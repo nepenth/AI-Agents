@@ -5,6 +5,11 @@ from pathlib import Path
 from .exceptions import KnowledgeBaseError
 from typing import List, Optional
 import git
+from knowledge_base_agent.config import Config
+from knowledge_base_agent.exceptions import GitSyncError
+from git import Repo, GitCommandError
+import asyncio
+from functools import partial
 
 def run_git_command(cmd: List[str], cwd: Path, capture_output: bool = False) -> Optional[str]:
     logging.debug(f"Running git command: {' '.join(cmd)}")
@@ -148,3 +153,102 @@ def push_to_github(
         helper.commit_and_push(commit_message)
     except Exception as e:
         raise KnowledgeBaseError(f"Failed to push to GitHub: {e}")
+
+class GitSyncHandler:
+    def __init__(self, config: Config):
+        self.config = config
+        self.repo_path = self.config.knowledge_base_dir
+        self._repo: Optional[Repo] = None
+
+    async def sync_to_github(self) -> None:
+        """Main sync operation coordinator."""
+        try:
+            await self._init_repo()
+            await self._configure_repo()
+            await self._stage_changes()
+            await self._commit_changes()
+            await self._push_changes()
+            logging.info("Successfully synced knowledge base to GitHub")
+        except Exception as e:
+            logging.exception("GitHub sync failed")
+            raise GitSyncError("Failed to sync with GitHub") from e
+
+    async def _init_repo(self) -> None:
+        """Initialize or get existing repo."""
+        try:
+            # Run in thread pool to avoid blocking
+            self._repo = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: Repo(self.repo_path) if Path(self.repo_path / '.git').exists() 
+                else Repo.init(self.repo_path)
+            )
+            logging.info(f"Initialized git repo at {self.repo_path}")
+        except Exception as e:
+            raise GitSyncError(f"Failed to initialize git repo at {self.repo_path}") from e
+
+    async def _configure_repo(self) -> None:
+        """Configure git repository settings."""
+        try:
+            # Configure user
+            await self._git_command('config', 'user.name', self.config.github_user_name)
+            await self._git_command('config', 'user.email', self.config.github_user_email)
+
+            # Configure remote
+            remote_url = str(self.config.github_repo_url)
+            if not remote_url.startswith('https://'):
+                remote_url = f"https://{self.config.github_token}@{remote_url.split('://')[-1]}"
+
+            # Check/update remote
+            try:
+                await self._git_command('remote', 'remove', 'origin')
+            except GitCommandError:
+                pass  # Ignore if remote doesn't exist
+            await self._git_command('remote', 'add', 'origin', remote_url)
+            logging.info("Configured git repository settings")
+        except Exception as e:
+            raise GitSyncError("Failed to configure git repository") from e
+
+    async def _stage_changes(self) -> None:
+        """Stage all changes in knowledge base directory."""
+        try:
+            await self._git_command('add', '-A')
+            status = await self._git_command('status', '--porcelain')
+            if not status:
+                logging.info("No changes to commit")
+                return
+            logging.info(f"Staged changes: \n{status}")
+        except Exception as e:
+            raise GitSyncError("Failed to stage changes") from e
+
+    async def _commit_changes(self) -> None:
+        """Commit staged changes."""
+        try:
+            status = await self._git_command('status', '--porcelain')
+            if not status:
+                return
+            
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            message = f"Update knowledge base - {timestamp}"
+            await self._git_command('commit', '-m', message)
+            logging.info(f"Committed changes: {message}")
+        except Exception as e:
+            raise GitSyncError("Failed to commit changes") from e
+
+    async def _push_changes(self) -> None:
+        """Push changes to remote repository."""
+        try:
+            await self._git_command('push', '-u', 'origin', 'main', '--force')
+            logging.info("Successfully pushed changes to GitHub")
+        except Exception as e:
+            raise GitSyncError("Failed to push changes to GitHub") from e
+
+    async def _git_command(self, *args) -> str:
+        """Execute git command asynchronously."""
+        try:
+            # Run git commands in thread pool to avoid blocking
+            func = partial(self._repo.git.execute, list(args))
+            result = await asyncio.get_event_loop().run_in_executor(None, func)
+            return result
+        except GitCommandError as e:
+            logging.error(f"Git command failed: {' '.join(args)}\nError: {e.stderr}")
+            raise
