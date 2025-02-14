@@ -23,7 +23,6 @@ from asyncio import Semaphore
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError
-from knowledge_base_agent.state_manager import save_processed_tweets, load_processed_tweets
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
@@ -186,10 +185,13 @@ class TweetProcessor:
         ollama: OllamaClient instance for AI model interactions
     """
 
-    def __init__(self, config: Config, state_manager: StateManager):
+    def __init__(self, config: Config):
         self.config = config
-        self.state_manager = state_manager
-        self.ollama = OllamaClient(str(config.ollama_url))
+        self.state_manager = StateManager(config)
+        self.http_client = HTTPClient(config)
+        self.ollama_client = OllamaClient(config)
+        self.category_manager = CategoryManager(config)
+        self.markdown_gen = MarkdownGenerator(config)
     
     async def process_tweets(self, tweets: List[Dict[str, Any]]) -> None:
         """Process multiple tweets with state tracking."""
@@ -283,7 +285,7 @@ class TweetProcessor:
     async def process_media_item(self, media: Dict[str, Any], model: str) -> Dict[str, Any]:
         """Process media with vision model"""
         media_data = await self.fetch_tweet_media(media['url'])
-        return await self.ollama.analyze_image(
+        return await self.ollama_client.analyze_image(
             model,
             media_data,
             "Describe this image in detail"
@@ -292,7 +294,7 @@ class TweetProcessor:
     async def generate_kb_entry(self, tweet_data: Dict[str, Any], media_results: List[Dict[str, Any]], 
                               category_info: Dict[str, str], model: str) -> Dict[str, Any]:
         """Generate KB entry using text model"""
-        return await self.ollama.generate(
+        return await self.ollama_client.generate(
             model,
             self._build_kb_prompt(tweet_data, media_results, category_info)
         )

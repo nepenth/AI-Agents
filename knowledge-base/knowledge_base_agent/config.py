@@ -3,8 +3,17 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from pydantic import BaseSettings, HttpUrl, Field, field_validator
+from pydantic_settings import BaseSettings
+from pydantic import HttpUrl, Field, field_validator
 from knowledge_base_agent.exceptions import ConfigurationError
+
+def setup_logging(log_file: Path) -> None:
+    """Setup logging configuration."""
+    logging.basicConfig(
+        filename=str(log_file),
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
 
 class Config(BaseSettings):
     # API endpoints and models
@@ -19,34 +28,41 @@ class Config(BaseSettings):
     github_user_email: str = Field(..., alias="GITHUB_USER_EMAIL")
     
     # File paths
-    data_processing_dir: Path = Field("data", alias="DATA_PROCESSING_DIR")
-    knowledge_base_dir: Path = Field("kb-generated", alias="KNOWLEDGE_BASE_DIR")
-    categories_file: Path = Field("data/categories.json", alias="CATEGORIES_FILE")
+    data_processing_dir: Path = Field(default=Path("data"), alias="DATA_PROCESSING_DIR")
+    knowledge_base_dir: Path = Field(default=Path("kb-generated"), alias="KNOWLEDGE_BASE_DIR")
+    categories_file: Path = Field(default=Path("data/categories.json"), alias="CATEGORIES_FILE")
     bookmarks_file: Path = Field("data/bookmarks_links.txt", alias="BOOKMARKS_FILE")
     processed_tweets_file: Path = Field("data/processed_tweets.json", alias="PROCESSED_TWEETS_FILE")
     media_cache_dir: Path = Field("data/media_cache", alias="MEDIA_CACHE_DIR")
     tweet_cache_file: Path = Field("data/tweet_cache.json", alias="TWEET_CACHE_FILE")
     log_file: Path = Field("data/logs/kb_agent_{timestamp}.log", alias="LOG_FILE")
+    unprocessed_tweets_file: Path = Field(default=Path("data/unprocessed_tweets.json"), alias="UNPROCESSED_TWEETS_FILE")
     
     # X/Twitter credentials
     x_username: str = Field(..., alias="X_USERNAME")
     x_password: str = Field(..., alias="X_PASSWORD")
     x_bookmarks_url: HttpUrl = Field(..., alias="X_BOOKMARKS_URL")
     
-    # Performance settings
-    batch_size: int = Field(1, alias="BATCH_SIZE")
-    max_retries: int = Field(3, alias="MAX_RETRIES")
-    max_concurrent_requests: int = Field(5, alias="MAX_CONCURRENT_REQUESTS")
-    request_timeout: int = Field(30, alias="REQUEST_TIMEOUT")
-    retry_backoff: bool = Field(True, alias="RETRY_BACKOFF")
-    max_pool_size: int = Field(10, alias="MAX_POOL_SIZE")
+    # Logging and performance
+    log_level: str = Field(default="DEBUG", alias="LOG_LEVEL")
+    max_pool_size: int = Field(default=1, alias="MAX_POOL_SIZE")
+    rate_limit_requests: int = Field(default=100, alias="RATE_LIMIT_REQUESTS")
+    rate_limit_period: int = Field(default=3600, alias="RATE_LIMIT_PERIOD")
     
-    # Logging configuration
-    log_level: str = Field("INFO", alias="LOG_LEVEL")
-
-    # Processing Settings
-    max_pool_size: int = Field(10, description="Maximum connection pool size")
-    log_level: str = Field("INFO", description="Logging level")
+    # Browser settings
+    selenium_timeout: int = Field(default=30, alias="SELENIUM_TIMEOUT")
+    selenium_headless: bool = Field(default=True, alias="SELENIUM_HEADLESS")
+    
+    # Content settings
+    max_content_length: int = Field(default=5000, alias="MAX_CONTENT_LENGTH")
+    summary_length: int = Field(default=280, alias="SUMMARY_LENGTH")
+    
+    # Request settings
+    batch_size: int = Field(default=1, alias="BATCH_SIZE")
+    max_retries: int = Field(default=5, alias="MAX_RETRIES")
+    max_concurrent_requests: int = Field(default=1, alias="MAX_CONCURRENT_REQUESTS")
+    request_timeout: int = Field(default=180, alias="REQUEST_TIMEOUT")
+    retry_backoff: bool = Field(default=True, alias="RETRY_BACKOFF")
     
     @field_validator(
         "data_processing_dir", "knowledge_base_dir", "categories_file", "bookmarks_file",
@@ -59,8 +75,8 @@ class Config(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-        case_sensitive = True
-        allow_population_by_field_name = True
+        populate_by_name = True
+        extra = "ignore"  # Ignore extra fields in .env
 
     def ensure_directories(self) -> None:
         """Ensure all required directories exist."""
@@ -79,7 +95,6 @@ class Config(BaseSettings):
             self.log_file = Path(str(self.log_file).replace('{timestamp}', timestamp))
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-
     def setup_logging(self) -> None:
         """Configure logging system."""
         log_dir = self.data_processing_dir / "logs"
@@ -97,7 +112,3 @@ class Config(BaseSettings):
         def success(self, message, *args, **kwargs):
             self._log(25, message, args, **kwargs)
         logging.Logger.success = success
-
-# Create global config instance
-config = Config()
-

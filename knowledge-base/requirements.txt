@@ -13,3 +13,4 @@ httpx>=0.25.0
 gitpython>=3.1.40
 aiohttp>=3.8.5
 aiofiles>=23.2.1
+pydantic_settings>=2.0.0

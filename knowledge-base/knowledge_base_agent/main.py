@@ -90,20 +90,11 @@ async def cleanup(config: Config) -> None:
         logging.warning(f"Cleanup failed: {e}")
 
 async def main() -> None:
-    """
-    Main entry point for the knowledge base agent.
-    
-    Handles the complete execution flow:
-    1. Configuration loading
-    2. Directory setup
-    3. State initialization
-    4. User preference collection
-    5. Agent execution
-    6. Cleanup
-    """
-    start_time = datetime.now()
+    """Main entry point for the knowledge base agent."""
+    print("Starting Knowledge Base Agent...")  # Add immediate feedback
     try:
         # Initialize configuration
+        print("Loading configuration...")
         config = await load_config()
         logging.info(f"Using Ollama URL: {config.ollama_url}")
         
@@ -111,25 +102,25 @@ async def main() -> None:
         state_manager = await initialize_state(config)
         
         # Get user preferences
+        print("Getting user preferences...")
         preferences = prompt_for_preferences()
         
         # Run agent
+        print("Starting agent execution...")
         await run_agent(config, preferences)
         
-        # Cleanup
-        await cleanup(config)
-        
-        # Log execution time
-        duration = datetime.now() - start_time
-        logging.info(f"Execution completed in {duration}")
+        print("Agent execution completed successfully!")
         
     except ConfigurationError as e:
+        print(f"Configuration error: {e}")
         logging.error(f"Configuration error: {e}")
         sys.exit(1)
     except KnowledgeBaseError as e:
+        print(f"Knowledge base error: {e}")
         logging.error(f"Knowledge base error: {e}")
         sys.exit(1)
     except Exception as e:
+        print(f"Unexpected error: {e}")
         logging.error(f"Unexpected error: {e}")
         sys.exit(1)
     finally:

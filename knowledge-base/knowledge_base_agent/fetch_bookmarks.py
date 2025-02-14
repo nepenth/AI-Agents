@@ -5,14 +5,13 @@ import time
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
-from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import FetchError, ConfigurationError, StorageError, BookmarksFetchError
 import aiofiles
 from knowledge_base_agent.http_client import HTTPClient
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
-from playwright.async_api import ConnectionError
+from playwright.async_api import Error as PlaywrightError
 
 # Load environment variables
 load_dotenv()
@@ -68,7 +67,7 @@ class BookmarksFetcher:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((PlaywrightTimeout, ConnectionError))
+        retry=retry_if_exception_type((PlaywrightTimeout, PlaywrightError))
     )
     async def login(self) -> None:
         """Handle X.com login with retry logic."""
@@ -98,7 +97,7 @@ class BookmarksFetcher:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((PlaywrightTimeout, ConnectionError))
+        retry=retry_if_exception_type((PlaywrightTimeout, PlaywrightError))
     )
     async def fetch_bookmarks(self) -> List[str]:
         """Fetch bookmarks with retry logic."""
