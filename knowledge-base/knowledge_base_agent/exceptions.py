@@ -1,5 +1,25 @@
 class KnowledgeBaseError(Exception):
-    """Base exception for knowledge base operations."""
+    """Base exception for knowledge base errors."""
+    pass
+
+class AgentError(KnowledgeBaseError):
+    """Raised when agent operations fail."""
+    pass
+
+class BookmarksFetchError(KnowledgeBaseError):
+    """Raised when bookmark fetching fails."""
+    pass
+
+class MarkdownGenerationError(KnowledgeBaseError):
+    """Raised when markdown generation fails."""
+    pass
+
+class PathValidationError(KnowledgeBaseError):
+    """Raised when path validation fails."""
+    pass
+
+class StateError(KnowledgeBaseError):
+    """Raised when state management operations fail."""
     pass
 
 class TweetProcessingError(KnowledgeBaseError):
