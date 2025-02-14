@@ -218,6 +218,11 @@ async def generate_root_readme(knowledge_base_dir: Path, category_manager: Categ
 class MarkdownGenerator:
     """Generates and manages markdown documentation for the knowledge base."""
 
+    def __init__(self, config: Config):
+        self.config = config
+        self.path_normalizer = PathNormalizer()
+        self.dir_manager = DirectoryManager()
+
     async def generate_readme(self) -> None:
         """
         Generate main README.md with category index.

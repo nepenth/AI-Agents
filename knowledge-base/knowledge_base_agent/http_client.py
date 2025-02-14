@@ -10,6 +10,7 @@ import aiohttp
 import base64
 from pathlib import Path
 from tenacity import retry, stop_after_attempt, wait_exponential
+from .config import Config  # Add this import
 
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
@@ -28,11 +29,15 @@ def create_http_client():
     return session
 
 class HTTPClient:
-    def __init__(self, base_url: str = "", timeout: int = 30):
+    def __init__(self, config: Config):
+        self.config = config
         self.client = httpx.AsyncClient(
-            base_url=base_url,
-            timeout=timeout,
-            follow_redirects=True
+            base_url=str(config.ollama_url),  # Convert HttpUrl to string
+            timeout=config.request_timeout,
+            limits=httpx.Limits(
+                max_connections=config.max_concurrent_requests,
+                max_keepalive_connections=config.max_concurrent_requests
+            )
         )
         
     async def __aenter__(self):
@@ -64,15 +69,18 @@ class HTTPClient:
         return response
 
 class OllamaClient:
-    def __init__(self, base_url: str, timeout: int = 60, max_pool_size: int = 10):
-        self.base_url = base_url.rstrip('/')
-        self.timeout = timeout
-        self.max_pool_size = max_pool_size
+    def __init__(self, config: Config):
+        self.config = config
+        self.base_url = str(config.ollama_url).rstrip('/')  # Convert HttpUrl to string before rstrip
+        self.vision_model = config.vision_model
+        self.text_model = config.text_model
+        self.timeout = config.request_timeout
+        self.max_pool_size = config.max_concurrent_requests
         self.session = None
         self._client: Optional[httpx.AsyncClient] = None
-        self.limits = httpx.Limits(max_keepalive_connections=max_pool_size)
+        self.limits = httpx.Limits(max_keepalive_connections=self.max_pool_size)
         self._lock = asyncio.Lock()  # Ensure single concurrent request
-        self.client = HTTPClient(base_url=base_url)
+        self.client = HTTPClient(config=config)
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:

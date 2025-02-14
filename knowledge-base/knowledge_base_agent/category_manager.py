@@ -32,6 +32,7 @@ from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, S
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump
 from .path_utils import PathNormalizer, DirectoryManager
 from .types import CategoryInfo
+from .config import Config
 
 @dataclass
 class Category:
@@ -174,19 +175,16 @@ class CategoryManager:
         ]
     }
     
-    def __init__(self, categories_file: Path):
-        """
-        Initialize the CategoryManager.
-        
-        Args:
-            categories_file: Path to the categories JSON file
-            
-        Raises:
-            ConfigurationError: If the categories file is invalid
-        """
-        self.categories_file = categories_file
-        self.categories: Dict[str, List[str]] = {}
-        self.load_categories()
+    def __init__(self, config: Config):
+        self.config = config
+        self.categories = {}
+        self._initialized = False
+
+    async def initialize(self) -> None:
+        """Initialize the category manager."""
+        if not self._initialized:
+            await self.load_categories()  # Await the coroutine
+            self._initialized = True
 
     def load_categories(self) -> None:
         """
