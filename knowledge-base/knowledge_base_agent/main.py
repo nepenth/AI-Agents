@@ -24,7 +24,7 @@ async def setup_directories(config: Config) -> None:
         directories = [
             config.knowledge_base_dir,
             config.data_processing_dir,
-            config.cache_dir,
+            config.media_cache_dir,
             config.log_dir
         ]
         for directory in directories:

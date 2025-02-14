@@ -38,13 +38,33 @@ class KnowledgeBaseAgent:
     async def initialize(self) -> None:
         """Initialize all components and ensure directory structure."""
         try:
-            # Ensure required directories exist
-            self.config.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
-            self.config.data_processing_dir.mkdir(parents=True, exist_ok=True)
+            logging.info("Creating required directories...")
+            try:
+                self.config.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+                logging.debug(f"Created knowledge base dir: {self.config.knowledge_base_dir}")
+                
+                self.config.data_processing_dir.mkdir(parents=True, exist_ok=True)
+                logging.debug(f"Created processing dir: {self.config.data_processing_dir}")
+                
+                self.config.media_cache_dir.mkdir(parents=True, exist_ok=True)
+                logging.debug(f"Created media cache dir: {self.config.media_cache_dir}")
+            except Exception as e:
+                logging.exception("Failed to create directories")
+                raise AgentError(f"Failed to create directories: {e}")
             
-            # Initialize components
-            await self.state_manager.initialize()
-            await self.category_manager.initialize()
+            logging.info("Initializing state manager...")
+            try:
+                await self.state_manager.initialize()
+            except Exception as e:
+                logging.exception("State manager initialization failed")
+                raise AgentError(f"State manager initialization failed: {e}")
+            
+            logging.info("Initializing category manager...")
+            try:
+                await self.category_manager.initialize()
+            except Exception as e:
+                logging.exception("Category manager initialization failed")
+                raise AgentError(f"Category manager initialization failed: {e}")
             
             logging.info("Agent initialization complete")
         except Exception as e:
@@ -138,6 +158,6 @@ class KnowledgeBaseAgent:
             await self.cleanup()
             logging.info("Agent run completed successfully")
         except Exception as e:
-            logging.exception("Agent execution failed")
+            logging.exception("Agent execution failed with error: %s", str(e))  # More detailed logging
             await self.cleanup()  # Ensure cleanup runs even on failure
-            raise AgentError("Agent execution failed") from e
+            raise AgentError(f"Agent execution failed: {str(e)}") from e

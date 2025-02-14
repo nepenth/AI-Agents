@@ -9,22 +9,40 @@ import tempfile
 import os
 import shutil
 from knowledge_base_agent.config import Config
+from .file_utils import async_write_text, async_json_load
 
 class StateManager:
     def __init__(self, config: Config):
         self.config = config
-        self.processed_tweets: Set[str] = set()
+        self._initialized = False
+        self.processed_tweets = set()
         self.unprocessed_tweets: Set[str] = set()
         self._lock = asyncio.Lock()
         
     async def initialize(self) -> None:
-        """Load initial state."""
+        """Initialize the state manager."""
         try:
-            async with self._lock:
-                await self._load_processed_tweets()
+            logging.info("Starting state manager initialization")
+            
+            # Ensure state file exists
+            if not self.config.unprocessed_tweets_file.parent.exists():
+                logging.debug("Creating state file directory")
+                self.config.unprocessed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            if not self.config.unprocessed_tweets_file.exists():
+                logging.debug("Creating empty state file")
+                await async_write_text(str(self.config.unprocessed_tweets_file), "[]")
+            
+            # Load processed tweets
+            logging.debug("Loading processed tweets")
+            self.processed_tweets = await self.load_processed_tweets()
+            
+            self._initialized = True
+            logging.info("State manager initialization complete")
+            
         except Exception as e:
-            logging.exception("Failed to initialize state")
-            raise StateError("State initialization failed") from e
+            logging.exception("State manager initialization failed")
+            raise StateError(f"Failed to initialize state manager: {str(e)}")
 
     async def _atomic_write_json(self, data: Dict[str, Any], filepath: Path) -> None:
         """Write JSON data atomically using a temporary file."""
@@ -87,3 +105,14 @@ class StateManager:
         async with self._lock:
             self.processed_tweets.clear()
             await self._atomic_write_json([], self.config.processed_tweets_file)
+
+    async def load_processed_tweets(self) -> set:
+        """Load processed tweets from state file."""
+        try:
+            if self.config.processed_tweets_file.exists():
+                data = await async_json_load(str(self.config.processed_tweets_file))
+                return set(data)
+            return set()
+        except Exception as e:
+            logging.error(f"Failed to load processed tweets: {e}")
+            return set()
