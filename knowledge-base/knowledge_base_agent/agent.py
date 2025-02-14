@@ -3,6 +3,7 @@ import logging
 import asyncio
 from typing import Optional, List
 import shutil
+import json
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
@@ -98,7 +99,12 @@ class KnowledgeBaseAgent:
 
             # Update README if requested
             if update_readme:
-                await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
+                # Generate README in the knowledge base directory
+                await generate_root_readme(
+                    self.config.knowledge_base_dir,  # This should be kb-generated
+                    self.category_manager
+                )
+                logging.info(f"Generated README.md in {self.config.knowledge_base_dir}")
 
             # Push changes if requested
             if push_changes:
@@ -121,25 +127,52 @@ class KnowledgeBaseAgent:
                 if not tweet_id:
                     logging.warning(f"Invalid tweet URL: {tweet_url}")
                     continue
-                    
-                # Cache tweet data if not already cached
-                await cache_tweet_data(tweet_url, self.config, self.tweet_cache, self.http_client)
-                
-                # Get tweet data from cache
-                tweet_data = get_cached_tweet(tweet_id, self.tweet_cache)
+
+                # Check cache first
+                tweet_data = self.tweet_cache.get(tweet_id)
+                if tweet_data:
+                    logging.info(f"Using cached data for tweet {tweet_id}")
+                else:
+                    logging.info(f"Cache miss: Fetching new data for tweet {tweet_id}")
+                    await cache_tweet_data(tweet_url, self.config, self.tweet_cache, self.http_client)
+                    tweet_data = self.tweet_cache.get(tweet_id)
+
                 if not tweet_data:
-                    logging.warning(f"No cached data found for tweet {tweet_id}")
+                    logging.error(f"No data available for tweet {tweet_id}")
                     continue
-                
-                # Get categories and name using AI
-                main_cat, sub_cat, name = await categorize_and_name_content(
-                    self.config.ollama_url,
-                    tweet_data.get('full_text', ''),  # Use .get() for dictionary access
-                    self.config.text_model,
-                    tweet_id,
-                    self.category_manager
-                )
-                
+
+                # Validate tweet data structure
+                if not isinstance(tweet_data, dict):
+                    logging.error(f"Invalid tweet data format for {tweet_id}: {type(tweet_data)}")
+                    continue
+
+                # Skip if already processed
+                if tweet_id in self.processed_tweets:
+                    logging.info(f"Tweet {tweet_id} already processed, skipping...")
+                    continue
+
+                # Check if category values were previously captured
+                if ('main_category' in tweet_data and 
+                    'sub_category' in tweet_data and 
+                    'item_name' in tweet_data):
+                    logging.info(f"Using existing category values for tweet {tweet_id}")
+                    main_cat = tweet_data['main_category']
+                    sub_cat = tweet_data['sub_category']
+                    name = tweet_data['item_name']
+                else:
+                    logging.info(f"Categorizing tweet {tweet_id} using AI")
+                    text_content = tweet_data.get('full_text', '')
+                    if not text_content:
+                        logging.warning(f"No text content found for tweet {tweet_id}")
+                        text_content = "No text content available"
+                    main_cat, sub_cat, name = await categorize_and_name_content(
+                        self.config.ollama_url,
+                        text_content,
+                        self.config.text_model,
+                        tweet_id,
+                        self.category_manager
+                    )
+
                 # Create knowledge base entry
                 await create_knowledge_base_entry(
                     tweet_id=tweet_id,
@@ -147,15 +180,15 @@ class KnowledgeBaseAgent:
                     categories=(main_cat, sub_cat, name),
                     config=self.config
                 )
-                
-                # Mark tweet as processed
+
+                # Mark tweet as processed and save state
                 self.processed_tweets.add(tweet_id)
                 self._save_processed_tweets()
-                
+
                 logging.info(f"Successfully processed tweet {tweet_id}")
-                
+
             except Exception as e:
-                logging.error(f"Failed to process tweet {tweet_url}: {e}")
+                logging.error(f"Failed to process tweet {tweet_url}: {e}", exc_info=True)
                 continue
 
     async def _perform_maintenance(self):
@@ -246,4 +279,12 @@ class KnowledgeBaseAgent:
                     
         except Exception as e:
             logging.error(f"Failed to process cached images: {e}")
-            raise 
+            raise
+
+    def _save_processed_tweets(self) -> None:
+        """Save the set of processed tweet IDs to file."""
+        try:
+            with open(self.config.processed_tweets_file, 'w') as f:
+                json.dump(list(self.processed_tweets), f)
+        except Exception as e:
+            logging.error(f"Failed to save processed tweets: {e}") 

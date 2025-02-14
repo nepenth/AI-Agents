@@ -116,32 +116,41 @@ async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: Dict[str
     try:
         tweet_id = parse_tweet_id_from_url(tweet_url)
         if not tweet_id:
+            logging.warning(f"Could not parse tweet ID from URL: {tweet_url}")
             return
 
-        # If not in cache, fetch and store
-        if tweet_id not in tweet_cache:
-            tweet_data = await fetch_tweet_data_playwright(tweet_id)
-            if tweet_data:
-                tweet_cache[tweet_id] = tweet_data
-                await save_cache(tweet_cache, config.tweet_cache_file)  # Use config path
-                logging.info(f"Updated cache for tweet ID {tweet_id}.")
+        # Check cache first
+        if tweet_id in tweet_cache:
+            logging.debug(f"Cache hit: Tweet {tweet_id} found in cache")
+            return
 
-        # Download and process media if present
-        if tweet_cache[tweet_id].get('media'):
-            media_paths = []
-            for img_url in tweet_cache[tweet_id]['media']:
-                media_path = await download_media(img_url, tweet_id, config.media_cache_dir)
-                if media_path:
-                    media_paths.append(media_path)
-            
-            # Update cache with downloaded media paths
-            tweet_cache[tweet_id]['downloaded_media'] = media_paths
-            await save_cache(tweet_cache, config.tweet_cache_file)
+        logging.info(f"Cache miss: Tweet {tweet_id} not found in cache, fetching from Twitter...")
+        tweet_data = await fetch_tweet_data_playwright(tweet_id)
+        
+        if not tweet_data:
+            logging.error(f"Failed to fetch data for tweet {tweet_id}")
+            return
 
-        logging.info(f"Cached tweet data for {tweet_id}")
+        # Ensure tweet_data is properly structured
+        if isinstance(tweet_data, list):
+            logging.debug(f"Converting tweet data from list to dict format for {tweet_id}")
+            tweet_data = {
+                "full_text": tweet_data[0] if len(tweet_data) > 0 else "",
+                "media": tweet_data[1] if len(tweet_data) > 1 else [],
+                "downloaded_media": [],
+                "image_descriptions": []
+            }
+        elif not isinstance(tweet_data, dict):
+            logging.error(f"Unexpected tweet data format for {tweet_id}: {type(tweet_data)}")
+            return
+
+        # Store in cache
+        tweet_cache[tweet_id] = tweet_data
+        await save_cache(tweet_cache, config.tweet_cache_file)
+        logging.info(f"Successfully cached tweet {tweet_id}")
 
     except Exception as e:
-        logging.error(f"Failed to cache tweet data: {e}")
+        logging.error(f"Failed to cache tweet {tweet_url}: {e}", exc_info=True)
 
 async def download_media(url: str, tweet_id: str, media_cache_dir: Path) -> Optional[Path]:
     """Download media from URL to the media cache directory."""

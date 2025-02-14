@@ -3,7 +3,7 @@ import logging
 import asyncio
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, Any
 from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError
 
 @dataclass
@@ -162,39 +162,26 @@ class CategoryManager:
             CategoryError: If the categories format is invalid
         """
         try:
-            # If file doesn't exist or is empty, create with defaults
-            if not self.categories_file.exists() or self.categories_file.stat().st_size == 0:
-                logging.info("Categories file not found or empty. Creating with default categories.")
+            if not self.categories_file.exists():
+                logging.info("Categories file not found. Creating with default categories.")
                 self.categories = self.DEFAULT_CATEGORIES.copy()
                 self._save_categories()
                 return
 
-            # Try to load existing categories
-            try:
-                with self.categories_file.open('r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    
-                if not isinstance(data, dict):
-                    logging.warning("Invalid categories format. Resetting to defaults.")
-                    self.categories = self.DEFAULT_CATEGORIES.copy()
-                    self._save_categories()
-                    return
-                    
-                # Validate all subcategories are lists
-                for main_cat, sub_cats in data.items():
-                    if not isinstance(sub_cats, list):
-                        logging.warning(f"Invalid subcategories format for {main_cat}. Resetting to defaults.")
-                        self.categories = self.DEFAULT_CATEGORIES.copy()
-                        self._save_categories()
-                        return
-                        
-                self.categories = data
+            with self.categories_file.open('r', encoding='utf-8') as f:
+                data = json.load(f)
                 
-            except json.JSONDecodeError:
-                logging.warning("Invalid JSON in categories file. Resetting to defaults.")
-                self.categories = self.DEFAULT_CATEGORIES.copy()
-                self._save_categories()
+            if not isinstance(data, dict):
+                raise CategoryError("Categories must be a dictionary")
                 
+            for main_cat, sub_cats in data.items():
+                if not isinstance(sub_cats, list):
+                    raise CategoryError(f"Subcategories for {main_cat} must be a list")
+                    
+            self.categories = data
+            
+        except json.JSONDecodeError as e:
+            raise StorageError(f"Invalid JSON in categories file: {e}")
         except Exception as e:
             raise StorageError(f"Failed to load categories: {e}")
 
@@ -377,22 +364,75 @@ class CategoryManager:
         self.save_categories()
         return True
 
-    def get_category_suggestions(self, content: str, num_suggestions: int = 3) -> List[tuple]:
-        content_words = set(self._normalize_name(content).split('_'))
+    def _extract_keywords(self, content: str) -> List[str]:
+        """
+        Extract keywords from the content.
+        This implementation lowercases the text, splits it into words,
+        and removes common stopwords. Adjust as needed.
+        """
+        import re
+        # Find all word tokens
+        words = re.findall(r'\b\w+\b', content.lower())
+        # Define a simple list of common stopwords
+        stopwords = set([
+            'the', 'and', 'a', 'an', 'of', 'in', 'to', 'is', 'it', 'that', 'this', 'for',
+            'on', 'with', 'as', 'by', 'at', 'from', 'or', 'but'
+        ])
+        # Filter out stopwords
+        keywords = [word for word in words if word not in stopwords]
+        return keywords
+
+    def get_category_suggestions(self, content: str) -> List[Dict[str, Any]]:
+        """Get category suggestions based on content keywords."""
+        content_words = set(self._extract_keywords(content))
         suggestions = []
-        for cat_name, category in self.categories.items():
-            keyword_matches = len(content_words & category['keywords'])
+        
+        for category in self.categories:
+            # If category is a simple string, convert it to a dict.
+            if isinstance(category, str):
+                category = {
+                    'main_category': category,
+                    'sub_category': category,
+                    'keywords': category.split('_')  # e.g. "system_design" -> ["system", "design"]
+                }
+                logging.debug(f"Converted simple category string to dict: {category}")
+            # If category is provided as a list, try converting it to a dict.
+            elif isinstance(category, list):
+                if len(category) >= 3:
+                    category = {
+                        'main_category': category[0],
+                        'sub_category': category[1],
+                        'keywords': category[2]
+                    }
+                    logging.debug(f"Converted category list to dict: {category}")
+                else:
+                    logging.warning(f"Skipping invalid category list: {category}")
+                    continue
+            
+            # Ensure category is a dict.
+            if not isinstance(category, dict):
+                logging.warning(f"Skipping category with invalid format: {category}")
+                continue
+                
+            # Ensure that keywords exist and cast them to a set for intersection.
+            keywords = category.get('keywords', [])
+            if not isinstance(keywords, list):
+                logging.warning(f"Keywords for category {category} are not a list. Skipping...")
+                continue
+            
+            keyword_matches = len(content_words & set(keywords))
             if keyword_matches > 0:
-                best_subcategory = None
-                best_subscore = 0
-                for subcategory in category['subcategories']:
-                    subscore = len(content_words & set(subcategory.split('_')))
-                    if subscore > best_subscore:
-                        best_subscore = subscore
-                        best_subcategory = subcategory
-                score = keyword_matches + (best_subscore * 0.5)
-                suggestions.append((cat_name, best_subcategory or "best_practices", score))
-        return sorted(suggestions, key=lambda x: x[2], reverse=True)[:num_suggestions]
+                suggestion = {
+                    'main_category': category.get('main_category', ''),
+                    'sub_category': category.get('sub_category', ''),
+                    'score': keyword_matches,
+                    'matching_keywords': list(content_words & set(keywords))
+                }
+                suggestions.append(suggestion)
+        
+        # Sort by score descending
+        suggestions.sort(key=lambda x: x['score'], reverse=True)
+        return suggestions
 
     def _normalize_name(self, name: str) -> str:
         return name.lower().replace(' ', '_').strip('_')
