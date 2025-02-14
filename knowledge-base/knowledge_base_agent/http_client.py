@@ -76,8 +76,18 @@ class OllamaClient:
             String description of the image
         """
         try:
+            # Convert image_path to Path if it's a string
+            if isinstance(image_path, str):
+                image_path = Path(image_path)
+                
+            # Clean up the path (remove URL parameters)
+            clean_path = Path(str(image_path).split('?')[0])
+            
+            if not clean_path.exists():
+                raise FileNotFoundError(f"Image file not found: {clean_path}")
+                
             # Read image as base64
-            with open(image_path, "rb") as image_file:
+            with open(clean_path, "rb") as image_file:
                 image_data = base64.b64encode(image_file.read()).decode('utf-8')
             
             # Prepare the prompt
