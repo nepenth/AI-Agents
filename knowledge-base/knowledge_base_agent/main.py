@@ -24,8 +24,7 @@ async def setup_directories(config: Config) -> None:
         directories = [
             config.knowledge_base_dir,
             config.data_processing_dir,
-            config.media_cache_dir,
-            config.log_dir
+            config.media_cache_dir
         ]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
@@ -46,7 +45,7 @@ async def load_config() -> Config:
     try:
         config = Config()  # Loads from environment variables
         await setup_directories(config)
-        setup_logging(config.log_dir / "agent.log")
+        setup_logging(config.log_file)
         return config
     except Exception as e:
         raise ConfigurationError(f"Failed to load configuration: {e}")

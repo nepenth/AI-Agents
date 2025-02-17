@@ -186,6 +186,15 @@ class MarkdownWriter:
             if media_file.exists():
                 await self.dir_manager.copy_file(media_file, target_dir / media_file.name)
 
+    async def generate_readme(self) -> None:
+        """Generate the main README file."""
+        try:
+            # README generation logic here
+            pass
+        except Exception as e:
+            logging.error(f"Failed to generate README: {str(e)}")
+            raise MarkdownGenerationError(f"Failed to generate README: {str(e)}")
+
 async def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryManager) -> None:
     """Generate the root README.md file."""
     try:

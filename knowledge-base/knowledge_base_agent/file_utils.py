@@ -26,9 +26,9 @@ def safe_write_json(file_path: Path, data: Any, indent: int = 4) -> bool:
         logging.error(f"Failed to write JSON to {file_path}: {e}")
         return False
 
-async def async_json_load(file_path: Union[str, Path]) -> Any:
-    """Asynchronously load JSON data."""
-    async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+async def async_json_load(filepath: str) -> dict:
+    """Load JSON from a file asynchronously."""
+    async with aiofiles.open(filepath, 'r') as f:
         content = await f.read()
         return json.loads(content)
 
@@ -42,9 +42,9 @@ async def async_read_text(file_path: Union[str, Path]) -> str:
     async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
         return await f.read()
 
-async def async_write_text(content: str, file_path: Union[str, Path]) -> None:
-    """Asynchronously write text file."""
-    async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+async def async_write_text(content: str, filepath: str) -> None:
+    """Write text content to a file asynchronously."""
+    async with aiofiles.open(filepath, 'w') as f:
         await f.write(content)
 
 async def async_append_text(content: str, file_path: Union[str, Path]) -> None:

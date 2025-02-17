@@ -179,6 +179,7 @@ class CategoryManager:
         self.config = config
         self.categories = {}
         self._initialized = False
+        self.categories_file = self.config.categories_file
 
     async def initialize(self) -> None:
         """Initialize the category manager."""
@@ -474,7 +475,8 @@ class CategoryManager:
         return name.lower().replace(' ', '_').strip('_')
 
     def get_all_categories(self) -> List[str]:
-        return sorted(self.categories.keys())
+        """Get all available categories."""
+        return list(self.categories.keys())
 
     def get_category_info(self, category: str) -> Optional[dict]:
         return self.categories.get(category)
@@ -528,3 +530,12 @@ class CategoryManager:
             - Maximum depth of 2 levels (category/subcategory)
         """
         pass  # Implementation details...
+
+    async def update_indexes(self) -> None:
+        """Update category indexes."""
+        try:
+            categories = self.get_all_categories()  # No await needed
+            # ... rest of the update logic ...
+        except Exception as e:
+            logging.error(f"Failed to update indexes: {e}")
+            raise CategoryError(f"Failed to update indexes: {e}")

@@ -24,18 +24,36 @@ class StateManager:
         try:
             logging.info("Starting state manager initialization")
             
-            # Ensure state file exists
-            if not self.config.unprocessed_tweets_file.parent.exists():
-                logging.debug("Creating state file directory")
-                self.config.unprocessed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            if not self.config.unprocessed_tweets_file.exists():
-                logging.debug("Creating empty state file")
-                await async_write_text(str(self.config.unprocessed_tweets_file), "[]")
+            # Ensure unprocessed tweets file exists
+            try:
+                if not self.config.unprocessed_tweets_file.parent.exists():
+                    logging.debug(f"Creating directory: {self.config.unprocessed_tweets_file.parent}")
+                    self.config.unprocessed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
+                
+                if not self.config.unprocessed_tweets_file.exists():
+                    logging.debug(f"Creating file at: {self.config.unprocessed_tweets_file}")
+                    filepath = str(self.config.unprocessed_tweets_file)
+                    logging.debug(f"Writing to filepath: {filepath}")
+                    await async_write_text("[]", filepath)
+                
+                # Ensure processed tweets file exists
+                if not self.config.processed_tweets_file.exists():
+                    logging.debug(f"Creating file at: {self.config.processed_tweets_file}")
+                    filepath = str(self.config.processed_tweets_file)
+                    logging.debug(f"Writing to filepath: {filepath}")
+                    await async_write_text("[]", filepath)
+                
+            except Exception as e:
+                logging.exception("Failed during file creation")
+                raise StateError(f"Failed to create state files: {str(e)}")
             
             # Load processed tweets
-            logging.debug("Loading processed tweets")
-            self.processed_tweets = await self.load_processed_tweets()
+            try:
+                logging.debug("Loading processed tweets")
+                self.processed_tweets = await self.load_processed_tweets()
+            except Exception as e:
+                logging.exception("Failed to load processed tweets")
+                raise StateError(f"Failed to load processed tweets: {str(e)}")
             
             self._initialized = True
             logging.info("State manager initialization complete")

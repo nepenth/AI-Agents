@@ -160,7 +160,7 @@ class GitSyncHandler:
         self.repo_path = self.config.knowledge_base_dir
         self._repo: Optional[Repo] = None
 
-    async def sync_to_github(self) -> None:
+    async def sync_to_github(self, message: str) -> None:
         """Main sync operation coordinator."""
         try:
             await self._init_repo()
@@ -242,13 +242,8 @@ class GitSyncHandler:
         except Exception as e:
             raise GitSyncError("Failed to push changes to GitHub") from e
 
-    async def _git_command(self, *args) -> str:
-        """Execute git command asynchronously."""
-        try:
-            # Run git commands in thread pool to avoid blocking
-            func = partial(self._repo.git.execute, list(args))
-            result = await asyncio.get_event_loop().run_in_executor(None, func)
-            return result
-        except GitCommandError as e:
-            logging.error(f"Git command failed: {' '.join(args)}\nError: {e.stderr}")
-            raise
+    async def _git_command(self, *args):
+        """Execute a git command asynchronously."""
+        def func():
+            return self._repo.git.execute(['git'] + list(args))
+        return await asyncio.to_thread(func)

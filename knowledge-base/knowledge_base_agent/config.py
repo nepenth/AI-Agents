@@ -32,10 +32,10 @@ class Config(BaseSettings):
     knowledge_base_dir: Path = Field(default=Path("kb-generated"), alias="KNOWLEDGE_BASE_DIR")
     categories_file: Path = Field(default=Path("data/categories.json"), alias="CATEGORIES_FILE")
     bookmarks_file: Path = Field("data/bookmarks_links.txt", alias="BOOKMARKS_FILE")
-    processed_tweets_file: Path = Field("data/processed_tweets.json", alias="PROCESSED_TWEETS_FILE")
+    processed_tweets_file: Path = Field(default=Path("data/processed_tweets.json"), alias="PROCESSED_TWEETS_FILE")
     media_cache_dir: Path = Field(default=Path("data/media_cache"), alias="MEDIA_CACHE_DIR")
     tweet_cache_file: Path = Field("data/tweet_cache.json", alias="TWEET_CACHE_FILE")
-    log_file: Path = Field("data/logs/kb_agent_{timestamp}.log", alias="LOG_FILE")
+    log_file: Path = Field(default=Path("agent_program.log"), alias="LOG_FILE")
     unprocessed_tweets_file: Path = Field(default=Path("data/unprocessed_tweets.json"), alias="UNPROCESSED_TWEETS_FILE")
     log_dir: Path = Field(default=Path("logs"), alias="LOG_DIR")
     

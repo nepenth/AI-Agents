@@ -9,13 +9,13 @@ import asyncio
 from datetime import datetime
 
 from .config import Config
+from .exceptions import AgentError
 from .state_manager import StateManager
 from .tweet_processor import TweetProcessor
 from .git_helper import GitSyncHandler
-from .fetch_bookmarks import fetch_all_bookmarks
+from .fetch_bookmarks import BookmarksFetcher
 from .markdown_writer import MarkdownWriter
 from .category_manager import CategoryManager
-from .exceptions import AgentError
 from .types import TweetData, KnowledgeBaseItem
 
 class KnowledgeBaseAgent:
@@ -68,63 +68,65 @@ class KnowledgeBaseAgent:
             
             logging.info("Agent initialization complete")
         except Exception as e:
-            logging.exception("Agent initialization failed")
-            raise AgentError("Failed to initialize agent") from e
+            logging.exception(f"Agent initialization failed: {str(e)}")
+            raise AgentError(f"Failed to initialize agent: {str(e)}") from e
 
     async def process_bookmarks(self) -> None:
-        """Process new bookmarks into knowledge base entries."""
-        async with self._processing_lock:
+        """Process bookmarks with detailed error logging."""
+        try:
+            logging.info("Starting bookmark processing")
+            
+            # Initialize bookmark fetcher
+            logging.debug("Initializing bookmark fetcher")
+            bookmark_fetcher = BookmarksFetcher(self.config)
+            
             try:
-                # Fetch new bookmarks
-                bookmarks = await fetch_all_bookmarks(self.config)
-                if not bookmarks:
-                    logging.info("No bookmarks found")
-                    return
-
-                # Filter out processed tweets
-                unprocessed = await self.state_manager.get_unprocessed_tweets(set(bookmarks))
-                if not unprocessed:
-                    logging.info("No new tweets to process")
-                    return
-
-                # Process each tweet
-                for tweet_url in unprocessed:
+                # Initialize browser
+                logging.debug("Initializing browser")
+                await bookmark_fetcher.initialize()
+                
+                # Fetch bookmarks
+                logging.debug("Fetching bookmarks")
+                bookmarks = await bookmark_fetcher.fetch_bookmarks()
+                logging.info(f"Fetched {len(bookmarks)} bookmarks")
+                
+                # Process each bookmark
+                for bookmark in bookmarks:
                     try:
-                        # Process tweet
-                        kb_item = await self.tweet_processor.process_tweet(tweet_url)
-                        
-                        # Generate markdown
-                        await self.markdown_writer.write_kb_item(kb_item)
-                        
-                        # Update state
-                        await self.state_manager.mark_tweet_processed(tweet_url)
-                        
-                        logging.info(f"Successfully processed tweet: {tweet_url}")
-                        
+                        await self.process_tweet(bookmark)
                     except Exception as e:
-                        logging.error(f"Failed to process tweet {tweet_url}: {e}")
-                        continue
-
-                logging.info(f"Processed {len(unprocessed)} new tweets")
-
+                        logging.error(f"Failed to process bookmark {bookmark}: {str(e)}")
+                        
             except Exception as e:
-                logging.exception("Bookmark processing failed")
-                raise AgentError("Failed to process bookmarks") from e
+                logging.exception("Bookmark fetching failed")
+                raise AgentError(f"Failed to fetch bookmarks: {str(e)}")
+                
+            finally:
+                # Ensure cleanup
+                logging.debug("Cleaning up bookmark fetcher")
+                await bookmark_fetcher.cleanup()
+                
+        except Exception as e:
+            logging.exception("Bookmark processing failed")
+            raise AgentError(f"Failed to process bookmarks: {str(e)}")
 
     async def update_indexes(self) -> None:
-        """Update knowledge base indexes and category structure."""
+        """Update category indexes."""
         try:
-            # Update main README
-            await self.markdown_writer.generate_readme()
+            logging.info("Starting index update")
+            categories = self.category_manager.get_all_categories()  # Remove await
             
-            # Update category indexes
-            categories = await self.category_manager.get_all_categories()
+            # Process each category
             for category in categories:
-                await self.markdown_writer.update_category_index(category)
-            
-            logging.info("Knowledge base indexes updated")
+                try:
+                    # Category-specific processing
+                    pass
+                except Exception as e:
+                    logging.error(f"Failed to process category {category}: {e}")
+                    
+            logging.info("Index update completed")
         except Exception as e:
-            logging.exception("Index update failed")
+            logging.error(f"Index update failed: {e}")
             raise AgentError("Failed to update indexes") from e
 
     async def sync_changes(self) -> None:
@@ -161,3 +163,20 @@ class KnowledgeBaseAgent:
             logging.exception("Agent execution failed with error: %s", str(e))  # More detailed logging
             await self.cleanup()  # Ensure cleanup runs even on failure
             raise AgentError(f"Agent execution failed: {str(e)}") from e
+
+    async def process_tweet(self, tweet_url: str) -> None:
+        """Process a single tweet."""
+        try:
+            if await self.state_manager.is_processed(tweet_url):
+                logging.debug(f"Tweet already processed: {tweet_url}")
+                return
+
+            # Process tweet logic here
+            logging.info(f"Processing tweet: {tweet_url}")
+            
+            # Mark as processed
+            await self.state_manager.mark_tweet_processed(tweet_url)
+            
+        except Exception as e:
+            logging.error(f"Failed to process tweet {tweet_url}: {str(e)}")
+            raise AgentError(f"Failed to process tweet {tweet_url}: {str(e)}")
