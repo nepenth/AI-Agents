@@ -13,51 +13,45 @@ from knowledge_base_agent.file_utils import async_write_text, async_json_load, a
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url, load_tweet_urls_from_links
 
 class StateManager:
-    def __init__(self, config: Config, processed_file: Path, unprocessed_file: Path, bookmarks_file: Path):
+    def __init__(self, config: Config):
+        """Initialize StateManager with config."""
         self.config = config
-        self._initialized = False
-        self.processed_tweets = set()
+        self.processed_file = config.processed_tweets_file
+        self.unprocessed_file = config.unprocessed_tweets_file
+        self.bookmarks_file = config.bookmarks_file
+        self.processed_tweets: Set[str] = set()
         self.unprocessed_tweets: Set[str] = set()
+        self._initialized = False
         self._lock = asyncio.Lock()
-        self.processed_file = processed_file
-        self.unprocessed_file = unprocessed_file
-        self.bookmarks_file = bookmarks_file
-        
+
     async def initialize(self) -> None:
-        """Initialize the state manager."""
+        """Initialize state from files and update unprocessed tweets from bookmarks."""
         try:
             logging.info("Starting state manager initialization")
             
             # Ensure unprocessed tweets file exists
             try:
-                if not self.config.unprocessed_tweets_file.parent.exists():
-                    logging.debug(f"Creating directory: {self.config.unprocessed_tweets_file.parent}")
-                    self.config.unprocessed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
+                if not self.unprocessed_file.parent.exists():
+                    logging.debug(f"Creating directory: {self.unprocessed_file.parent}")
+                    self.unprocessed_file.parent.mkdir(parents=True, exist_ok=True)
                 
-                if not self.config.unprocessed_tweets_file.exists():
-                    logging.debug(f"Creating file at: {self.config.unprocessed_tweets_file}")
-                    filepath = str(self.config.unprocessed_tweets_file)
-                    logging.debug(f"Writing to filepath: {filepath}")
-                    await async_write_text("[]", filepath)
+                if not self.unprocessed_file.exists():
+                    logging.debug(f"Creating file at: {self.unprocessed_file}")
+                    await async_write_text("[]", str(self.unprocessed_file))
                 
                 # Ensure processed tweets file exists
-                if not self.config.processed_tweets_file.exists():
-                    logging.debug(f"Creating file at: {self.config.processed_tweets_file}")
-                    filepath = str(self.config.processed_tweets_file)
-                    logging.debug(f"Writing to filepath: {filepath}")
-                    await async_write_text("[]", filepath)
+                if not self.processed_file.exists():
+                    logging.debug(f"Creating file at: {self.processed_file}")
+                    await async_write_text("[]", str(self.processed_file))
                 
             except Exception as e:
                 logging.exception("Failed during file creation")
                 raise StateError(f"Failed to create state files: {str(e)}")
             
             # Load processed tweets
-            try:
-                logging.debug("Loading processed tweets")
-                self.processed_tweets = await self.load_processed_tweets()
-            except Exception as e:
-                logging.exception("Failed to load processed tweets")
-                raise StateError(f"Failed to load processed tweets: {str(e)}")
+            logging.debug("Loading processed tweets")
+            processed_data = await async_json_load(self.processed_file, default=[])
+            self.processed_tweets = set(processed_data)
             
             # Load current unprocessed tweets
             logging.debug("Loading unprocessed tweets")
@@ -71,8 +65,8 @@ class StateManager:
             logging.info("State manager initialization complete")
             
         except Exception as e:
-            logging.exception("State manager initialization failed")
-            raise StateError(f"Failed to initialize state manager: {str(e)}")
+            logging.error(f"Failed to initialize state manager: {e}")
+            raise StateManagerError(f"State manager initialization failed: {e}")
 
     async def _atomic_write_json(self, data: Dict[str, Any], filepath: Path) -> None:
         """Write JSON data atomically using a temporary file."""
