@@ -18,6 +18,28 @@ from .exceptions import KnowledgeBaseError, ConfigurationError
 from .prompts import UserPreferences, prompt_for_preferences
 from .state_manager import StateManager
 
+def setup_logging():
+    """Configure logging to output to both file and console."""
+    # Create formatters
+    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    console_formatter = logging.Formatter('%(message)s')  # Simplified console output
+
+    # File handler
+    file_handler = logging.FileHandler('agent_program.log')
+    file_handler.setFormatter(file_formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(console_formatter)
+    console_handler.setLevel(logging.INFO)  # Only show INFO and above on console
+
+    # Root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
 async def setup_directories(config: Config) -> None:
     """Ensure all required directories exist."""
     try:
@@ -45,7 +67,7 @@ async def load_config() -> Config:
     try:
         config = Config()  # Loads from environment variables
         await setup_directories(config)
-        setup_logging(config.log_file)
+        setup_logging()
         return config
     except Exception as e:
         raise ConfigurationError(f"Failed to load configuration: {e}")
@@ -91,9 +113,8 @@ async def cleanup(config: Config) -> None:
 async def main() -> None:
     """Main entry point for the knowledge base agent."""
     try:
-        # Initialize configuration and logging first
+        # Initialize configuration only
         config = await load_config()
-        setup_logging(config.log_file)
         
         logging.info("\n=== New Agent Run Started ===")
         
@@ -118,8 +139,6 @@ async def main() -> None:
     except Exception as e:
         logging.error(f"Agent execution failed: {str(e)}")
         raise
-    finally:
-        logging.info("=== Agent Run Completed ===")
 
 if __name__ == "__main__":
     asyncio.run(main())

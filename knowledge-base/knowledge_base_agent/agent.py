@@ -166,7 +166,7 @@ class KnowledgeBaseAgent:
         """Run the agent with the specified preferences."""
         try:
             stats = ProcessingStats(start_time=datetime.now())
-            logging.info("=== Starting Knowledge Base Agent Processing ===")
+            logging.info("\n=== Starting Knowledge Base Agent Processing ===")
             
             # 1. Initialize state and check for new bookmarks/tweets to process
             logging.info("1. Initializing state and checking for new content...")
@@ -180,6 +180,7 @@ class KnowledgeBaseAgent:
                 await self.state_manager.update_from_bookmarks()
                 unprocessed = self.state_manager.get_unprocessed_tweets()
                 has_new_content = bool(unprocessed)
+                total_tweets = len(unprocessed)
                 logging.info(f"Found {len(unprocessed)} unprocessed tweets")
             
             # 2. Get unprocessed tweets
@@ -191,15 +192,17 @@ class KnowledgeBaseAgent:
             
             # 3. Cache tweets and process media
             if unprocessed_tweets or preferences.recreate_tweet_cache:
+                logging.info(f"\n=== Phase 1: Tweet Caching ===")
                 logging.info(f"3. Caching {len(unprocessed_tweets)} tweets and processing media...")
                 try:
                     for idx, tweet_id in enumerate(unprocessed_tweets, 1):
-                        logging.info(f"Caching tweet {idx}/{total_tweets}: {tweet_id}")
+                        logging.info(f"[{idx}/{total_tweets}] Caching tweet {tweet_id}")
                         try:
                             await self.tweet_processor.cache_tweets([tweet_id])
                             stats.success_count += 1
+                            logging.info(f"✓ Cached tweet {tweet_id}")
                         except Exception as e:
-                            logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+                            logging.error(f"✗ Failed to cache tweet {tweet_id}: {e}")
                             stats.error_count += 1
                             total_errors += 1
                 except Exception as e:
@@ -218,9 +221,11 @@ class KnowledgeBaseAgent:
                 try:
                     media_items = await self._count_media_items()
                     if media_items > 0:
+                        logging.info(f"\n=== Phase 2: Media Processing ===")
                         logging.info(f"Processing {media_items} media items...")
                         await self.tweet_processor.process_media()
                         stats.media_processed = media_items
+                        logging.info(f"✓ Processed {media_items} media items")
                 except Exception as e:
                     logging.error(f"Failed to process media: {e}")
                     raise
