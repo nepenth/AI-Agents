@@ -366,7 +366,7 @@ class KnowledgeBaseAgent:
                 raise ValueError(f"Invalid tweet URL: {tweet_url}")
             
             # First check if tweet is in cache
-            tweet_data = await self.state_manager.get_tweet_data(tweet_id)
+            tweet_data = await self.state_manager.get_tweet(tweet_id)
             if not tweet_data:
                 logging.error(f"Tweet {tweet_id} not found in cache")
                 raise ContentProcessingError(f"Tweet {tweet_id} not found in cache")

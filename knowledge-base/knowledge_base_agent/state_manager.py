@@ -2,7 +2,7 @@ import json
 import asyncio
 import aiofiles
 from pathlib import Path
-from typing import Set, Dict, Any, List
+from typing import Set, Dict, Any, List, Optional
 import logging
 from knowledge_base_agent.exceptions import StateError, StateManagerError
 import tempfile
@@ -204,3 +204,12 @@ class StateManager:
     def is_tweet_processed(self, tweet_id: str) -> bool:
         """Check if a tweet has been processed."""
         return tweet_id in self.processed_tweets
+
+    async def get_tweet(self, tweet_id: str) -> Optional[Dict[str, Any]]:
+        """Get tweet data from cache."""
+        try:
+            cache_data = await async_json_load(self.config.tweet_cache_file)
+            return cache_data.get(tweet_id)
+        except Exception as e:
+            logging.error(f"Failed to get tweet {tweet_id} from cache: {e}")
+            return None
