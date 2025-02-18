@@ -100,10 +100,25 @@ class StateManager:
             logging.error(f"Failed to load processed tweets: {e}")
             self.processed_tweets = set()
 
-    async def mark_tweet_processed(self, tweet_id: str) -> None:
+    async def mark_tweet_processed(self, tweet_id: str, tweet_data: Dict[str, Any] = None) -> None:
         """Mark a tweet as processed and update both sets."""
         async with self._lock:
             try:
+                # Verify tweet has been fully processed
+                if not tweet_data:
+                    logging.warning(f"No tweet data provided for {tweet_id}, skipping mark as processed")
+                    return
+                
+                # Check for required processing steps
+                if not tweet_data.get('media_analysis') and tweet_data.get('media'):
+                    logging.warning(f"Tweet {tweet_id} has unprocessed media")
+                    return
+                    
+                if not tweet_data.get('kb_item_path'):
+                    logging.warning(f"Tweet {tweet_id} missing knowledge base entry")
+                    return
+                
+                # If all checks pass, mark as processed
                 self.processed_tweets.add(tweet_id)
                 self.unprocessed_tweets.discard(tweet_id)
                 
@@ -116,7 +131,8 @@ class StateManager:
                     list(self.unprocessed_tweets),
                     self.unprocessed_file
                 )
-                logging.info(f"Marked tweet {tweet_id} as processed")
+                logging.info(f"Marked tweet {tweet_id} as fully processed")
+                
             except Exception as e:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
                 raise StateError(f"Failed to update processing state: {e}")

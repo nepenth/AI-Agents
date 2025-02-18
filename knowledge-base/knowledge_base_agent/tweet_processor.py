@@ -25,7 +25,7 @@ import aiofiles
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
-from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError, NetworkError
+from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError, NetworkError, VisionModelError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache, CacheManager, cache_tweet_data
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
@@ -455,6 +455,30 @@ class TweetProcessor:
         except Exception as e:
             logging.error(f"Media processing failed: {e}")
             raise TweetProcessingError(f"Failed to process media: {e}")
+
+    async def _process_media_with_vision(self, image_url: str) -> str:
+        """Process media with vision model."""
+        try:
+            # Download image to temporary file
+            async with self.http_client as client:
+                temp_path = self.config.data_processing_dir / f"temp_image_{int(time.time())}.jpg"
+                await client.download_media(image_url, temp_path)
+                
+                # Process with vision model using configured endpoint and model
+                async with OllamaClient(base_url=self.config.ollama_url) as ollama:
+                    response = await ollama.generate(
+                        model=self.config.vision_model,
+                        prompt="Describe this image in detail, focusing on any text content, technical details, or programming concepts shown.",
+                        images=[str(temp_path)]  # Use local file path instead of URL
+                    )
+                
+            # Cleanup temp file
+            temp_path.unlink()
+            return response.text
+            
+        except Exception as e:
+            logging.error(f"Vision model processing failed for {image_url}: {e}")
+            raise VisionModelError(f"Failed to process media with vision model: {e}")
 
 class BookmarksProcessor:
     async def load_bookmarks(self) -> list[str]:
