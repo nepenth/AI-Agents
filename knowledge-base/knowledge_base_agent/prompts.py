@@ -3,6 +3,7 @@ from typing import Callable, Any, Dict
 import logging
 from dataclasses import dataclass
 import json
+from knowledge_base_agent.config import Config
 
 @dataclass
 class UserPreferences:

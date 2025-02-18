@@ -97,8 +97,8 @@ async def main() -> None:
         
         logging.info("\n=== New Agent Run Started ===")
         
-        # Get user preferences before any processing - pass config
-        preferences = prompt_for_preferences(config)  # Added config parameter
+        # Get user preferences before any processing
+        preferences = prompt_for_preferences(config)
         
         # Log selected preferences immediately
         logging.info("=== User Selected Preferences ===")
@@ -106,7 +106,6 @@ async def main() -> None:
         logging.info(f"- Re-review processed tweets: {preferences.review_existing}")
         logging.info(f"- Re-cache all tweet data: {preferences.recreate_tweet_cache}")
         logging.info(f"- Regenerate README: {preferences.regenerate_readme}")
-        logging.info(f"- Sync to GitHub: {preferences.sync_to_github}")
         
         # Initialize agent
         agent = KnowledgeBaseAgent(config)
