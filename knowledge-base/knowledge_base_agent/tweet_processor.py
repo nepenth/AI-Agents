@@ -425,60 +425,96 @@ class TweetProcessor:
             logging.error(f"Tweet caching failed: {e}")
             raise TweetProcessingError(f"Failed to cache tweets: {e}")
 
-    async def process_media(self) -> None:
-        """Process media from cached tweets using vision model."""
-        try:
-            logging.info("Starting media processing")
-            
-            # Get all cached tweets with unprocessed media
-            cached_tweets = await self.get_cached_tweet_ids()
-            
-            for tweet_id in cached_tweets:
+    async def process_media(self, tweet_data: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Process media items in a tweet."""
+        results = []
+        
+        if 'media' in tweet_data:
+            for media_item in tweet_data.get('media', []):
                 try:
-                    tweet_data = self.cache_manager._cache.get(tweet_id)
-                    if tweet_data and tweet_data.get('media'):
-                        # Process media using vision model
-                        media_results = await self.process_tweet_media(
-                            tweet_data,
-                            self.config.vision_model
-                        )
-                        # Update cache with media analysis
-                        tweet_data['media_analysis'] = media_results
-                        await self.cache_manager._save_cache()
-                        
-                except Exception as e:
-                    logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
-                    continue
+                    # Get media URL
+                    if isinstance(media_item, str):
+                        url = media_item
+                    else:
+                        url = media_item.get('url', '')
                     
-            logging.info("Media processing completed")
-            
-        except Exception as e:
-            logging.error(f"Media processing failed: {e}")
-            raise TweetProcessingError(f"Failed to process media: {e}")
+                    if url:
+                        # Process with vision model
+                        description = await self._process_media_with_vision(url)
+                        if description:  # Only add if we got a valid description
+                            results.append({
+                                'url': url,
+                                'description': description
+                            })
+                    
+                except Exception as e:
+                    logging.error(f"Failed to process media item: {e}")
+                    continue  # Continue with next media item instead of failing completely
+                
+        return results
 
     async def _process_media_with_vision(self, image_url: str) -> str:
         """Process media with vision model."""
         try:
             # Download image to temporary file
-            async with self.http_client as client:
-                temp_path = self.config.data_processing_dir / f"temp_image_{int(time.time())}.jpg"
-                await client.download_media(image_url, temp_path)
-                
-                # Process with vision model using configured endpoint and model
-                async with OllamaClient(base_url=self.config.ollama_url) as ollama:
-                    response = await ollama.generate(
-                        model=self.config.vision_model,
-                        prompt="Describe this image in detail, focusing on any text content, technical details, or programming concepts shown.",
-                        images=[str(temp_path)]  # Use local file path instead of URL
-                    )
+            temp_path = self.config.data_processing_dir / f"temp_image_{int(time.time())}.jpg"
+            await self.http_client.download_media(image_url, temp_path)
+            
+            # Process with vision model
+            async with OllamaClient(config=self.config) as ollama:
+                response = await ollama.generate(
+                    model=self.config.vision_model,
+                    prompt="Describe this image in detail, focusing on any text content, technical details, or programming concepts shown.",
+                    images=[str(temp_path)]
+                )
                 
             # Cleanup temp file
             temp_path.unlink()
-            return response.text
+            return response
             
         except Exception as e:
             logging.error(f"Vision model processing failed for {image_url}: {e}")
             raise VisionModelError(f"Failed to process media with vision model: {e}")
+
+    async def process_tweet(self, tweet_id: str) -> Dict[str, Any]:
+        """Process a single tweet through the pipeline."""
+        try:
+            # Get cached tweet data using public method
+            tweet_data = await self.cache_manager.load_cache()
+            tweet_data = tweet_data.get(tweet_id)
+            if not tweet_data:
+                logging.warning(f"No cached data found for tweet {tweet_id}")
+                return None
+            
+            # Process media if present
+            media_results = []
+            if 'media' in tweet_data:
+                media_results = await self.process_media(tweet_data)
+                tweet_data['media_analysis'] = media_results
+            
+            # Get content categorization
+            category_info = await self.categorize_content(tweet_id, media_results)
+            
+            # Generate KB entry
+            kb_item = await self.generate_kb_entry(tweet_data, media_results, category_info)
+            
+            # Save KB entry
+            await self.save_kb_entry(kb_item)
+            
+            return tweet_data
+            
+        except Exception as e:
+            logging.error(f"Failed to process tweet {tweet_id}: {e}")
+            raise TweetProcessingError(f"Failed to process tweet: {e}")
+
+    async def get_tweets_with_media(self) -> Dict[str, Dict]:
+        """Get all cached tweets that have media."""
+        tweets_with_media = {}
+        cache = await self.cache_manager.load_cache()  # Use the public method
+        for tweet_id, tweet_data in cache.items():
+            if tweet_data.get('media'):
+                tweets_with_media[tweet_id] = tweet_data
+        return tweets_with_media
 
 class BookmarksProcessor:
     async def load_bookmarks(self) -> list[str]:

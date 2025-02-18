@@ -4,7 +4,7 @@ from typing import Optional, Any, Dict, List
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import NetworkError, AIError
+from knowledge_base_agent.exceptions import NetworkError, AIError, ModelInferenceError
 import aiohttp
 import aiofiles
 from pathlib import Path
@@ -82,7 +82,8 @@ class OllamaClient:
     def __init__(self, config: Config = None):
         """Initialize with config containing OLLAMA_URL."""
         if config:
-            self.base_url = config.ollama_url
+            # Convert HttpUrl to string
+            self.base_url = str(config.ollama_url)
         else:
             self.base_url = "http://localhost:11434"
         logging.debug(f"Initializing OllamaClient with base_url: {self.base_url}")
@@ -95,38 +96,40 @@ class OllamaClient:
         await self._client.aclose()
         
     async def generate(self, model: str, prompt: str, images: List[str] = None) -> str:
-        """
-        Generate response from Ollama model.
-        
-        Args:
-            model: Name of the model to use (from config.vision_model or config.text_model)
-            prompt: Text prompt for generation
-            images: Optional list of image file paths for vision models
-        """
+        """Generate text from Ollama model."""
         try:
-            logging.debug(f"Generating with model: {model}")
+            # Prepare the payload
             payload = {
                 "model": model,
                 "prompt": prompt,
+                "stream": False
             }
-            
-            # Add images if provided (for vision models)
+
+            # Add images if provided
             if images:
+                # Convert images to base64
                 image_data = []
                 for image_path in images:
                     with open(image_path, 'rb') as f:
                         image_bytes = f.read()
-                        image_b64 = base64.b64encode(image_bytes).decode()
-                        image_data.append(image_b64)
+                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                        image_data.append(image_base64)
                 payload["images"] = image_data
-            
+
+            logging.debug(f"Sending request to Ollama API with model {model}")
             response = await self._client.post("/api/generate", json=payload)
             response.raise_for_status()
             
-            # Parse response
-            result = response.json()
-            return result.get('response', '')
+            # Handle Ollama's response format
+            try:
+                data = response.json()
+                if not isinstance(data, dict):
+                    raise ValueError("Expected JSON object in response")
+                return data.get('response', '')
+            except ValueError as e:
+                logging.error(f"Invalid JSON response from Ollama: {e}")
+                raise ModelInferenceError(f"Failed to parse Ollama response: {e}")
             
         except Exception as e:
-            logging.error(f"Ollama API call failed: {str(e)}")
-            raise AIError(f"Failed to generate response: {str(e)}")
+            logging.error(f"Ollama API call failed: {e}")
+            raise ModelInferenceError(f"Failed to generate response: {e}")

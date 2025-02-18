@@ -137,6 +137,18 @@ class CacheManager:
         await self.save_cache()
         return data
 
+    async def load_cache(self) -> Dict[str, Any]:
+        """Load the tweet cache file."""
+        try:
+            if self.cache_file.exists():
+                async with aiofiles.open(self.cache_file, 'r') as f:
+                    content = await f.read()
+                    return json.loads(content)
+            return {}
+        except Exception as e:
+            logging.error(f"Failed to load cache: {e}")
+            return {}
+
 async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: Dict[str, Any], http_client) -> None:
     """Pre-fetch and cache tweet data for a tweet URL."""
     try:

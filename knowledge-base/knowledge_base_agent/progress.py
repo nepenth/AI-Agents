@@ -19,16 +19,28 @@ class ProcessingStats:
     processing_times: List[float] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Convert stats to dictionary format."""
+        # Calculate rates safely (avoid division by zero)
+        success_rate = (self.success_count / self.processed_count * 100) if self.processed_count else 0
+        cache_hit_rate = (self.cache_hits / (self.cache_hits + self.cache_misses) * 100) if (self.cache_hits + self.cache_misses) > 0 else 0
+        error_rate = (self.error_count / self.processed_count * 100) if self.processed_count else 0
+        avg_retries = self.retry_count / self.processed_count if self.processed_count else 0
+        
         return {
             'start_time': self.start_time.isoformat(),
             'processed_count': self.processed_count,
             'success_count': self.success_count,
             'error_count': self.error_count,
             'skipped_count': self.skipped_count,
-            'success_rate': f"{(self.success_count / self.processed_count * 100):.1f}%" if self.processed_count else "0%",
-            'cache_hit_rate': f"{(self.cache_hits / (self.cache_hits + self.cache_misses) * 100):.1f}%",
-            'error_rate': f"{(self.error_count / self.processed_count * 100):.1f}%",
-            'average_retries': self.retry_count / self.processed_count if self.processed_count else 0
+            'media_processed': self.media_processed,
+            'cache_hits': self.cache_hits,
+            'cache_misses': self.cache_misses,
+            'network_errors': self.network_errors,
+            'retry_count': self.retry_count,
+            'success_rate': f"{success_rate:.1f}%",
+            'cache_hit_rate': f"{cache_hit_rate:.1f}%",
+            'error_rate': f"{error_rate:.1f}%",
+            'average_retries': f"{avg_retries:.2f}"
         }
 
     def save_report(self, output_path: Path) -> None:
