@@ -94,6 +94,16 @@ class CacheManager:
         self._cache = {}
         self._load_cache()
 
+    def _load_cache(self) -> None:
+        """Load cache from file."""
+        try:
+            if self.cache_file.exists():
+                with open(self.cache_file, 'r', encoding='utf-8') as f:
+                    self._cache = json.load(f)
+        except Exception as e:
+            logging.error(f"Failed to load cache: {e}")
+            self._cache = {}
+
     def is_cached(self, key: str) -> bool:
         if key not in self._cache:
             return False

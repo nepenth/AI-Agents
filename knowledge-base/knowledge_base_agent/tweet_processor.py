@@ -27,7 +27,7 @@ from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError, NetworkError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
-from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache
+from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache, CacheManager, cache_tweet_data
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
 from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.http_client import HTTPClient, OllamaClient
@@ -196,6 +196,9 @@ class TweetProcessor:
         self.ollama_client = OllamaClient(config)
         self.category_manager = CategoryManager(config)
         self.stats = ProcessingStats(start_time=datetime.datetime.now())
+        self.cache_manager = CacheManager(config.tweet_cache_file)
+        self.vision_model = None
+        self.text_model = None
     
     async def process_tweets(self, tweets: List[Dict[str, Any]]) -> None:
         """Process multiple tweets with state tracking."""
@@ -355,6 +358,22 @@ class TweetProcessor:
         except Exception as e:
             logging.error(f"Failed to get cached tweet IDs: {e}")
             return set()
+
+    async def cache_tweets(self, tweet_ids: List[str]) -> None:
+        """Cache tweet data for the given tweet IDs using CacheManager."""
+        try:
+            logging.info(f"Caching data for {len(tweet_ids)} tweets")
+            for tweet_id in tweet_ids:
+                if not self.cache_manager.is_cached(tweet_id):
+                    try:
+                        await cache_tweet_data(tweet_id, self.config, self.cache_manager)
+                        logging.debug(f"Cached tweet {tweet_id}")
+                    except Exception as e:
+                        logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+            logging.info("Tweet caching completed")
+        except Exception as e:
+            logging.error(f"Tweet caching failed: {e}")
+            raise TweetProcessingError(f"Failed to cache tweets: {e}")
 
 class BookmarksProcessor:
     async def load_bookmarks(self) -> list[str]:
