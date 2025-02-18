@@ -4,6 +4,8 @@ Knowledge Base Agent package.
 A system for automatically processing tweets into a structured knowledge base.
 """
 
+__version__ = "0.1.0"
+
 from .agent import KnowledgeBaseAgent
 from .category_manager import CategoryManager
 from .tweet_processor import TweetProcessor
@@ -15,7 +17,10 @@ from .exceptions import (
     ConfigurationError,
     CategoryError,
     TweetProcessingError,
-    MarkdownGenerationError
+    MarkdownGenerationError,
+    GitSyncError,
+    NetworkError,
+    StateError
 )
 
 __all__ = [
@@ -30,4 +35,7 @@ __all__ = [
     'CategoryError',
     'TweetProcessingError',
     'MarkdownGenerationError',
+    'GitSyncError',
+    'NetworkError',
+    'StateError',
 ]
