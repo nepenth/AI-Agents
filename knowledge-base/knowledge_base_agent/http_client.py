@@ -14,16 +14,20 @@ class HTTPClient:
     
     def __init__(self, config: Config):
         self.config = config
-        self.timeout = httpx.Timeout(config.request_timeout)
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client = None
 
     async def __aenter__(self):
-        self._client = httpx.AsyncClient(timeout=self.timeout)
+        self._client = httpx.AsyncClient()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._client:
             await self._client.aclose()
+
+    async def ensure_client(self):
+        """Ensure HTTP client is initialized."""
+        if not self._client:
+            self._client = httpx.AsyncClient()
 
     @retry(
         stop=stop_after_attempt(3),
@@ -52,6 +56,24 @@ class HTTPClient:
         except Exception as e:
             logging.error(f"HTTP POST failed for {url}: {str(e)}")
             raise NetworkError(f"Failed to post to {url}") from e
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
+    async def download_media(self, url: str, output_path: Path) -> None:
+        """Download media from URL to specified path."""
+        try:
+            await self.ensure_client()  # Ensure client is initialized
+            async with self._client.stream('GET', url) as response:
+                response.raise_for_status()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                async with aiofiles.open(output_path, 'wb') as f:
+                    async for chunk in response.aiter_bytes():
+                        await f.write(chunk)
+        except Exception as e:
+            logging.error(f"Failed to download media from {url}: {str(e)}")
+            raise NetworkError(f"Failed to download media from {url}") from e
 
 class OllamaClient:
     """Client for interacting with Ollama API."""

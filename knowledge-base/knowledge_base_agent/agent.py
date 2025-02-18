@@ -165,6 +165,7 @@ class KnowledgeBaseAgent:
     async def run(self, preferences: UserPreferences) -> None:
         """Run the agent with the specified preferences."""
         try:
+            stats = ProcessingStats(start_time=datetime.now())
             logging.info("=== Starting Knowledge Base Agent Processing ===")
             
             # 1. Initialize state and check for new bookmarks/tweets to process
@@ -192,7 +193,15 @@ class KnowledgeBaseAgent:
             if unprocessed_tweets or preferences.recreate_tweet_cache:
                 logging.info(f"3. Caching {len(unprocessed_tweets)} tweets and processing media...")
                 try:
-                    await self.tweet_processor.cache_tweets(unprocessed_tweets)
+                    for idx, tweet_id in enumerate(unprocessed_tweets, 1):
+                        logging.info(f"Caching tweet {idx}/{total_tweets}: {tweet_id}")
+                        try:
+                            await self.tweet_processor.cache_tweets([tweet_id])
+                            stats.success_count += 1
+                        except Exception as e:
+                            logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+                            stats.error_count += 1
+                            total_errors += 1
                 except Exception as e:
                     logging.error(f"Failed to cache tweets: {e}")
                     raise
@@ -205,8 +214,13 @@ class KnowledgeBaseAgent:
                     logging.error("Failed to create tweet cache!")
                     raise RuntimeError("Tweet cache file was not created!")
                 
+                # Process media
                 try:
-                    await self.tweet_processor.process_media()
+                    media_items = await self._count_media_items()
+                    if media_items > 0:
+                        logging.info(f"Processing {media_items} media items...")
+                        await self.tweet_processor.process_media()
+                        stats.media_processed = media_items
                 except Exception as e:
                     logging.error(f"Failed to process media: {e}")
                     raise
@@ -221,6 +235,7 @@ class KnowledgeBaseAgent:
                         # First verify tweet is in cache
                         if not await self._verify_tweet_cached(tweet_id):
                             logging.error(f"Tweet {tweet_id} not found in cache, skipping...")
+                            stats.error_count += 1
                             total_errors += 1
                             continue
                             
@@ -231,13 +246,16 @@ class KnowledgeBaseAgent:
                         if await self._verify_kb_item_created(tweet_id):
                             await self.state_manager.mark_tweet_processed(tweet_id)
                             processed_count += 1
+                            stats.processed_count += 1
                             logging.info(f"Successfully processed tweet {tweet_id}")
                         else:
                             logging.error(f"Failed to create knowledge base item for tweet {tweet_id}")
+                            stats.error_count += 1
                             total_errors += 1
                             
                     except Exception as e:
                         logging.error(f"Error processing tweet {tweet_id}: {e}")
+                        stats.error_count += 1
                         total_errors += 1
                         continue
             
@@ -254,7 +272,11 @@ class KnowledgeBaseAgent:
             logging.info("\n=== Processing Summary ===")
             logging.info(f"Total tweets: {total_tweets}")
             logging.info(f"Successfully processed: {processed_count}")
+            logging.info(f"Media items processed: {stats.media_processed}")
             logging.info(f"Errors: {total_errors}")
+            
+            # Save stats report
+            stats.save_report(Path("data/processing_stats.json"))
             
             if total_errors > 0:
                 raise RuntimeError(f"Failed to process {total_errors} tweets. Check logs for details.")
@@ -341,3 +363,11 @@ class KnowledgeBaseAgent:
         except Exception as e:
             logging.error(f"Failed to regenerate README: {str(e)}")
             raise
+
+    async def _count_media_items(self) -> int:
+        """Count total media items that need processing."""
+        try:
+            cache_data = await async_json_load(self.config.tweet_cache_file)
+            return sum(len(tweet_data.get('media', [])) for tweet_data in cache_data.values())
+        except Exception:
+            return 0
