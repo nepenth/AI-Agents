@@ -4,6 +4,7 @@ import asyncio
 from typing import Tuple, Optional, Dict, Any
 from knowledge_base_agent.naming_utils import normalize_name_for_filesystem, is_valid_item_name, fix_invalid_name, fallback_snippet_based_name
 from knowledge_base_agent.exceptions import KnowledgeBaseError, AIError
+from knowledge_base_agent.http_client import HTTPClient
 
 def process_category_response(response: str, tweet_id: str) -> Tuple[str, str, str]:
     try:
@@ -22,17 +23,14 @@ def process_category_response(response: str, tweet_id: str) -> Tuple[str, str, s
         return ("software_engineering", "best_practices", f"fallback_{tweet_id[:8]}")
 
 async def categorize_and_name_content(
-    ollama_url: str, 
-    combined_text: str, 
-    text_model: str, 
-    tweet_id: str, 
-    category_manager, 
-    max_retries: int = 3,
-    http_client: Optional[requests.Session] = None
+    http_client: HTTPClient,
+    combined_text: str,
+    text_model: str,
+    tweet_id: str,
+    category_manager,
+    max_retries: int = 3
 ) -> Tuple[str, str, str]:
-    """
-    Asynchronously categorizes and names content using an AI model.
-    """
+    """Categorizes and names content using an AI model."""
     snippet = combined_text[:120].replace('\n', ' ')
     suggestions = category_manager.get_category_suggestions(combined_text)
     suggested_cats = ", ".join([f"{cat}/{sub}" for cat, sub, _ in suggestions])
@@ -59,29 +57,29 @@ async def categorize_and_name_content(
 
     for attempt in range(max_retries):
         try:
-            client = http_client or requests
-            resp = client.post(
-                f"{ollama_url}/api/generate",
-                json={"prompt": prompt_text, "model": text_model, "stream": False},
-                timeout=120
+            response = await http_client.post(
+                f"{http_client.config.ollama_url}/api/generate",
+                json={"prompt": prompt_text, "model": text_model, "stream": False}
             )
-            resp.raise_for_status()
-            raw_response = resp.json().get("response", "").strip()
+            
+            raw_response = response.json().get("response", "").strip()
             main_cat, sub_cat, item_name = process_category_response(raw_response, tweet_id)
+            
             if not is_valid_item_name(item_name):
-                item_name = fix_invalid_name(
+                item_name = await fix_invalid_name(
+                    http_client=http_client,
                     current_name=item_name,
                     snippet=combined_text,
                     main_cat=main_cat,
                     sub_cat=sub_cat,
-                    text_model=text_model,
-                    ollama_url=ollama_url,
-                    http_client=http_client
+                    text_model=text_model
                 )
+                
             if main_cat in category_manager.get_all_categories():
                 valid_subs = category_manager.get_subcategories(main_cat)
                 if not valid_subs or sub_cat in valid_subs:
                     return (main_cat, sub_cat, item_name)
+                    
         except Exception as e:
             logging.error(f"Attempt {attempt + 1} for tweet {tweet_id} failed: {e}")
             await asyncio.sleep(2 ** attempt)
@@ -148,33 +146,94 @@ def re_categorize_offline(
         return (mc, sc, fallback_title)
     return ("software_engineering", "best_practices", "fallback_offline")
 
-async def classify_content(text: str, text_model: str) -> Dict[str, str]:
+async def classify_content(text: str, text_model: str, ollama_url: str, category_manager, http_client: Optional[requests.Session] = None) -> Dict[str, str]:
     """
-    Classify content using AI.
+    Classify content using AI to determine main and sub categories.
     
     Args:
         text: The text to classify
         text_model: The AI model to use
+        ollama_url: The URL for the Ollama API
+        category_manager: CategoryManager instance for suggestions
+        http_client: Optional HTTP client for requests
     """
+    suggestions = category_manager.get_category_suggestions(text)
+    suggested_cats = ", ".join([f"{cat}/{sub}" for cat, sub, _ in suggestions])
+
+    prompt_text = (
+        "You are an expert technical content curator. Categorize this content.\n\n"
+        f"Suggested categories: {suggested_cats}\n\n"
+        "Rules:\n"
+        "1. MainCategory: Choose from suggested or propose better match\n"
+        "2. SubCategory: Must be specific technical area (no 'general' or 'misc')\n"
+        f"Content to categorize:\n{text}\n\n"
+        "Response format: MainCategory | SubCategory"
+    )
+
     try:
-        # AI classification logic here
+        client = http_client or requests
+        resp = client.post(
+            f"{ollama_url}/api/generate",
+            json={"prompt": prompt_text, "model": text_model, "stream": False},
+            timeout=60
+        )
+        resp.raise_for_status()
+        raw_response = resp.json().get("response", "").strip()
+        
+        parts = [x.strip() for x in raw_response.split('|', 1)]
+        if len(parts) != 2:
+            raise ValueError("Invalid classification response format")
+            
+        main_cat, sub_cat = parts
         return {
-            'main_category': 'software_engineering',  # placeholder
-            'sub_category': 'best_practices'  # placeholder
+            'main_category': normalize_name_for_filesystem(main_cat),
+            'sub_category': normalize_name_for_filesystem(sub_cat)
         }
     except Exception as e:
+        logging.error(f"Classification failed: {e}")
+        if suggestions:
+            return {
+                'main_category': suggestions[0][0],
+                'sub_category': suggestions[0][1]
+            }
         raise AIError(f"Failed to classify content: {e}")
 
-async def generate_content_name(text: str, text_model: str) -> str:
+async def generate_content_name(text: str, text_model: str, ollama_url: str, http_client: Optional[requests.Session] = None) -> str:
     """
     Generate a name for the content using AI.
     
     Args:
         text: The text to generate a name from
         text_model: The AI model to use
+        ollama_url: The URL for the Ollama API
+        http_client: Optional HTTP client for requests
     """
+    snippet = text[:120].replace('\n', ' ')
+    prompt_text = (
+        "Generate a concise technical name for this content.\n\n"
+        "Rules:\n"
+        "1. Use 2-4 technical words only\n"
+        "2. Format: [Technology/Tool] + [Specific Concept/Action]\n"
+        "3. NO generic words (guide, overview, etc)\n"
+        "4. NO articles (the, a, an)\n"
+        f"Content snippet:\n{snippet}\n\n"
+        "Response (technical name only):"
+    )
+
     try:
-        # AI name generation logic here
-        return "placeholder_name"  # placeholder
+        client = http_client or requests
+        resp = client.post(
+            f"{ollama_url}/api/generate",
+            json={"prompt": prompt_text, "model": text_model, "stream": False},
+            timeout=60
+        )
+        resp.raise_for_status()
+        name = resp.json().get("response", "").strip()
+        
+        if not is_valid_item_name(name):
+            return fallback_snippet_based_name(text)
+            
+        return normalize_name_for_filesystem(name)
     except Exception as e:
-        raise AIError(f"Failed to generate content name: {e}")
+        logging.error(f"Name generation failed: {e}")
+        return fallback_snippet_based_name(text)

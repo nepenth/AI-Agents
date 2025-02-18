@@ -187,39 +187,158 @@ class MarkdownWriter:
                 await self.dir_manager.copy_file(media_file, target_dir / media_file.name)
 
     async def generate_readme(self) -> None:
-        """Generate the main README file."""
+        """Generate README files for all knowledge base items."""
         try:
-            # README generation logic here
-            pass
-        except Exception as e:
-            logging.error(f"Failed to generate README: {str(e)}")
-            raise MarkdownGenerationError(f"Failed to generate README: {str(e)}")
+            kb_root = Path(self.config.knowledge_base_dir)
+            processed_tweets_path = Path(self.config.processed_tweets_file)
+            
+            # Load processed tweets data
+            try:
+                processed_tweets = await async_json_load(processed_tweets_path)
+            except Exception as e:
+                logging.error(f"Failed to load processed tweets: {e}")
+                raise MarkdownGenerationError(f"Failed to load processed tweets: {e}")
 
-async def generate_root_readme(knowledge_base_dir: Path, category_manager: CategoryManager) -> None:
-    """Generate the root README.md file."""
+            # Iterate through all categories and subcategories
+            for main_cat in kb_root.iterdir():
+                if not main_cat.is_dir() or main_cat.name.startswith('.'):
+                    continue
+                    
+                for sub_cat in main_cat.iterdir():
+                    if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
+                        continue
+                        
+                    # Process each knowledge base item
+                    for item_dir in sub_cat.iterdir():
+                        if not item_dir.is_dir() or item_dir.name.startswith('.'):
+                            continue
+                            
+                        try:
+                            # Find corresponding tweet data from processed_tweets.json
+                            item_name = item_dir.name
+                            tweet_data = next(
+                                (tweet for tweet in processed_tweets 
+                                 if safe_directory_name(tweet.get('item_name', '')) == item_name),
+                                None
+                            )
+                            
+                            if not tweet_data:
+                                logging.warning(f"No processed tweet data found for {item_name}")
+                                continue
+
+                            # Get media files and descriptions
+                            media_files = sorted(
+                                [f for f in item_dir.glob("image_*.jpg")],
+                                key=lambda x: int(x.stem.split('_')[1])
+                            )
+                            media_descriptions = tweet_data.get('image_descriptions', [])
+                            
+                            # Create knowledge base item from tweet data
+                            kb_item = {
+                                'title': tweet_data.get('item_name', ''),
+                                'description': tweet_data.get('description', ''),
+                                'content': tweet_data.get('tweet_text', ''),
+                                'source_tweet': {
+                                    'url': tweet_data.get('tweet_url', ''),
+                                    'author': tweet_data.get('author', ''),
+                                    'created_at': datetime.datetime.fromisoformat(
+                                        tweet_data.get('created_at', datetime.datetime.now().isoformat())
+                                    )
+                                }
+                            }
+                            
+                            # Generate content using existing method
+                            content = self._generate_content(
+                                item=kb_item,
+                                media_files=media_files,
+                                media_descriptions=media_descriptions
+                            )
+                            
+                            # Write README.md
+                            readme_path = item_dir / "README.md"
+                            await async_write_text(content, readme_path)
+                            
+                        except Exception as e:
+                            logging.error(f"Failed to generate README for {item_dir}: {e}")
+                            continue
+                            
+            logging.info("Successfully generated README files for knowledge base items")
+            
+        except Exception as e:
+            logging.error(f"Failed to generate READMEs: {str(e)}")
+            raise MarkdownGenerationError(f"Failed to generate READMEs: {str(e)}")
+
+async def write_markdown_content(
+    content_dir: Path,
+    main_category: str,
+    sub_category: str,
+    item_name: str,
+    tweet_text: str,
+    tweet_url: str,
+    image_files: List[Path],
+    image_descriptions: List[str]
+) -> None:
+    """Write markdown content for a knowledge base item."""
     try:
-        logging.info(f"Generating root README.md in {knowledge_base_dir}")
-        content = ["# Knowledge Base\n"]
+        # Ensure directory exists
+        content_dir.mkdir(parents=True, exist_ok=True)
         
-        for main_cat in sorted(category_manager.get_all_main_categories()):
-            content.append(f"## {main_cat}\n")
-            for sub_cat in sorted(category_manager.get_subcategories(main_cat)):
-                content.append(f"### {sub_cat}\n")
-                
-                sub_cat_path = knowledge_base_dir / main_cat / sub_cat
-                if sub_cat_path.exists():
-                    items = [p for p in sub_cat_path.iterdir() if p.is_dir()]
-                    for item in sorted(items):
-                        content.append(f"- [{item.name}]({main_cat}/{sub_cat}/{item.name})")
-                
-                content.append("")
+        # Create content.md
+        content_file = content_dir / "content.md"
         
-        readme_path = knowledge_base_dir / "README.md"
+        # Build markdown content
+        content = [
+            f"# {item_name}\n",
+            f"\n## Source\n",
+            f"[Original Tweet]({tweet_url})\n",
+            f"\n## Content\n",
+            f"{tweet_text}\n"
+        ]
+        
+        # Add images section if there are images
+        if image_files:
+            content.append("\n## Images\n")
+            for i, (img_file, description) in enumerate(zip(image_files, image_descriptions)):
+                rel_path = img_file.relative_to(content_dir)
+                content.append(f"\n![{description}]({rel_path})\n")
+                if description:
+                    content.append(f"\n*{description}*\n")
+        
+        # Write content
+        async with aiofiles.open(content_file, 'w', encoding='utf-8') as f:
+            await f.write(''.join(content))
+            
+        logging.info(f"Created markdown content at {content_file}")
+        
+    except Exception as e:
+        logging.error(f"Failed to write markdown content: {e}")
+        raise MarkdownGenerationError(f"Failed to write markdown content: {e}")
+
+async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) -> None:
+    """Generate root README.md with category structure."""
+    try:
+        content = [
+            "# Knowledge Base\n",
+            "\nAutomatically generated knowledge base from curated tweets.\n",
+            "\n## Categories\n"
+        ]
+        
+        # Add category structure
+        for main_cat, details in category_manager.categories.items():
+            content.append(f"\n### {main_cat}\n")
+            if 'description' in details:
+                content.append(f"\n{details['description']}\n")
+            if 'subcategories' in details:
+                for sub_cat in sorted(details['subcategories']):
+                    content.append(f"\n- {sub_cat}\n")
+        
+        # Write README
+        readme_path = kb_dir / "README.md"
         async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
-            await f.write("\n".join(content))
+            await f.write(''.join(content))
             
-        logging.info("Root README.md generated successfully")
-            
+        logging.info("Generated root README.md")
+        
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
-        raise StorageError(f"Failed to generate root README: {e}")
+        raise MarkdownGenerationError(f"Failed to generate root README: {e}")

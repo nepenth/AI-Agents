@@ -1,15 +1,16 @@
 import base64
 import logging
-import requests
 from pathlib import Path
 from typing import Optional
+from .http_client import HTTPClient
 
-def interpret_image(ollama_url: str, image_path: Path, vision_model: str, http_client: Optional[requests.Session] = None) -> str:
-    client = http_client or requests
+async def interpret_image(http_client: HTTPClient, image_path: Path, vision_model: str) -> str:
+    """Interpret image using Ollama vision model."""
     try:
         with image_path.open("rb") as f:
             img_data = f.read()
         encoded_img = base64.b64encode(img_data).decode("utf-8")
+        
         payload = {
             "model": vision_model,
             "stream": False,
@@ -21,15 +22,14 @@ def interpret_image(ollama_url: str, image_path: Path, vision_model: str, http_c
                 }
             ]
         }
-        resp = client.post(f"{ollama_url}/api/chat", json=payload, timeout=120)
-        resp.raise_for_status()
-        data = resp.json()
+        
+        response = await http_client.post(f"{http_client.config.ollama_url}/api/chat", json=payload)
+        data = response.json()
+        
         if 'message' in data and 'content' in data['message']:
-            description = data['message']['content'].strip()
-            return description
-        else:
-            description = data.get("response", "").strip()
-            return description
-    except requests.RequestException as e:
-        logging.error(f"HTTP Error during image interpretation for {image_path.name}: {e}")
+            return data['message']['content'].strip()
+        return data.get("response", "").strip()
+        
+    except Exception as e:
+        logging.error(f"Failed to interpret image {image_path.name}: {e}")
         return "Error in processing image"
