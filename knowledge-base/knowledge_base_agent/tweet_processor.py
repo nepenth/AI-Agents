@@ -12,7 +12,7 @@ The processing pipeline includes:
 4. State management for processed tweets
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 import logging
 import asyncio
 from pathlib import Path
@@ -20,6 +20,8 @@ import datetime
 import httpx
 from asyncio import Semaphore
 import time
+import json
+import aiofiles
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
@@ -340,6 +342,19 @@ class TweetProcessor:
     async def _check_cache(self, tweet_id: str) -> bool:
         # Implementation of _check_cache method
         pass
+
+    async def get_cached_tweet_ids(self) -> Set[str]:
+        """Get the set of cached tweet IDs."""
+        try:
+            if self.config.tweet_cache_file.exists():
+                async with aiofiles.open(self.config.tweet_cache_file, 'r') as f:
+                    content = await f.read()
+                    cache = json.loads(content)
+                    return set(cache.keys())
+            return set()
+        except Exception as e:
+            logging.error(f"Failed to get cached tweet IDs: {e}")
+            return set()
 
 class BookmarksProcessor:
     async def load_bookmarks(self) -> list[str]:
