@@ -110,26 +110,49 @@ class OllamaClient:
                 # Convert images to base64
                 image_data = []
                 for image_path in images:
-                    with open(image_path, 'rb') as f:
-                        image_bytes = f.read()
-                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-                        image_data.append(image_base64)
+                    try:
+                        logging.debug(f"Reading image file: {image_path}")
+                        with open(image_path, 'rb') as f:
+                            image_bytes = f.read()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                            image_data.append(image_base64)
+                            logging.debug(f"Successfully encoded image: {image_path} ({len(image_base64)} bytes)")
+                    except Exception as e:
+                        logging.error(f"Failed to read/encode image {image_path}: {e}")
+                        raise ModelInferenceError(f"Failed to process image {image_path}: {e}")
+                
                 payload["images"] = image_data
+                logging.debug(f"Added {len(image_data)} images to payload")
 
             logging.debug(f"Sending request to Ollama API with model {model}")
+            logging.debug(f"Request payload size: {len(str(payload))} bytes")
+            
             response = await self._client.post("/api/generate", json=payload)
             response.raise_for_status()
+            
+            # Log raw response for debugging
+            raw_response = response.text
+            logging.debug(f"Raw Ollama response: {raw_response[:200]}...")  # First 200 chars
             
             # Handle Ollama's response format
             try:
                 data = response.json()
+                logging.debug(f"Parsed response data: {data}")
+                
                 if not isinstance(data, dict):
-                    raise ValueError("Expected JSON object in response")
-                return data.get('response', '')
+                    raise ValueError(f"Expected JSON object in response, got: {type(data)}")
+                
+                response_text = data.get('response', '')
+                if not response_text:
+                    raise ValueError(f"Empty response from Ollama API: {data}")
+                    
+                logging.debug(f"Received valid response from Ollama API: {response_text[:100]}...")
+                return response_text
+                
             except ValueError as e:
                 logging.error(f"Invalid JSON response from Ollama: {e}")
                 raise ModelInferenceError(f"Failed to parse Ollama response: {e}")
             
         except Exception as e:
-            logging.error(f"Ollama API call failed: {e}")
-            raise ModelInferenceError(f"Failed to generate response: {e}")
+            logging.error(f"Ollama API call failed: {str(e)}")
+            raise ModelInferenceError(f"Failed to generate response: {str(e)}")
