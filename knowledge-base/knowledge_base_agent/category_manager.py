@@ -532,10 +532,49 @@ class CategoryManager:
         pass  # Implementation details...
 
     async def update_indexes(self) -> None:
-        """Update category indexes."""
+        """Update category indexes and handle new categories."""
         try:
-            categories = self.get_all_categories()  # No await needed
-            # ... rest of the update logic ...
+            # Load current categories
+            current_categories = self.get_all_categories()
+            
+            # Scan knowledge base directory for new categories
+            kb_categories = set()
+            kb_subcategories = {}
+            
+            for main_cat in self.config.knowledge_base_dir.iterdir():
+                if not main_cat.is_dir() or main_cat.name.startswith('.'):
+                    continue
+                    
+                main_cat_name = self._normalize_name(main_cat.name)
+                kb_categories.add(main_cat_name)
+                kb_subcategories[main_cat_name] = set()
+                
+                # Scan subcategories
+                for sub_cat in main_cat.iterdir():
+                    if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
+                        continue
+                    sub_cat_name = self._normalize_name(sub_cat.name)
+                    kb_subcategories[main_cat_name].add(sub_cat_name)
+            
+            # Update categories with new findings
+            for main_cat in kb_categories:
+                if main_cat not in self.categories:
+                    self.categories[main_cat] = {
+                        'subcategories': {},
+                        'description': f"Auto-generated category for {main_cat}",
+                        'keywords': {main_cat}
+                    }
+                
+                # Update subcategories
+                if main_cat in kb_subcategories:
+                    for sub_cat in kb_subcategories[main_cat]:
+                        if sub_cat not in self.categories[main_cat]['subcategories']:
+                            self.categories[main_cat]['subcategories'][sub_cat] = {}
+            
+            # Save updated categories
+            await self.save_categories()
+            logging.info("Category indexes updated successfully")
+            
         except Exception as e:
             logging.error(f"Failed to update indexes: {e}")
             raise CategoryError(f"Failed to update indexes: {e}")

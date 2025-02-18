@@ -7,6 +7,8 @@ from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.ai_categorization import classify_content, generate_content_name
 from knowledge_base_agent.tweet_utils import sanitize_filename
+from knowledge_base_agent.image_interpreter import interpret_image
+from knowledge_base_agent.http_client import HTTPClient
 
 async def categorize_and_name_content(
     ollama_url: str,
@@ -47,25 +49,45 @@ async def categorize_and_name_content(
     except Exception as e:
         raise ContentProcessingError(f"Failed to categorize content for tweet {tweet_id}: {e}")
 
+async def process_media_content(
+    tweet_data: Dict[str, Any],
+    http_client: HTTPClient,
+    config: Config
+) -> Dict[str, Any]:
+    """Process media content including image interpretation."""
+    try:
+        media_paths = tweet_data.get('downloaded_media', [])
+        if not media_paths:
+            return tweet_data
+            
+        image_descriptions = []
+        for media_path in media_paths:
+            description = await interpret_image(
+                http_client=http_client,
+                image_path=Path(media_path),
+                vision_model=config.vision_model
+            )
+            image_descriptions.append(description)
+            
+        tweet_data['image_descriptions'] = image_descriptions
+        return tweet_data
+        
+    except Exception as e:
+        logging.error(f"Failed to process media content: {e}")
+        return tweet_data
+
 async def create_knowledge_base_entry(
     tweet_id: str,
     tweet_data: Dict[str, Any],
     categories: Tuple[str, str, str],
-    config: Config
+    config: Config,
+    http_client: HTTPClient
 ) -> None:
-    """
-    Create a knowledge base entry for a tweet.
-    
-    Args:
-        tweet_id: The ID of the tweet
-        tweet_data: The tweet data including text and media
-        categories: Tuple of (main_category, sub_category, item_name)
-        config: Configuration object
-        
-    Raises:
-        StorageError: If writing to knowledge base fails
-    """
+    """Create a knowledge base entry for a tweet."""
     try:
+        # Process media content first
+        tweet_data = await process_media_content(tweet_data, http_client, config)
+        
         main_cat, sub_cat, item_name = categories
         markdown_writer = MarkdownWriter()
         
