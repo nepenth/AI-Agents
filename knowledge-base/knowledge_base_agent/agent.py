@@ -171,6 +171,8 @@ class KnowledgeBaseAgent:
             logging.info("1. Initializing state and checking for new content...")
             await self.state_manager.initialize()
             has_new_content = False
+            total_errors = 0
+            processed_count = 0
             
             if preferences.update_bookmarks:
                 logging.info("2. Processing bookmarks for new tweets...")
@@ -181,6 +183,7 @@ class KnowledgeBaseAgent:
             
             # 2. Get unprocessed tweets
             unprocessed_tweets = self.state_manager.get_unprocessed_tweets()
+            total_tweets = len(unprocessed_tweets)
             if not unprocessed_tweets and not preferences.review_existing:
                 logging.info("No new content to process")
                 return
@@ -188,7 +191,11 @@ class KnowledgeBaseAgent:
             # 3. Cache tweets and process media
             if unprocessed_tweets or preferences.recreate_tweet_cache:
                 logging.info(f"3. Caching {len(unprocessed_tweets)} tweets and processing media...")
-                await self.tweet_processor.cache_tweets(unprocessed_tweets)
+                try:
+                    await self.tweet_processor.cache_tweets(unprocessed_tweets)
+                except Exception as e:
+                    logging.error(f"Failed to cache tweets: {e}")
+                    raise
                 
                 # Verify cache was created
                 if Path(self.config.tweet_cache_file).exists():
@@ -196,25 +203,43 @@ class KnowledgeBaseAgent:
                     logging.info(f"Tweet cache created with {cache_size} entries")
                 else:
                     logging.error("Failed to create tweet cache!")
-                    return
+                    raise RuntimeError("Tweet cache file was not created!")
                 
-                await self.tweet_processor.process_media()
+                try:
+                    await self.tweet_processor.process_media()
+                except Exception as e:
+                    logging.error(f"Failed to process media: {e}")
+                    raise
             
             # 4. Process tweets into knowledge base items
             if unprocessed_tweets or preferences.review_existing:
                 logging.info(f"4. Processing {len(unprocessed_tweets)} tweets into knowledge base items...")
                 for tweet_id in unprocessed_tweets:
                     try:
-                        logging.info(f"Processing tweet {tweet_id}...")
+                        logging.info(f"Processing tweet {tweet_id} ({processed_count + 1}/{total_tweets})")
+                        
+                        # First verify tweet is in cache
+                        if not await self._verify_tweet_cached(tweet_id):
+                            logging.error(f"Tweet {tweet_id} not found in cache, skipping...")
+                            total_errors += 1
+                            continue
+                            
+                        # Process tweet
                         await self.tweet_processor.process_tweets([tweet_id])
+                        
                         # Only mark as processed if we successfully created the KB item
                         if await self._verify_kb_item_created(tweet_id):
                             await self.state_manager.mark_tweet_processed(tweet_id)
+                            processed_count += 1
                             logging.info(f"Successfully processed tweet {tweet_id}")
                         else:
                             logging.error(f"Failed to create knowledge base item for tweet {tweet_id}")
+                            total_errors += 1
+                            
                     except Exception as e:
                         logging.error(f"Error processing tweet {tweet_id}: {e}")
+                        total_errors += 1
+                        continue
             
             # 5. Generate/Update README
             if has_new_content or preferences.regenerate_readme:
@@ -225,11 +250,33 @@ class KnowledgeBaseAgent:
             logging.info("6. Syncing to GitHub...")
             await self.sync_changes()
             
-            logging.info("=== Knowledge Base Agent Processing Complete ===")
+            # Summary
+            logging.info("\n=== Processing Summary ===")
+            logging.info(f"Total tweets: {total_tweets}")
+            logging.info(f"Successfully processed: {processed_count}")
+            logging.info(f"Errors: {total_errors}")
+            
+            if total_errors > 0:
+                raise RuntimeError(f"Failed to process {total_errors} tweets. Check logs for details.")
             
         except Exception as e:
-            logging.error(f"Agent run failed: {str(e)}")
-            raise AgentError("Agent run failed") from e
+            logging.error(f"Agent run failed: {str(e)}", exc_info=True)
+            raise
+
+    async def _verify_tweet_cached(self, tweet_id: str) -> bool:
+        """Verify that a tweet exists in the cache."""
+        try:
+            cache_file = Path(self.config.tweet_cache_file)
+            if not cache_file.exists():
+                logging.error("Tweet cache file does not exist")
+                return False
+            
+            cache_data = await async_json_load(cache_file)
+            return tweet_id in cache_data
+            
+        except Exception as e:
+            logging.error(f"Error verifying tweet cache for {tweet_id}: {e}")
+            return False
 
     async def _verify_kb_item_created(self, tweet_id: str) -> bool:
         """Verify that a knowledge base item was created for the tweet."""

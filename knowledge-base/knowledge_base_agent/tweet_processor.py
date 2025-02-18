@@ -35,6 +35,7 @@ from knowledge_base_agent.file_utils import async_json_load, async_json_dump, as
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.types import TweetData, KnowledgeBaseItem, CategoryInfo
 from knowledge_base_agent.progress import ProcessingStats
+from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
 
 async def process_tweets(
     urls: List[str],
@@ -413,10 +414,12 @@ class TweetProcessor:
             for tweet_id in tweet_ids:
                 if not self.cache_manager.is_cached(tweet_id):
                     try:
-                        await cache_tweet_data(tweet_id, self.config, self.cache_manager)
+                        await cache_tweet_data(tweet_id, self.config, self.cache_manager._cache, self.http_client)
                         logging.debug(f"Cached tweet {tweet_id}")
+                        await self.cache_manager.save_cache()
                     except Exception as e:
                         logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+                        raise
             logging.info("Tweet caching completed")
         except Exception as e:
             logging.error(f"Tweet caching failed: {e}")
@@ -569,4 +572,39 @@ class ProcessingPipeline:
         try:
             await self.category_manager.update_categories(kb_entry['category_info'])
         except Exception as e:
-            raise TweetProcessingError("Failed to save KB entry") from e 
+            raise TweetProcessingError("Failed to save KB entry") from e
+
+async def cache_tweet_data(tweet_id: str, config: Config, cache: Dict, http_client: HTTPClient) -> None:
+    """Cache tweet data including media."""
+    try:
+        tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
+        tweet_data = await fetch_tweet_data_playwright(tweet_url, config)
+        if not tweet_data:
+            raise ValueError(f"No data returned for tweet {tweet_id}")
+            
+        # Download any media if present
+        if 'media' in tweet_data:
+            media_dir = Path(config.media_cache_dir) / tweet_id
+            media_dir.mkdir(parents=True, exist_ok=True)
+            
+            media_paths = []
+            for idx, media_item in enumerate(tweet_data['media']):
+                if isinstance(media_item, str):
+                    url = media_item
+                else:
+                    url = media_item.get('url', '')
+                    
+                if url:
+                    media_path = media_dir / f"media_{idx}{Path(url).suffix}"
+                    await http_client.download_media(url, media_path)
+                    media_paths.append(str(media_path))
+                
+            tweet_data['downloaded_media'] = media_paths
+            
+        # Update cache
+        cache[tweet_id] = tweet_data
+        logging.info(f"Successfully cached tweet {tweet_id}")
+        
+    except Exception as e:
+        logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+        raise 
