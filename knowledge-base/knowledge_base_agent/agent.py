@@ -24,6 +24,34 @@ from knowledge_base_agent.content_processor import ContentProcessingError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.file_utils import async_json_load
 
+def setup_logging(config: Config) -> None:
+    """Configure logging with different levels for file and console."""
+    # Create formatters
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+
+    # File handler - detailed logging
+    file_handler = logging.FileHandler(config.log_file)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(file_formatter)
+
+    # Console handler - less verbose
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)  # Only INFO and above for console
+    console_handler.setFormatter(console_formatter)
+
+    # Root logger configuration
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)  # Capture all levels
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+    # Reduce verbosity of specific loggers
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    logging.getLogger('playwright').setLevel(logging.WARNING)
+
 class KnowledgeBaseAgent:
     """
     Main agent coordinating knowledge base operations.
