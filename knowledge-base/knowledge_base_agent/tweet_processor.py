@@ -209,8 +209,10 @@ class TweetProcessor:
                 continue
                 
             try:
-                await self.process_single_tweet(tweet_id)
-                await self.state_manager.mark_tweet_processed(tweet_id)
+                tweet_data = await self.state_manager.get_tweet(tweet_id)
+                if tweet_data:
+                    await self.process_single_tweet(tweet_id)
+                    await self.state_manager.mark_tweet_processed(tweet_id)
             except Exception as e:
                 logging.exception(f"Failed to process tweet {tweet_id}")
                 raise
