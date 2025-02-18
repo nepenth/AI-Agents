@@ -9,24 +9,35 @@ from knowledge_base_agent.http_client import HTTPClient
 def process_category_response(response: str, tweet_id: str) -> Tuple[str, str, str]:
     """Process the category response from the AI model."""
     try:
+        # Clean the response first
+        response = response.strip().replace('\n', ' ')
         parts = [x.strip() for x in response.split('|', 2)]
+        
         if len(parts) != 3:
-            logging.warning(f"Invalid category response format for tweet {tweet_id}")
+            logging.warning(f"Invalid category response format for tweet {tweet_id}: {response}")
             raise ValueError("Response must have three parts")
         
         main_category, sub_category, item_name = parts
         
-        # Validate each part before normalizing
-        if not all(parts) or any(p.lower() in ['fallback', 'generic'] for p in parts):
-            raise ValueError("Invalid category parts detected")
+        # More detailed validation
+        if not all(len(p.strip()) > 0 for p in parts):
+            raise ValueError("Empty category parts detected")
             
-        return (
-            normalize_name_for_filesystem(main_category),
-            normalize_name_for_filesystem(sub_category),
-            normalize_name_for_filesystem(item_name)
-        )
+        if any(p.lower() in ['fallback', 'generic', 'note', 'undefined', 'unknown'] for p in parts):
+            raise ValueError("Invalid category values detected")
+            
+        # Normalize and validate each part
+        main_category = normalize_name_for_filesystem(main_category)
+        sub_category = normalize_name_for_filesystem(sub_category)
+        item_name = normalize_name_for_filesystem(item_name)
+        
+        if not all([is_valid_item_name(p) for p in [main_category, sub_category, item_name]]):
+            raise ValueError("Invalid characters in category parts")
+            
+        return (main_category, sub_category, item_name)
     except Exception as e:
         logging.error(f"Error processing category response for tweet {tweet_id}: {e}")
+        logging.error(f"Raw response: {response}")
         raise AIError(f"Failed to process category response: {e}")
 
 async def categorize_and_name_content(
@@ -38,68 +49,60 @@ async def categorize_and_name_content(
     max_retries: int = 3
 ) -> Tuple[str, str, str]:
     """Categorizes and names content using an AI model."""
-    snippet = combined_text[:120].replace('\n', ' ')
     suggestions = category_manager.get_category_suggestions(combined_text)
     suggested_cats = ", ".join([f"{cat}/{sub}" for cat, sub, _ in suggestions])
-
+    
     prompt_text = (
-        "You are an expert technical content curator. Format response exactly as: "
-        "MainCategory | SubCategory | ItemName\n\n"
+        "You are an expert technical content curator. Categorize this content.\n\n"
         f"Suggested categories: {suggested_cats}\n\n"
         "Rules:\n"
         "1. MainCategory: Choose from suggested or propose better match\n"
-        "2. SubCategory: Must be specific technical area (no 'general' or 'misc').\n"
-        "3. ItemName:\n"
-        "4. REQUIRED format: [Technology/Tool] + [Specific Concept/Action]\n\n"
-        "- EXACTLY 2-4 technical words\n"
-        "- Examples: 'Kubernetes Pod Networking', 'Redis Cache Patterns'\n"
-        "   - Do NOT use placeholders like 'fallback', 'generic', 'note', etc.\n"
-        "   - If uncertain, pick the most relevant 2-4 keywords from the content.\n\n"
-        "   - Example of badly named knowledge base item 'software_engineering/best_practices/fallback_18819340', item name should always be relevant.\n"
-        "- NO generic words (guide, overview, etc)\n"
-        "- NO articles (the, a, an)\n\n"
-        f"Content:\n{combined_text}\n\n"
-        "Response (remember: concrete technical terms only):"
+        "2. SubCategory: Must be specific technical area\n"
+        "3. Title: Create a specific 2-4 word technical title\n\n"
+        f"Content to categorize:\n{combined_text}\n\n"
+        "Response format: MainCategory | SubCategory | Title"
     )
-
+    
     for attempt in range(max_retries):
         try:
             response = await http_client.post(
                 f"{http_client.config.ollama_url}/api/generate",
-                json={"prompt": prompt_text, "model": text_model, "stream": False}
+                json={
+                    "prompt": prompt_text,
+                    "model": text_model,
+                    "stream": False,
+                    "temperature": 0.7,
+                    "max_tokens": 100
+                }
             )
             
             raw_response = response.json().get("response", "").strip()
+            if not raw_response:
+                raise ValueError("Empty response from AI model")
+                
             main_cat, sub_cat, item_name = process_category_response(raw_response, tweet_id)
             
+            # Additional validation of generated names
             if not is_valid_item_name(item_name):
-                item_name = await fix_invalid_name(
-                    http_client=http_client,
-                    current_name=item_name,
-                    snippet=combined_text,
-                    main_cat=main_cat,
-                    sub_cat=sub_cat,
-                    text_model=text_model
-                )
+                raise ValueError("Generated item name is invalid")
                 
-            if main_cat in category_manager.get_all_categories():
-                valid_subs = category_manager.get_subcategories(main_cat)
-                if not valid_subs or sub_cat in valid_subs:
-                    return (main_cat, sub_cat, item_name)
-                    
+            return (main_cat, sub_cat, item_name)
+                
         except Exception as e:
             logging.error(f"Attempt {attempt + 1} for tweet {tweet_id} failed: {e}")
-            await asyncio.sleep(2 ** attempt)
-
-    if suggestions:
-        main_cat, sub_cat, _ = suggestions[0]
-        snippet_title = (combined_text[:30].strip() or 'fallback').replace(' ', '_')
-        snippet_title = normalize_name_for_filesystem(snippet_title)
-        if not is_valid_item_name(snippet_title):
-            snippet_title = fallback_snippet_based_name(combined_text)
-        return (main_cat, sub_cat, snippet_title)
-
-    return ("software_engineering", "best_practices", fallback_snippet_based_name(combined_text))
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            
+            # On final attempt, use fallback mechanism
+            if suggestions:
+                main_cat, sub_cat, _ = suggestions[0]
+                fallback_name = fallback_snippet_based_name(combined_text)
+                logging.info(f"Using fallback categorization for tweet {tweet_id}")
+                return (main_cat, sub_cat, fallback_name)
+            
+            # Ultimate fallback
+            return ("software_engineering", "best_practices", fallback_snippet_based_name(combined_text))
 
 def re_categorize_offline(
     content_text: str, 

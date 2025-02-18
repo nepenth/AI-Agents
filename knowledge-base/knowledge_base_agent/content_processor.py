@@ -3,7 +3,7 @@ from typing import Dict, Any, Tuple, Optional
 import logging
 from datetime import datetime
 from knowledge_base_agent.markdown_writer import MarkdownWriter
-from knowledge_base_agent.exceptions import StorageError, ContentProcessingError
+from knowledge_base_agent.exceptions import StorageError, ContentProcessingError, ContentGenerationError, CategoryGenerationError, KnowledgeBaseItemCreationError
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.ai_categorization import classify_content, generate_content_name
@@ -12,6 +12,9 @@ from knowledge_base_agent.image_interpreter import interpret_image
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump
 from knowledge_base_agent.state_manager import StateManager
+from .types import TweetData, KnowledgeBaseItem, CategoryInfo
+import json
+import aiohttp
 
 async def categorize_and_name_content(
     ollama_url: str,
@@ -102,32 +105,36 @@ async def create_knowledge_base_entry(
         except Exception as e:
             logging.error(f"Failed to process media content for tweet {tweet_id}: {str(e)}")
             raise
-        
+
         # Get or generate categories
         categories = tweet_data.get('categories')
         if not categories:
-            logging.info(f"No cached categories found for tweet {tweet_id}, this is expected for first-time processing")
+            logging.info(f"No cached categories found for tweet {tweet_id}")
             try:
-                # Combine tweet text and image descriptions for categorization
+                # Combine tweet text and image descriptions
                 content_text = tweet_data.get('full_text', '')
                 image_descriptions = tweet_data.get('image_descriptions', [])
                 
                 if not content_text:
-                    logging.error(f"No text content found for tweet {tweet_id}")
                     raise ContentProcessingError(f"No text content found for tweet {tweet_id}")
                     
                 combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions)
                 logging.info(f"Combined text for categorization: {combined_text[:100]}...")
                 
-                # Get categorization
-                main_cat, sub_cat, item_name = await categorize_and_name_content(
-                    config.ollama_url,
-                    combined_text,
-                    config.text_model,
-                    tweet_id,
-                    CategoryManager(config)
-                )
-                logging.info(f"Generated new categories for tweet {tweet_id}: {main_cat}/{sub_cat}/{item_name}")
+                # Updated categorization call to use http_client
+                logging.info(f"Calling categorize_and_name_content for tweet {tweet_id}")
+                try:
+                    main_cat, sub_cat, item_name = await categorize_and_name_content(
+                        http_client=http_client,  # Changed: pass http_client instead of ollama_url
+                        combined_text=combined_text,
+                        text_model=config.text_model,
+                        tweet_id=tweet_id,
+                        category_manager=CategoryManager(config)
+                    )
+                    logging.info(f"Generated categories: {main_cat}/{sub_cat}/{item_name}")
+                except Exception as e:
+                    logging.error(f"Failed to generate categories: {str(e)}")
+                    raise
                 
                 # Store categories in tweet data
                 categories = {
@@ -139,20 +146,17 @@ async def create_knowledge_base_entry(
                 }
                 tweet_data['categories'] = categories
                 
-                # Update cache with new categories
+                # Update cache
                 if state_manager:
-                    logging.info(f"Updating cache with new categories for tweet {tweet_id}")
                     await state_manager.update_tweet_data(tweet_id, tweet_data)
             except Exception as e:
                 logging.error(f"Failed to generate categories for tweet {tweet_id}: {str(e)}")
                 raise
         else:
             logging.info(f"Using cached categories for tweet {tweet_id}: {categories}")
-        
-        # Use stored categories
-        main_cat = categories['main_category']
-        sub_cat = categories['sub_category']
-        item_name = categories['item_name']
+            main_cat = categories['main_category']
+            sub_cat = categories['sub_category']
+            item_name = categories['item_name']
         
         # Extract necessary data
         content_text = tweet_data.get('full_text', '')
@@ -193,4 +197,208 @@ async def create_knowledge_base_entry(
         
     except Exception as e:
         logging.error(f"Failed to create knowledge base entry for {tweet_id}: {str(e)}")
-        raise StorageError(f"Failed to create knowledge base entry: {e}") 
+        raise StorageError(f"Failed to create knowledge base entry: {e}")
+
+class ContentProcessor:
+    """Handles processing of tweet content into knowledge base items."""
+    
+    def __init__(self, http_client: HTTPClient):
+        self.http_client = http_client
+        self.text_model = self.http_client.config.text_model
+        logging.info(f"Initialized ContentProcessor with model: {self.text_model}")
+
+    @classmethod
+    async def create_knowledge_base_entry(cls, tweet_data: Dict[str, Any], http_client: HTTPClient) -> KnowledgeBaseItem:
+        """Factory method to create a knowledge base entry from tweet data."""
+        tweet_id = tweet_data.get('id_str', tweet_data.get('id', 'unknown'))
+        
+        try:
+            # Log the raw tweet data structure
+            logging.debug(f"Raw tweet data for {tweet_id}: {tweet_data}")
+            
+            # Validate tweet data
+            if not isinstance(tweet_data, dict):
+                raise ValueError(f"Tweet data must be a dictionary, got {type(tweet_data)}")
+            
+            # Check for required fields
+            required_fields = ['text', 'id']
+            for field in required_fields:
+                if field not in tweet_data:
+                    raise ValueError(f"Missing required field '{field}' in tweet data")
+            
+            # Create processor instance
+            try:
+                processor = cls(http_client)
+                logging.info(f"Created processor instance for tweet {tweet_id}")
+            except Exception as e:
+                logging.error(f"Failed to create processor instance: {str(e)}")
+                raise
+            
+            # Create knowledge base item
+            try:
+                kb_item = await processor.create_knowledge_base_item(tweet_data)
+                logging.info(f"Successfully created knowledge base item for tweet {tweet_id}")
+                return kb_item
+            except Exception as e:
+                logging.error(f"Failed in create_knowledge_base_item: {str(e)}")
+                logging.error(f"Tweet data keys: {list(tweet_data.keys())}")
+                raise
+            
+        except Exception as e:
+            error_msg = f"Failed to create knowledge base entry for tweet {tweet_id}: {str(e)}"
+            logging.error(error_msg)
+            logging.error(f"Tweet data keys available: {list(tweet_data.keys()) if isinstance(tweet_data, dict) else 'Invalid data'}")
+            raise KnowledgeBaseItemCreationError(error_msg)
+
+    async def generate_categories(self, tweet_text: str) -> CategoryInfo:
+        """Generate category information from tweet text."""
+        if not tweet_text:
+            raise ValueError("Tweet text cannot be empty")
+            
+        try:
+            prompt = (
+                "Analyze this tweet and provide category information in JSON format:\n\n"
+                f"Tweet: {tweet_text}\n\n"
+                "Required format:\n"
+                "{\n"
+                '  "category": "main technical category",\n'
+                '  "subcategory": "specific technical subcategory",\n'
+                '  "name": "concise_technical_name",\n'
+                '  "description": "brief technical description"\n'
+                "}\n\n"
+                "Rules:\n"
+                "- Categories should be technical and specific\n"
+                "- Name should be 2-4 words, lowercase with underscores\n"
+                "- Description should be 1-2 sentences\n"
+            )
+
+            logging.info(f"Sending category generation prompt for text: {tweet_text[:100]}...")
+            
+            try:
+                response_text = await self.http_client.ollama_generate(
+                    model=self.text_model,
+                    prompt=prompt
+                )
+                logging.info("Received response from Ollama")
+                
+                if not response_text:
+                    raise ValueError("Empty response from Ollama")
+                    
+                result = json.loads(response_text)
+                return CategoryInfo(**result)
+                
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse Ollama response: {response_text}")
+                raise CategoryGenerationError(f"Invalid JSON in Ollama response: {str(e)}")
+                
+        except Exception as e:
+            logging.error(f"Category generation failed: {str(e)}")
+            raise CategoryGenerationError(f"Failed to generate categories: {str(e)}")
+
+    async def generate_content(self, tweet_data: Dict[str, Any]) -> str:
+        """Generate knowledge base content from tweet data."""
+        try:
+            # Prepare context including tweet text and any media descriptions
+            context = f"Tweet: {tweet_data['text']}\n\n"
+            if tweet_data.get('media'):
+                context += "Media:\n"
+                for i, media in enumerate(tweet_data['media'], 1):
+                    if media.get('alt_text'):
+                        context += f"{i}. {media['alt_text']}\n"
+
+            prompt = (
+                f"Based on this content:\n\n{context}\n\n"
+                "Generate a detailed technical knowledge base entry that:\n"
+                "1. Explains the main technical concepts\n"
+                "2. Provides relevant code examples if applicable\n"
+                "3. Lists key points and takeaways\n"
+                "4. Includes relevant technical details\n"
+                "\nFormat in Markdown with proper headers and sections."
+            )
+
+            logging.debug(f"Sending content generation prompt: {prompt[:200]}...")
+            
+            # Use the ollama_generate method
+            content = await self.http_client.ollama_generate(
+                model=self.text_model,
+                prompt=prompt,
+                temperature=0.7,  # Add temperature for more focused responses
+                max_tokens=2000   # Ensure we get a complete response
+            )
+            
+            if not content:
+                raise ContentGenerationError("Generated content is empty")
+                
+            logging.debug(f"Generated content length: {len(content)} characters")
+            return content.strip()
+            
+        except Exception as e:
+            logging.error(f"Content generation failed: {e}")
+            raise ContentGenerationError(f"Failed to generate content: {e}")
+
+    async def create_knowledge_base_item(self, tweet_data: TweetData) -> KnowledgeBaseItem:
+        """Create a complete knowledge base item from tweet data."""
+        tweet_id = tweet_data.get('id_str', tweet_data.get('id', 'unknown'))
+        logging.info(f"Starting create_knowledge_base_item for tweet {tweet_id}")
+        
+        try:
+            # Extract and validate tweet text
+            tweet_text = tweet_data.get('full_text', tweet_data.get('text', ''))
+            if not tweet_text:
+                raise ContentGenerationError(f"No text content found in tweet {tweet_id}")
+            
+            logging.info(f"Extracted text for tweet {tweet_id}: {tweet_text[:100]}...")
+            
+            # Generate categories
+            try:
+                category_info = await self.generate_categories(tweet_text)
+                logging.info(f"Generated categories for tweet {tweet_id}: {category_info}")
+            except Exception as e:
+                logging.error(f"Category generation failed for tweet {tweet_id}: {str(e)}")
+                raise
+            
+            # Generate content
+            try:
+                context = {
+                    'text': tweet_text,
+                    'media': tweet_data.get('media', []),
+                    'image_descriptions': tweet_data.get('image_descriptions', [])
+                }
+                content = await self.generate_content(context)
+                logging.info(f"Generated content for tweet {tweet_id}, length: {len(content)}")
+            except Exception as e:
+                logging.error(f"Content generation failed for tweet {tweet_id}: {str(e)}")
+                raise
+            
+            # Create and return knowledge base item
+            try:
+                kb_item = KnowledgeBaseItem(
+                    title=category_info.name.replace('_', ' ').title(),
+                    description=category_info.description,
+                    content=content,
+                    category_info={
+                        'main_category': category_info.category,
+                        'sub_category': category_info.subcategory,
+                        'item_name': category_info.name
+                    },
+                    source_tweet={
+                        'id': tweet_id,
+                        'text': tweet_text,
+                        'url': tweet_data.get('tweet_url', ''),
+                        'media': tweet_data.get('media', [])
+                    },
+                    media_analysis=tweet_data.get('image_descriptions', []),
+                    created_at=datetime.now(),
+                    last_updated=datetime.now()
+                )
+                logging.info(f"Created knowledge base item structure for tweet {tweet_id}")
+                return kb_item
+            except Exception as e:
+                logging.error(f"Failed to create knowledge base item structure for tweet {tweet_id}: {str(e)}")
+                raise
+            
+        except Exception as e:
+            error_msg = f"Failed in create_knowledge_base_item for tweet {tweet_id}: {str(e)}"
+            logging.error(error_msg)
+            logging.error(f"Available tweet data keys: {list(tweet_data.keys())}")
+            raise KnowledgeBaseItemCreationError(error_msg) 

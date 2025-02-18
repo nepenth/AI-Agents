@@ -91,3 +91,15 @@ class StateManagerError(KnowledgeBaseError):
 class VisionModelError(ModelInferenceError):
     """Error during vision model processing."""
     pass
+
+class ContentGenerationError(KnowledgeBaseError):
+    """Raised when content generation fails."""
+    pass
+
+class CategoryGenerationError(KnowledgeBaseError):
+    """Raised when category generation fails."""
+    pass
+
+class KnowledgeBaseItemCreationError(KnowledgeBaseError):
+    """Raised when knowledge base item creation fails."""
+    pass
