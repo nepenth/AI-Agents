@@ -89,7 +89,7 @@ def clear_cache(cache_file: Optional[Path] = None) -> None:
 
 class CacheManager:
     def __init__(self, cache_file: Path, expiry: int = 86400):
-        self.cache_file = cache_file
+        self.cache_file = Path(cache_file)
         self.expiry = expiry
         self._cache = {}
         self._load_cache()
@@ -104,11 +104,27 @@ class CacheManager:
             logging.error(f"Failed to load cache: {e}")
             self._cache = {}
 
-    def is_cached(self, key: str) -> bool:
-        if key not in self._cache:
+    async def save_cache(self) -> None:
+        """Save cache to file."""
+        try:
+            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(self._cache, f, indent=2)
+            logging.debug(f"Cache saved to {self.cache_file}")
+        except Exception as e:
+            logging.error(f"Failed to save cache: {e}")
+            raise
+
+    def is_cached(self, tweet_id: str) -> bool:
+        """Check if tweet is cached and not expired."""
+        if tweet_id not in self._cache:
             return False
-        timestamp = self._cache[key].get('timestamp', 0)
-        return (time.time() - timestamp) < self.expiry
+        return True
+
+    async def update_cache(self, tweet_id: str, data: Dict[str, Any]) -> None:
+        """Update cache with new tweet data."""
+        self._cache[tweet_id] = data
+        await self.save_cache()  # Save after each update
 
     async def get_or_fetch(self, key: str, fetch_func) -> Any:
         if self.is_cached(key):
@@ -118,7 +134,7 @@ class CacheManager:
             'data': data,
             'timestamp': time.time()
         }
-        await self._save_cache()
+        await self.save_cache()
         return data
 
 async def cache_tweet_data(tweet_url: str, config: Config, tweet_cache: Dict[str, Any], http_client) -> None:

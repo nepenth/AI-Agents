@@ -5,6 +5,9 @@ import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import NetworkError
+import aiohttp
+import aiofiles
+from pathlib import Path
 
 class HTTPClient:
     """Generic HTTP client with retry logic."""
