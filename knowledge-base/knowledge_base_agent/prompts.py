@@ -10,7 +10,6 @@ class UserPreferences:
     update_bookmarks: bool = False
     review_existing: bool = False
     regenerate_readme: bool = False
-    sync_to_github: bool = False
     recreate_tweet_cache: bool = False
 
 def check_knowledge_base_state(config) -> Dict[str, bool]:
@@ -45,11 +44,8 @@ def check_knowledge_base_state(config) -> Dict[str, bool]:
     
     return state
 
-def prompt_for_preferences(config) -> UserPreferences:
-    """Prompt user for their preferences based on current knowledge base state."""
-    print("\n=== Knowledge Base Agent Configuration ===")
-    print("Please answer the following questions to configure this run:\n")
-    
+def prompt_for_preferences(config: Config) -> UserPreferences:
+    """Prompt user for processing preferences."""
     kb_state = check_knowledge_base_state(config)
     prefs = UserPreferences()
     
@@ -68,10 +64,6 @@ def prompt_for_preferences(config) -> UserPreferences:
     
     # README generation is automatic if it doesn't exist
     prefs.regenerate_readme = not kb_state['has_readme']
-    
-    # Only prompt for GitHub sync if we have knowledge base items
-    if kb_state['has_kb_items']:
-        prefs.sync_to_github = input("Sync changes to GitHub? (y/n): ").lower().startswith('y')
     
     print("\nConfiguration complete. Starting agent...\n")
     return prefs 
