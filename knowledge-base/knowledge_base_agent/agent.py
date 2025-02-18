@@ -177,6 +177,10 @@ class KnowledgeBaseAgent:
             
             if preferences.update_bookmarks:
                 logging.info("2. Processing bookmarks for new tweets...")
+                # First fetch new bookmarks
+                await self.process_bookmarks()  # This will fetch and update bookmarks_links.txt
+                
+                # Then update state from bookmarks as before
                 await self.state_manager.update_from_bookmarks()
                 unprocessed = self.state_manager.get_unprocessed_tweets()
                 has_new_content = bool(unprocessed)
@@ -227,8 +231,20 @@ class KnowledgeBaseAgent:
                         tweets_with_media = await self.tweet_processor.get_tweets_with_media()
                         for tweet_id, tweet_data in tweets_with_media.items():
                             try:
+                                # Check if media was already processed
+                                if tweet_data.get('media_processed', False):
+                                    logging.info(f"Media already processed for tweet {tweet_id}, skipping...")
+                                    stats.media_processed += len(tweet_data.get('media', []))
+                                    continue
+                                    
+                                # Process media
                                 await self.tweet_processor.process_media(tweet_data)
                                 stats.media_processed += len(tweet_data.get('media', []))
+                                
+                                # Mark media as processed in cache
+                                tweet_data['media_processed'] = True
+                                await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                                
                             except Exception as e:
                                 logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
                                 stats.error_count += 1
@@ -253,7 +269,7 @@ class KnowledgeBaseAgent:
                             continue
                             
                         # Process tweet
-                        await self.tweet_processor.process_tweets([tweet_id])
+                        await self.process_tweet(tweet_id)
                         
                         # Only mark as processed if we successfully created the KB item
                         if await self._verify_kb_item_created(tweet_id):
@@ -349,19 +365,27 @@ class KnowledgeBaseAgent:
             if not tweet_id:
                 raise ValueError(f"Invalid tweet URL: {tweet_url}")
             
-            # Fetch and process tweet
-            tweet_data = await self._fetch_tweet_data(tweet_url)
-            processed_data = await self._process_tweet_content(tweet_data)
+            # First check if tweet is in cache
+            tweet_data = await self.state_manager.get_tweet_data(tweet_id)
+            if not tweet_data:
+                logging.error(f"Tweet {tweet_id} not found in cache")
+                raise ContentProcessingError(f"Tweet {tweet_id} not found in cache")
             
-            # Generate knowledge base item
-            kb_path = await self._create_kb_item(processed_data)
-            
-            # Validate complete processing before marking as done
-            if await self._validate_processed_tweet(processed_data, kb_path):
-                await self.state_manager.mark_tweet_processed(tweet_id, processed_data)
-                logging.info(f"Successfully processed tweet {tweet_id}")
-            else:
-                raise ContentProcessingError(f"Tweet {tweet_id} failed validation")
+            # Process tweet with existing data
+            try:
+                logging.info(f"Processing tweet {tweet_id}")
+                await self.tweet_processor.process_tweets([tweet_id])
+                
+                # Verify KB item was created
+                if await self._verify_kb_item_created(tweet_id):
+                    await self.state_manager.mark_tweet_processed(tweet_id)
+                    logging.info(f"Successfully processed tweet {tweet_id}")
+                else:
+                    raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")
+                
+            except Exception as e:
+                logging.error(f"Failed to process tweet {tweet_id}: {e}")
+                raise ContentProcessingError(f"Tweet processing failed: {e}")
             
         except Exception as e:
             logging.error(f"Failed to process tweet {tweet_url}: {e}")
