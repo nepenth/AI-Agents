@@ -60,20 +60,20 @@ async def initialize_state(config: Config) -> StateManager:
         raise KnowledgeBaseError(f"Failed to initialize state: {e}")
 
 async def run_agent(config: Config, preferences: UserPreferences) -> None:
-    """
-    Initialize and run the agent with user preferences.
-    
-    Args:
-        config: Configuration object
-        preferences: User preferences for processing
-        
-    Raises:
-        KnowledgeBaseError: If agent execution fails
-    """
+    """Initialize and run the agent with user preferences."""
     try:
         agent = KnowledgeBaseAgent(config)
         await agent.run(preferences)
-        logging.info("Agent run completed successfully")
+        
+        # Log final statistics
+        metrics = agent.stats.get_performance_metrics()
+        logging.info("=== Processing Statistics ===")
+        for metric, value in metrics.items():
+            logging.info(f"{metric}: {value}")
+            
+        # Save stats report
+        await agent.stats.save_report(config.data_processing_dir / "processing_stats.json")
+        
     except Exception as e:
         logging.exception("Agent run failed")
         raise KnowledgeBaseError("Failed to run agent") from e

@@ -7,6 +7,7 @@ from typing import Set, List, Dict, Any
 from pathlib import Path
 import asyncio
 from datetime import datetime
+import time
 
 from .config import Config
 from .exceptions import AgentError
@@ -18,6 +19,7 @@ from .markdown_writer import MarkdownWriter, generate_root_readme
 from .category_manager import CategoryManager
 from .types import TweetData, KnowledgeBaseItem
 from .prompts import UserPreferences
+from .progress import ProcessingStats
 
 class KnowledgeBaseAgent:
     """
@@ -35,6 +37,7 @@ class KnowledgeBaseAgent:
         self.category_manager = CategoryManager(config)
         self._processing_lock = asyncio.Lock()
         self.git_handler = None  # Initialize only when needed
+        self.stats = ProcessingStats(start_time=datetime.now())
 
     async def initialize(self) -> None:
         """Initialize all components and ensure directory structure."""
@@ -94,9 +97,13 @@ class KnowledgeBaseAgent:
                 # Process each bookmark
                 for bookmark in bookmarks:
                     try:
+                        start_time = time.time()
                         await self.process_tweet(bookmark)
+                        self.stats.success_count += 1
+                        self.stats.add_processing_time(time.time() - start_time)
                     except Exception as e:
-                        logging.error(f"Failed to process bookmark {bookmark}: {str(e)}")
+                        self.stats.error_count += 1
+                        logging.error(f"Failed to process bookmark {bookmark}: {e}")
                         
             except Exception as e:
                 logging.exception("Bookmark fetching failed")
