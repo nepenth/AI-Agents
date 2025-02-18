@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict, Any, Tuple
 import logging
+from datetime import datetime
 from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.exceptions import StorageError, ContentProcessingError
 from knowledge_base_agent.category_manager import CategoryManager
@@ -9,6 +10,7 @@ from knowledge_base_agent.ai_categorization import classify_content, generate_co
 from knowledge_base_agent.tweet_utils import sanitize_filename
 from knowledge_base_agent.image_interpreter import interpret_image
 from knowledge_base_agent.http_client import HTTPClient
+from knowledge_base_agent.file_utils import async_json_load, async_json_dump
 
 async def categorize_and_name_content(
     ollama_url: str,
@@ -62,19 +64,23 @@ async def process_media_content(
             
         image_descriptions = []
         for media_path in media_paths:
+            if not Path(media_path).exists():
+                raise ContentProcessingError(f"Media file not found: {media_path}")
+                
             description = await interpret_image(
                 http_client=http_client,
                 image_path=Path(media_path),
                 vision_model=config.vision_model
             )
+            if not description:
+                raise ContentProcessingError(f"Failed to get image description for {media_path}")
             image_descriptions.append(description)
             
         tweet_data['image_descriptions'] = image_descriptions
         return tweet_data
         
     except Exception as e:
-        logging.error(f"Failed to process media content: {e}")
-        return tweet_data
+        raise ContentProcessingError(f"Failed to process media content: {e}")
 
 async def create_knowledge_base_entry(
     tweet_id: str,

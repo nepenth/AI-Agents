@@ -243,7 +243,7 @@ class TweetProcessor:
                 self.stats.cache_misses += 1
             
             # Generate category information
-            category_info = await self._categorize_content(tweet_id, media_results)
+            category_info = await self.categorize_content(tweet_id, media_results)
             
             # Generate knowledge base item
             kb_item = await self._generate_kb_item(tweet_id, media_results, category_info)

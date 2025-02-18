@@ -177,9 +177,41 @@ class CategoryManager:
     
     def __init__(self, config: Config):
         self.config = config
-        self.categories = {}
+        self.categories_file = Path(config.categories_file)
+        self.knowledge_base_dir = Path(config.knowledge_base_dir)
         self._initialized = False
-        self.categories_file = self.config.categories_file
+        
+        # Ensure knowledge base directory exists
+        self.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Load categories synchronously in __init__
+        self._load_categories_sync()
+
+    def _load_categories_sync(self) -> None:
+        """Synchronous version of load_categories for __init__"""
+        try:
+            if not self.categories_file.exists():
+                logging.info("Categories file not found. Creating with default categories.")
+                self.categories = self.DEFAULT_CATEGORIES.copy()
+                self._save_categories()
+                return
+
+            with self.categories_file.open('r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            if not isinstance(data, dict):
+                raise CategoryError("Categories must be a dictionary")
+                
+            for main_cat, sub_cats in data.items():
+                if not isinstance(sub_cats, list):
+                    raise CategoryError(f"Subcategories for {main_cat} must be a list")
+                    
+            self.categories = data
+            
+        except json.JSONDecodeError as e:
+            raise StorageError(f"Invalid JSON in categories file: {e}")
+        except Exception as e:
+            raise StorageError(f"Failed to load categories: {e}")
 
     async def initialize(self) -> None:
         """Initialize the category manager."""
