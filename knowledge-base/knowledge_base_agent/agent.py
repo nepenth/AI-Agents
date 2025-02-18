@@ -223,9 +223,17 @@ class KnowledgeBaseAgent:
                     if media_items > 0:
                         logging.info(f"\n=== Phase 2: Media Processing ===")
                         logging.info(f"Processing {media_items} media items...")
-                        await self.tweet_processor.process_media()
-                        stats.media_processed = media_items
-                        logging.info(f"✓ Processed {media_items} media items")
+                        # Get tweets with media from cache
+                        tweets_with_media = await self.tweet_processor.get_tweets_with_media()
+                        for tweet_id, tweet_data in tweets_with_media.items():
+                            try:
+                                await self.tweet_processor.process_media(tweet_data)
+                                stats.media_processed += len(tweet_data.get('media', []))
+                            except Exception as e:
+                                logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
+                                stats.error_count += 1
+                                continue
+                        logging.info(f"✓ Processed {stats.media_processed} media items")
                 except Exception as e:
                     logging.error(f"Failed to process media: {e}")
                     raise
