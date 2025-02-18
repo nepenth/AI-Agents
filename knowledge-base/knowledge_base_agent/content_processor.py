@@ -107,52 +107,40 @@ async def create_knowledge_base_entry(
             logging.error(f"Failed to process media content for tweet {tweet_id}: {str(e)}")
             raise
 
-        # Get or generate categories
+        # Combine tweet text and image descriptions
+        content_text = tweet_data.get('full_text', '')
+        image_descriptions = tweet_data.get('image_descriptions', [])
+        combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions) if image_descriptions else content_text
+
+        if not combined_text:
+            raise ContentProcessingError(f"No content found for tweet {tweet_id}")
+
+        # Use cached or generate categories
         categories = tweet_data.get('categories')
         if not categories:
-            logging.info(f"No cached categories found for tweet {tweet_id}")
             try:
-                # Combine tweet text and image descriptions
-                content_text = tweet_data.get('full_text', '')
-                image_descriptions = tweet_data.get('image_descriptions', [])
-                
-                if not content_text:
-                    raise ContentProcessingError(f"No text content found for tweet {tweet_id}")
-                    
-                combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions)
-                logging.info(f"Combined text for categorization: {combined_text[:100]}...")
-                
-                # Updated categorization call to use http_client
-                logging.info(f"Calling categorize_and_name_content for tweet {tweet_id}")
-                try:
-                    main_cat, sub_cat, item_name = await categorize_and_name_content(
-                        http_client=http_client,  # Changed: pass http_client instead of ollama_url
-                        combined_text=combined_text,
-                        text_model=config.text_model,
-                        tweet_id=tweet_id,
-                        category_manager=CategoryManager(config)
-                    )
-                    logging.info(f"Generated categories: {main_cat}/{sub_cat}/{item_name}")
-                except Exception as e:
-                    logging.error(f"Failed to generate categories: {str(e)}")
-                    raise
-                
-                # Store categories in tweet data
-                categories = {
-                    'main_category': main_cat,
-                    'sub_category': sub_cat,
-                    'item_name': item_name,
-                    'model_used': config.text_model,
-                    'categorized_at': datetime.now().isoformat()
-                }
-                tweet_data['categories'] = categories
-                
-                # Update cache
-                if state_manager:
-                    await state_manager.update_tweet_data(tweet_id, tweet_data)
+                category_manager = CategoryManager(config)
             except Exception as e:
-                logging.error(f"Failed to generate categories for tweet {tweet_id}: {str(e)}")
-                raise
+                logging.error(f"Failed to initialize CategoryManager: {e}")
+                raise ContentProcessingError(f"Category manager initialization failed: {e}")
+            
+            main_cat, sub_cat, item_name = await categorize_and_name_content(
+                http_client=http_client,
+                combined_text=combined_text,
+                text_model=config.text_model,
+                tweet_id=tweet_id,
+                category_manager=category_manager
+            )
+            categories = {
+                'main_category': main_cat,
+                'sub_category': sub_cat,
+                'item_name': item_name,
+                'model_used': config.text_model,
+                'categorized_at': datetime.now().isoformat()
+            }
+            tweet_data['categories'] = categories
+            if state_manager:
+                await state_manager.update_tweet_data(tweet_id, tweet_data)
         else:
             logging.info(f"Using cached categories for tweet {tweet_id}: {categories}")
             main_cat = categories['main_category']
