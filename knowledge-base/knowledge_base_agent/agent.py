@@ -26,29 +26,44 @@ from knowledge_base_agent.file_utils import async_json_load
 
 def setup_logging(config: Config) -> None:
     """Configure logging with different levels for file and console."""
+    # Clear any existing handlers
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    
     # Create formatters
     file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        '%(asctime)s - %(levelname)s - %(message)s'
     )
-    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    console_formatter = logging.Formatter('%(message)s')
 
     # File handler - detailed logging
     file_handler = logging.FileHandler(config.log_file)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
 
-    # Console handler - less verbose
+    # Console handler - minimal output
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)  # Only INFO and above for console
+    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(console_formatter)
+    
+    # Filter out repetitive messages for console
+    class TweetProgressFilter(logging.Filter):
+        def filter(self, record):
+            msg = record.getMessage()
+            return not any(x in msg for x in [
+                'Caching data for',
+                'Tweet caching completed',
+                '✓ Cached tweet'
+            ])
+    
+    console_handler.addFilter(TweetProgressFilter())
 
     # Root logger configuration
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)  # Capture all levels
+    root_logger.setLevel(logging.DEBUG)
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    # Reduce verbosity of specific loggers
+    # Reduce verbosity of third-party loggers
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('playwright').setLevel(logging.WARNING)
 
@@ -389,6 +404,10 @@ class KnowledgeBaseAgent:
     async def process_tweet(self, tweet_url: str) -> None:
         """Process a single tweet."""
         try:
+            # If tweet_url is just an ID, convert it to a full URL
+            if tweet_url.isdigit():
+                tweet_url = f"https://twitter.com/i/web/status/{tweet_url}"
+            
             tweet_id = parse_tweet_id_from_url(tweet_url)
             if not tweet_id:
                 raise ValueError(f"Invalid tweet URL: {tweet_url}")
@@ -396,17 +415,21 @@ class KnowledgeBaseAgent:
             # First check if tweet is in cache
             tweet_data = await self.state_manager.get_tweet(tweet_id)
             if not tweet_data:
-                logging.error(f"Tweet {tweet_id} not found in cache")
-                raise ContentProcessingError(f"Tweet {tweet_id} not found in cache")
+                # If not in cache, fetch and cache it first
+                logging.info(f"Tweet {tweet_id} not found in cache, fetching data...")
+                await self.tweet_processor.cache_tweet_data(tweet_id)
+                tweet_data = await self.state_manager.get_tweet(tweet_id)
+                if not tweet_data:
+                    raise ContentProcessingError(f"Failed to fetch and cache tweet {tweet_id}")
             
             # Process tweet with existing data
             try:
                 logging.info(f"Processing tweet {tweet_id}")
-                await self.tweet_processor.process_tweets([tweet_id])
+                await self.tweet_processor.process_tweets([tweet_id], tweet_data)
                 
                 # Verify KB item was created
                 if await self._verify_kb_item_created(tweet_id):
-                    await self.state_manager.mark_tweet_processed(tweet_id)
+                    await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
                     logging.info(f"Successfully processed tweet {tweet_id}")
                 else:
                     raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")

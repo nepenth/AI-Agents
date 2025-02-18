@@ -52,61 +52,6 @@ def generate_tweet_markdown_content(
         lines.append("")
     return "\n".join(lines)
 
-async def write_tweet_markdown(
-    root_dir: Path,
-    tweet_id: str,
-    main_category: str,
-    sub_category: str,
-    item_name: str,
-    tweet_text: str,
-    image_files: list,
-    image_descriptions: list,
-    tweet_url: str
-):
-    safe_item_name = safe_directory_name(item_name)
-    tweet_folder = root_dir / main_category / sub_category / safe_item_name
-
-    async with _folder_creation_lock:
-        if tweet_folder.exists():
-            unique_suffix = uuid.uuid4().hex[:6]
-            safe_item_name = f"{safe_item_name}_{unique_suffix}"
-            tweet_folder = root_dir / main_category / sub_category / safe_item_name
-
-    temp_folder = tweet_folder.with_suffix('.temp')
-    temp_folder.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # Add content validation before writing
-        if not tweet_text.strip():
-            logging.warning(f"Empty tweet text for {tweet_id}")
-            
-        # Ensure image files exist before copying
-        valid_image_files = [img for img in image_files if img.exists()]
-        if len(valid_image_files) != len(image_files):
-            logging.warning(f"Some image files missing for {tweet_id}")
-
-        content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
-        content_md_path = temp_folder / "content.md"
-        async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
-            await f.write(content_md)
-
-        for i, img_path in enumerate(image_files):
-            if img_path.exists():
-                img_name = f"image_{i+1}.jpg"
-                shutil.copy2(img_path, temp_folder / img_name)
-
-        # Atomic rename of temp folder to final folder
-        temp_folder.rename(tweet_folder)
-
-        for img_path in image_files:
-            if img_path.exists():
-                img_path.unlink()
-    except Exception as e:
-        if temp_folder.exists():
-            shutil.rmtree(temp_folder)
-        logging.error(f"Failed to write tweet markdown for {tweet_id}: {e}")
-        raise
-
 class MarkdownWriter:
     """Handles writing content to markdown files in the knowledge base."""
 
@@ -114,6 +59,75 @@ class MarkdownWriter:
         self.config = config
         self.path_normalizer = PathNormalizer()
         self.dir_manager = DirectoryManager()
+
+    async def write_tweet_markdown(
+        self,
+        root_dir: Path,
+        tweet_id: str,
+        tweet_data: Dict[str, Any],
+        image_files: list,
+        image_descriptions: list,
+        main_category: str = None,
+        sub_category: str = None,
+        item_name: str = None,
+        tweet_text: str = None,
+        tweet_url: str = None
+    ):
+        """Write tweet markdown using cached tweet data."""
+        # Get categories from tweet data
+        categories = tweet_data.get('categories')
+        if not categories:
+            raise MarkdownGenerationError(f"No category data found for tweet {tweet_id}")
+            
+        # Use provided values or fall back to tweet_data
+        main_category = main_category or categories['main_category']
+        sub_category = sub_category or categories['sub_category']
+        item_name = item_name or categories['item_name']
+        tweet_text = tweet_text or tweet_data.get('full_text', '')
+        tweet_url = tweet_url or tweet_data.get('tweet_url', '')
+        safe_item_name = safe_directory_name(item_name)
+        tweet_folder = root_dir / main_category / sub_category / safe_item_name
+
+        async with _folder_creation_lock:
+            if tweet_folder.exists():
+                unique_suffix = uuid.uuid4().hex[:6]
+                safe_item_name = f"{safe_item_name}_{unique_suffix}"
+                tweet_folder = root_dir / main_category / sub_category / safe_item_name
+
+        temp_folder = tweet_folder.with_suffix('.temp')
+        temp_folder.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Add content validation before writing
+            if not tweet_text.strip():
+                logging.warning(f"Empty tweet text for {tweet_id}")
+                
+            # Ensure image files exist before copying
+            valid_image_files = [img for img in image_files if img.exists()]
+            if len(valid_image_files) != len(image_files):
+                logging.warning(f"Some image files missing for {tweet_id}")
+
+            content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
+            content_md_path = temp_folder / "content.md"
+            async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
+                await f.write(content_md)
+
+            for i, img_path in enumerate(image_files):
+                if img_path.exists():
+                    img_name = f"image_{i+1}.jpg"
+                    shutil.copy2(img_path, temp_folder / img_name)
+
+            # Atomic rename of temp folder to final folder
+            temp_folder.rename(tweet_folder)
+
+            for img_path in image_files:
+                if img_path.exists():
+                    img_path.unlink()
+        except Exception as e:
+            if temp_folder.exists():
+                shutil.rmtree(temp_folder)
+            logging.error(f"Failed to write tweet markdown for {tweet_id}: {e}")
+            raise
 
     async def write_kb_item(
         self,
