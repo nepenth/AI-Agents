@@ -3,8 +3,8 @@ import httpx
 from typing import Optional, Any, Dict
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential
-from .config import Config
-from .exceptions import NetworkError
+from knowledge_base_agent.config import Config
+from knowledge_base_agent.exceptions import NetworkError
 
 class HTTPClient:
     """Generic HTTP client with retry logic."""

@@ -36,18 +36,18 @@ class Config(BaseSettings):
     data_processing_dir: Path = Field(default=Path("data"), alias="DATA_PROCESSING_DIR")
     knowledge_base_dir: Path = Field(default=Path("kb-generated"), alias="KNOWLEDGE_BASE_DIR")
     categories_file: Path = Field(default=Path("data/categories.json"), alias="CATEGORIES_FILE")
-    bookmarks_file: Path = Field("data/bookmarks_links.txt", alias="BOOKMARKS_FILE")
+    bookmarks_file: Path = Field(default=Path("data/bookmarks_links.txt"), alias="BOOKMARKS_FILE")
     processed_tweets_file: Path = Field(default=Path("data/processed_tweets.json"), alias="PROCESSED_TWEETS_FILE")
     media_cache_dir: Path = Field(default=Path("data/media_cache"), alias="MEDIA_CACHE_DIR")
-    tweet_cache_file: Path = Field("data/tweet_cache.json", alias="TWEET_CACHE_FILE")
-    log_file: Path = Field(default=Path("agent_program.log"), alias="LOG_FILE")
+    tweet_cache_file: Path = Field(default=Path("data/tweet_cache.json"), alias="TWEET_CACHE_FILE")
+    log_file: Path = Field(default=Path("logs/agent_{timestamp}.log"), alias="LOG_FILE")
     unprocessed_tweets_file: Path = Field(default=Path("data/unprocessed_tweets.json"), alias="UNPROCESSED_TWEETS_FILE")
     log_dir: Path = Field(default=Path("logs"), alias="LOG_DIR")
     
     # X/Twitter credentials
     x_username: str = Field(..., alias="X_USERNAME")
     x_password: str = Field(..., alias="X_PASSWORD")
-    x_bookmarks_url: HttpUrl = Field(..., alias="X_BOOKMARKS_URL")
+    x_bookmarks_url: str = Field(..., alias="X_BOOKMARKS_URL")
     
     # Logging and performance
     log_level: str = Field(default="DEBUG", alias="LOG_LEVEL")
@@ -74,13 +74,11 @@ class Config(BaseSettings):
     request_timeout: int = Field(default=180, alias="REQUEST_TIMEOUT")
     retry_backoff: bool = Field(default=True, alias="RETRY_BACKOFF")
     
-    @field_validator(
-        "data_processing_dir", "knowledge_base_dir", "categories_file", "bookmarks_file",
-        "processed_tweets_file", "media_cache_dir", "tweet_cache_file", "log_file", 
-        mode='before'
-    )
-    def convert_to_path(cls, v):
-        return v if isinstance(v, Path) else Path(v)
+    @field_validator("*")
+    def validate_paths(cls, v, field):
+        if isinstance(v, Path):
+            v.parent.mkdir(parents=True, exist_ok=True)
+        return v
     
     @field_validator('rate_limit_period', mode='before')
     def validate_rate_limit_period(cls, v):
@@ -118,17 +116,18 @@ class Config(BaseSettings):
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
     def setup_logging(self) -> None:
-        """Configure logging system."""
-        log_dir = self.data_processing_dir / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / f"kb_agent_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        """Configure logging system with proper handlers and formatting."""
+        self.init_log_file()
         
         logging.basicConfig(
-            level=self.log_level,
+            level=getattr(logging, self.log_level),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler(log_file)]
+            handlers=[
+                logging.FileHandler(self.log_file),
+                logging.StreamHandler()
+            ]
         )
-        
+
         # Add custom success level
         logging.addLevelName(25, "SUCCESS")
         def success(self, message, *args, **kwargs):
