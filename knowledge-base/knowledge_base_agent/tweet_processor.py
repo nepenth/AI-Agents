@@ -200,27 +200,26 @@ class TweetProcessor:
         self.vision_model = None
         self.text_model = None
     
-    async def process_tweets(self, tweets: List[Dict[str, Any]]) -> None:
+    async def process_tweets(self, tweet_ids: List[str]) -> None:
         """Process multiple tweets with state tracking."""
-        for tweet in tweets:
-            tweet_id = tweet['id']
+        for tweet_id in tweet_ids:
             if await self.state_manager.is_processed(tweet_id):
                 logging.info(f"Skipping already processed tweet {tweet_id}")
                 continue
                 
             try:
-                await self.process_single_tweet(tweet)
+                await self.process_single_tweet(tweet_id)
                 await self.state_manager.mark_tweet_processed(tweet_id)
             except Exception as e:
                 logging.exception(f"Failed to process tweet {tweet_id}")
                 raise
 
-    async def process_single_tweet(self, tweet: TweetData) -> KnowledgeBaseItem:
+    async def process_single_tweet(self, tweet_id: str) -> KnowledgeBaseItem:
         """
         Process a single tweet into a knowledge base item.
         
         Args:
-            tweet: TweetData object containing tweet information
+            tweet_id: ID of the tweet to process
             
         Returns:
             KnowledgeBaseItem: Generated knowledge base item
@@ -233,21 +232,21 @@ class TweetProcessor:
             start_time = time.time()
             
             # Process media if present
-            media_results = await self._process_media(tweet['media'])
+            media_results = await self._process_media(tweet_id)
             if media_results:
                 self.stats.media_processed += len(media_results)
             
             # Check cache
-            if await self._check_cache(tweet['id']):
+            if await self._check_cache(tweet_id):
                 self.stats.cache_hits += 1
             else:
                 self.stats.cache_misses += 1
             
             # Generate category information
-            category_info = await self._categorize_content(tweet, media_results)
+            category_info = await self._categorize_content(tweet_id, media_results)
             
             # Generate knowledge base item
-            kb_item = await self._generate_kb_item(tweet, media_results, category_info)
+            kb_item = await self._generate_kb_item(tweet_id, media_results, category_info)
             
             self.stats.add_processing_time(time.time() - start_time)
             return kb_item
@@ -256,15 +255,15 @@ class TweetProcessor:
             self.stats.network_errors += 1
             raise
         except Exception as e:
-            logging.exception(f"Failed to process tweet {tweet['id']}")
-            raise TweetProcessingError(f"Failed to process tweet {tweet['id']}") from e
+            logging.exception(f"Failed to process tweet {tweet_id}")
+            raise TweetProcessingError(f"Failed to process tweet {tweet_id}") from e
 
-    async def _process_media(self, media_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _process_media(self, tweet_id: str) -> List[Dict[str, Any]]:
         """
         Process media items using vision model.
         
         Args:
-            media_items: List of media items from tweet
+            tweet_id: ID of the tweet to process
             
         Returns:
             List[Dict[str, Any]]: Analysis results for each media item
@@ -274,7 +273,7 @@ class TweetProcessor:
         """
         # Implementation details...
 
-    async def _generate_kb_item(self, tweet_data: dict, vision_results: List[str], text_model: str) -> Dict[str, Any]:
+    async def _generate_kb_item(self, tweet_id: str, vision_results: List[str], text_model: str) -> Dict[str, Any]:
         # Implementation of _generate_kb_item method
         pass
 
@@ -305,14 +304,62 @@ class TweetProcessor:
             response = await client.get(media_url)
             return response.content
 
-    async def process_media_item(self, media: Dict[str, Any], model: str) -> Dict[str, Any]:
-        """Process media with vision model"""
-        media_data = await self.fetch_tweet_media(media['url'])
-        return await self.ollama_client.analyze_image(
-            model,
-            media_data,
-            "Describe this image in detail"
-        )
+    async def process_media_item(self, media_url: str, vision_model: str) -> Dict[str, str]:
+        """
+        Process a single media item using the vision model.
+        
+        Args:
+            media_url: URL of the media to process
+            vision_model: Name of the vision model to use
+            
+        Returns:
+            Dict containing vision model analysis results
+            
+        Raises:
+            ModelInferenceError: If vision model processing fails
+        """
+        try:
+            # Get image description from vision model
+            description = await self.ollama_client.generate(
+                vision_model,
+                "Describe this image in detail, focusing on technical content and any visible text.",
+                image_url=media_url
+            )
+            
+            return {
+                "media_url": media_url,
+                "description": description,
+                "model_used": vision_model
+            }
+            
+        except Exception as e:
+            logging.error(f"Vision model processing failed for {media_url}: {e}")
+            raise ModelInferenceError(f"Failed to process media with vision model: {e}")
+
+    async def process_tweet_media(self, tweet_data: Dict[str, Any], vision_model: str) -> List[Dict[str, str]]:
+        """
+        Process all media items in a tweet using vision model.
+        
+        Args:
+            tweet_data: Complete tweet data including media URLs
+            vision_model: Name of vision model to use
+            
+        Returns:
+            List of vision model results for each media item
+        """
+        try:
+            media_items = tweet_data.get('media', [])
+            results = []
+            
+            for media in media_items:
+                result = await self.process_media_item(media, vision_model)
+                results.append(result)
+                
+            return results
+            
+        except Exception as e:
+            logging.error(f"Failed to process tweet media: {e}")
+            raise ModelInferenceError(f"Media processing pipeline failed: {e}")
 
     async def generate_kb_entry(self, tweet_data: Dict[str, Any], media_results: List[Dict[str, Any]], 
                               category_info: Dict[str, str], model: str) -> Dict[str, Any]:
@@ -324,14 +371,14 @@ class TweetProcessor:
 
     async def categorize_content(
         self, 
-        tweet_data: Dict[str, Any],
+        tweet_id: str,
         media_results: List[Dict[str, str]]
     ) -> CategoryInfo:
         """
         Determine appropriate category for content using the text model.
         
         Args:
-            tweet_data: Complete tweet information
+            tweet_id: ID of the tweet to process
             media_results: Results from media analysis
             
         Returns:
@@ -374,6 +421,37 @@ class TweetProcessor:
         except Exception as e:
             logging.error(f"Tweet caching failed: {e}")
             raise TweetProcessingError(f"Failed to cache tweets: {e}")
+
+    async def process_media(self) -> None:
+        """Process media from cached tweets using vision model."""
+        try:
+            logging.info("Starting media processing")
+            
+            # Get all cached tweets with unprocessed media
+            cached_tweets = await self.get_cached_tweet_ids()
+            
+            for tweet_id in cached_tweets:
+                try:
+                    tweet_data = self.cache_manager._cache.get(tweet_id)
+                    if tweet_data and tweet_data.get('media'):
+                        # Process media using vision model
+                        media_results = await self.process_tweet_media(
+                            tweet_data,
+                            self.config.vision_model
+                        )
+                        # Update cache with media analysis
+                        tweet_data['media_analysis'] = media_results
+                        await self.cache_manager._save_cache()
+                        
+                except Exception as e:
+                    logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
+                    continue
+                    
+            logging.info("Media processing completed")
+            
+        except Exception as e:
+            logging.error(f"Media processing failed: {e}")
+            raise TweetProcessingError(f"Failed to process media: {e}")
 
 class BookmarksProcessor:
     async def load_bookmarks(self) -> list[str]:
@@ -423,7 +501,7 @@ class ProcessingPipeline:
             media_results = await self.process_media(tweet_data)
             
             # Step 2b: Categorize content
-            category_info = await self.categorize_content(tweet_data, media_results)
+            category_info = await self.categorize_content(tweet_id, media_results)
             
             # Step 2c: Generate KB entry
             kb_entry = await self.generate_kb_entry(tweet_data, media_results, category_info)
@@ -442,28 +520,31 @@ class ProcessingPipeline:
         """Step 2a: Process media with vision model."""
         async with self.ollama_semaphore:
             try:
-                media_items = tweet_data.get('media', [])
-                results = []
-                for media in media_items:
-                    vision_result = await self.tweet_processor.process_media_item(
-                        media,
-                        self.config.vision_model
-                    )
-                    results.append(vision_result)
-                return results
+                # Process all media items with vision model
+                media_results = await self.tweet_processor.process_tweet_media(
+                    tweet_data,
+                    self.config.vision_model
+                )
+                
+                # Cache the vision model results
+                tweet_data['media_analysis'] = media_results
+                
+                return media_results
+                
             except Exception as e:
+                logging.error(f"Media processing failed: {e}")
                 raise ModelInferenceError("Vision model processing failed") from e
 
     async def categorize_content(
         self, 
-        tweet_data: Dict[str, Any], 
+        tweet_id: str,
         media_results: List[Dict[str, str]]
     ) -> CategoryInfo:
         """Step 2b: Determine content categories."""
         async with self.ollama_semaphore:
             try:
                 return await self.tweet_processor.categorize_content(
-                    tweet_data,
+                    tweet_id,
                     media_results
                 )
             except Exception as e:
