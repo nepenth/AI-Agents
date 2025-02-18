@@ -190,10 +190,10 @@ class TweetProcessor:
         ollama: OllamaClient instance for AI model interactions
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, http_client: HTTPClient):
         self.config = config
         self.state_manager = StateManager(config)
-        self.http_client = HTTPClient(config)
+        self.http_client = http_client
         self.ollama_client = OllamaClient(config)
         self.category_manager = CategoryManager(config)
         self.stats = ProcessingStats(start_time=datetime.datetime.now())
@@ -621,7 +621,7 @@ class ProcessingPipeline:
         self.config = config
         # Limit concurrent Ollama requests
         self.ollama_semaphore = Semaphore(3)
-        self.tweet_processor = TweetProcessor(config)
+        self.tweet_processor = TweetProcessor(config, HTTPClient(config))
         self.category_manager = CategoryManager(config)
     
     async def process_bookmarks(self, bookmark_urls: List[str]) -> None:

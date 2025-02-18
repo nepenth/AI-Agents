@@ -23,6 +23,8 @@ from knowledge_base_agent.progress import ProcessingStats
 from knowledge_base_agent.content_processor import ContentProcessingError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.file_utils import async_json_load
+from knowledge_base_agent.http_client import HTTPClient
+from knowledge_base_agent.content_processor import ContentProcessor
 
 def setup_logging(config: Config) -> None:
     """Configure logging with different levels for file and console."""
@@ -78,7 +80,9 @@ class KnowledgeBaseAgent:
     def __init__(self, config: Config):
         self.config = config
         self.state_manager = StateManager(config)
-        self.tweet_processor = TweetProcessor(config)
+        self.http_client = HTTPClient(config)  # Create single HTTPClient instance
+        self.tweet_processor = TweetProcessor(config, self.http_client)  # Pass http_client
+        self.content_processor = ContentProcessor(self.http_client)  # Pass same http_client
         self.markdown_writer = MarkdownWriter(config)
         self.category_manager = CategoryManager(config)
         self._processing_lock = asyncio.Lock()
@@ -311,19 +315,23 @@ class KnowledgeBaseAgent:
                             total_errors += 1
                             continue
                             
-                        # Process tweet
-                        await self.process_tweet(tweet_id)
-                        
-                        # Only mark as processed if we successfully created the KB item
-                        if await self._verify_kb_item_created(tweet_id):
-                            await self.state_manager.mark_tweet_processed(tweet_id)
-                            processed_count += 1
-                            stats.processed_count += 1
-                            logging.info(f"Successfully processed tweet {tweet_id}")
-                        else:
-                            logging.error(f"Failed to create knowledge base item for tweet {tweet_id}")
-                            stats.error_count += 1
-                            total_errors += 1
+                        # Process tweet with existing data using our initialized content_processor
+                        try:
+                            logging.info(f"Processing tweet {tweet_id}")
+                            kb_item = await self.content_processor.create_knowledge_base_item(tweet_data)
+                            
+                            # Verify KB item was created
+                            if await self._verify_kb_item_created(tweet_id):
+                                await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
+                                processed_count += 1
+                                stats.processed_count += 1
+                                logging.info(f"Successfully processed tweet {tweet_id}")
+                            else:
+                                raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")
+                            
+                        except Exception as e:
+                            logging.error(f"Failed to process tweet {tweet_id}: {e}")
+                            raise ContentProcessingError(f"Tweet processing failed: {e}")
                             
                     except Exception as e:
                         logging.error(f"Error processing tweet {tweet_id}: {e}")
@@ -422,10 +430,10 @@ class KnowledgeBaseAgent:
                 if not tweet_data:
                     raise ContentProcessingError(f"Failed to fetch and cache tweet {tweet_id}")
             
-            # Process tweet with existing data
+            # Process tweet with existing data using our initialized content_processor
             try:
                 logging.info(f"Processing tweet {tweet_id}")
-                await self.tweet_processor.process_tweets([tweet_id], tweet_data)
+                kb_item = await self.content_processor.create_knowledge_base_item(tweet_data)
                 
                 # Verify KB item was created
                 if await self._verify_kb_item_created(tweet_id):
