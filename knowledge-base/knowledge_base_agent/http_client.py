@@ -2,13 +2,14 @@ import logging
 import httpx
 from typing import Optional, Any, Dict, List
 import asyncio
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import NetworkError, AIError, ModelInferenceError
 import aiohttp
 import aiofiles
 from pathlib import Path
 import base64
+import time
 
 class HTTPClient:
     """HTTP client for making requests to external services."""
@@ -19,7 +20,16 @@ class HTTPClient:
         self.initialized = False
         # Convert HttpUrl to string and ensure it's properly formatted
         self.base_url = str(self.config.ollama_url).rstrip('/')
+        # Get configuration values
+        self.timeout = self.config.request_timeout
+        self.max_retries = self.config.max_retries
+        self.batch_size = self.config.batch_size
+        self.max_concurrent = self.config.max_concurrent_requests
+        # Semaphore for controlling concurrent requests
+        self._semaphore = asyncio.Semaphore(self.max_concurrent)
         logging.info(f"Initializing HTTPClient with Ollama URL: {self.base_url}")
+        logging.info(f"Settings: timeout={self.timeout}s, max_retries={self.max_retries}, "
+                    f"batch_size={self.batch_size}, max_concurrent={self.max_concurrent}")
         
     async def initialize(self):
         """Initialize the HTTP client session."""
@@ -41,6 +51,11 @@ class HTTPClient:
         if not self.initialized:
             await self.initialize()
             
+    @retry(
+        stop=stop_after_attempt(3),  # Use config.max_retries
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((asyncio.TimeoutError, aiohttp.ClientError))
+    )
     async def ollama_generate(
         self,
         model: str,
@@ -48,7 +63,7 @@ class HTTPClient:
         temperature: float = 0.7,
         max_tokens: int = 2000,
         top_p: float = 0.9,
-        timeout: int = 60
+        timeout: Optional[int] = None
     ) -> str:
         """
         Generate text using Ollama API with consistent parameters.
@@ -59,56 +74,76 @@ class HTTPClient:
             temperature: Controls randomness (0.0-1.0)
             max_tokens: Maximum tokens to generate
             top_p: Nucleus sampling parameter
-            timeout: Request timeout in seconds
-        """
-        await self.ensure_session()
+            timeout: Request timeout in seconds (defaults to config.request_timeout)
         
-        try:
-            api_endpoint = f"{self.base_url}/api/generate"
-            logging.debug(f"Sending Ollama request to {api_endpoint}")
-            logging.debug(f"Using model: {model}")
-            logging.debug(f"Prompt preview: {prompt[:200]}...")
+        Returns:
+            str: Generated text response
             
-            async with self.session.post(
-                api_endpoint,
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "top_p": top_p
-                },
-                timeout=timeout
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    logging.error(f"Ollama API error: {response.status} - {error_text}")
-                    logging.error(f"Request URL: {api_endpoint}")
-                    logging.error(f"Request model: {model}")
-                    raise AIError(f"Ollama API returned status {response.status}")
-                
-                result = await response.json()
-                response_text = result.get("response", "").strip()
-                
-                if not response_text:
-                    raise AIError("Empty response from Ollama API")
-                
-                logging.debug(f"Received response of length: {len(response_text)}")
-                return response_text
-                
-        except asyncio.TimeoutError:
-            logging.error(f"Ollama request timed out after {timeout} seconds")
-            raise AIError(f"Request timed out after {timeout} seconds")
+        Raises:
+            AIError: If the API request fails or returns invalid response
+            TimeoutError: If the request exceeds the timeout period
+        """
+        timeout = timeout or self.timeout
+        
+        # Use semaphore to limit concurrent requests
+        async with self._semaphore:
+            await self.ensure_session()
             
-        except aiohttp.ClientError as e:
-            logging.error(f"HTTP client error: {str(e)}")
-            logging.error(f"Request URL: {api_endpoint}")
-            raise AIError(f"HTTP client error: {str(e)}")
-            
-        except Exception as e:
-            logging.error(f"Unexpected error in ollama_generate: {str(e)}")
-            raise AIError(f"Failed to generate text with Ollama: {str(e)}")
+            try:
+                api_endpoint = f"{self.base_url}/api/generate"
+                logging.debug(f"Sending Ollama request to {api_endpoint}")
+                logging.debug(f"Using model: {model}")
+                logging.debug(f"Prompt preview: {prompt[:200]}...")
+                
+                start_time = time.time()
+                async with self.session.post(
+                    api_endpoint,
+                    json={
+                        "model": model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "top_p": top_p
+                    },
+                    timeout=timeout
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logging.error(f"Ollama API error: {response.status} - {error_text}")
+                        logging.error(f"Request URL: {api_endpoint}")
+                        logging.error(f"Request model: {model}")
+                        raise AIError(f"Ollama API returned status {response.status}")
+                    
+                    result = await response.json()
+                    elapsed = time.time() - start_time
+                    
+                    response_text = result.get("response", "").strip()
+                    if not response_text:
+                        raise AIError("Empty response from Ollama API")
+                    
+                    logging.debug(f"Received response of length: {len(response_text)} in {elapsed:.2f}s")
+                    
+                    # Add delay between requests based on batch size
+                    if self.batch_size > 1:
+                        await asyncio.sleep(1.0)  # Basic rate limiting
+                        
+                    return response_text
+                    
+            except asyncio.TimeoutError:
+                logging.error(f"Ollama request timed out after {timeout} seconds")
+                logging.error(f"Model: {model}")
+                logging.error(f"Endpoint: {api_endpoint}")
+                raise AIError(f"Request timed out after {timeout} seconds")
+                
+            except aiohttp.ClientError as e:
+                logging.error(f"HTTP client error: {str(e)}")
+                logging.error(f"Request URL: {api_endpoint}")
+                raise AIError(f"HTTP client error: {str(e)}")
+                
+            except Exception as e:
+                logging.error(f"Unexpected error in ollama_generate: {str(e)}")
+                raise AIError(f"Failed to generate text with Ollama: {str(e)}")
             
     async def __aenter__(self):
         await self.initialize()
