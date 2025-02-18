@@ -72,7 +72,7 @@ async def run_agent(config: Config, preferences: UserPreferences) -> None:
     """
     try:
         agent = KnowledgeBaseAgent(config)
-        await agent.run()
+        await agent.run(preferences)
         logging.info("Agent run completed successfully")
     except Exception as e:
         logging.exception("Agent run failed")
@@ -90,43 +90,26 @@ async def cleanup(config: Config) -> None:
 
 async def main() -> None:
     """Main entry point for the knowledge base agent."""
-    print("Starting Knowledge Base Agent...")  # Add immediate feedback
     try:
-        # Initialize configuration
-        print("Loading configuration...")
+        # Initialize configuration and logging first
         config = await load_config()
-        logging.info("=== New Agent Run Started ===")
-        logging.info(f"Using Ollama URL: {config.ollama_url}")
+        setup_logging(config.log_file)  # Ensure logging is setup before prompts
+        
+        logging.info("\n=== New Agent Run Started ===")
+        
+        # Get and log user preferences
+        preferences = prompt_for_preferences()
+        logging.info("User selected preferences:")
+        logging.info(f"- Update bookmarks: {preferences.update_bookmarks}")
+        logging.info(f"- Re-review existing items: {preferences.review_existing}")
+        logging.info(f"- Regenerate root README: {preferences.regenerate_readme}")
+        logging.info(f"- Push changes to GitHub: {preferences.push_to_github}")
+        logging.info(f"- Reprocess cached tweets: {preferences.recreate_tweet_cache}")
         
         # Initialize state
         state_manager = await initialize_state(config)
         
-        # Get user preferences and log them
-        print("Getting user preferences...")
-        preferences = prompt_for_preferences()
-        
-        # Log user selections
-        logging.info("=== User Preferences Selected ===")
-        logging.info(f"Update bookmarks: {preferences.update_bookmarks}")
-        logging.info(f"Re-review existing items: {preferences.review_existing}")
-        logging.info(f"Regenerate root README: {preferences.regenerate_readme}")
-        logging.info(f"Push changes to GitHub: {preferences.push_to_github}")
-        logging.info(f"Reprocess cached tweets: {preferences.recreate_tweet_cache}")
-        
-        # Log planned actions based on preferences
-        logging.info("=== Planned Actions ===")
-        if preferences.update_bookmarks:
-            logging.info("Will fetch and process new bookmarks")
-        if preferences.review_existing:
-            logging.info("Will re-review existing knowledge base items")
-        if preferences.regenerate_readme:
-            logging.info("Will regenerate the root README file")
-        if preferences.push_to_github:
-            logging.info("Will push changes to GitHub after processing")
-        if preferences.recreate_tweet_cache:
-            logging.info("Will reprocess all previously cached tweets")
-        
-        # Run agent
+        # Run agent with preferences
         print("Starting agent execution...")
         logging.info("=== Starting Agent Execution ===")
         await run_agent(config, preferences)
