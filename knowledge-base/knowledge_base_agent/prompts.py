@@ -5,11 +5,11 @@ from dataclasses import dataclass
 @dataclass
 class UserPreferences:
     """Store user preferences for agent operation."""
-    update_bookmarks: bool
-    review_existing: bool
-    regenerate_readme: bool
-    push_to_github: bool
-    recreate_tweet_cache: bool
+    update_bookmarks: bool = False
+    review_existing: bool = False
+    regenerate_readme: bool = False
+    push_to_github: bool = False
+    recreate_tweet_cache: bool = False
 
 def prompt_yes_no(question: str) -> bool:
     """Standard yes/no prompt."""
@@ -29,15 +29,20 @@ def prompt_with_retry(operation: Callable, max_retries: int = 3) -> Any:
 def prompt_for_preferences() -> UserPreferences:
     """Prompt user for their preferences on this run."""
     print("\n=== Knowledge Base Agent Configuration ===\n")
-    prefs = UserPreferences()
     
-    prefs.update_bookmarks = input("Update bookmarks? (y/n): ").lower().startswith('y')
-    prefs.review_existing = input("Re-review existing items? (y/n): ").lower().startswith('y')
-    prefs.regenerate_readme = input("Regenerate root README? (y/n): ").lower().startswith('y')
-    prefs.push_to_github = input("Push changes to GitHub? (y/n): ").lower().startswith('y')
-    prefs.recreate_tweet_cache = input("Reprocess cached tweets? (y/n): ").lower().startswith('y')
+    update_bookmarks = input("Update bookmarks? (y/n): ").lower().startswith('y')
+    review_existing = input("Re-review existing items? (y/n): ").lower().startswith('y')
+    regenerate_readme = input("Regenerate root README? (y/n): ").lower().startswith('y')
+    push_to_github = input("Push changes to GitHub? (y/n): ").lower().startswith('y')
+    recreate_tweet_cache = input("Reprocess cached tweets? (y/n): ").lower().startswith('y')
     
-    return prefs
+    return UserPreferences(
+        update_bookmarks=update_bookmarks,
+        review_existing=review_existing,
+        regenerate_readme=regenerate_readme,
+        push_to_github=push_to_github,
+        recreate_tweet_cache=recreate_tweet_cache
+    )
 
 def prompt_for_maintenance() -> Dict[str, bool]:
     """Prompt user for maintenance operations."""

@@ -14,9 +14,10 @@ from .state_manager import StateManager
 from .tweet_processor import TweetProcessor
 from .git_helper import GitSyncHandler
 from .fetch_bookmarks import BookmarksFetcher
-from .markdown_writer import MarkdownWriter
+from .markdown_writer import MarkdownWriter, generate_root_readme
 from .category_manager import CategoryManager
 from .types import TweetData, KnowledgeBaseItem
+from .prompts import UserPreferences
 
 class KnowledgeBaseAgent:
     """
@@ -150,19 +151,39 @@ class KnowledgeBaseAgent:
         except Exception as e:
             logging.warning(f"Cleanup failed: {e}")
 
-    async def run(self) -> None:
-        """Main execution flow with cleanup."""
+    async def run(self, preferences: UserPreferences) -> None:
+        """
+        Run the agent with the specified preferences.
+        
+        Args:
+            preferences: User preferences for this run
+        """
         try:
-            await self.initialize()
-            await self.process_bookmarks()
-            await self.update_indexes()
-            await self.sync_changes()
-            await self.cleanup()
-            logging.info("Agent run completed successfully")
+            logging.info("Agent initialization complete")
+            
+            if preferences.update_bookmarks:
+                logging.info("Starting bookmark processing")
+                await self.process_bookmarks()
+                
+            if preferences.review_existing:
+                logging.info("Starting review of existing items")
+                await self.review_existing_items()
+                
+            if preferences.regenerate_readme:
+                logging.info("Regenerating README")
+                await self.regenerate_readme()
+                
+            if preferences.push_to_github:
+                logging.info("Pushing changes to GitHub")
+                await self.push_changes()
+                
+            if preferences.recreate_tweet_cache:
+                logging.info("Reprocessing cached tweets")
+                await self.reprocess_tweet_cache()
+                
         except Exception as e:
-            logging.exception("Agent execution failed with error: %s", str(e))  # More detailed logging
-            await self.cleanup()  # Ensure cleanup runs even on failure
-            raise AgentError(f"Agent execution failed: {str(e)}") from e
+            logging.error(f"Agent run failed: {str(e)}")
+            raise
 
     async def process_tweet(self, tweet_url: str) -> None:
         """Process a single tweet."""
@@ -180,3 +201,13 @@ class KnowledgeBaseAgent:
         except Exception as e:
             logging.error(f"Failed to process tweet {tweet_url}: {str(e)}")
             raise AgentError(f"Failed to process tweet {tweet_url}: {str(e)}")
+
+    async def regenerate_readme(self) -> None:
+        """Regenerate the root README file."""
+        try:
+            logging.info("Starting README regeneration")
+            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
+            logging.info("README regeneration completed")
+        except Exception as e:
+            logging.error(f"Failed to regenerate README: {str(e)}")
+            raise
