@@ -29,7 +29,7 @@ USERNAME_SELECTOR = 'input[name="text"]'
 PASSWORD_SELECTOR = 'input[name="password"]'
 TWEET_SELECTOR = 'article[data-testid="tweet"], article[role="article"], article'
 SCROLL_PIXELS = 1000
-SCROLL_PAUSE = 5  # seconds
+SCROLL_PAUSE = 5 
 MAX_SCROLL_ITERATIONS = 100
 MAX_NO_CHANGE_TRIES = 3
 
@@ -124,33 +124,64 @@ class BookmarksFetcher:
             # Log page content for debugging
             content = await self.page.content()
             logging.debug(f"Bookmarks page content length: {len(content)}")
-            
-            # Find tweet elements
-            tweet_elements = await self.page.query_selector_all('article[data-testid="tweet"], article[role="article"], article')
-            if tweet_elements:
-                logging.info(f"Found {len(tweet_elements)} tweet elements")
-            else:
-                logging.warning("No tweet elements found")
-            
-            # Extract bookmark links
+
+            # START SCROLLING - for dynamic loading of bookmarks
+            logging.info("Starting scroll to load bookmarks...")
+            previous_height = await self.page.evaluate("() => document.body.scrollHeight")
+            no_change_tries = 0
             all_bookmarks = set()
-            links = await self.page.query_selector_all('article a[href*="/status/"]')
+
+            for scroll_iterations in range(MAX_SCROLL_ITERATIONS):
+                # Collect links before scrolling
+                links = await self.page.query_selector_all(f'{TWEET_SELECTOR} a[href*="/status/"]')
+                current_links = []
+                for link in links:
+                    href = await link.get_attribute("href")
+                    if href:
+                        current_links.append(href)
+                for link in current_links:
+                    all_bookmarks.add(link)
+
+                logging.info(f"Scroll iteration #{scroll_iterations}. Found so far: {len(all_bookmarks)} unique links.")
+
+                # Scroll down
+                await self.page.evaluate(f"window.scrollBy(0, {SCROLL_PIXELS});")
+                await self.page.wait_for_timeout(SCROLL_PAUSE * 1000)
+
+                # Check if we've reached the bottom
+                current_height = await self.page.evaluate("() => document.body.scrollHeight")
+                logging.info(f"Previous height: {previous_height}, Current height: {current_height}")
+
+                if current_height == previous_height:
+                    no_change_tries += 1
+                    logging.info(f"No new content detected #{no_change_tries} time(s).")
+                    if no_change_tries >= MAX_NO_CHANGE_TRIES:
+                        logging.info("No new content after multiple attempts, ending scroll.")
+                        break
+                else:
+                    no_change_tries = 0
+                    previous_height = current_height
+
+            # Do one final collection of links
+            links = await self.page.query_selector_all(f'{TWEET_SELECTOR} a[href*="/status/"]')
             for link in links:
                 href = await link.get_attribute("href")
                 if href:
                     all_bookmarks.add(href)
+
+            logging.info(f"Extracted {len(all_bookmarks)} unique bookmark links.")
             
-            # Filter unwanted links
+            # Filter out unwanted links
             bookmarks = [link for link in all_bookmarks 
                         if isinstance(link, str) 
                         and "/analytics" not in link 
                         and "/photo/" not in link]
             
-            logging.info(f"Extracted {len(bookmarks)} unique bookmark links")
+            logging.info(f"Final bookmark count after filtering: {len(bookmarks)}")
             return bookmarks
-            
+
         except Exception as e:
-            logging.error(f"Timeout while fetching bookmarks: {str(e)}")
+            logging.error(f"Error while fetching bookmarks: {str(e)}")
             raise BookmarksFetchError(f"Failed to fetch bookmarks: {str(e)}")
 
     async def cleanup(self) -> None:
