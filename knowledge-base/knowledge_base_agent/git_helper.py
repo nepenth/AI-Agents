@@ -159,65 +159,41 @@ class GitSyncHandler:
     
     def __init__(self, config: Config):
         self.config = config
-        self.repo_path = config.knowledge_base_dir
-        self.repo_url = str(config.github_repo_url)
-        self.token = config.github_token
-        self.user_name = config.github_user_name
-        self.user_email = config.github_user_email
-        # Don't setup git config in __init__
-
-    def _setup_git_config(self):
-        """Setup git configuration with credentials."""
-        try:
-            # Initialize repository if it doesn't exist
-            if not (self.repo_path / '.git').exists():
-                git.Repo.init(self.repo_path)
-            
-            repo = git.Repo(self.repo_path)
-            with repo.config_writer() as git_config:
-                git_config.set_value('user', 'name', self.user_name)
-                git_config.set_value('user', 'email', self.user_email)
-                git_config.set_value('credential', 'helper', 'store')
-            logging.info("Git configuration updated successfully")
-        except Exception as e:
-            logging.error(f"Failed to setup git config: {e}")
-            raise GitSyncError(f"Git configuration failed: {e}")
+        self.repo = None
+        
+    async def _configure_git(self) -> None:
+        """Configure git with user credentials."""
+        if not self.repo:
+            self.repo = Repo(str(self.config.knowledge_base_dir))
+        
+        with self.repo.config_writer() as git_config:
+            git_config.set_value('user', 'name', self.config.github_user_name)
+            git_config.set_value('user', 'email', self.config.github_user_email)
 
     async def sync_to_github(self, commit_message: str = "Update knowledge base content") -> None:
-        """Sync changes to GitHub with improved error handling."""
+        """Sync changes to GitHub with proper branch setup."""
         try:
-            self._setup_git_config()  # Setup git config only when syncing
-            repo = git.Repo(self.repo_path)
+            # Configure git
+            await self._configure_git()
             
-            # Check if there are changes to commit
-            if not repo.is_dirty(untracked_files=True):
-                logging.info("No changes to sync")
-                return
-
-            # Setup remote with token
-            remote_url = f'https://{self.user_name}:{self.token}@github.com/{self.user_name}/{self.repo_url.split("/")[-1]}'
-            
-            # Update remote URL with authentication
-            if 'origin' in repo.remotes:
-                repo.remotes.origin.set_url(remote_url)
-            else:
-                repo.create_remote('origin', remote_url)
-
-            # Add all changes
-            repo.git.add(A=True)
-            
-            # Commit changes
-            repo.index.commit(commit_message)
-            
-            # Push changes
+            repo = self.repo
             origin = repo.remote('origin')
-            origin.push()
             
-            logging.info("Successfully synced changes to GitHub")
+            # Add and commit changes
+            repo.git.add(A=True)
+            if repo.is_dirty():
+                repo.index.commit(commit_message)
             
-        except git.GitCommandError as e:
-            logging.error(f"Git command failed: {e}")
-            raise GitSyncError(f"Git command failed: {e}")
+            # Set up upstream branch if needed
+            current = repo.active_branch
+            if not current.tracking_branch():
+                logging.info("Setting up upstream branch...")
+                origin.push(f'{current.name}:refs/heads/{current.name}', set_upstream=True)
+            else:
+                origin.push()
+                
+            logging.info("Successfully synced to GitHub")
+            
         except Exception as e:
-            logging.error(f"Failed to sync to GitHub: {e}")
-            raise GitSyncError(f"Failed to sync to GitHub: {e}")
+            logging.error(f"GitHub sync failed: {e}")
+            raise GitSyncError(f"Git command failed: {e}")

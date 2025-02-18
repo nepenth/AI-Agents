@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Callable, Any, Dict
 import logging
 from dataclasses import dataclass
+import json
 
 @dataclass
 class UserPreferences:
@@ -15,15 +16,20 @@ class UserPreferences:
 def check_knowledge_base_state(config) -> Dict[str, bool]:
     """Check the current state of the knowledge base."""
     state = {
-        'has_processed_tweets': False,
-        'has_cached_tweets': False,
+        'has_kb_items': False,
         'has_readme': False,
-        'has_kb_items': False
+        'has_processed_tweets': False,
+        'has_cached_tweets': False
     }
     
-    # Check for processed tweets in state
-    if Path(config.data_processing_dir / "processed_tweets.json").exists():
-        state['has_processed_tweets'] = True
+    # Check for processed tweets in state file and its content
+    if Path(config.processed_tweets_file).exists():
+        try:
+            with open(config.processed_tweets_file, 'r') as f:
+                processed_tweets = json.load(f)
+                state['has_processed_tweets'] = bool(processed_tweets)  # True only if there are actual tweets
+        except (FileNotFoundError, json.JSONDecodeError):
+            state['has_processed_tweets'] = False
     
     # Check for cached tweet data
     if list(config.media_cache_dir.glob("*.json")):
@@ -50,9 +56,11 @@ def prompt_for_preferences(config) -> UserPreferences:
     # Always prompt for bookmarks update
     prefs.update_bookmarks = input("Fetch new bookmarks? (y/n): ").lower().startswith('y')
     
-    # Only prompt for review if there are processed tweets
+    # Only prompt for review if we have processed tweets
     if kb_state['has_processed_tweets']:
         prefs.review_existing = input("Re-review previously processed tweets? (y/n): ").lower().startswith('y')
+    else:
+        prefs.review_existing = False
     
     # Only prompt for cache refresh if there is cached data
     if kb_state['has_cached_tweets']:

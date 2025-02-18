@@ -160,38 +160,46 @@ class KnowledgeBaseAgent:
             logging.warning(f"Cleanup failed: {e}")
 
     async def run(self, preferences: UserPreferences) -> None:
-        """
-        Run the agent with the specified preferences.
-        
-        Args:
-            preferences: User preferences for this run
-        """
+        """Run the agent with the specified preferences."""
         try:
-            logging.info("Agent initialization complete")
+            logging.info("Starting agent run...")
             
+            # 1. Check for new bookmarks/tweets to process
+            has_new_content = False
             if preferences.update_bookmarks:
-                logging.info("Starting bookmark processing")
-                await self.process_bookmarks()
-                
-            if preferences.review_existing:
-                logging.info("Starting review of existing items")
-                await self.review_existing_items()
-                
-            if preferences.regenerate_readme:
-                logging.info("Regenerating README")
+                await self.process_bookmarks()  # This updates has_new_content internally
+            
+            # 2. Get unprocessed tweets from state manager
+            unprocessed_tweets = await self.state_manager.get_unprocessed_tweets(
+                set(await self.tweet_processor.get_cached_tweet_ids())  # Use cached tweet IDs instead
+            )
+            
+            if not unprocessed_tweets and not preferences.review_existing:
+                logging.info("No new content to process")
+                return
+            
+            # 3. Cache tweets and process media
+            if unprocessed_tweets or preferences.recreate_tweet_cache:
+                await self.tweet_processor.cache_tweets(unprocessed_tweets)
+                await self.tweet_processor.process_media()  # This runs vision model on images
+            
+            # 4. Process tweets into knowledge base items
+            if unprocessed_tweets or preferences.review_existing:
+                await self.tweet_processor.process_tweets(unprocessed_tweets)
+            
+            # 5. Generate/Update README
+            if has_new_content or preferences.regenerate_readme:
                 await self.regenerate_readme()
-                
+            
+            # 6. Sync to GitHub if requested
             if preferences.sync_to_github:
-                logging.info("Syncing changes to GitHub")
                 await self.sync_changes()
                 
-            if preferences.recreate_tweet_cache:
-                logging.info("Reprocessing cached tweets")
-                await self.reprocess_tweet_cache()
-                
+            logging.info("Agent run completed successfully")
+            
         except Exception as e:
             logging.error(f"Agent run failed: {str(e)}")
-            raise
+            raise AgentError("Agent run failed") from e
 
     async def process_tweet(self, tweet_url: str) -> None:
         """Process a single tweet."""
