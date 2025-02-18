@@ -19,10 +19,11 @@ from pathlib import Path
 import datetime
 import httpx
 from asyncio import Semaphore
+import time
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
-from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError
+from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError, NetworkError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
@@ -31,6 +32,7 @@ from knowledge_base_agent.http_client import HTTPClient, OllamaClient
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump, async_read_text, async_write_text
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.types import TweetData, KnowledgeBaseItem, CategoryInfo
+from knowledge_base_agent.progress import ProcessingStats
 
 async def process_tweets(
     urls: List[str],
@@ -191,6 +193,7 @@ class TweetProcessor:
         self.http_client = HTTPClient(config)
         self.ollama_client = OllamaClient(config)
         self.category_manager = CategoryManager(config)
+        self.stats = ProcessingStats(start_time=datetime.datetime.now())
     
     async def process_tweets(self, tweets: List[Dict[str, Any]]) -> None:
         """Process multiple tweets with state tracking."""
@@ -222,15 +225,31 @@ class TweetProcessor:
             TweetProcessingError: If general processing fails
         """
         try:
+            start_time = time.time()
+            
             # Process media if present
             media_results = await self._process_media(tweet['media'])
+            if media_results:
+                self.stats.media_processed += len(media_results)
+            
+            # Check cache
+            if await self._check_cache(tweet['id']):
+                self.stats.cache_hits += 1
+            else:
+                self.stats.cache_misses += 1
             
             # Generate category information
             category_info = await self._categorize_content(tweet, media_results)
             
             # Generate knowledge base item
-            return await self._generate_kb_item(tweet, media_results, category_info)
+            kb_item = await self._generate_kb_item(tweet, media_results, category_info)
             
+            self.stats.add_processing_time(time.time() - start_time)
+            return kb_item
+            
+        except NetworkError:
+            self.stats.network_errors += 1
+            raise
         except Exception as e:
             logging.exception(f"Failed to process tweet {tweet['id']}")
             raise TweetProcessingError(f"Failed to process tweet {tweet['id']}") from e
@@ -317,6 +336,10 @@ class TweetProcessor:
             ModelInferenceError: If categorization fails
         """
         pass  # Implementation details...
+
+    async def _check_cache(self, tweet_id: str) -> bool:
+        # Implementation of _check_cache method
+        pass
 
 class BookmarksProcessor:
     async def load_bookmarks(self) -> list[str]:
