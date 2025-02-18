@@ -8,7 +8,7 @@ class UserPreferences:
     update_bookmarks: bool = False
     review_existing: bool = False
     regenerate_readme: bool = False
-    push_to_github: bool = False
+    sync_to_github: bool = False
     recreate_tweet_cache: bool = False
 
 def prompt_yes_no(question: str) -> bool:
@@ -33,14 +33,14 @@ def prompt_for_preferences() -> UserPreferences:
     update_bookmarks = input("Update bookmarks? (y/n): ").lower().startswith('y')
     review_existing = input("Re-review existing items? (y/n): ").lower().startswith('y')
     regenerate_readme = input("Regenerate root README? (y/n): ").lower().startswith('y')
-    push_to_github = input("Push changes to GitHub? (y/n): ").lower().startswith('y')
+    sync_to_github = input("Sync changes to GitHub? (y/n): ").lower().startswith('y')
     recreate_tweet_cache = input("Reprocess cached tweets? (y/n): ").lower().startswith('y')
     
     return UserPreferences(
         update_bookmarks=update_bookmarks,
         review_existing=review_existing,
         regenerate_readme=regenerate_readme,
-        push_to_github=push_to_github,
+        sync_to_github=sync_to_github,
         recreate_tweet_cache=recreate_tweet_cache
     )
 

@@ -131,15 +131,14 @@ class KnowledgeBaseAgent:
             raise AgentError("Failed to update indexes") from e
 
     async def sync_changes(self) -> None:
-        """Sync changes to remote repository with commit message."""
+        """Sync changes to GitHub repository."""
         try:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            message = f"Update knowledge base - {timestamp}"
-            await self.git_handler.sync_to_github(message)
-            logging.info("Changes synced to GitHub")
+            logging.info("Starting GitHub sync...")
+            await self.git_handler.sync_to_github("Update knowledge base content")
+            logging.info("GitHub sync completed successfully")
         except Exception as e:
-            logging.exception("Git sync failed")
-            raise AgentError("Failed to sync changes") from e
+            logging.error(f"GitHub sync failed: {str(e)}")
+            raise AgentError("Failed to sync changes to GitHub") from e
 
     async def cleanup(self) -> None:
         """Cleanup temporary files and resources."""
@@ -173,9 +172,9 @@ class KnowledgeBaseAgent:
                 logging.info("Regenerating README")
                 await self.regenerate_readme()
                 
-            if preferences.push_to_github:
-                logging.info("Pushing changes to GitHub")
-                await self.push_changes()
+            if preferences.sync_to_github:
+                logging.info("Syncing changes to GitHub")
+                await self.sync_changes()
                 
             if preferences.recreate_tweet_cache:
                 logging.info("Reprocessing cached tweets")
