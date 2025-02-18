@@ -171,13 +171,52 @@ class BookmarksFetcher:
 
             logging.info(f"Extracted {len(all_bookmarks)} unique bookmark links.")
             
-            # Filter out unwanted links
-            bookmarks = [link for link in all_bookmarks 
-                        if isinstance(link, str) 
-                        and "/analytics" not in link 
-                        and "/photo/" not in link]
+            logging.info(f"Pre-filtering total links: {len(all_bookmarks)}")
             
-            logging.info(f"Final bookmark count after filtering: {len(bookmarks)}")
+            # Filter and log each step
+            valid_links = [link for link in all_bookmarks if isinstance(link, str)]
+            logging.info(f"After string type filtering: {len(valid_links)}")
+            
+            no_analytics = [link for link in valid_links if "/analytics" not in link]
+            logging.info(f"After removing analytics links: {len(no_analytics)}")
+            
+            no_photos = [link for link in no_analytics if "/photo/" not in link]
+            logging.info(f"After removing photo links: {len(no_photos)}")
+            
+            # Additional filtering to ensure we only get main tweet links
+            clean_links = []
+            for link in no_photos:
+                # Remove any query parameters
+                base_link = link.split('?')[0]
+                # Only include links that match the basic tweet pattern
+                if '/status/' in base_link and not any(x in base_link for x in [
+                    '/media_tags',
+                    '/retweets',
+                    '/likes',
+                    '/quotes',
+                    '/replies'
+                ]):
+                    clean_links.append(base_link)
+            
+            logging.info(f"After cleaning and removing auxiliary tweet links: {len(clean_links)}")
+            
+            # Remove duplicates (in case any slipped through)
+            bookmarks = list(set(clean_links))
+            logging.info(f"Final unique bookmarks: {len(bookmarks)}")
+            
+            # Write to file
+            if Path(self.config.bookmarks_file).exists():
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                archive_file = Path(self.config.data_processing_dir) / "archive_bookmarks" / f"bookmarks_links_{timestamp}.txt"
+                archive_file.parent.mkdir(parents=True, exist_ok=True)
+                Path(self.config.bookmarks_file).rename(archive_file)
+                logging.info(f"Existing bookmarks file archived as: {archive_file}")
+
+            # Write new bookmarks to file
+            with open(self.config.bookmarks_file, 'w', encoding='utf8') as f:
+                f.write("\n".join(bookmarks))
+            logging.info(f"Saved {len(bookmarks)} bookmarks to {self.config.bookmarks_file}")
+
             return bookmarks
 
         except Exception as e:
