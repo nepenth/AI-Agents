@@ -15,6 +15,7 @@ from knowledge_base_agent.state_manager import StateManager
 from .types import TweetData, KnowledgeBaseItem, CategoryInfo
 import json
 import aiohttp
+import re
 
 async def categorize_and_name_content(
     ollama_url: str,
@@ -252,9 +253,6 @@ class ContentProcessor:
 
     async def generate_categories(self, tweet_text: str) -> CategoryInfo:
         """Generate category information from tweet text."""
-        if not tweet_text:
-            raise ValueError("Tweet text cannot be empty")
-            
         try:
             prompt = (
                 "Analyze this tweet and provide category information in JSON format:\n\n"
@@ -272,27 +270,52 @@ class ContentProcessor:
                 "- Description should be 1-2 sentences\n"
             )
 
-            logging.info(f"Sending category generation prompt for text: {tweet_text[:100]}...")
+            logging.debug(f"Sending category generation prompt for tweet text: {tweet_text[:100]}...")
+            
+            # Use the ollama_generate method
+            response_text = await self.http_client.ollama_generate(
+                model=self.text_model,
+                prompt=prompt
+            )
+            
+            if not response_text:
+                raise CategoryGenerationError("Empty response from Ollama")
             
             try:
-                response_text = await self.http_client.ollama_generate(
-                    model=self.text_model,
-                    prompt=prompt
-                )
-                logging.info("Received response from Ollama")
-                
-                if not response_text:
-                    raise ValueError("Empty response from Ollama")
-                    
+                # Try to parse the JSON response
                 result = json.loads(response_text)
-                return CategoryInfo(**result)
-                
-            except json.JSONDecodeError as e:
-                logging.error(f"Failed to parse Ollama response: {response_text}")
-                raise CategoryGenerationError(f"Invalid JSON in Ollama response: {str(e)}")
-                
+            except json.JSONDecodeError:
+                # If JSON parsing fails, try to extract JSON from the response
+                # Sometimes the model might include additional text
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        result = json.loads(json_match.group(0))
+                    except json.JSONDecodeError as e:
+                        logging.error(f"Failed to parse extracted JSON: {e}")
+                        logging.error(f"Raw response: {response_text}")
+                        raise CategoryGenerationError("Invalid JSON format in response")
+                else:
+                    logging.error(f"No JSON found in response: {response_text}")
+                    raise CategoryGenerationError("No valid JSON found in response")
+            
+            # Validate required fields
+            required_fields = ["category", "subcategory", "name", "description"]
+            if not all(field in result for field in required_fields):
+                missing_fields = [field for field in required_fields if field not in result]
+                raise CategoryGenerationError(f"Missing required fields: {missing_fields}")
+            
+            # Normalize field values
+            result["category"] = result["category"].lower().replace(" ", "_")
+            result["subcategory"] = result["subcategory"].lower().replace(" ", "_")
+            result["name"] = result["name"].lower().replace(" ", "_")
+            
+            logging.info(f"Successfully generated categories: {result}")
+            return CategoryInfo(**result)
+            
         except Exception as e:
             logging.error(f"Category generation failed: {str(e)}")
+            logging.error(f"Tweet text: {tweet_text[:100]}...")
             raise CategoryGenerationError(f"Failed to generate categories: {str(e)}")
 
     async def generate_content(self, tweet_data: Dict[str, Any]) -> str:
@@ -321,20 +344,25 @@ class ContentProcessor:
             # Use the ollama_generate method
             content = await self.http_client.ollama_generate(
                 model=self.text_model,
-                prompt=prompt,
-                temperature=0.7,  # Add temperature for more focused responses
-                max_tokens=2000   # Ensure we get a complete response
+                prompt=prompt
             )
             
             if not content:
                 raise ContentGenerationError("Generated content is empty")
-                
-            logging.debug(f"Generated content length: {len(content)} characters")
+            
+            # Basic content validation
+            if len(content.strip()) < 50:
+                raise ContentGenerationError("Generated content is too short")
+            
+            if not content.startswith('#'):
+                content = f"# Technical Note\n\n{content}"
+            
+            logging.info(f"Successfully generated content of length: {len(content)}")
             return content.strip()
             
         except Exception as e:
-            logging.error(f"Content generation failed: {e}")
-            raise ContentGenerationError(f"Failed to generate content: {e}")
+            logging.error(f"Content generation failed: {str(e)}")
+            raise ContentGenerationError(f"Failed to generate content: {str(e)}")
 
     async def create_knowledge_base_item(self, tweet_data: TweetData) -> KnowledgeBaseItem:
         """Create a complete knowledge base item from tweet data."""
