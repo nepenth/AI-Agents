@@ -31,10 +31,10 @@ class KnowledgeBaseAgent:
         self.config = config
         self.state_manager = StateManager(config)
         self.tweet_processor = TweetProcessor(config)
-        self.git_handler = GitSyncHandler(config)
         self.markdown_writer = MarkdownWriter(config)
         self.category_manager = CategoryManager(config)
         self._processing_lock = asyncio.Lock()
+        self.git_handler = None  # Initialize only when needed
 
     async def initialize(self) -> None:
         """Initialize all components and ensure directory structure."""
@@ -134,6 +134,8 @@ class KnowledgeBaseAgent:
         """Sync changes to GitHub repository."""
         try:
             logging.info("Starting GitHub sync...")
+            if self.git_handler is None:
+                self.git_handler = GitSyncHandler(self.config)
             await self.git_handler.sync_to_github("Update knowledge base content")
             logging.info("GitHub sync completed successfully")
         except Exception as e:

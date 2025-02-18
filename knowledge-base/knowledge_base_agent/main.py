@@ -97,8 +97,8 @@ async def main() -> None:
         
         logging.info("\n=== New Agent Run Started ===")
         
-        # Get user preferences before any processing
-        preferences = prompt_for_preferences()
+        # Get user preferences before any processing - pass config
+        preferences = prompt_for_preferences(config)  # Added config parameter
         
         # Log selected preferences immediately
         logging.info("=== User Selected Preferences ===")

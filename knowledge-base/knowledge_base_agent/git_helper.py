@@ -160,20 +160,23 @@ class GitSyncHandler:
     def __init__(self, config: Config):
         self.config = config
         self.repo_path = config.knowledge_base_dir
-        self.repo_url = str(config.github_repo_url)  # Convert HttpUrl to string
+        self.repo_url = str(config.github_repo_url)
         self.token = config.github_token
         self.user_name = config.github_user_name
         self.user_email = config.github_user_email
-        self._setup_git_config()
+        # Don't setup git config in __init__
 
     def _setup_git_config(self):
         """Setup git configuration with credentials."""
         try:
+            # Initialize repository if it doesn't exist
+            if not (self.repo_path / '.git').exists():
+                git.Repo.init(self.repo_path)
+            
             repo = git.Repo(self.repo_path)
             with repo.config_writer() as git_config:
                 git_config.set_value('user', 'name', self.user_name)
                 git_config.set_value('user', 'email', self.user_email)
-                # Set credential helper to store credentials
                 git_config.set_value('credential', 'helper', 'store')
             logging.info("Git configuration updated successfully")
         except Exception as e:
@@ -183,6 +186,7 @@ class GitSyncHandler:
     async def sync_to_github(self, commit_message: str = "Update knowledge base content") -> None:
         """Sync changes to GitHub with improved error handling."""
         try:
+            self._setup_git_config()  # Setup git config only when syncing
             repo = git.Repo(self.repo_path)
             
             # Check if there are changes to commit
