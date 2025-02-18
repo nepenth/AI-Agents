@@ -9,7 +9,7 @@ import tempfile
 import os
 import shutil
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.utils import async_write_text, async_json_load
+from knowledge_base_agent.file_utils import async_write_text, async_json_load
 
 class StateManager:
     def __init__(self, config: Config):
