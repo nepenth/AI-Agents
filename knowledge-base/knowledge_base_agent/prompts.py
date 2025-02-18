@@ -7,9 +7,9 @@ class UserPreferences:
     """Store user preferences for agent operation."""
     update_bookmarks: bool
     review_existing: bool
-    update_readme: bool
-    push_changes: bool
-    recreate_cache: bool
+    regenerate_readme: bool
+    push_to_github: bool
+    recreate_tweet_cache: bool
 
 def prompt_yes_no(question: str) -> bool:
     """Standard yes/no prompt."""
@@ -27,15 +27,17 @@ def prompt_with_retry(operation: Callable, max_retries: int = 3) -> Any:
             raise
 
 def prompt_for_preferences() -> UserPreferences:
-    """Prompt user for all agent preferences."""
+    """Prompt user for their preferences on this run."""
     print("\n=== Knowledge Base Agent Configuration ===\n")
-    return UserPreferences(
-        update_bookmarks=prompt_yes_no("Update bookmarks?"),
-        review_existing=prompt_yes_no("Re-review existing items?"),
-        update_readme=prompt_yes_no("Regenerate root README?"),
-        push_changes=prompt_yes_no("Push changes to GitHub?"),
-        recreate_cache=prompt_yes_no("Recreate all tweet cache data?")
-    )
+    prefs = UserPreferences()
+    
+    prefs.update_bookmarks = input("Update bookmarks? (y/n): ").lower().startswith('y')
+    prefs.review_existing = input("Re-review existing items? (y/n): ").lower().startswith('y')
+    prefs.regenerate_readme = input("Regenerate root README? (y/n): ").lower().startswith('y')
+    prefs.push_to_github = input("Push changes to GitHub? (y/n): ").lower().startswith('y')
+    prefs.recreate_tweet_cache = input("Reprocess cached tweets? (y/n): ").lower().startswith('y')
+    
+    return prefs
 
 def prompt_for_maintenance() -> Dict[str, bool]:
     """Prompt user for maintenance operations."""
