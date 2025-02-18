@@ -95,35 +95,63 @@ async def main() -> None:
         # Initialize configuration
         print("Loading configuration...")
         config = await load_config()
+        logging.info("=== New Agent Run Started ===")
         logging.info(f"Using Ollama URL: {config.ollama_url}")
         
         # Initialize state
         state_manager = await initialize_state(config)
         
-        # Get user preferences
+        # Get user preferences and log them
         print("Getting user preferences...")
         preferences = prompt_for_preferences()
         
+        # Log user selections
+        logging.info("=== User Preferences Selected ===")
+        logging.info(f"Update bookmarks: {preferences.update_bookmarks}")
+        logging.info(f"Re-review existing items: {preferences.review_existing}")
+        logging.info(f"Regenerate root README: {preferences.regenerate_readme}")
+        logging.info(f"Push changes to GitHub: {preferences.push_to_github}")
+        logging.info(f"Reprocess cached tweets: {preferences.recreate_tweet_cache}")
+        
+        # Log planned actions based on preferences
+        logging.info("=== Planned Actions ===")
+        if preferences.update_bookmarks:
+            logging.info("Will fetch and process new bookmarks")
+        if preferences.review_existing:
+            logging.info("Will re-review existing knowledge base items")
+        if preferences.regenerate_readme:
+            logging.info("Will regenerate the root README file")
+        if preferences.push_to_github:
+            logging.info("Will push changes to GitHub after processing")
+        if preferences.recreate_tweet_cache:
+            logging.info("Will reprocess all previously cached tweets")
+        
         # Run agent
         print("Starting agent execution...")
+        logging.info("=== Starting Agent Execution ===")
         await run_agent(config, preferences)
         
+        logging.info("=== Agent Execution Completed ===")
         print("Agent execution completed successfully!")
         
     except ConfigurationError as e:
-        print(f"Configuration error: {e}")
-        logging.error(f"Configuration error: {e}")
+        error_msg = f"Configuration error: {e}"
+        print(error_msg)
+        logging.error(error_msg)
         sys.exit(1)
     except KnowledgeBaseError as e:
-        print(f"Knowledge base error: {e}")
-        logging.error(f"Knowledge base error: {e}")
+        error_msg = f"Knowledge base error: {e}"
+        print(error_msg)
+        logging.error(error_msg)
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error: {e}")
-        logging.error(f"Unexpected error: {e}")
+        error_msg = f"Unexpected error: {e}"
+        print(error_msg)
+        logging.error(error_msg)
         sys.exit(1)
     finally:
-        logging.info("Agent execution finished")
+        logging.info("=== Agent Run Finished ===")
+        await cleanup(config)
 
 if __name__ == "__main__":
     asyncio.run(main())
