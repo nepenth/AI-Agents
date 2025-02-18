@@ -87,3 +87,7 @@ class ContentProcessingError(KnowledgeBaseError):
 class StateManagerError(KnowledgeBaseError):
     """State manager specific errors."""
     pass
+
+class VisionModelError(ModelInferenceError):
+    """Error during vision model processing."""
+    pass

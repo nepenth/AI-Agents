@@ -1,13 +1,14 @@
 import logging
 import httpx
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import NetworkError
+from knowledge_base_agent.exceptions import NetworkError, AIError
 import aiohttp
 import aiofiles
 from pathlib import Path
+import base64
 
 class HTTPClient:
     """Generic HTTP client with retry logic."""
@@ -78,20 +79,54 @@ class HTTPClient:
 class OllamaClient:
     """Client for interacting with Ollama API."""
     
-    def __init__(self, config: Config):
-        self.config = config
-        self.base_url = str(config.ollama_url)
-        self.http_client = HTTPClient(config)
-
-    async def generate(self, prompt: str, model: str) -> str:
-        """Generate text using specified model."""
+    def __init__(self, config: Config = None):
+        """Initialize with config containing OLLAMA_URL."""
+        if config:
+            self.base_url = config.ollama_url
+        else:
+            self.base_url = "http://localhost:11434"
+        logging.debug(f"Initializing OllamaClient with base_url: {self.base_url}")
+        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=60.0)
+        
+    async def __aenter__(self):
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self._client.aclose()
+        
+    async def generate(self, model: str, prompt: str, images: List[str] = None) -> str:
+        """
+        Generate response from Ollama model.
+        
+        Args:
+            model: Name of the model to use (from config.vision_model or config.text_model)
+            prompt: Text prompt for generation
+            images: Optional list of image file paths for vision models
+        """
         try:
-            async with self.http_client as client:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json={"prompt": prompt, "model": model}
-                )
-                return response.json()["response"]
+            logging.debug(f"Generating with model: {model}")
+            payload = {
+                "model": model,
+                "prompt": prompt,
+            }
+            
+            # Add images if provided (for vision models)
+            if images:
+                image_data = []
+                for image_path in images:
+                    with open(image_path, 'rb') as f:
+                        image_bytes = f.read()
+                        image_b64 = base64.b64encode(image_bytes).decode()
+                        image_data.append(image_b64)
+                payload["images"] = image_data
+            
+            response = await self._client.post("/api/generate", json=payload)
+            response.raise_for_status()
+            
+            # Parse response
+            result = response.json()
+            return result.get('response', '')
+            
         except Exception as e:
-            logging.error(f"Ollama generation failed: {str(e)}")
-            raise NetworkError("Failed to generate response from Ollama") from e
+            logging.error(f"Ollama API call failed: {str(e)}")
+            raise AIError(f"Failed to generate response: {str(e)}")
