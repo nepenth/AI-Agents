@@ -213,3 +213,15 @@ class StateManager:
         except Exception as e:
             logging.error(f"Failed to get tweet {tweet_id} from cache: {e}")
             return None
+
+    async def update_tweet_data(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
+        """Update tweet data in the cache file."""
+        async with self._lock:
+            try:
+                cache_data = await async_json_load(self.config.tweet_cache_file)
+                cache_data[tweet_id] = tweet_data
+                await async_json_dump(cache_data, self.config.tweet_cache_file)
+                logging.debug(f"Updated tweet data for {tweet_id}")
+            except Exception as e:
+                logging.error(f"Failed to update tweet data for {tweet_id}: {e}")
+                raise StateError(f"Failed to update tweet data: {e}")

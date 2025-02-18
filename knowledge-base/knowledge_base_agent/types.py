@@ -14,6 +14,14 @@ class TweetMedia(TypedDict):
     type: str  # 'photo', 'video', etc.
     alt_text: Optional[str]
 
+class TweetCategories(TypedDict):
+    """Categorization information for a tweet."""
+    main_category: str
+    sub_category: str
+    item_name: str
+    model_used: str
+    categorized_at: str
+
 class TweetData(TypedDict):
     """Structured tweet data format."""
     id: str
@@ -22,6 +30,7 @@ class TweetData(TypedDict):
     media: List[TweetMedia]
     author: str
     url: str
+    categories: Optional[TweetCategories]
 
 class CategoryInfo(TypedDict):
     """Category structure for knowledge base organization."""

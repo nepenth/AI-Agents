@@ -25,7 +25,7 @@ import aiofiles
 
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.category_manager import CategoryManager
-from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError, NetworkError, VisionModelError
+from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageError, TweetProcessingError, ModelInferenceError, NetworkError, VisionModelError, ContentProcessingError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache, CacheManager, cache_tweet_data
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
@@ -201,7 +201,7 @@ class TweetProcessor:
         self.vision_model = None
         self.text_model = None
     
-    async def process_tweets(self, tweet_ids: List[str]) -> None:
+    async def process_tweets(self, tweet_ids: List[str], tweet_data: Optional[Dict[str, Any]] = None) -> None:
         """Process multiple tweets with state tracking."""
         for tweet_id in tweet_ids:
             if await self.state_manager.is_processed(tweet_id):
@@ -209,20 +209,24 @@ class TweetProcessor:
                 continue
                 
             try:
-                tweet_data = await self.state_manager.get_tweet(tweet_id)
-                if tweet_data:
-                    await self.process_single_tweet(tweet_id)
-                    await self.state_manager.mark_tweet_processed(tweet_id)
+                # Use provided tweet_data if available, otherwise fetch it
+                current_tweet_data = tweet_data if tweet_data else await self.state_manager.get_tweet(tweet_id)
+                if current_tweet_data:
+                    await self.process_single_tweet(tweet_id, current_tweet_data)
+                else:
+                    logging.error(f"No tweet data available for {tweet_id}")
+                    raise ContentProcessingError(f"No tweet data available for {tweet_id}")
             except Exception as e:
                 logging.exception(f"Failed to process tweet {tweet_id}")
                 raise
 
-    async def process_single_tweet(self, tweet_id: str) -> KnowledgeBaseItem:
+    async def process_single_tweet(self, tweet_id: str, tweet_data: Dict[str, Any]) -> KnowledgeBaseItem:
         """
         Process a single tweet into a knowledge base item.
         
         Args:
             tweet_id: ID of the tweet to process
+            tweet_data: Complete tweet data including media URLs
             
         Returns:
             KnowledgeBaseItem: Generated knowledge base item
@@ -648,8 +652,18 @@ class ProcessingPipeline:
             # Step 2a: Process media with vision model
             media_results = await self.process_media(tweet_data)
             
-            # Step 2b: Categorize content
+            # Step 2b: Categorize content and store in tweet_data
             category_info = await self.categorize_content(tweet_id, media_results)
+            tweet_data['categories'] = {
+                'main_category': category_info['category'],
+                'sub_category': category_info['subcategory'],
+                'item_name': category_info['name'],
+                'model_used': self.config.text_model,
+                'categorized_at': datetime.datetime.now().isoformat()
+            }
+            
+            # Update cache with new categorization
+            await self.tweet_processor.cache_manager.update_cache(tweet_id, tweet_data)
             
             # Step 2c: Generate KB entry
             kb_entry = await self.generate_kb_entry(tweet_data, media_results, category_info)
