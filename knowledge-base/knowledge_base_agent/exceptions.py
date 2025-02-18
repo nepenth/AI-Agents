@@ -1,5 +1,7 @@
+"""Custom exceptions for the knowledge base agent."""
+
 class KnowledgeBaseError(Exception):
-    """Base exception for knowledge base errors."""
+    """Base exception for knowledge base operations."""
     pass
 
 class AgentError(KnowledgeBaseError):
@@ -11,7 +13,7 @@ class BookmarksFetchError(KnowledgeBaseError):
     pass
 
 class MarkdownGenerationError(KnowledgeBaseError):
-    """Raised when markdown generation fails."""
+    """Markdown generation related errors."""
     pass
 
 class PathValidationError(KnowledgeBaseError):
@@ -19,11 +21,11 @@ class PathValidationError(KnowledgeBaseError):
     pass
 
 class StateError(KnowledgeBaseError):
-    """Raised when state management operations fail."""
+    """State management related errors."""
     pass
 
 class TweetProcessingError(KnowledgeBaseError):
-    """Raised when tweet processing fails."""
+    """Tweet processing related errors."""
     pass
 
 class ModelInferenceError(KnowledgeBaseError):
@@ -31,11 +33,11 @@ class ModelInferenceError(KnowledgeBaseError):
     pass
 
 class GitSyncError(KnowledgeBaseError):
-    """Raised when GitHub sync fails."""
+    """Git synchronization related errors."""
     pass
 
 class ConfigurationError(KnowledgeBaseError):
-    """Raised when configuration is invalid."""
+    """Configuration related errors."""
     pass
 
 class FetchError(KnowledgeBaseError):
@@ -55,7 +57,7 @@ class GitError(KnowledgeBaseError):
     pass
 
 class CategoryError(KnowledgeBaseError):
-    """Raised when there's an issue with category operations."""
+    """Category management related errors."""
     pass
 
 class AIError(KnowledgeBaseError):
@@ -71,7 +73,7 @@ class FileOperationError(KnowledgeBaseError):
     pass
 
 class NetworkError(KnowledgeBaseError):
-    """Raised when network operations fail."""
+    """Network related errors."""
     pass
 
 class MediaProcessingError(KnowledgeBaseError):
@@ -80,4 +82,8 @@ class MediaProcessingError(KnowledgeBaseError):
 
 class ContentProcessingError(KnowledgeBaseError):
     """Content processing related errors."""
+    pass
+
+class StateManagerError(KnowledgeBaseError):
+    """State manager specific errors."""
     pass

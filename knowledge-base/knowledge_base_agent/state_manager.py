@@ -2,22 +2,26 @@ import json
 import asyncio
 import aiofiles
 from pathlib import Path
-from typing import Set, Dict, Any
+from typing import Set, Dict, Any, List
 import logging
-from knowledge_base_agent.exceptions import StateError
+from knowledge_base_agent.exceptions import StateError, StateManagerError
 import tempfile
 import os
 import shutil
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.file_utils import async_write_text, async_json_load
+from knowledge_base_agent.file_utils import async_write_text, async_json_load, async_json_dump
+from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url, load_tweet_urls_from_links
 
 class StateManager:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, processed_file: Path, unprocessed_file: Path, bookmarks_file: Path):
         self.config = config
         self._initialized = False
         self.processed_tweets = set()
         self.unprocessed_tweets: Set[str] = set()
         self._lock = asyncio.Lock()
+        self.processed_file = processed_file
+        self.unprocessed_file = unprocessed_file
+        self.bookmarks_file = bookmarks_file
         
     async def initialize(self) -> None:
         """Initialize the state manager."""
@@ -54,6 +58,14 @@ class StateManager:
             except Exception as e:
                 logging.exception("Failed to load processed tweets")
                 raise StateError(f"Failed to load processed tweets: {str(e)}")
+            
+            # Load current unprocessed tweets
+            logging.debug("Loading unprocessed tweets")
+            unprocessed_data = await async_json_load(self.unprocessed_file, default=[])
+            self.unprocessed_tweets = set(unprocessed_data)
+            
+            # Read bookmarks and update unprocessed tweets
+            await self.update_from_bookmarks()
             
             self._initialized = True
             logging.info("State manager initialization complete")
@@ -95,18 +107,25 @@ class StateManager:
             self.processed_tweets = set()
 
     async def mark_tweet_processed(self, tweet_id: str) -> None:
-        """Mark a tweet as processed with atomic write."""
+        """Mark a tweet as processed and update both sets."""
         async with self._lock:
             try:
                 self.processed_tweets.add(tweet_id)
+                self.unprocessed_tweets.discard(tweet_id)
+                
+                # Save both states
                 await self._atomic_write_json(
                     list(self.processed_tweets),
                     self.config.processed_tweets_file
                 )
+                await self._atomic_write_json(
+                    list(self.unprocessed_tweets),
+                    self.unprocessed_file
+                )
                 logging.info(f"Marked tweet {tweet_id} as processed")
             except Exception as e:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
-                raise StateError(f"Failed to update processed state for tweet {tweet_id}") from e
+                raise StateError(f"Failed to update processing state: {e}")
 
     async def is_processed(self, tweet_id: str) -> bool:
         """Check if a tweet has been processed."""
@@ -134,3 +153,44 @@ class StateManager:
         except Exception as e:
             logging.error(f"Failed to load processed tweets: {e}")
             return set()
+
+    async def update_from_bookmarks(self) -> None:
+        """Update unprocessed tweets from bookmarks file."""
+        try:
+            # Read bookmarks file using correct function name
+            bookmark_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
+            
+            # Extract tweet IDs and filter out already processed ones
+            new_unprocessed = set()
+            for url in bookmark_urls:
+                tweet_id = parse_tweet_id_from_url(url)
+                if tweet_id and tweet_id not in self.processed_tweets:
+                    new_unprocessed.add(tweet_id)
+            
+            # Update unprocessed set and save
+            if new_unprocessed:
+                self.unprocessed_tweets.update(new_unprocessed)
+                await self.save_unprocessed()
+                logging.info(f"Added {len(new_unprocessed)} new tweets to process")
+            else:
+                logging.info("No new tweets to process")
+
+        except Exception as e:
+            logging.error(f"Failed to update from bookmarks: {e}")
+            raise StateManagerError(f"Failed to update from bookmarks: {e}")
+
+    async def save_unprocessed(self) -> None:
+        """Save unprocessed tweets to file."""
+        try:
+            await async_json_dump(list(self.unprocessed_tweets), self.unprocessed_file)
+        except Exception as e:
+            logging.error(f"Failed to save unprocessed tweets: {e}")
+            raise StateManagerError(f"Failed to save unprocessed state: {e}")
+
+    def get_unprocessed_tweets(self) -> List[str]:
+        """Get list of unprocessed tweet IDs."""
+        return list(self.unprocessed_tweets)
+
+    def is_tweet_processed(self, tweet_id: str) -> bool:
+        """Check if a tweet has been processed."""
+        return tweet_id in self.processed_tweets

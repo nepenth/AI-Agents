@@ -164,15 +164,17 @@ class KnowledgeBaseAgent:
         try:
             logging.info("Starting agent run...")
             
-            # 1. Check for new bookmarks/tweets to process
+            # 1. Initialize state and check for new bookmarks/tweets to process
+            await self.state_manager.initialize()  # This now includes bookmarks processing
             has_new_content = False
-            if preferences.update_bookmarks:
-                await self.process_bookmarks()  # This updates has_new_content internally
             
-            # 2. Get unprocessed tweets from state manager
-            unprocessed_tweets = await self.state_manager.get_unprocessed_tweets(
-                set(await self.tweet_processor.get_cached_tweet_ids())  # Use cached tweet IDs instead
-            )
+            if preferences.update_bookmarks:
+                # Update unprocessed tweets from bookmarks
+                await self.state_manager.update_from_bookmarks()
+                has_new_content = bool(self.state_manager.get_unprocessed_tweets())
+            
+            # 2. Get unprocessed tweets
+            unprocessed_tweets = self.state_manager.get_unprocessed_tweets()
             
             if not unprocessed_tweets and not preferences.review_existing:
                 logging.info("No new content to process")
