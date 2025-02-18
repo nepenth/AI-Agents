@@ -7,20 +7,27 @@ from knowledge_base_agent.exceptions import KnowledgeBaseError, AIError
 from knowledge_base_agent.http_client import HTTPClient
 
 def process_category_response(response: str, tweet_id: str) -> Tuple[str, str, str]:
+    """Process the category response from the AI model."""
     try:
         parts = [x.strip() for x in response.split('|', 2)]
         if len(parts) != 3:
             logging.warning(f"Invalid category response format for tweet {tweet_id}")
             raise ValueError("Response must have three parts")
+        
         main_category, sub_category, item_name = parts
+        
+        # Validate each part before normalizing
+        if not all(parts) or any(p.lower() in ['fallback', 'generic'] for p in parts):
+            raise ValueError("Invalid category parts detected")
+            
         return (
             normalize_name_for_filesystem(main_category),
             normalize_name_for_filesystem(sub_category),
             normalize_name_for_filesystem(item_name)
         )
     except Exception as e:
-        logging.error(f"Error processing category response: {e}")
-        return ("software_engineering", "best_practices", f"fallback_{tweet_id[:8]}")
+        logging.error(f"Error processing category response for tweet {tweet_id}: {e}")
+        raise AIError(f"Failed to process category response: {e}")
 
 async def categorize_and_name_content(
     http_client: HTTPClient,
