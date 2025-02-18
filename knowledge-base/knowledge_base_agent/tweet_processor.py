@@ -26,7 +26,7 @@ from knowledge_base_agent.exceptions import ProcessingError, AIError, StorageErr
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.cache_manager import get_cached_tweet, update_cache, save_cache, load_cache
 from knowledge_base_agent.content_processor import categorize_and_name_content, create_knowledge_base_entry
-from knowledge_base_agent.markdown_writer import MarkdownWriter, MarkdownGenerator
+from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.http_client import HTTPClient, OllamaClient
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump, async_read_text, async_write_text
 from knowledge_base_agent.state_manager import StateManager
@@ -191,7 +191,6 @@ class TweetProcessor:
         self.http_client = HTTPClient(config)
         self.ollama_client = OllamaClient(config)
         self.category_manager = CategoryManager(config)
-        self.markdown_gen = MarkdownGenerator(config)
     
     async def process_tweets(self, tweets: List[Dict[str, Any]]) -> None:
         """Process multiple tweets with state tracking."""
@@ -337,7 +336,6 @@ class ProcessingPipeline:
         self.ollama_semaphore = Semaphore(3)
         self.tweet_processor = TweetProcessor(config)
         self.category_manager = CategoryManager(config)
-        self.markdown_gen = MarkdownGenerator(config)
     
     async def process_bookmarks(self, bookmark_urls: List[str]) -> None:
         """Main processing pipeline coordinator."""
@@ -431,7 +429,6 @@ class ProcessingPipeline:
     async def save_kb_entry(self, kb_entry: Dict[str, Any]) -> None:
         """Step 2d: Save knowledge base entry."""
         try:
-            await self.markdown_gen.write_kb_item(kb_entry)
             await self.category_manager.update_categories(kb_entry['category_info'])
         except Exception as e:
             raise TweetProcessingError("Failed to save KB entry") from e 

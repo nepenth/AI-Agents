@@ -93,7 +93,7 @@ async def main() -> None:
     try:
         # Initialize configuration and logging first
         config = await load_config()
-        setup_logging(config.log_file)  # Ensure logging is setup before prompts
+        setup_logging(config.log_file)
         
         logging.info("\n=== New Agent Run Started ===")
         
@@ -103,7 +103,7 @@ async def main() -> None:
         logging.info(f"- Update bookmarks: {preferences.update_bookmarks}")
         logging.info(f"- Re-review existing items: {preferences.review_existing}")
         logging.info(f"- Regenerate root README: {preferences.regenerate_readme}")
-        logging.info(f"- Push changes to GitHub: {preferences.push_to_github}")
+        logging.info(f"- Sync changes to GitHub: {preferences.sync_to_github}")
         logging.info(f"- Reprocess cached tweets: {preferences.recreate_tweet_cache}")
         
         # Initialize state

@@ -155,95 +155,28 @@ def push_to_github(
         raise KnowledgeBaseError(f"Failed to push to GitHub: {e}")
 
 class GitSyncHandler:
+    """Handles Git operations for syncing knowledge base changes."""
+    
     def __init__(self, config: Config):
         self.config = config
-        self.repo_path = self.config.knowledge_base_dir
-        self._repo: Optional[Repo] = None
-
-    async def sync_to_github(self, message: str) -> None:
-        """Main sync operation coordinator."""
+        self.repo_path = config.knowledge_base_dir
+        
+    async def sync_to_github(self, commit_message: str = "Update knowledge base content") -> None:
+        """Sync changes to GitHub repository."""
         try:
-            await self._init_repo()
-            await self._configure_repo()
-            await self._stage_changes()
-            await self._commit_changes()
-            await self._push_changes()
-            logging.info("Successfully synced knowledge base to GitHub")
-        except Exception as e:
-            logging.exception("GitHub sync failed")
-            raise GitSyncError("Failed to sync with GitHub") from e
-
-    async def _init_repo(self) -> None:
-        """Initialize or get existing repo."""
-        try:
-            # Run in thread pool to avoid blocking
-            self._repo = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: Repo(self.repo_path) if Path(self.repo_path / '.git').exists() 
-                else Repo.init(self.repo_path)
-            )
-            logging.info(f"Initialized git repo at {self.repo_path}")
-        except Exception as e:
-            raise GitSyncError(f"Failed to initialize git repo at {self.repo_path}") from e
-
-    async def _configure_repo(self) -> None:
-        """Configure git repository settings."""
-        try:
-            # Configure user
-            await self._git_command('config', 'user.name', self.config.github_user_name)
-            await self._git_command('config', 'user.email', self.config.github_user_email)
-
-            # Configure remote
-            remote_url = str(self.config.github_repo_url)
-            if not remote_url.startswith('https://'):
-                remote_url = f"https://{self.config.github_token}@{remote_url.split('://')[-1]}"
-
-            # Check/update remote
-            try:
-                await self._git_command('remote', 'remove', 'origin')
-            except GitCommandError:
-                pass  # Ignore if remote doesn't exist
-            await self._git_command('remote', 'add', 'origin', remote_url)
-            logging.info("Configured git repository settings")
-        except Exception as e:
-            raise GitSyncError("Failed to configure git repository") from e
-
-    async def _stage_changes(self) -> None:
-        """Stage all changes in knowledge base directory."""
-        try:
-            await self._git_command('add', '-A')
-            status = await self._git_command('status', '--porcelain')
-            if not status:
-                logging.info("No changes to commit")
-                return
-            logging.info(f"Staged changes: \n{status}")
-        except Exception as e:
-            raise GitSyncError("Failed to stage changes") from e
-
-    async def _commit_changes(self) -> None:
-        """Commit staged changes."""
-        try:
-            status = await self._git_command('status', '--porcelain')
-            if not status:
-                return
+            repo = git.Repo(self.repo_path)
             
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            message = f"Update knowledge base - {timestamp}"
-            await self._git_command('commit', '-m', message)
-            logging.info(f"Committed changes: {message}")
+            # Stage all changes
+            repo.git.add(A=True)
+            
+            # Only commit if there are changes
+            if repo.is_dirty(untracked_files=True):
+                repo.git.commit('-m', commit_message)
+                repo.git.push()
+                logging.info("Successfully pushed changes to GitHub")
+            else:
+                logging.info("No changes to sync to GitHub")
+                
         except Exception as e:
-            raise GitSyncError("Failed to commit changes") from e
-
-    async def _push_changes(self) -> None:
-        """Push changes to remote repository."""
-        try:
-            await self._git_command('push', '-u', 'origin', 'main', '--force')
-            logging.info("Successfully pushed changes to GitHub")
-        except Exception as e:
-            raise GitSyncError("Failed to push changes to GitHub") from e
-
-    async def _git_command(self, *args):
-        """Execute a git command asynchronously."""
-        def func():
-            return self._repo.git.execute(['git'] + list(args))
-        return await asyncio.to_thread(func)
+            logging.error(f"Failed to sync to GitHub: {str(e)}")
+            raise GitSyncError(f"Failed to sync to GitHub: {str(e)}")
