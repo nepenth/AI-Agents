@@ -204,6 +204,10 @@ class ContentProcessor:
     """Handles processing of tweet content into knowledge base items."""
     
     def __init__(self, http_client: HTTPClient):
+        """Initialize the content processor with configuration."""
+        if not http_client:
+            raise ValueError("HTTP client is required")
+            
         self.http_client = http_client
         self.text_model = self.http_client.config.text_model
         logging.info(f"Initialized ContentProcessor with model: {self.text_model}")
@@ -269,13 +273,12 @@ class ContentProcessor:
                 "- Name should be 2-4 words, lowercase with underscores\n"
                 "- Description should be 1-2 sentences\n"
             )
-
             logging.debug(f"Sending category generation prompt for tweet text: {tweet_text[:100]}...")
-            
-            # Use the ollama_generate method
+            # Use the rate-limited http_client
             response_text = await self.http_client.ollama_generate(
                 model=self.text_model,
-                prompt=prompt
+                prompt=prompt,
+                temperature=0.7  # More deterministic for categories
             )
             
             if not response_text:
