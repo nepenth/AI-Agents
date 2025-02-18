@@ -8,12 +8,17 @@ from pydantic import HttpUrl, Field, field_validator
 from knowledge_base_agent.exceptions import ConfigurationError
 
 def setup_logging(log_file: Path) -> None:
-    """Setup logging configuration."""
+    """Configure logging with proper formatting for long messages."""
     logging.basicConfig(
         filename=str(log_file),
         level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(levelname)s - %(message).1000s',  # Increased message length limit
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
+    
+    # Reduce noise from git operations
+    logging.getLogger('git.cmd').setLevel(logging.INFO)
+    logging.getLogger('git.util').setLevel(logging.INFO)
 
 class Config(BaseSettings):
     # API endpoints and models

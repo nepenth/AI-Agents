@@ -160,23 +160,60 @@ class GitSyncHandler:
     def __init__(self, config: Config):
         self.config = config
         self.repo_path = config.knowledge_base_dir
-        
+        self.repo_url = str(config.github_repo_url)  # Convert HttpUrl to string
+        self.token = config.github_token
+        self.user_name = config.github_user_name
+        self.user_email = config.github_user_email
+        self._setup_git_config()
+
+    def _setup_git_config(self):
+        """Setup git configuration with credentials."""
+        try:
+            repo = git.Repo(self.repo_path)
+            with repo.config_writer() as git_config:
+                git_config.set_value('user', 'name', self.user_name)
+                git_config.set_value('user', 'email', self.user_email)
+                # Set credential helper to store credentials
+                git_config.set_value('credential', 'helper', 'store')
+            logging.info("Git configuration updated successfully")
+        except Exception as e:
+            logging.error(f"Failed to setup git config: {e}")
+            raise GitSyncError(f"Git configuration failed: {e}")
+
     async def sync_to_github(self, commit_message: str = "Update knowledge base content") -> None:
-        """Sync changes to GitHub repository."""
+        """Sync changes to GitHub with improved error handling."""
         try:
             repo = git.Repo(self.repo_path)
             
-            # Stage all changes
+            # Check if there are changes to commit
+            if not repo.is_dirty(untracked_files=True):
+                logging.info("No changes to sync")
+                return
+
+            # Setup remote with token
+            remote_url = f'https://{self.user_name}:{self.token}@github.com/{self.user_name}/{self.repo_url.split("/")[-1]}'
+            
+            # Update remote URL with authentication
+            if 'origin' in repo.remotes:
+                repo.remotes.origin.set_url(remote_url)
+            else:
+                repo.create_remote('origin', remote_url)
+
+            # Add all changes
             repo.git.add(A=True)
             
-            # Only commit if there are changes
-            if repo.is_dirty(untracked_files=True):
-                repo.git.commit('-m', commit_message)
-                repo.git.push()
-                logging.info("Successfully pushed changes to GitHub")
-            else:
-                logging.info("No changes to sync to GitHub")
-                
+            # Commit changes
+            repo.index.commit(commit_message)
+            
+            # Push changes
+            origin = repo.remote('origin')
+            origin.push()
+            
+            logging.info("Successfully synced changes to GitHub")
+            
+        except git.GitCommandError as e:
+            logging.error(f"Git command failed: {e}")
+            raise GitSyncError(f"Git command failed: {e}")
         except Exception as e:
-            logging.error(f"Failed to sync to GitHub: {str(e)}")
-            raise GitSyncError(f"Failed to sync to GitHub: {str(e)}")
+            logging.error(f"Failed to sync to GitHub: {e}")
+            raise GitSyncError(f"Failed to sync to GitHub: {e}")

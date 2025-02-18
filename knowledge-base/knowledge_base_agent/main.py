@@ -97,44 +97,30 @@ async def main() -> None:
         
         logging.info("\n=== New Agent Run Started ===")
         
-        # Get and log user preferences
+        # Get user preferences before any processing
         preferences = prompt_for_preferences()
-        logging.info("User selected preferences:")
-        logging.info(f"- Update bookmarks: {preferences.update_bookmarks}")
-        logging.info(f"- Re-review existing items: {preferences.review_existing}")
-        logging.info(f"- Regenerate root README: {preferences.regenerate_readme}")
-        logging.info(f"- Sync changes to GitHub: {preferences.sync_to_github}")
-        logging.info(f"- Reprocess cached tweets: {preferences.recreate_tweet_cache}")
         
-        # Initialize state
-        state_manager = await initialize_state(config)
+        # Log selected preferences immediately
+        logging.info("=== User Selected Preferences ===")
+        logging.info(f"- Fetch new bookmarks: {preferences.update_bookmarks}")
+        logging.info(f"- Re-review processed tweets: {preferences.review_existing}")
+        logging.info(f"- Re-cache all tweet data: {preferences.recreate_tweet_cache}")
+        logging.info(f"- Regenerate README: {preferences.regenerate_readme}")
+        logging.info(f"- Sync to GitHub: {preferences.sync_to_github}")
+        
+        # Initialize agent
+        agent = KnowledgeBaseAgent(config)
+        await agent.initialize()
         
         # Run agent with preferences
-        print("Starting agent execution...")
-        logging.info("=== Starting Agent Execution ===")
-        await run_agent(config, preferences)
+        logging.info("=== Starting Agent Operations ===")
+        await agent.run(preferences)
         
-        logging.info("=== Agent Execution Completed ===")
-        print("Agent execution completed successfully!")
-        
-    except ConfigurationError as e:
-        error_msg = f"Configuration error: {e}"
-        print(error_msg)
-        logging.error(error_msg)
-        sys.exit(1)
-    except KnowledgeBaseError as e:
-        error_msg = f"Knowledge base error: {e}"
-        print(error_msg)
-        logging.error(error_msg)
-        sys.exit(1)
     except Exception as e:
-        error_msg = f"Unexpected error: {e}"
-        print(error_msg)
-        logging.error(error_msg)
-        sys.exit(1)
+        logging.error(f"Agent execution failed: {str(e)}")
+        raise
     finally:
-        logging.info("=== Agent Run Finished ===")
-        await cleanup(config)
+        logging.info("=== Agent Run Completed ===")
 
 if __name__ == "__main__":
     asyncio.run(main())
