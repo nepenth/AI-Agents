@@ -25,26 +25,21 @@ async def categorize_and_name_content(
     tweet_id: str,
     category_manager: CategoryManager
 ) -> Tuple[str, str, str]:
-    """
-    Categorize and name content for a tweet using AI.
-
-    Args:
-        ollama_url: URL for the AI service.
-        text: The text to categorize.
-        text_model: The AI text model to use.
-        tweet_id: The tweet identifier.
-        category_manager: The category manager instance.
-
-    Returns:
-        A tuple of (main_category, sub_category, name).
-    """
+    """Categorize and name content for a tweet using AI."""
     if not text:
         raise ContentProcessingError("No text content found for tweet")
 
     try:
-        categories = await classify_content(text, text_model)
-        main_cat = categories['main_category'].lower().replace(' ', '_')
-        sub_cat = categories['sub_category'].lower().replace(' ', '_')
+        # Pass the required arguments to classify_content
+        categories = await classify_content(
+            text=text,
+            model=text_model,
+            ollama_url=ollama_url,
+            category_manager=category_manager
+        )
+        
+        main_cat = categories['category'].lower().replace(' ', '_')
+        sub_cat = categories['subcategory'].lower().replace(' ', '_')
         
         if not category_manager.category_exists(main_cat, sub_cat):
             category_manager.add_category(main_cat, sub_cat)
@@ -426,78 +421,67 @@ class ContentProcessor:
             logging.error(f"Content generation failed: {str(e)}")
             raise ContentGenerationError(f"Failed to generate content: {str(e)}")
 
-    async def create_knowledge_base_item(self, tweet_id: str, tweet_data: TweetData, config: Config) -> KnowledgeBaseItem:
-        """Create a complete knowledge base item from tweet data."""
+    async def create_knowledge_base_item(self, tweet_id: str, tweet_data: Dict[str, Any], config: Config) -> KnowledgeBaseItem:
+        """Create a knowledge base item from a tweet."""
         try:
-            tweet_text = tweet_data.get('full_text', tweet_data.get('text', ''))
+            # Get tweet text and any URLs
+            text = tweet_data.get('full_text', '')
             urls = tweet_data.get('urls', [])
-            if not tweet_text:
-                raise ContentGenerationError("No text content found in tweet {}".format(tweet_id))
-            
-            # Generate categories first and save them
-            category_info = await self.generate_categories(tweet_text, tweet_id)
-            
-            # Save categories even if content generation fails
-            tweet_data['categories'] = {
-                'main_category': category_info.category,
-                'sub_category': category_info.subcategory,
-                'name': category_info.name
-            }
-            
-            try:
-                # Include URLs in the context
-                context = {
-                    'id': tweet_id,
-                    'text': tweet_text,
-                    'urls': urls,  # Add URLs to context
-                    'media': tweet_data.get('media', []),
-                    'image_descriptions': tweet_data.get('image_descriptions', [])
-                }
-                content = await self.generate_content(context)
-            except Exception as e:
-                logging.error(f"Content generation failed for tweet {tweet_id}: {str(e)}")
-                # Use a simplified content if generation fails
-                content = f"Original Tweet: {tweet_text}\n\nRelevant Links:\n" + "\n".join(urls)
-            
-            # Create KB item with whatever content we have
+            image_descriptions = tweet_data.get('image_descriptions', [])
+
+            # Combine content for categorization
+            combined_text = text
+            if urls:
+                combined_text += "\nRelevant links:\n" + "\n".join(urls)
+            if image_descriptions:
+                combined_text += "\nImage content:\n" + "\n".join(image_descriptions)
+
+            # Get AI categorization
+            category_manager = CategoryManager(config)
+            main_cat, sub_cat, item_name = await categorize_and_name_content(
+                ollama_url=config.ollama_url,
+                text=combined_text,
+                text_model=config.text_model,
+                tweet_id=tweet_id,
+                category_manager=category_manager
+            )
+
+            # Create the knowledge base item
             kb_item = KnowledgeBaseItem(
-                title=category_info.name.replace('_', ' ').title(),
-                description=category_info.description,
-                content=content,
+                title=item_name.replace('_', ' ').title(),
+                description=combined_text[:200] + "...",  # First 200 chars as description
+                content=combined_text,
                 category_info={
-                    'main_category': category_info.category,
-                    'sub_category': category_info.subcategory,
-                    'item_name': category_info.name
+                    'main_category': main_cat,
+                    'sub_category': sub_cat,
+                    'item_name': item_name
                 },
                 source_tweet={
                     'id': tweet_id,
-                    'text': tweet_text,
-                    'url': tweet_data.get('tweet_url', ''),
+                    'text': text,
+                    'urls': urls,
                     'media': tweet_data.get('media', []),
-                    'urls': urls  # Add URLs to source information
+                    'image_descriptions': image_descriptions
                 },
-                media_analysis=tweet_data.get('image_descriptions', []),
                 created_at=datetime.now(),
                 last_updated=datetime.now()
             )
-            
-            # Update tweet data with KB item creation status and path
+
+            # Update tweet data with KB creation status
             tweet_data['kb_item_created'] = True
             tweet_data['kb_item_path'] = str(Path(
                 config.knowledge_base_dir,
-                kb_item.category_info['main_category'],
-                kb_item.category_info['sub_category'],
-                f"{kb_item.category_info['item_name']}.md"
+                main_cat,
+                sub_cat,
+                f"{item_name}.md"
             ))
-            tweet_data['kb_item_created_at'] = datetime.now().isoformat()
-            
+
             return kb_item
 
         except Exception as e:
-            error_msg = "Failed in create_knowledge_base_item for tweet {}: {}".format(tweet_id, e)
-            logging.error(error_msg)
-            logging.error("Available tweet data keys: {}".format(list(tweet_data.keys())))
-            raise KnowledgeBaseItemCreationError(error_msg)
+            logging.error(f"Failed to create knowledge base item for tweet {tweet_id}: {e}")
+            logging.error(f"Available tweet data keys: {list(tweet_data.keys())}")
+            raise KnowledgeBaseItemCreationError(f"Failed to create KB item: {e}")
 
     async def process_media(self, tweet_data: Dict[str, Any]) -> None:
         """Process media content for a tweet."""

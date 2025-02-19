@@ -86,6 +86,7 @@ class KnowledgeBaseAgent:
         self._processing_lock = asyncio.Lock()
         self.git_handler = None  # Initialize only when needed
         self.stats = ProcessingStats(start_time=datetime.now())
+        self._initialized = False
         logging.info("KnowledgeBaseAgent initialized")
 
     async def initialize(self) -> None:
@@ -119,6 +120,7 @@ class KnowledgeBaseAgent:
                 logging.exception("Category manager initialization failed")
                 raise AgentError(f"Category manager initialization failed: {e}")
             
+            self._initialized = True
             logging.info("Agent initialization complete")
         except Exception as e:
             logging.exception(f"Agent initialization failed: {str(e)}")
@@ -369,3 +371,36 @@ class KnowledgeBaseAgent:
             return sum(len(tweet_data.get('media', [])) for tweet_data in cache_data.values())
         except Exception:
             return 0
+
+    async def process_tweets(self, tweet_urls: List[str]) -> None:
+        """Process tweets while preserving existing cache."""
+        if not self._initialized:
+            await self.initialize()
+
+        stats = ProcessingStats(datetime.now())
+        
+        for tweet_url in tweet_urls:
+            tweet_id = parse_tweet_id_from_url(tweet_url)
+            if not tweet_id:
+                continue
+
+            # Check if already processed and skip unless forced update
+            if await self.state_manager.is_tweet_processed(tweet_id) and not self.config.force_update:
+                logging.info(f"Tweet {tweet_id} already processed, skipping")
+                stats.skipped_count += 1
+                continue
+
+            try:
+                # Use existing cache if available
+                cached_data = await self.state_manager.get_tweet_cache(tweet_id)
+                if cached_data and not self.config.force_update:
+                    tweet_data = cached_data
+                    stats.cache_hits += 1
+                else:
+                    tweet_data = await self._fetch_tweet_data(tweet_url)
+                    await self.state_manager.save_tweet_cache(tweet_id, tweet_data)
+                    stats.cache_misses += 1
+            except Exception as e:
+                logging.error(f"Failed to process tweet {tweet_id}: {e}")
+                stats.error_count += 1
+                continue
