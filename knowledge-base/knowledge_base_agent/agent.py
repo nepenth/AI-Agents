@@ -210,159 +210,113 @@ class KnowledgeBaseAgent:
             logging.warning(f"Cleanup failed: {e}")
 
     async def run(self, preferences: UserPreferences) -> None:
-        """Run the agent with the specified preferences."""
+        """Run the agent with the given preferences."""
         try:
             stats = ProcessingStats(start_time=datetime.now())
-            logging.info("\n=== Starting Knowledge Base Agent Processing ===")
             
-            # 1. Initialize state and check for new bookmarks/tweets to process
+            # 1. Initialize state and check for new bookmarks/tweets
             logging.info("1. Initializing state and checking for new content...")
             await self.state_manager.initialize()
-            has_new_content = False
-            total_errors = 0
-            processed_count = 0
+            
+            # Get unprocessed tweets regardless of bookmark update
+            unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
+            has_work_to_do = bool(unprocessed_tweets)
             
             if preferences.update_bookmarks:
                 logging.info("2. Processing bookmarks for new tweets...")
-                # First fetch new bookmarks
-                await self.process_bookmarks()  # This will fetch and update bookmarks_links.txt
-                
-                # Then update state from bookmarks as before
+                await self.process_bookmarks()
                 await self.state_manager.update_from_bookmarks()
-                unprocessed = self.state_manager.get_unprocessed_tweets()
-                has_new_content = bool(unprocessed)
-                total_tweets = len(unprocessed)
-                logging.info(f"Found {len(unprocessed)} unprocessed tweets")
+                unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
+                has_work_to_do = bool(unprocessed_tweets)
+                logging.info(f"Found {len(unprocessed_tweets)} unprocessed tweets")
             
-            # 2. Get unprocessed tweets
-            unprocessed_tweets = self.state_manager.get_unprocessed_tweets()
-            total_tweets = len(unprocessed_tweets)
-            if not unprocessed_tweets and not preferences.review_existing:
-                logging.info("No new content to process")
-                return
+            # 2. Process tweets if we have any unprocessed ones
+            if has_work_to_do:
+                logging.info(f"Processing {len(unprocessed_tweets)} tweets...")
+                await self.content_processor.process_all_tweets(
+                    self.config,
+                    self.http_client,
+                    self.state_manager,
+                    stats,
+                    preferences
+                )
+            else:
+                logging.info("No tweets to process")
             
-            # 3. Cache tweets and process media
-            if unprocessed_tweets or preferences.recreate_tweet_cache:
-                logging.info(f"\n=== Phase 1: Tweet Caching ===")
-                logging.info(f"3. Caching {len(unprocessed_tweets)} tweets and processing media...")
-                try:
-                    for idx, tweet_id in enumerate(unprocessed_tweets, 1):
-                        logging.info(f"[{idx}/{total_tweets}] Caching tweet {tweet_id}")
-                        try:
-                            await self.tweet_processor.cache_tweets([tweet_id])
-                            stats.success_count += 1
-                            logging.info(f"✓ Cached tweet {tweet_id}")
-                        except Exception as e:
-                            logging.error(f"✗ Failed to cache tweet {tweet_id}: {e}")
-                            stats.error_count += 1
-                            total_errors += 1
-                except Exception as e:
-                    logging.error(f"Failed to cache tweets: {e}")
-                    raise
-                
-                # Verify cache was created
-                if Path(self.config.tweet_cache_file).exists():
-                    cache_size = len(await async_json_load(self.config.tweet_cache_file))
-                    logging.info(f"Tweet cache created with {cache_size} entries")
-                else:
-                    logging.error("Failed to create tweet cache!")
-                    raise RuntimeError("Tweet cache file was not created!")
-                
-                # Process media
-                try:
-                    media_items = await self._count_media_items()
-                    if media_items > 0:
-                        logging.info(f"\n=== Phase 2: Media Processing ===")
-                        logging.info(f"Processing {media_items} media items...")
-                        # Get tweets with media from cache
-                        tweets_with_media = await self.tweet_processor.get_tweets_with_media()
-                        for tweet_id, tweet_data in tweets_with_media.items():
-                            try:
-                                # Check if media was already processed
-                                if tweet_data.get('media_processed', False):
-                                    logging.info(f"Media already processed for tweet {tweet_id}, skipping...")
-                                    stats.media_processed += len(tweet_data.get('media', []))
-                                    continue
-                                    
-                                # Process media
-                                await self.tweet_processor.process_media(tweet_data)
-                                stats.media_processed += len(tweet_data.get('media', []))
-                                
-                                # Mark media as processed in cache
-                                tweet_data['media_processed'] = True
-                                await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                                
-                            except Exception as e:
-                                logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
-                                stats.error_count += 1
-                                continue
-                        logging.info(f"✓ Processed {stats.media_processed} media items")
-                except Exception as e:
-                    logging.error(f"Failed to process media: {e}")
-                    raise
-            
-            # 4. Process tweets into knowledge base items
-            if unprocessed_tweets or preferences.review_existing:
-                logging.info(f"4. Processing {len(unprocessed_tweets)} tweets into knowledge base items...")
-                for tweet_id in unprocessed_tweets:
-                    try:
-                        logging.info(f"Processing tweet {tweet_id} ({processed_count + 1}/{total_tweets})")
-                        
-                        # First verify tweet is in cache
-                        if not await self._verify_tweet_cached(tweet_id):
-                            logging.error(f"Tweet {tweet_id} not found in cache, skipping...")
-                            stats.error_count += 1
-                            total_errors += 1
-                            continue
-                            
-                        # Process tweet with existing data using our initialized content_processor
-                        try:
-                            logging.info(f"Processing tweet {tweet_id}")
-                            kb_item = await self.content_processor.create_knowledge_base_item(tweet_data)
-                            
-                            # Verify KB item was created
-                            if await self._verify_kb_item_created(tweet_id):
-                                await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
-                                processed_count += 1
-                                stats.processed_count += 1
-                                logging.info(f"Successfully processed tweet {tweet_id}")
-                            else:
-                                raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")
-                            
-                        except Exception as e:
-                            logging.error(f"Failed to process tweet {tweet_id}: {e}")
-                            raise ContentProcessingError(f"Tweet processing failed: {e}")
-                            
-                    except Exception as e:
-                        logging.error(f"Error processing tweet {tweet_id}: {e}")
-                        stats.error_count += 1
-                        total_errors += 1
-                        continue
-            
-            # 5. Generate/Update README
-            if has_new_content or preferences.regenerate_readme:
-                logging.info("5. Regenerating README...")
-                await self.regenerate_readme()
-            
-            # 6. Always sync to GitHub after processing
-            logging.info("6. Syncing to GitHub...")
+            # 3. Sync to GitHub
+            logging.info("3. Syncing to GitHub...")
             await self.sync_changes()
             
             # Summary
             logging.info("\n=== Processing Summary ===")
-            logging.info(f"Total tweets: {total_tweets}")
-            logging.info(f"Successfully processed: {processed_count}")
+            logging.info(f"Total tweets processed: {stats.processed_count}")
             logging.info(f"Media items processed: {stats.media_processed}")
-            logging.info(f"Errors: {total_errors}")
+            logging.info(f"Categories processed: {stats.categories_processed}")
+            logging.info(f"README generated: {'Yes' if stats.readme_generated else 'No'}")
+            logging.info(f"Errors encountered: {stats.error_count}")
             
             # Save stats report
             stats.save_report(Path("data/processing_stats.json"))
             
-            if total_errors > 0:
-                raise RuntimeError(f"Failed to process {total_errors} tweets. Check logs for details.")
+            if stats.error_count > 0:
+                raise RuntimeError(f"Failed to process {stats.error_count} tweets. Check logs for details.")
             
         except Exception as e:
-            logging.error(f"Agent run failed: {str(e)}", exc_info=True)
+            logging.error(f"Agent run failed: {str(e)}")
+            raise
+
+    async def process_tweet(self, tweet_url: str) -> None:
+        """Process a single tweet."""
+        try:
+            # If tweet_url is just an ID, convert it to a full URL
+            if tweet_url.isdigit():
+                tweet_url = f"https://twitter.com/i/web/status/{tweet_url}"
+            
+            tweet_id = parse_tweet_id_from_url(tweet_url)
+            if not tweet_id:
+                raise ValueError(f"Invalid tweet URL: {tweet_url}")
+            
+            # First check if tweet is in cache
+            tweet_data = await self.state_manager.get_tweet(tweet_id)
+            if not tweet_data:
+                # If not in cache, fetch and cache it first
+                logging.info(f"Tweet {tweet_id} not found in cache, fetching data...")
+                await self.tweet_processor.cache_tweet_data(tweet_id)
+                tweet_data = await self.state_manager.get_tweet(tweet_id)
+                if not tweet_data:
+                    raise ContentProcessingError(f"Failed to fetch and cache tweet {tweet_id}")
+            
+            # Process tweet with existing data using our initialized content_processor
+            try:
+                logging.info(f"Processing tweet {tweet_id}")
+                kb_item = await self.content_processor.create_knowledge_base_item(
+                    tweet_id=tweet_id,
+                    tweet_data=tweet_data
+                )
+                
+                # Verify KB item was created
+                if await self._verify_kb_item_created(tweet_id):
+                    await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
+                    logging.info(f"Successfully processed tweet {tweet_id}")
+                else:
+                    raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")
+                
+            except Exception as e:
+                logging.error(f"Failed to process tweet {tweet_id}: {e}")
+                raise ContentProcessingError(f"Tweet processing failed: {e}")
+            
+        except Exception as e:
+            logging.error(f"Failed to process tweet {tweet_url}: {e}")
+            raise
+
+    async def regenerate_readme(self) -> None:
+        """Regenerate the root README file."""
+        try:
+            logging.info("Starting README regeneration")
+            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
+            logging.info("README regeneration completed")
+        except Exception as e:
+            logging.error(f"Failed to regenerate README: {str(e)}")
             raise
 
     async def _verify_tweet_cached(self, tweet_id: str) -> bool:
@@ -408,57 +362,6 @@ class KnowledgeBaseAgent:
         except Exception as e:
             logging.error(f"Error verifying KB item for tweet {tweet_id}: {e}")
             return False
-
-    async def process_tweet(self, tweet_url: str) -> None:
-        """Process a single tweet."""
-        try:
-            # If tweet_url is just an ID, convert it to a full URL
-            if tweet_url.isdigit():
-                tweet_url = f"https://twitter.com/i/web/status/{tweet_url}"
-            
-            tweet_id = parse_tweet_id_from_url(tweet_url)
-            if not tweet_id:
-                raise ValueError(f"Invalid tweet URL: {tweet_url}")
-            
-            # First check if tweet is in cache
-            tweet_data = await self.state_manager.get_tweet(tweet_id)
-            if not tweet_data:
-                # If not in cache, fetch and cache it first
-                logging.info(f"Tweet {tweet_id} not found in cache, fetching data...")
-                await self.tweet_processor.cache_tweet_data(tweet_id)
-                tweet_data = await self.state_manager.get_tweet(tweet_id)
-                if not tweet_data:
-                    raise ContentProcessingError(f"Failed to fetch and cache tweet {tweet_id}")
-            
-            # Process tweet with existing data using our initialized content_processor
-            try:
-                logging.info(f"Processing tweet {tweet_id}")
-                kb_item = await self.content_processor.create_knowledge_base_item(tweet_data)
-                
-                # Verify KB item was created
-                if await self._verify_kb_item_created(tweet_id):
-                    await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
-                    logging.info(f"Successfully processed tweet {tweet_id}")
-                else:
-                    raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")
-                
-            except Exception as e:
-                logging.error(f"Failed to process tweet {tweet_id}: {e}")
-                raise ContentProcessingError(f"Tweet processing failed: {e}")
-            
-        except Exception as e:
-            logging.error(f"Failed to process tweet {tweet_url}: {e}")
-            raise
-
-    async def regenerate_readme(self) -> None:
-        """Regenerate the root README file."""
-        try:
-            logging.info("Starting README regeneration")
-            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
-            logging.info("README regeneration completed")
-        except Exception as e:
-            logging.error(f"Failed to regenerate README: {str(e)}")
-            raise
 
     async def _count_media_items(self) -> int:
         """Count total media items that need processing."""
