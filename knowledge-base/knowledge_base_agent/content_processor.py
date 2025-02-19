@@ -1,8 +1,7 @@
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, List
 import logging
 from datetime import datetime
-from knowledge_base_agent.markdown_writer import MarkdownWriter, generate_root_readme
 from knowledge_base_agent.exceptions import StorageError, ContentProcessingError, ContentGenerationError, CategoryGenerationError, KnowledgeBaseItemCreationError
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.config import Config
@@ -12,11 +11,12 @@ from knowledge_base_agent.image_interpreter import interpret_image
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump
 from knowledge_base_agent.state_manager import StateManager
-from .types import TweetData, KnowledgeBaseItem, CategoryInfo
+from knowledge_base_agent.types import TweetData, KnowledgeBaseItem, CategoryInfo
 import json
 import re
 from knowledge_base_agent.progress import ProcessingStats
 from knowledge_base_agent.prompts import UserPreferences
+from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
 
 async def categorize_and_name_content(
     ollama_url: str,
@@ -226,6 +226,9 @@ async def create_knowledge_base_entry(
             
         # Write markdown content
         try:
+            # Import here to avoid circular import
+            from knowledge_base_agent.markdown_writer import MarkdownWriter
+            
             markdown_writer = MarkdownWriter(config)
             await markdown_writer.write_tweet_markdown(
                 config.knowledge_base_dir,
@@ -263,6 +266,7 @@ class ContentProcessor:
         self.text_model = self.http_client.config.text_model
         logging.info(f"Initialized ContentProcessor with model: {self.text_model}")
         self.category_manager = CategoryManager(config)
+        self.state_manager = StateManager(config)
 
     @classmethod
     async def create_knowledge_base_entry(cls, tweet_data: Dict[str, Any], http_client: HTTPClient, tweet_cache: Dict[str, Any]) -> KnowledgeBaseItem:
@@ -527,6 +531,8 @@ class ContentProcessor:
     ) -> None:
         """Process all tweets in phases: caching, media, categories, KB items, and README."""
         try:
+            # Import here to avoid circular import
+            from knowledge_base_agent.markdown_writer import generate_root_readme
             tweets = await state_manager.get_all_tweets()
             unprocessed_tweets = await state_manager.get_unprocessed_tweets()
             total_tweets = len(unprocessed_tweets)
@@ -612,3 +618,64 @@ class ContentProcessor:
         except Exception as e:
             logging.error(f"Failed to process all tweets: {str(e)}")
             raise ContentProcessingError(f"Failed to process all tweets: {str(e)}")
+
+    async def cache_tweets(self, tweet_ids: List[str]) -> None:
+        """Cache tweet data including media."""
+        cached_tweets = await self.state_manager.get_all_tweets()
+        
+        for tweet_id in tweet_ids:
+            # Skip if tweet is already fully cached
+            if tweet_id in cached_tweets and cached_tweets[tweet_id].get('cache_complete', False):
+                logging.debug(f"Tweet {tweet_id} already fully cached, skipping...")
+                continue
+            
+            try:
+                tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
+                tweet_data = await fetch_tweet_data_playwright(tweet_url, self.config)
+                
+                if tweet_data:
+                    # Download media if present
+                    if 'media' in tweet_data:
+                        media_dir = Path(self.config.media_cache_dir) / tweet_id
+                        media_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        media_paths = []
+                        for idx, media_item in enumerate(tweet_data['media']):
+                            if isinstance(media_item, str):
+                                url = media_item
+                            else:
+                                url = media_item.get('url', '')
+                                
+                            if url:
+                                media_path = media_dir / f"media_{idx}{Path(url).suffix}"
+                                await self.http_client.download_media(url, media_path)
+                                media_paths.append(str(media_path))
+                        
+                        tweet_data['downloaded_media'] = media_paths
+                    
+                    # Mark as fully cached
+                    tweet_data['cache_complete'] = True
+                    await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                    logging.info(f"Successfully cached tweet {tweet_id} and its media")
+                    
+            except Exception as e:
+                logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+                raise ContentProcessingError(f"Failed to cache tweet {tweet_id}: {e}")
+
+    async def _count_media_items(self) -> int:
+        """Count total number of media items to process."""
+        tweets = await self.state_manager.get_all_tweets()
+        count = 0
+        for tweet_data in tweets.values():
+            if not tweet_data.get('media_processed', False):
+                count += len(tweet_data.get('media', []))
+        return count
+
+    async def get_tweets_with_media(self) -> Dict[str, Any]:
+        """Get all tweets that have unprocessed media."""
+        tweets = await self.state_manager.get_all_tweets()
+        return {
+            tweet_id: tweet_data 
+            for tweet_id, tweet_data in tweets.items() 
+            if tweet_data.get('media', []) and not tweet_data.get('media_processed', False)
+        }

@@ -77,15 +77,16 @@ class KnowledgeBaseAgent:
     """
     
     def __init__(self, config: Config):
+        """Initialize the agent with configuration."""
         self.config = config
+        self.http_client = HTTPClient(config)
         self.state_manager = StateManager(config)
-        self.http_client = HTTPClient(config)  # Create single HTTPClient instance
-        self.content_processor = ContentProcessor(self.http_client)  # Pass same http_client
-        self.markdown_writer = MarkdownWriter(config)
+        self.content_processor = ContentProcessor(config=config, http_client=self.http_client)
         self.category_manager = CategoryManager(config)
         self._processing_lock = asyncio.Lock()
         self.git_handler = None  # Initialize only when needed
         self.stats = ProcessingStats(start_time=datetime.now())
+        logging.info("KnowledgeBaseAgent initialized")
 
     async def initialize(self) -> None:
         """Initialize all components and ensure directory structure."""

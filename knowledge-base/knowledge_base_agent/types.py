@@ -9,7 +9,6 @@ from typing import TypedDict, List, Dict, Optional, Any
 from datetime import datetime
 import json
 from pathlib import Path
-from .content_processor import ContentProcessor
 
 class TweetMedia(TypedDict):
     """Media information from a tweet."""
@@ -66,7 +65,8 @@ class KnowledgeBaseItem(TypedDict):
 
 class ProcessingStats:
     """Statistics for content processing."""
-    def __init__(self):
+    def __init__(self, start_time: datetime):
+        self.start_time = start_time
         self.processed_count: int = 0
         self.success_count: int = 0
         self.error_count: int = 0
