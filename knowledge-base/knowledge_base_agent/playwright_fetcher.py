@@ -17,19 +17,18 @@ def get_high_res_url(url: str) -> str:
         return re.sub(r"name=\w+", "name=orig", url)
     return url
 
-async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 30000) -> Dict[str, Any]:
+async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[str, Any]:
     """Fetch tweet data using Playwright."""
     try:
-        logging.info(f"Starting Playwright fetch for tweet {tweet_id}")
+        logging.info(f"Starting Playwright fetch for tweet {tweet_url}")
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
-            url = f"https://twitter.com/i/web/status/{tweet_id}"
-            logging.info(f"Navigating to {url}")
+            logging.info(f"Navigating to {tweet_url}")
             
             # Set shorter timeout for navigation
-            await page.goto(url, timeout=timeout)
+            await page.goto(tweet_url, timeout=30000)
             
             # Wait for content with shorter timeout
             tweet_selector = 'article div[data-testid="tweetText"]'
@@ -38,7 +37,7 @@ async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 30000) -> Di
                 await page.wait_for_selector(tweet_selector, timeout=10000)  # 10 second timeout
             except Exception as e:
                 logging.warning(f"Timeout waiting for tweet content: {e}")
-                return {"full_text": "", "media": [], "downloaded_media": [], "image_descriptions": []}
+                return {"full_text": "", "media": [], "downloaded_media": [], "image_descriptions": [], "urls": []}
             
             # Get tweet text with timeout
             try:
@@ -59,23 +58,28 @@ async def fetch_tweet_data_playwright(tweet_id: str, timeout: int = 30000) -> Di
                 logging.warning(f"Failed to get images: {e}")
             
             await browser.close()
-            logging.info(f"Successfully fetched tweet {tweet_id}")
+            logging.info(f"Successfully fetched tweet {tweet_url}")
             
-            return {
+            tweet_data = {
                 "full_text": tweet_text,
                 "media": image_urls,
                 "downloaded_media": [],
-                "image_descriptions": []
+                "image_descriptions": [],
+                "urls": []  # Initialize urls list
             }
+
+            # Extract URLs from tweet text using regex
+            url_pattern = r'https?://[^\s<>"]+|www\.[^\s<>"]+' 
+            found_urls = re.findall(url_pattern, tweet_text)
+            if found_urls:
+                tweet_data['urls'] = found_urls
+                logging.info(f"Found URLs in tweet: {found_urls}")
+
+            return tweet_data
             
     except Exception as e:
-        logging.error(f"Error in Playwright fetch for tweet {tweet_id}: {e}")
-        return {
-            "full_text": "",
-            "media": [],
-            "downloaded_media": [],
-            "image_descriptions": []
-        }
+        logging.error(f"Error in Playwright fetch for tweet {tweet_url}: {e}")
+        raise
 
 class PlaywrightFetcher:
     """Handles tweet data fetching using Playwright."""
@@ -149,7 +153,8 @@ class PlaywrightFetcher:
                 return {
                     "full_text": tweet_text,
                     "media": media_urls,
-                    "downloaded_media": []  # Will be populated during media download
+                    "downloaded_media": [],  # Will be populated during media download
+                    "urls": []  # Initialize urls list
                 }
                 
             except PlaywrightTimeout:
