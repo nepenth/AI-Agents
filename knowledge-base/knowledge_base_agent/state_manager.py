@@ -24,36 +24,43 @@ class StateManager:
         self.tweet_cache: Dict[str, Any] = {}
         self._initialized = False
         self._lock = asyncio.Lock()
+        self.processed_tweets_file = Path(config.processed_tweets_file)
+        self.tweet_cache_file = Path(config.tweet_cache_file)
+        self.unprocessed_tweets_file = Path(config.unprocessed_tweets_file)
 
     async def initialize(self) -> None:
-        """Initialize state from files."""
-        logging.info("Starting state manager initialization")
-        try:
-            # Load tweet cache first
-            if Path(self.config.tweet_cache_file).exists():
-                self.tweet_cache = await async_json_load(self.config.tweet_cache_file) or {}
+        """Initialize state manager and load existing state."""
+        if self._initialized:
+            return
+
+        # Ensure parent directories exist
+        self.tweet_cache_file.parent.mkdir(parents=True, exist_ok=True)
+        self.processed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load unprocessed tweets
+        if self.unprocessed_tweets_file.exists():
+            try:
+                async with aiofiles.open(self.unprocessed_tweets_file, 'r') as f:
+                    content = await f.read()
+                    tweet_ids = json.loads(content) if content.strip() else []
+                    self.unprocessed_tweets = set(tweet_ids)
+                logging.info(f"Loaded {len(self.unprocessed_tweets)} unprocessed tweets")
+            except Exception as e:
+                logging.error(f"Error loading unprocessed tweets: {e}")
+                self.unprocessed_tweets = set()
+
+        # Load existing tweet cache if file exists
+        if self.tweet_cache_file.exists():
+            try:
+                async with aiofiles.open(self.tweet_cache_file, 'r') as f:
+                    content = await f.read()
+                    self.tweet_cache = json.loads(content) if content.strip() else {}
                 logging.info(f"Loaded {len(self.tweet_cache)} cached tweets")
+            except Exception as e:
+                logging.error(f"Error loading tweet cache: {e}")
+                self.tweet_cache = {}
 
-            # Load unprocessed tweets
-            if Path(self.config.unprocessed_tweets_file).exists():
-                data = await async_json_load(self.config.unprocessed_tweets_file)
-                if isinstance(data, list):
-                    # Only add tweets that aren't already fully cached
-                    self.unprocessed_tweets = {
-                        tweet_id for tweet_id in data 
-                        if tweet_id not in self.tweet_cache or 
-                        not self.tweet_cache[tweet_id].get('cache_complete', False)
-                    }
-                    logging.info(f"Added {len(self.unprocessed_tweets)} new tweets to process")
-                else:
-                    logging.error("Unprocessed tweets file has invalid format")
-                    self.unprocessed_tweets = set()
-
-            logging.info("State manager initialization complete")
-            
-        except Exception as e:
-            logging.error(f"Failed to initialize state: {e}")
-            raise
+        self._initialized = True
 
     async def _atomic_write_json(self, data: Dict[str, Any], filepath: Path) -> None:
         """Write JSON data atomically using a temporary file."""
@@ -198,11 +205,7 @@ class StateManager:
 
     async def get_unprocessed_tweets(self) -> List[str]:
         """Get list of unprocessed tweet IDs."""
-        unprocessed = []
-        for tweet_id in self.unprocessed_tweets:
-            if not await self.is_tweet_fully_processed(tweet_id):
-                unprocessed.append(tweet_id)
-        return unprocessed
+        return list(self.unprocessed_tweets)
 
     async def is_tweet_fully_processed(self, tweet_id: str) -> bool:
         """Check if a tweet has completed all processing steps."""
@@ -256,4 +259,18 @@ class StateManager:
     async def get_all_tweets(self) -> Dict[str, Any]:
         """Get all tweets from cache."""
         return self.tweet_cache
+
+    async def save_tweet_cache(self, tweet_id: str, data: Dict[str, Any]) -> None:
+        """Save tweet data to cache without overwriting entire cache."""
+        self.tweet_cache[tweet_id] = data
+        try:
+            async with aiofiles.open(self.tweet_cache_file, 'w') as f:
+                await f.write(json.dumps(self.tweet_cache, indent=2))
+        except Exception as e:
+            logging.error(f"Failed to save tweet cache for {tweet_id}: {e}")
+            raise StateError(f"Cache save failed: {e}")
+
+    async def get_tweet_cache(self, tweet_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached tweet data if available."""
+        return self.tweet_cache.get(tweet_id)
 
