@@ -16,12 +16,14 @@ class HTTPClient:
     
     def __init__(self, config: Config):
         self.config = config
-        self.session = None
+        self.session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
+        )
         self.initialized = False
         # Convert HttpUrl to string and ensure it's properly formatted
         self.base_url = str(self.config.ollama_url).rstrip('/')
         # Get configuration values
-        self.timeout = self.config.request_timeout
+        self.timeout = config.request_timeout
         self.max_retries = self.config.max_retries
         self.batch_size = self.config.batch_size
         self.max_concurrent = self.config.max_concurrent_requests
@@ -40,9 +42,8 @@ class HTTPClient:
         
     async def close(self):
         """Close the HTTP client session."""
-        if self.session:
+        if self.session and not self.session.closed:
             await self.session.close()
-            self.session = None
             self.initialized = False
             logging.info("HTTPClient session closed")
             

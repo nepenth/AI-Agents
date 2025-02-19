@@ -25,8 +25,8 @@ class StateError(KnowledgeBaseError):
     pass
 
 class TweetProcessingError(KnowledgeBaseError):
-    """Tweet processing related errors."""
-    pass
+    """Legacy error class for backward compatibility."""
+    pass  # Now handled by ContentProcessingError
 
 class ModelInferenceError(KnowledgeBaseError):
     """Raised when AI model inference fails."""

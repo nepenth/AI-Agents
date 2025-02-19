@@ -17,6 +17,17 @@ class ProcessingStats:
     network_errors: int = 0
     retry_count: int = 0
     processing_times: List[float] = field(default_factory=list)
+    categories_processed: int = 0
+    readme_generated: bool = False
+
+    def __init__(self, start_time: datetime):
+        self.start_time = start_time
+        self.processed_count = 0
+        self.success_count = 0
+        self.error_count = 0
+        self.media_processed = 0
+        self.categories_processed = 0
+        self.readme_generated = False
 
     def to_dict(self) -> dict:
         """Convert stats to dictionary format."""

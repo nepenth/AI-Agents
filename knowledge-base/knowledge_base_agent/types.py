@@ -5,8 +5,11 @@ This module contains all the core data structures and type definitions used
 throughout the knowledge base agent system.
 """
 
-from typing import TypedDict, List, Dict, Optional
+from typing import TypedDict, List, Dict, Optional, Any
 from datetime import datetime
+import json
+from pathlib import Path
+from .content_processor import ContentProcessor
 
 class TweetMedia(TypedDict):
     """Media information from a tweet."""
@@ -22,15 +25,26 @@ class TweetCategories(TypedDict):
     model_used: str
     categorized_at: str
 
+class TweetProcessingStatus(TypedDict):
+    media_processed: bool
+    categories_processed: bool
+    kb_item_created: bool
+    kb_item_path: Optional[str]
+    kb_item_created_at: Optional[str]
+
 class TweetData(TypedDict):
     """Structured tweet data format."""
     id: str
-    text: str
-    created_at: datetime
-    media: List[TweetMedia]
-    author: str
-    url: str
-    categories: Optional[TweetCategories]
+    full_text: str
+    media: List[Dict[str, Any]]
+    downloaded_media: List[str]
+    media_analysis: List[Dict[str, Any]]
+    media_processed: bool
+    categories: Optional[Dict[str, str]]
+    categories_processed: bool
+    kb_item_created: bool
+    kb_item_path: Optional[str]
+    kb_item_created_at: Optional[str]
 
 class CategoryInfo(TypedDict):
     """Category structure for knowledge base organization."""
@@ -48,4 +62,40 @@ class KnowledgeBaseItem(TypedDict):
     source_tweet: TweetData
     media_analysis: List[Dict[str, str]]
     created_at: datetime
-    last_updated: datetime 
+    last_updated: datetime
+
+class ProcessingStats:
+    """Statistics for content processing."""
+    def __init__(self):
+        self.processed_count: int = 0
+        self.success_count: int = 0
+        self.error_count: int = 0
+        self.media_processed: int = 0
+        self.categories_processed: int = 0
+        self.readme_generated: bool = False
+        self.processing_times: List[float] = []
+
+    def add_processing_time(self, time_taken: float) -> None:
+        self.processing_times.append(time_taken)
+
+    def get_average_processing_time(self) -> float:
+        if not self.processing_times:
+            return 0.0
+        return sum(self.processing_times) / len(self.processing_times)
+
+    def save_report(self, path: Path) -> None:
+        """Save processing statistics to a JSON file."""
+        report = {
+            "processed_count": self.processed_count,
+            "success_count": self.success_count,
+            "error_count": self.error_count,
+            "media_processed": self.media_processed,
+            "categories_processed": self.categories_processed,
+            "readme_generated": self.readme_generated,
+            "average_processing_time": self.get_average_processing_time(),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as f:
+            json.dump(report, f, indent=2) 

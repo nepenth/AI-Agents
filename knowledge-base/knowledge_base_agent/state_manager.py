@@ -110,12 +110,24 @@ class StateManager:
                     return
                 
                 # Check for required processing steps
-                if not tweet_data.get('media_analysis') and tweet_data.get('media'):
-                    logging.warning(f"Tweet {tweet_id} has unprocessed media")
-                    return
-                    
-                if not tweet_data.get('kb_item_path'):
-                    logging.warning(f"Tweet {tweet_id} missing knowledge base entry")
+                if not all([
+                    # Media processing check (True if no media present)
+                    tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
+                    # Category processing check
+                    tweet_data.get('categories_processed', False),
+                    # Knowledge base item creation check
+                    tweet_data.get('kb_item_created', False),
+                    tweet_data.get('kb_item_path', None)
+                ]):
+                    logging.warning(f"Tweet {tweet_id} has not completed all processing steps")
+                    missing_steps = []
+                    if not tweet_data.get('media_processed', True) and tweet_data.get('media'):
+                        missing_steps.append("media processing")
+                    if not tweet_data.get('categories_processed'):
+                        missing_steps.append("category processing")
+                    if not tweet_data.get('kb_item_created'):
+                        missing_steps.append("knowledge base item creation")
+                    logging.warning(f"Missing steps: {', '.join(missing_steps)}")
                     return
                 
                 # If all checks pass, mark as processed
@@ -197,13 +209,49 @@ class StateManager:
             logging.error(f"Failed to save unprocessed tweets: {e}")
             raise StateManagerError(f"Failed to save unprocessed state: {e}")
 
-    def get_unprocessed_tweets(self) -> List[str]:
+    async def get_unprocessed_tweets(self) -> List[str]:
         """Get list of unprocessed tweet IDs."""
-        return list(self.unprocessed_tweets)
+        unprocessed = []
+        for tweet_id in self.unprocessed_tweets:
+            if not await self.is_tweet_fully_processed(tweet_id):
+                unprocessed.append(tweet_id)
+        return unprocessed
 
-    def is_tweet_processed(self, tweet_id: str) -> bool:
-        """Check if a tweet has been processed."""
-        return tweet_id in self.processed_tweets
+    async def is_tweet_fully_processed(self, tweet_id: str) -> bool:
+        """Check if a tweet has completed all processing steps."""
+        if tweet_id in self.processed_tweets:
+            return True
+        
+        # Get tweet data from cache
+        tweet_data = await self.get_tweet(tweet_id)
+        if not tweet_data:
+            return False
+        
+        # Check all processing steps
+        return all([
+            tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
+            tweet_data.get('categories_processed', False),
+            tweet_data.get('kb_item_created', False),
+            tweet_data.get('kb_item_path', None) is not None
+        ])
+
+    async def get_processing_status(self, tweet_id: str) -> Dict[str, bool]:
+        """Get the processing status of a tweet."""
+        tweet_data = await self.get_tweet(tweet_id)
+        if not tweet_data:
+            return {
+                'media_processed': False,
+                'categories_processed': False,
+                'kb_item_created': False,
+                'fully_processed': False
+            }
+        
+        return {
+            'media_processed': tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
+            'categories_processed': tweet_data.get('categories_processed', False),
+            'kb_item_created': tweet_data.get('kb_item_created', False),
+            'fully_processed': self.is_tweet_fully_processed(tweet_id)
+        }
 
     async def get_tweet(self, tweet_id: str) -> Optional[Dict[str, Any]]:
         """Get tweet data from cache."""
@@ -225,3 +273,4 @@ class StateManager:
             except Exception as e:
                 logging.error(f"Failed to update tweet data for {tweet_id}: {e}")
                 raise StateError(f"Failed to update tweet data: {e}")
+

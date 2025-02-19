@@ -66,6 +66,15 @@ class Config(BaseSettings):
     # Content settings
     max_content_length: int = Field(default=5000, alias="MAX_CONTENT_LENGTH")
     summary_length: int = Field(default=280, alias="SUMMARY_LENGTH")
+    min_content_length: int = Field(default=50, alias="MIN_CONTENT_LENGTH")
+    content_generation_timeout: int = Field(default=300, alias="CONTENT_GENERATION_TIMEOUT")
+    content_retries: int = Field(default=3, alias="CONTENT_RETRIES")
+    
+    # Processing phase settings
+    process_media: bool = Field(default=True, alias="PROCESS_MEDIA")
+    process_categories: bool = Field(default=True, alias="PROCESS_CATEGORIES")
+    process_kb_items: bool = Field(default=True, alias="PROCESS_KB_ITEMS")
+    regenerate_readme: bool = Field(default=True, alias="REGENERATE_README")
     
     # Request settings
     batch_size: int = Field(default=1, alias="BATCH_SIZE")

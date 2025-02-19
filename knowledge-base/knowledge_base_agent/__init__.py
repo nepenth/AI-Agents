@@ -8,7 +8,6 @@ __version__ = "0.1.0"
 
 from .agent import KnowledgeBaseAgent
 from .category_manager import CategoryManager
-from .tweet_processor import TweetProcessor
 from .markdown_writer import MarkdownWriter
 from .state_manager import StateManager
 from .config import Config
@@ -26,7 +25,6 @@ from .exceptions import (
 __all__ = [
     'KnowledgeBaseAgent',
     'CategoryManager',
-    'TweetProcessor',
     'MarkdownWriter',
     'StateManager',
     'Config',

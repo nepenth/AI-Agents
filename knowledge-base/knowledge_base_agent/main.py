@@ -131,10 +131,14 @@ async def main() -> None:
         # Initialize agent
         agent = KnowledgeBaseAgent(config)
         await agent.initialize()
-        
-        # Run agent with preferences
-        logging.info("=== Starting Agent Operations ===")
-        await agent.run(preferences)
+
+        try:
+            # Run your agent operations here
+            logging.info("=== Starting Agent Operations ===")
+            await agent.run(preferences)
+        finally:
+            # Ensure that the HTTP client session is closed
+            await agent.http_client.close()
         
     except Exception as e:
         logging.error(f"Agent execution failed: {str(e)}")
