@@ -57,36 +57,35 @@ async def process_media_content(
     http_client: HTTPClient,
     config: Config
 ) -> Dict[str, Any]:
-    """Process media content including image interpretation."""
+    """Process media content for a tweet."""
     try:
-        # Skip if already processed
         if tweet_data.get('media_processed', False):
             logging.info("Media already processed, skipping...")
             return tweet_data
-            
+
         media_paths = tweet_data.get('downloaded_media', [])
         if not media_paths:
             tweet_data['media_processed'] = True
             return tweet_data
-            
+
         image_descriptions = []
         for media_path in media_paths:
             if not Path(media_path).exists():
                 raise ContentProcessingError(f"Media file not found: {media_path}")
-                
+
             description = await interpret_image(
                 http_client=http_client,
                 image_path=Path(media_path),
                 vision_model=config.vision_model
             )
-            if not description:
-                raise ContentProcessingError(f"Failed to get image description for {media_path}")
-            image_descriptions.append(description)
-            
+            if description:
+                image_descriptions.append(description)
+
+        # Update only media-related fields
         tweet_data['image_descriptions'] = image_descriptions
         tweet_data['media_processed'] = True
         return tweet_data
-        
+
     except Exception as e:
         raise ContentProcessingError(f"Failed to process media content: {e}")
 

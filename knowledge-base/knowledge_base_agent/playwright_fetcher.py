@@ -8,6 +8,18 @@ from pathlib import Path
 import aiohttp
 from knowledge_base_agent.config import Config
 
+async def expand_url(url: str) -> str:
+    """Expand t.co URLs to their final destination."""
+    if not url.startswith("https://t.co/"):
+        return url
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.head(url, allow_redirects=True) as response:
+                return str(response.url)
+        except Exception as e:
+            logging.warning(f"Could not expand {url}: {e}")
+            return url
+
 def get_high_res_url(url: str) -> str:
     """
     Convert a Twitter media URL to request the highest available resolution.
@@ -19,15 +31,16 @@ def get_high_res_url(url: str) -> str:
 
 async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[str, Any]:
     """Fetch tweet data using Playwright."""
+    # Ensure proper URL format
+    if tweet_url.isdigit():
+        tweet_url = f"https://twitter.com/i/web/status/{tweet_url}"
+        
     try:
         logging.info(f"Starting Playwright fetch for tweet {tweet_url}")
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
-            logging.info(f"Navigating to {tweet_url}")
-            
-            # Set shorter timeout for navigation
             await page.goto(tweet_url, timeout=30000)
             
             # Wait for content with shorter timeout
@@ -39,46 +52,69 @@ async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[st
                 logging.warning(f"Timeout waiting for tweet content: {e}")
                 return {"full_text": "", "media": [], "downloaded_media": [], "image_descriptions": [], "urls": []}
             
-            # Get tweet text with timeout
-            try:
-                tweet_text = await page.locator(tweet_selector).first.inner_text(timeout=5000)
-            except Exception as e:
-                logging.warning(f"Failed to get tweet text: {e}")
-                tweet_text = ""
+            # Extract text content
+            text_element = await page.wait_for_selector('article div[data-testid="tweetText"]', timeout=10000)
+            text = await text_element.inner_text() if text_element else ""
+
+            # Extract media with multiple selectors
+            media_urls = []
             
-            # Get images with timeout
-            image_urls = []
-            try:
-                images = await page.locator('article img[src*="/media/"]').all()
+            # Look for all types of tweet images (added 'article picture img')
+            image_selectors = [
+                'article img[src*="https://pbs.twimg.com/media/"]',
+                'article [data-testid="tweetPhoto"] img',
+                'article div[data-testid="tweet"] img[src*="/media/"]',
+                'article picture img'  # Newly added to catch images within <picture> elements
+            ]
+            
+            for selector in image_selectors:
+                images = await page.query_selector_all(selector)
                 for img in images:
-                    src = await img.get_attribute('src', timeout=5000)
-                    if src:
-                        image_urls.append(src)
-            except Exception as e:
-                logging.warning(f"Failed to get images: {e}")
+                    src = await img.get_attribute('src')
+                    if src and not src.endswith('profile_images'):
+                        high_quality_url = re.sub(r'\?.*$', '?format=jpg&name=large', src)
+                        if high_quality_url not in media_urls:  # Avoid duplicates
+                            media_urls.append(high_quality_url)
+                            logging.info(f"Found media URL: {high_quality_url}")
+
+            # Extract URLs - both from link elements and from tweet inner HTML
+            found_urls = []
             
-            await browser.close()
-            logging.info(f"Successfully fetched tweet {tweet_url}")
-            
+            # Get URLs from link elements (use expand_url for t.co links)
+            link_elements = await page.query_selector_all('article a[role="link"]')
+            for link in link_elements:
+                href = await link.get_attribute('href')
+                if href and href.startswith('http'):
+                    if href.startswith("https://t.co/"):
+                        href = await expand_url(href)
+                    if href not in found_urls:
+                        found_urls.append(href)
+                        logging.info(f"Found URL from anchor: {href}")
+
+            # Additional extraction from tweet inner HTML (to catch any missed links)
+            tweet_html = await page.inner_html('article div[data-testid="tweetText"]')
+            html_urls = re.findall(r'href="(https?://[^"]+)"', tweet_html)
+            for href in html_urls:
+                if href.startswith("https://t.co/"):
+                    href = await expand_url(href)
+                if href not in found_urls:
+                    found_urls.append(href)
+                    logging.info(f"Found URL from tweet HTML: {href}")
+
             tweet_data = {
-                "full_text": tweet_text,
-                "media": image_urls,
-                "downloaded_media": [],
-                "image_descriptions": [],
-                "urls": []  # Initialize urls list
+                'full_text': text,
+                'media': media_urls,
+                'urls': found_urls,
+                'downloaded_media': [],
+                'tweet_url': tweet_url,
+                'cache_complete': False
             }
 
-            # Extract URLs from tweet text using regex
-            url_pattern = r'https?://[^\s<>"]+|www\.[^\s<>"]+' 
-            found_urls = re.findall(url_pattern, tweet_text)
-            if found_urls:
-                tweet_data['urls'] = found_urls
-                logging.info(f"Found URLs in tweet: {found_urls}")
-
+            logging.info(f"Found {len(media_urls)} media items and {len(found_urls)} URLs")
             return tweet_data
             
     except Exception as e:
-        logging.error(f"Error in Playwright fetch for tweet {tweet_url}: {e}")
+        logging.error(f"Failed to fetch tweet data: {e}")
         raise
 
 class PlaywrightFetcher:
