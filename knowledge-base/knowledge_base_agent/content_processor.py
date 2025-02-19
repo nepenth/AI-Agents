@@ -376,16 +376,22 @@ class ContentProcessor:
     async def generate_content(self, tweet_data: Dict[str, Any]) -> str:
         """Generate knowledge base content from tweet data."""
         try:
-            # Prepare context including tweet text and any media descriptions
-            if isinstance(tweet_data, str):
-                context = f"Tweet: {tweet_data}\n\n"
-            else:
-                context = f"Tweet: {tweet_data.get('text', '')}\n\n"
-                if tweet_data.get('media'):
-                    context += "Media:\n"
-                    for i, media in enumerate(tweet_data['media'], 1):
-                        if isinstance(media, dict) and media.get('alt_text'):
-                            context += f"{i}. {media['alt_text']}\n"
+            # Prepare context including tweet text, URLs, and media descriptions
+            context = f"Tweet: {tweet_data.get('text', '')}\n\n"
+            
+            # Add URLs if present
+            if tweet_data.get('urls'):
+                context += "Related Links:\n"
+                for url in tweet_data['urls']:
+                    context += f"- {url}\n"
+                context += "\n"
+            
+            # Add media descriptions if present
+            if tweet_data.get('media'):
+                context += "Media:\n"
+                for i, media in enumerate(tweet_data['media'], 1):
+                    if isinstance(media, dict) and media.get('alt_text'):
+                        context += f"{i}. {media['alt_text']}\n"
 
             prompt = (
                 f"Based on this content:\n\n{context}\n\n"
@@ -393,7 +399,7 @@ class ContentProcessor:
                 "1. Explains the main technical concepts\n"
                 "2. Provides relevant code examples if applicable\n"
                 "3. Lists key points and takeaways\n"
-                "4. Includes relevant technical details\n"
+                "4. Includes relevant technical details and references\n"
                 "\nFormat in Markdown with proper headers and sections."
             )
 
@@ -424,6 +430,7 @@ class ContentProcessor:
         """Create a complete knowledge base item from tweet data."""
         try:
             tweet_text = tweet_data.get('full_text', tweet_data.get('text', ''))
+            urls = tweet_data.get('urls', [])
             if not tweet_text:
                 raise ContentGenerationError("No text content found in tweet {}".format(tweet_id))
             
@@ -438,9 +445,11 @@ class ContentProcessor:
             }
             
             try:
+                # Include URLs in the context
                 context = {
                     'id': tweet_id,
                     'text': tweet_text,
+                    'urls': urls,  # Add URLs to context
                     'media': tweet_data.get('media', []),
                     'image_descriptions': tweet_data.get('image_descriptions', [])
                 }
@@ -448,7 +457,7 @@ class ContentProcessor:
             except Exception as e:
                 logging.error(f"Content generation failed for tweet {tweet_id}: {str(e)}")
                 # Use a simplified content if generation fails
-                content = f"Original Tweet: {tweet_text}"
+                content = f"Original Tweet: {tweet_text}\n\nRelevant Links:\n" + "\n".join(urls)
             
             # Create KB item with whatever content we have
             kb_item = KnowledgeBaseItem(
@@ -464,7 +473,8 @@ class ContentProcessor:
                     'id': tweet_id,
                     'text': tweet_text,
                     'url': tweet_data.get('tweet_url', ''),
-                    'media': tweet_data.get('media', [])
+                    'media': tweet_data.get('media', []),
+                    'urls': urls  # Add URLs to source information
                 },
                 media_analysis=tweet_data.get('image_descriptions', []),
                 created_at=datetime.now(),
@@ -624,43 +634,54 @@ class ContentProcessor:
         cached_tweets = await self.state_manager.get_all_tweets()
         
         for tweet_id in tweet_ids:
-            # Skip if tweet is already fully cached
-            if tweet_id in cached_tweets and cached_tweets[tweet_id].get('cache_complete', False):
-                logging.debug(f"Tweet {tweet_id} already fully cached, skipping...")
-                continue
-            
             try:
-                tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
-                tweet_data = await fetch_tweet_data_playwright(tweet_url, self.config)
-                
-                if tweet_data:
-                    # Download media if present
-                    if 'media' in tweet_data:
-                        media_dir = Path(self.config.media_cache_dir) / tweet_id
-                        media_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        media_paths = []
-                        for idx, media_item in enumerate(tweet_data['media']):
-                            if isinstance(media_item, str):
-                                url = media_item
-                            else:
-                                url = media_item.get('url', '')
-                                
-                            if url:
-                                media_path = media_dir / f"media_{idx}{Path(url).suffix}"
+                # Check if tweet exists and is fully cached
+                existing_tweet = cached_tweets.get(tweet_id, {})
+                if existing_tweet and existing_tweet.get('cache_complete', False):
+                    logging.info(f"Tweet {tweet_id} already fully cached, skipping...")
+                    continue
+
+                # If we have partial data, preserve it
+                if existing_tweet:
+                    logging.info(f"Found partial cache for tweet {tweet_id}, completing cache...")
+                    tweet_data = existing_tweet
+                else:
+                    # Fetch new tweet data
+                    tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
+                    tweet_data = await fetch_tweet_data_playwright(tweet_url, self.config)
+                    if not tweet_data:
+                        logging.error(f"Failed to fetch tweet {tweet_id}")
+                        continue
+
+                # Download media if present and not already downloaded
+                if 'media' in tweet_data and not tweet_data.get('downloaded_media'):
+                    media_dir = Path(self.config.media_cache_dir) / tweet_id
+                    media_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    media_paths = []
+                    for idx, media_item in enumerate(tweet_data['media']):
+                        if isinstance(media_item, str):
+                            url = media_item
+                        else:
+                            url = media_item.get('url', '')
+                            
+                        if url:
+                            media_path = media_dir / f"media_{idx}{Path(url).suffix}"
+                            if not media_path.exists():  # Only download if file doesn't exist
                                 await self.http_client.download_media(url, media_path)
-                                media_paths.append(str(media_path))
-                        
-                        tweet_data['downloaded_media'] = media_paths
+                            media_paths.append(str(media_path))
                     
-                    # Mark as fully cached
-                    tweet_data['cache_complete'] = True
-                    await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                    logging.info(f"Successfully cached tweet {tweet_id} and its media")
-                    
+                    tweet_data['downloaded_media'] = media_paths
+
+                # Mark as fully cached and save
+                tweet_data['cache_complete'] = True
+                await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                logging.info(f"Successfully cached tweet {tweet_id} and its media")
+                
             except Exception as e:
                 logging.error(f"Failed to cache tweet {tweet_id}: {e}")
-                raise ContentProcessingError(f"Failed to cache tweet {tweet_id}: {e}")
+                # Don't raise here, continue with next tweet
+                continue
 
     async def _count_media_items(self) -> int:
         """Count total number of media items to process."""

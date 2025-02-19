@@ -26,57 +26,34 @@ class StateManager:
         self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
-        """Initialize state from files and update unprocessed tweets from bookmarks."""
+        """Initialize state from files."""
+        logging.info("Starting state manager initialization")
         try:
-            logging.info("Starting state manager initialization")
-            
-            # Ensure unprocessed tweets file exists
-            try:
-                if not self.unprocessed_file.parent.exists():
-                    logging.debug(f"Creating directory: {self.unprocessed_file.parent}")
-                    self.unprocessed_file.parent.mkdir(parents=True, exist_ok=True)
-                
-                if not self.unprocessed_file.exists():
-                    logging.debug(f"Creating file at: {self.unprocessed_file}")
-                    await async_write_text("[]", str(self.unprocessed_file))
-                
-                # Ensure processed tweets file exists
-                if not self.processed_file.exists():
-                    logging.debug(f"Creating file at: {self.processed_file}")
-                    await async_write_text("[]", str(self.processed_file))
-                
-            except Exception as e:
-                logging.exception("Failed during file creation")
-                raise StateError(f"Failed to create state files: {str(e)}")
-            
-            # Load processed tweets
-            logging.debug("Loading processed tweets")
-            processed_data = await async_json_load(self.processed_file, default=[])
-            self.processed_tweets = dict.fromkeys(processed_data, True)
-            
-            # Load current unprocessed tweets
-            logging.debug("Loading unprocessed tweets")
-            unprocessed_data = await async_json_load(self.unprocessed_file, default=[])
-            self.unprocessed_tweets = set(unprocessed_data)
-            
-            # Load tweet cache
+            # Load tweet cache first
             if Path(self.config.tweet_cache_file).exists():
-                cache_data = await async_json_load(self.config.tweet_cache_file)
-                if isinstance(cache_data, dict):
-                    self.tweet_cache = cache_data
+                self.tweet_cache = await async_json_load(self.config.tweet_cache_file) or {}
+                logging.info(f"Loaded {len(self.tweet_cache)} cached tweets")
+
+            # Load unprocessed tweets
+            if Path(self.config.unprocessed_tweets_file).exists():
+                data = await async_json_load(self.config.unprocessed_tweets_file)
+                if isinstance(data, list):
+                    # Only add tweets that aren't already fully cached
+                    self.unprocessed_tweets = {
+                        tweet_id for tweet_id in data 
+                        if tweet_id not in self.tweet_cache or 
+                        not self.tweet_cache[tweet_id].get('cache_complete', False)
+                    }
+                    logging.info(f"Added {len(self.unprocessed_tweets)} new tweets to process")
                 else:
-                    logging.warning("Tweet cache has invalid format, initializing empty cache")
-                    self.tweet_cache = {}
-            
-            # Read bookmarks and update unprocessed tweets
-            await self.update_from_bookmarks()
-            
-            self._initialized = True
+                    logging.error("Unprocessed tweets file has invalid format")
+                    self.unprocessed_tweets = set()
+
             logging.info("State manager initialization complete")
             
         except Exception as e:
-            logging.error(f"Failed to initialize state manager: {e}")
-            raise StateManagerError(f"State manager initialization failed: {e}")
+            logging.error(f"Failed to initialize state: {e}")
+            raise
 
     async def _atomic_write_json(self, data: Dict[str, Any], filepath: Path) -> None:
         """Write JSON data atomically using a temporary file."""

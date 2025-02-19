@@ -16,18 +16,13 @@ class HTTPClient:
     
     def __init__(self, config: Config):
         self.config = config
-        self.session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
-        )
+        self.session = None
         self.initialized = False
-        # Convert HttpUrl to string and ensure it's properly formatted
         self.base_url = str(self.config.ollama_url).rstrip('/')
-        # Get configuration values
         self.timeout = config.request_timeout
         self.max_retries = self.config.max_retries
         self.batch_size = self.config.batch_size
         self.max_concurrent = self.config.max_concurrent_requests
-        # Semaphore for controlling concurrent requests
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
         logging.info(f"Initializing HTTPClient with Ollama URL: {self.base_url}")
         logging.info(f"Settings: timeout={self.timeout}s, max_retries={self.max_retries}, "
@@ -36,7 +31,9 @@ class HTTPClient:
     async def initialize(self):
         """Initialize the HTTP client session."""
         if not self.initialized:
-            self.session = aiohttp.ClientSession()
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=self.timeout)
+            )
             self.initialized = True
             logging.info("HTTPClient session initialized")
         
@@ -164,12 +161,13 @@ class HTTPClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10)
     )
-    async def get(self, url: str, **kwargs) -> httpx.Response:
+    async def get(self, url: str, **kwargs) -> Any:
         """Make GET request with retry logic."""
         try:
-            response = await self._client.get(url, **kwargs)
-            response.raise_for_status()
-            return response
+            await self.ensure_session()
+            async with self.session.get(url, **kwargs) as response:
+                response.raise_for_status()
+                return await response.json()
         except Exception as e:
             logging.error(f"HTTP GET failed for {url}: {str(e)}")
             raise NetworkError(f"Failed to fetch {url}") from e
@@ -178,12 +176,13 @@ class HTTPClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10)
     )
-    async def post(self, url: str, **kwargs) -> httpx.Response:
+    async def post(self, url: str, **kwargs) -> Any:
         """Make POST request with retry logic."""
         try:
-            response = await self._client.post(url, **kwargs)
-            response.raise_for_status()
-            return response
+            await self.ensure_session()
+            async with self.session.post(url, **kwargs) as response:
+                response.raise_for_status()
+                return await response.json()
         except Exception as e:
             logging.error(f"HTTP POST failed for {url}: {str(e)}")
             raise NetworkError(f"Failed to post to {url}") from e
@@ -195,12 +194,12 @@ class HTTPClient:
     async def download_media(self, url: str, output_path: Path) -> None:
         """Download media from URL to specified path."""
         try:
-            await self.ensure_client()  # Ensure client is initialized
-            async with self._client.stream('GET', url) as response:
+            await self.ensure_session()
+            async with self.session.get(url) as response:
                 response.raise_for_status()
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 async with aiofiles.open(output_path, 'wb') as f:
-                    async for chunk in response.aiter_bytes():
+                    async for chunk in response.content.iter_chunked(8192):
                         await f.write(chunk)
         except Exception as e:
             logging.error(f"Failed to download media from {url}: {str(e)}")
