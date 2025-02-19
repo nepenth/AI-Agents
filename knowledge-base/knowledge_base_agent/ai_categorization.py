@@ -82,17 +82,11 @@ async def categorize_and_name_content(
 
     for attempt in range(max_retries):
         try:
-            response = await http_client.post(
-                f"{http_client.config.ollama_url}/api/generate",
-                json={
-                    "prompt": prompt_text,
-                    "model": text_model,
-                    "stream": False,
-                    "temperature": 0.5,  # Lowered for more deterministic output
-                    "max_tokens": 100
-                }
+            raw_response = await http_client.ollama_generate(
+                model=text_model,
+                prompt=prompt_text,
+                temperature=0.5,  # Lowered for more deterministic output
             )
-            raw_response = response.json().get("response", "").strip()
             if not raw_response:
                 raise ValueError("Empty response from AI model")
 

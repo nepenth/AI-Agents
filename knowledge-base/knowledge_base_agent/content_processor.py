@@ -313,12 +313,16 @@ class ContentProcessor:
         """Generate knowledge base content from tweet data."""
         try:
             # Prepare context including tweet text and any media descriptions
-            context = f"Tweet: {tweet_data['text']}\n\n"
-            if tweet_data.get('media'):
-                context += "Media:\n"
-                for i, media in enumerate(tweet_data['media'], 1):
-                    if media.get('alt_text'):
-                        context += f"{i}. {media['alt_text']}\n"
+            if isinstance(tweet_data, dict):
+                context = f"Tweet: {tweet_data.get('text', '')}\n\n"
+                if tweet_data.get('media'):
+                    context += "Media:\n"
+                    for i, media in enumerate(tweet_data['media'], 1):
+                        if media.get('alt_text'):
+                            context += f"{i}. {media['alt_text']}\n"
+            else:
+                # Handle case where tweet_data is a string
+                context = f"Tweet: {tweet_data}\n\n"
 
             prompt = (
                 f"Based on this content:\n\n{context}\n\n"
