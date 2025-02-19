@@ -19,8 +19,9 @@ class StateManager:
         self.processed_file = config.processed_tweets_file
         self.unprocessed_file = config.unprocessed_tweets_file
         self.bookmarks_file = config.bookmarks_file
-        self.processed_tweets: Set[str] = set()
+        self.processed_tweets: Dict[str, Any] = {}
         self.unprocessed_tweets: Set[str] = set()
+        self.tweet_cache: Dict[str, Any] = {}
         self._initialized = False
         self._lock = asyncio.Lock()
 
@@ -51,12 +52,21 @@ class StateManager:
             # Load processed tweets
             logging.debug("Loading processed tweets")
             processed_data = await async_json_load(self.processed_file, default=[])
-            self.processed_tweets = set(processed_data)
+            self.processed_tweets = dict.fromkeys(processed_data, True)
             
             # Load current unprocessed tweets
             logging.debug("Loading unprocessed tweets")
             unprocessed_data = await async_json_load(self.unprocessed_file, default=[])
             self.unprocessed_tweets = set(unprocessed_data)
+            
+            # Load tweet cache
+            if Path(self.config.tweet_cache_file).exists():
+                cache_data = await async_json_load(self.config.tweet_cache_file)
+                if isinstance(cache_data, dict):
+                    self.tweet_cache = cache_data
+                else:
+                    logging.warning("Tweet cache has invalid format, initializing empty cache")
+                    self.tweet_cache = {}
             
             # Read bookmarks and update unprocessed tweets
             await self.update_from_bookmarks()
@@ -95,10 +105,10 @@ class StateManager:
             if self.config.processed_tweets_file.exists():
                 async with aiofiles.open(self.config.processed_tweets_file, 'r') as f:
                     content = await f.read()
-                    self.processed_tweets = set(json.loads(content))
+                    self.processed_tweets = dict.fromkeys(json.loads(content), True)
         except Exception as e:
             logging.error(f"Failed to load processed tweets: {e}")
-            self.processed_tweets = set()
+            self.processed_tweets = {}
 
     async def mark_tweet_processed(self, tweet_id: str, tweet_data: Dict[str, Any] = None) -> None:
         """Mark a tweet as processed and update both sets."""
@@ -131,12 +141,12 @@ class StateManager:
                     return
                 
                 # If all checks pass, mark as processed
-                self.processed_tweets.add(tweet_id)
+                self.processed_tweets[tweet_id] = True
                 self.unprocessed_tweets.discard(tweet_id)
                 
                 # Save both states
                 await self._atomic_write_json(
-                    list(self.processed_tweets),
+                    list(self.processed_tweets.keys()),
                     self.config.processed_tweets_file
                 )
                 await self._atomic_write_json(
@@ -157,7 +167,7 @@ class StateManager:
     async def get_unprocessed_tweets(self, all_tweets: Set[str]) -> Set[str]:
         """Get set of unprocessed tweets."""
         async with self._lock:
-            return all_tweets - self.processed_tweets
+            return all_tweets - set(self.processed_tweets.keys())
 
     async def clear_state(self) -> None:
         """Clear all state (useful for testing or reset)."""
@@ -256,21 +266,17 @@ class StateManager:
     async def get_tweet(self, tweet_id: str) -> Optional[Dict[str, Any]]:
         """Get tweet data from cache."""
         try:
-            cache_data = await async_json_load(self.config.tweet_cache_file)
-            return cache_data.get(tweet_id)
+            return self.tweet_cache.get(tweet_id)
         except Exception as e:
             logging.error(f"Failed to get tweet {tweet_id} from cache: {e}")
             return None
 
     async def update_tweet_data(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
-        """Update tweet data in the cache file."""
-        async with self._lock:
-            try:
-                cache_data = await async_json_load(self.config.tweet_cache_file)
-                cache_data[tweet_id] = tweet_data
-                await async_json_dump(cache_data, self.config.tweet_cache_file)
-                logging.debug(f"Updated tweet data for {tweet_id}")
-            except Exception as e:
-                logging.error(f"Failed to update tweet data for {tweet_id}: {e}")
-                raise StateError(f"Failed to update tweet data: {e}")
+        """Update tweet data in cache."""
+        self.tweet_cache[tweet_id] = tweet_data
+        await async_json_dump(self.tweet_cache, self.config.tweet_cache_file)
+
+    async def get_all_tweets(self) -> Dict[str, Any]:
+        """Get all tweets from cache."""
+        return self.tweet_cache
 
