@@ -12,7 +12,6 @@ import time
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import AgentError
 from knowledge_base_agent.state_manager import StateManager
-from knowledge_base_agent.tweet_processor import TweetProcessor
 from knowledge_base_agent.git_helper import GitSyncHandler
 from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
 from knowledge_base_agent.markdown_writer import MarkdownWriter, generate_root_readme
@@ -81,7 +80,6 @@ class KnowledgeBaseAgent:
         self.config = config
         self.state_manager = StateManager(config)
         self.http_client = HTTPClient(config)  # Create single HTTPClient instance
-        self.tweet_processor = TweetProcessor(config, self.http_client)  # Pass http_client
         self.content_processor = ContentProcessor(self.http_client)  # Pass same http_client
         self.markdown_writer = MarkdownWriter(config)
         self.category_manager = CategoryManager(config)
