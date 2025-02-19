@@ -243,7 +243,7 @@ class ContentProcessor:
             logging.error(f"Tweet data keys available: {list(tweet_data.keys()) if isinstance(tweet_data, dict) else 'Invalid data'}")
             raise KnowledgeBaseItemCreationError(error_msg)
 
-    async def generate_categories(self, tweet_text: str) -> CategoryInfo:
+    async def generate_categories(self, tweet_text: str, tweet_id: str) -> CategoryInfo:
         """Generate category information from tweet text."""
         try:
             prompt = (
@@ -313,16 +313,15 @@ class ContentProcessor:
         """Generate knowledge base content from tweet data."""
         try:
             # Prepare context including tweet text and any media descriptions
-            if isinstance(tweet_data, dict):
+            if isinstance(tweet_data, str):
+                context = f"Tweet: {tweet_data}\n\n"
+            else:
                 context = f"Tweet: {tweet_data.get('text', '')}\n\n"
                 if tweet_data.get('media'):
                     context += "Media:\n"
                     for i, media in enumerate(tweet_data['media'], 1):
-                        if media.get('alt_text'):
+                        if isinstance(media, dict) and media.get('alt_text'):
                             context += f"{i}. {media['alt_text']}\n"
-            else:
-                # Handle case where tweet_data is a string
-                context = f"Tweet: {tweet_data}\n\n"
 
             prompt = (
                 f"Based on this content:\n\n{context}\n\n"
@@ -336,7 +335,6 @@ class ContentProcessor:
 
             logging.debug(f"Sending content generation prompt: {prompt[:200]}...")
             
-            # Use the ollama_generate method
             content = await self.http_client.ollama_generate(
                 model=self.text_model,
                 prompt=prompt
@@ -345,7 +343,6 @@ class ContentProcessor:
             if not content:
                 raise ContentGenerationError("Generated content is empty")
             
-            # Basic content validation
             if len(content.strip()) < 50:
                 raise ContentGenerationError("Generated content is too short")
             
@@ -361,7 +358,8 @@ class ContentProcessor:
 
     async def create_knowledge_base_item(self, tweet_data: TweetData) -> KnowledgeBaseItem:
         """Create a complete knowledge base item from tweet data."""
-        tweet_id = tweet_data.get('id_str', tweet_data.get('id', 'unknown'))
+        # Get tweet ID more reliably
+        tweet_id = str(tweet_data.get('id_str') or tweet_data.get('id') or 'unknown')
         logging.info(f"Starting create_knowledge_base_item for tweet {tweet_id}")
         
         try:
@@ -374,7 +372,7 @@ class ContentProcessor:
             
             # Generate categories
             try:
-                category_info = await self.generate_categories(tweet_text)
+                category_info = await self.generate_categories(tweet_text, tweet_id)  # Pass tweet_id here
                 logging.info(f"Generated categories for tweet {tweet_id}: {category_info}")
             except Exception as e:
                 logging.error(f"Category generation failed for tweet {tweet_id}: {str(e)}")
@@ -383,6 +381,7 @@ class ContentProcessor:
             # Generate content
             try:
                 context = {
+                    'id': tweet_id,  # Add tweet ID to context
                     'text': tweet_text,
                     'media': tweet_data.get('media', []),
                     'image_descriptions': tweet_data.get('image_descriptions', [])
@@ -425,3 +424,4 @@ class ContentProcessor:
             logging.error(error_msg)
             logging.error(f"Available tweet data keys: {list(tweet_data.keys())}")
             raise KnowledgeBaseItemCreationError(error_msg) 
+        
