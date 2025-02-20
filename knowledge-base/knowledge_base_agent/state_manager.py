@@ -143,10 +143,11 @@ class StateManager:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
                 raise StateError(f"Failed to update processing state: {e}")
 
-    async def get_unprocessed_tweets(self, all_tweets: Set[str]) -> Set[str]:
-        """Get set of unprocessed tweets."""
-        async with self._lock:
-            return all_tweets - set(self._processed_tweets.keys())
+    async def get_unprocessed_tweets(self) -> List[str]:
+        """Get list of unprocessed tweet IDs."""
+        if not self._initialized:
+            await self.initialize()
+        return list(self._unprocessed_tweets)
 
     async def clear_state(self) -> None:
         """Clear all state (useful for testing or reset)."""

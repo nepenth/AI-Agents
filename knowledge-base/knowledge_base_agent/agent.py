@@ -80,9 +80,9 @@ class KnowledgeBaseAgent:
         """Initialize the agent with configuration."""
         self.config = config
         self.http_client = HTTPClient(config)
+        self.category_manager = CategoryManager(config, http_client=self.http_client)
+        self.content_processor = ContentProcessor(config, http_client=self.http_client)
         self.state_manager = StateManager(config)
-        self.content_processor = ContentProcessor(config=config, http_client=self.http_client)
-        self.category_manager = CategoryManager(config)
         self._processing_lock = asyncio.Lock()
         self.git_handler = None  # Initialize only when needed
         self.stats = ProcessingStats(start_time=datetime.now())
