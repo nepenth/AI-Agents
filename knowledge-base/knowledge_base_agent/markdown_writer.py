@@ -1,7 +1,7 @@
+from datetime import datetime
 import re
 import shutil
 import uuid
-import datetime
 import logging
 from pathlib import Path
 from .naming_utils import safe_directory_name
@@ -190,31 +190,32 @@ class MarkdownWriter:
         media_descriptions: List[str] = None
     ) -> str:
         """Generate markdown content with proper formatting."""
-        parts = [
-            f"# {item['title']}\n",
-            f"## Description\n{item['description']}\n",
-            f"## Content\n{item['content']}\n",
-            "## Category Information\n",
-            f"- Main Category: {item['category_info']['main_category']}",
-            f"- Sub Category: {item['category_info']['sub_category']}",
-            f"- Item Name: {item['category_info']['item_name']}\n",
-            "## Source\n",
-            f"- Original Tweet: [{item['source_tweet']['url']}]({item['source_tweet']['url']})",
-            f"- Author: {item['source_tweet']['author']}",
-            f"- Date: {item['source_tweet']['created_at'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-        ]
+        # The content is already in markdown format from the LLM
+        content = item.content
 
+        # Add source information
+        source_section = [
+            "\n## Source\n",
+            f"- Original Tweet: [{item.source_tweet['url']}]({item.source_tweet['url']})",
+            f"- Date: {item.source_tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+        ]
+        
+        # Add media section if present
+        media_section = []
         if media_files and media_descriptions:
-            parts.append("## Media\n")
+            media_section.append("\n## Media\n")
             for idx, (media, desc) in enumerate(zip(media_files, media_descriptions), 1):
-                parts.extend([
+                media_section.extend([
                     f"### Media {idx}",
                     f"![{media.stem}](./{media.name})",
                     f"**Description:** {desc}\n"
                 ])
-
-        parts.append(f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
-        return "\n".join(parts)
+        
+        # Add last updated timestamp
+        timestamp = f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
+        
+        # Combine all sections
+        return content + '\n'.join(source_section + media_section) + timestamp
 
     async def _copy_media_files(self, media_files: List[Path], target_dir: Path) -> None:
         """Copy media files to target directory."""
@@ -351,30 +352,124 @@ async def write_markdown_content(
         raise MarkdownGenerationError(f"Failed to write markdown content: {e}")
 
 async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) -> None:
-    """Generate root README.md with category structure."""
+    """Generate comprehensive root README.md with knowledge base structure."""
     try:
+        # Get all knowledge base items
+        kb_items = []
+        for main_cat in kb_dir.iterdir():
+            if not main_cat.is_dir() or main_cat.name.startswith('.'):
+                continue
+                
+            for sub_cat in main_cat.iterdir():
+                if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
+                    continue
+                    
+                for item_dir in sub_cat.iterdir():
+                    if not item_dir.is_dir() or item_dir.name.startswith('.'):
+                        continue
+                    
+                    readme_path = item_dir / "README.md"
+                    if readme_path.exists():
+                        kb_items.append({
+                            'main_category': main_cat.name,
+                            'sub_category': sub_cat.name,
+                            'item_name': item_dir.name,
+                            'path': readme_path.relative_to(kb_dir),
+                            'description': await get_item_description(readme_path)
+                        })
+
+        # Organize items by category
+        categories = {}
+        for item in kb_items:
+            main_cat = item['main_category']
+            sub_cat = item['sub_category']
+            
+            if main_cat not in categories:
+                categories[main_cat] = {'description': category_manager.get_category_description(main_cat), 'subcategories': {}}
+            
+            if sub_cat not in categories[main_cat]['subcategories']:
+                categories[main_cat]['subcategories'][sub_cat] = []
+                
+            categories[main_cat]['subcategories'][sub_cat].append(item)
+
+        # Generate markdown content
         content = [
-            "# Knowledge Base\n",
-            "\nAutomatically generated knowledge base from curated tweets.\n",
-            "\n## Categories\n"
+            "# Technical Knowledge Base\n",
+            "Welcome to our curated technical knowledge base! This repository contains a collection of technical articles, guides, and resources organized by category.\n",
+            f"\n## Overview\n",
+            f"- Total Knowledge Base Items: {len(kb_items)}",
+            f"- Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"- Categories: {len(categories)}",
+            f"- Subcategories: {sum(len(cat['subcategories']) for cat in categories.values())}\n",
+            "\n## Quick Links\n"
         ]
-        
-        # Add category structure
-        for main_cat, details in category_manager.categories.items():
-            content.append(f"\n### {main_cat}\n")
-            if 'description' in details:
-                content.append(f"\n{details['description']}\n")
-            if 'subcategories' in details:
-                for sub_cat in sorted(details['subcategories']):
-                    content.append(f"\n- {sub_cat}\n")
-        
+
+        # Add table of contents
+        for main_cat in sorted(categories.keys()):
+            content.append(f"- [{main_cat.replace('_', ' ').title()}](#{main_cat})")
+            for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
+                content.append(f"  - [{sub_cat.replace('_', ' ').title()}](#{main_cat}-{sub_cat})")
+
+        # Add detailed category sections
+        content.append("\n## Categories\n")
+        for main_cat in sorted(categories.keys()):
+            cat_data = categories[main_cat]
+            content.extend([
+                f"\n### {main_cat.replace('_', ' ').title()} {{{main_cat}}}\n",
+                f"{cat_data['description']}\n" if cat_data['description'] else "",
+                f"*Number of items: {sum(len(items) for items in cat_data['subcategories'].values())}*\n"
+            ])
+
+            # Add subcategories
+            for sub_cat in sorted(cat_data['subcategories'].keys()):
+                items = cat_data['subcategories'][sub_cat]
+                content.extend([
+                    f"\n#### {sub_cat.replace('_', ' ').title()} {{{main_cat}-{sub_cat}}}\n",
+                    "*Items in this category:*\n"
+                ])
+
+                # Add items table
+                content.extend([
+                    "| Item | Description |",
+                    "|------|-------------|"
+                ])
+                
+                for item in sorted(items, key=lambda x: x['item_name']):
+                    name = item['item_name'].replace('-', ' ').title()
+                    desc = item['description'].replace('\n', ' ').strip()
+                    path = item['path']
+                    content.append(f"| [{name}]({path}) | {desc} |")
+                content.append("")
+
         # Write README
         readme_path = kb_dir / "README.md"
         async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
-            await f.write(''.join(content))
+            await f.write('\n'.join(content))
             
-        logging.info("Generated root README.md")
+        logging.info("Generated comprehensive root README.md")
         
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
         raise MarkdownGenerationError(f"Failed to generate root README: {e}")
+
+async def get_item_description(readme_path: Path) -> str:
+    """Extract description from a knowledge base item's README."""
+    try:
+        async with aiofiles.open(readme_path, 'r', encoding='utf-8') as f:
+            content = await f.read()
+            
+        # Look for description section
+        desc_match = re.search(r'^## Description\s*\n(.*?)(?=\n#|$)', content, re.MULTILINE | re.DOTALL)
+        if desc_match:
+            return desc_match.group(1).strip()[:200] + "..."  # Truncate long descriptions
+        
+        # Fallback to first non-empty paragraph after title
+        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+        if len(paragraphs) > 1:
+            return paragraphs[1][:200] + "..."
+            
+        return "No description available"
+        
+    except Exception as e:
+        logging.warning(f"Failed to get description from {readme_path}: {e}")
+        return "Description unavailable"
