@@ -18,7 +18,7 @@ from knowledge_base_agent.progress import ProcessingStats
 from knowledge_base_agent.prompts import UserPreferences
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright, expand_url  # Added expand_url import
 from dataclasses import dataclass
-from knowledge_base_agent.markdown_writer import generate_root_readme
+from knowledge_base_agent.markdown_writer import generate_root_readme, MarkdownWriter
 
 @dataclass
 class ProcessingStats:
@@ -481,6 +481,21 @@ class ContentProcessor:
                 last_updated=datetime.now()
             )
 
+            # Create the markdown writer instance
+            markdown_writer = MarkdownWriter(config)
+            
+            # Get media files and descriptions
+            media_files = [Path(p) for p in tweet_data.get('downloaded_media', [])]
+            media_descriptions = tweet_data.get('image_descriptions', [])
+
+            # Write the KB item and get the path
+            kb_path = await markdown_writer.write_kb_item(
+                item=kb_item,
+                media_files=media_files,
+                media_descriptions=media_descriptions,
+                root_dir=Path(config.knowledge_base_dir)
+            )
+
             # Update tweet data with KB creation status
             tweet_data['kb_item_created'] = True
             tweet_data['kb_item_path'] = str(Path(
@@ -489,6 +504,7 @@ class ContentProcessor:
                 sub_cat,
                 f"{item_name}.md"
             ))
+            await self.state_manager.update_tweet_data(tweet_id, tweet_data)
 
             # Add directory creation before file write
             kb_dir = Path("kb-generated")
@@ -503,8 +519,9 @@ class ContentProcessor:
             return kb_item
 
         except Exception as e:
-            logging.error(f"Failed to create knowledge base item for tweet {tweet_id}: {e}")
-            raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item: {e}")
+            error_msg = f"Failed to create knowledge base entry for tweet {tweet_id}: {str(e)}"
+            logging.error(error_msg)
+            raise KnowledgeBaseItemCreationError(error_msg)
 
     async def process_media(self, tweet_data: Dict[str, Any]) -> None:
         """Process media content for a tweet."""

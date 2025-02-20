@@ -132,36 +132,55 @@ class MarkdownWriter:
         self,
         item: KnowledgeBaseItem,
         media_files: List[Path] = None,
-        media_descriptions: List[str] = None
+        media_descriptions: List[str] = None,
+        root_dir: Path = None
     ) -> None:
         """Write knowledge base item to markdown with media."""
         try:
+            # Create KB path using existing utility
             kb_path = create_kb_path(
-                item['category_info']['category'],
-                item['category_info']['subcategory'],
-                item['title']
+                item.category_info.main_category,
+                item.category_info.sub_category,
+                item.title
             )
-            
-            # Create temp directory for atomic writes
+            if root_dir:
+                kb_path = root_dir / kb_path
+
+            # Create temp directory for atomic operations
             temp_dir = kb_path.with_suffix('.temp')
-            await self.dir_manager.ensure_directory(temp_dir)
+            temp_dir.mkdir(parents=True, exist_ok=True)
 
-            # Generate and write content
-            content = self._generate_content(item, media_files, media_descriptions)
-            await async_write_text(content, temp_dir / "README.md")
+            try:
+                # Generate content using existing method
+                content = self._generate_content(
+                    item=item,
+                    media_files=media_files,
+                    media_descriptions=media_descriptions
+                )
 
-            # Copy media files if present
-            if media_files:
-                await self._copy_media_files(media_files, temp_dir)
+                # Write markdown file
+                readme_path = temp_dir / "README.md"
+                async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
+                    await f.write(content)
 
-            # Atomic directory rename
-            if kb_path.exists():
-                kb_path.unlink()
-            temp_dir.rename(kb_path)
+                # Copy media files if they exist
+                if media_files:
+                    await self._copy_media_files(media_files, temp_dir)
+
+                # Atomic directory rename
+                if kb_path.exists():
+                    shutil.rmtree(kb_path)
+                temp_dir.rename(kb_path)
+
+                return str(kb_path / "README.md")
+
+            except Exception as e:
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir)
+                raise
 
         except Exception as e:
-            if temp_dir.exists():
-                temp_dir.unlink()
+            logging.error(f"Failed to write KB item: {e}")
             raise MarkdownGenerationError(f"Failed to write KB item: {e}")
 
     def _generate_content(
