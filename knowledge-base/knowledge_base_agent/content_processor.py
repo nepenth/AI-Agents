@@ -33,7 +33,8 @@ async def categorize_and_name_content(
     text: str,
     text_model: str,
     tweet_id: str,
-    category_manager: CategoryManager
+    category_manager: CategoryManager,
+    http_client: HTTPClient
 ) -> Tuple[str, str, str]:
     """Categorize content and generate item name."""
     try:
@@ -41,7 +42,11 @@ async def categorize_and_name_content(
         main_cat, sub_cat = await category_manager.classify_content(
             text=text,
             tweet_id=tweet_id
-        )  # Remove the model parameter
+        )
+
+        # Normalize categories
+        main_cat = main_cat.lower().replace(' ', '_')
+        sub_cat = sub_cat.lower().replace(' ', '_')
         
         # Generate item name
         item_name = await category_manager.generate_item_name(
@@ -51,19 +56,11 @@ async def categorize_and_name_content(
             tweet_id=tweet_id
         )
         
-        # Normalize categories
-        main_cat = main_cat.lower().replace(' ', '_')
-        sub_cat = sub_cat.lower().replace(' ', '_')
-        
         # Ensure category exists
         if not category_manager.category_exists(main_cat, sub_cat):
             category_manager.add_category(main_cat, sub_cat)
             
-        # Generate and sanitize name
-        name = await generate_content_name(text, text_model)
-        name = sanitize_filename(name)
-        
-        return main_cat, sub_cat, name
+        return main_cat, sub_cat, item_name
         
     except Exception as e:
         logging.error(f"Failed to categorize content for tweet {tweet_id}: {e}")
@@ -136,7 +133,8 @@ async def process_categories(
             text=combined_text,
             text_model=config.text_model,
             tweet_id=tweet_id,
-            category_manager=category_manager
+            category_manager=category_manager,
+            http_client=http_client
         )
         
         # Save categories
@@ -201,7 +199,8 @@ async def create_knowledge_base_entry(
                 text=combined_text,
                 text_model=config.text_model,
                 tweet_id=tweet_id,
-                category_manager=category_manager
+                category_manager=category_manager,
+                http_client=http_client
             )
             
             categories = {
@@ -457,7 +456,8 @@ class ContentProcessor:
                 text=combined_text,
                 text_model=config.text_model,
                 tweet_id=tweet_id,
-                category_manager=category_manager
+                category_manager=category_manager,
+                http_client=self.http_client
             )
 
             # Create the knowledge base item
@@ -558,7 +558,7 @@ class ContentProcessor:
             for tweet_id, tweet_data in tweets.items():
                 if not tweet_data.get('media_processed', False):
                     try:
-                        updated_data = await process_media_content(tweet_data, self.http_client, self.config)
+                        updated_data = await self.process_media(tweet_data)
                         await self.state_manager.update_tweet_data(tweet_id, updated_data)
                         await self.state_manager.mark_media_processed(tweet_id)
                         stats.media_processed += len(tweet_data.get('downloaded_media', []))  # Updated to count downloaded media
@@ -576,7 +576,7 @@ class ContentProcessor:
             for tweet_id, tweet_data in tweets.items():
                 if not tweet_data.get('categories_processed', False):
                     try:
-                        updated_data = await process_categories(tweet_id, tweet_data, self.config, self.http_client, self.state_manager)
+                        updated_data = await self.category_manager.process_categories(tweet_id, tweet_data)
                         await self.state_manager.update_tweet_data(tweet_id, updated_data)
                         await self.state_manager.mark_categories_processed(tweet_id)
                         stats.categories_processed += 1
@@ -601,8 +601,8 @@ class ContentProcessor:
                         
                         # Move to processed tweets if all phases are complete
                         if (tweet_data.get('media_processed', True) and 
-                            tweet_data.get('categories_processed', False) and 
-                            tweet_data.get('kb_item_created', False)):
+                            tweet_data.get('categories_processed', True) and 
+                            tweet_data.get('kb_item_created', True)):
                             await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
                             logging.info(f"Tweet {tweet_id} fully processed and moved to processed tweets")
                         

@@ -1,6 +1,8 @@
 import requests
 import logging
 import asyncio
+import json
+import re
 from typing import Tuple, Optional, Dict, Any, List
 from knowledge_base_agent.naming_utils import normalize_name_for_filesystem, is_valid_item_name, fix_invalid_name, fallback_snippet_based_name
 from knowledge_base_agent.exceptions import KnowledgeBaseError, AIError
@@ -182,16 +184,71 @@ def re_categorize_offline(
         return (mc, sc, fallback_title)
     return ("software_engineering", "best_practices", "fallback_offline")
 
-async def classify_content(text: str, text_model: str, ollama_url: str, category_manager, http_client: Optional[requests.Session] = None) -> Dict[str, str]:
-    """
-    Classify content using AI to determine main and sub categories.
-    """
-    # Remove this function as it's now redundant with categorize_and_name_content
-    raise DeprecationWarning("Use categorize_and_name_content instead")
+async def classify_content(text: str, tweet_id: str, http_client: HTTPClient, model: str) -> Tuple[str, str]:
+    """Classify content into main and sub categories."""
+    try:
+        prompt = """Analyze this content and categorize it. Respond with ONLY a JSON object, no explanation or markdown:
+Content: {text}
 
-async def generate_content_name(text: str, text_model: str, ollama_url: str, http_client: Optional[requests.Session] = None) -> str:
-    """
-    Generate a name for the content using AI.
-    """
-    # Remove this function as it's now handled within categorize_and_name_content
-    raise DeprecationWarning("Use categorize_and_name_content instead")
+{
+    "main_category": "category_name",
+    "sub_category": "subcategory_name"
+}"""
+
+        response = await http_client.ollama_generate(
+            model=model,
+            prompt=prompt,
+            temperature=0.3  # Lower temperature for more consistent formatting
+        )
+
+        # Clean the response to extract only the JSON part
+        json_str = re.search(r'\{.*\}', response, re.DOTALL)
+        if not json_str:
+            raise ValueError("No JSON found in response")
+            
+        result = json.loads(json_str.group(0))
+        return (result['main_category'], result['sub_category'])
+
+    except Exception as e:
+        logging.error(f"Failed to classify content for tweet {tweet_id}: {e}")
+        raise
+
+async def generate_content_name(
+    text: str,
+    main_category: str,
+    sub_category: str,
+    tweet_id: str,
+    http_client: HTTPClient,
+    model: str
+) -> str:
+    """Generate a descriptive name for the content."""
+    try:
+        prompt = f"""Given this content and its categories, generate a short descriptive name.
+Content: {text}
+Main Category: {main_category}
+Sub Category: {sub_category}
+
+The name should be:
+- Brief but descriptive
+- Lowercase with underscores
+- No special characters
+- Max 50 characters
+
+Respond with just the name, no explanation."""
+
+        name = await http_client.ollama_generate(
+            model=model,
+            prompt=prompt
+        )
+        
+        # Clean up the name
+        name = name.strip().lower()
+        name = re.sub(r'[^a-z0-9_]', '_', name)
+        name = re.sub(r'_+', '_', name)
+        name = name[:50].strip('_')
+        
+        return name
+        
+    except Exception as e:
+        logging.error(f"Failed to generate name for tweet {tweet_id}: {e}")
+        raise
