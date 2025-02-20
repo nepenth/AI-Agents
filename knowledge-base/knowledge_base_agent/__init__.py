@@ -6,12 +6,12 @@ A system for automatically processing tweets into a structured knowledge base.
 
 __version__ = "0.1.0"
 
-from .agent import KnowledgeBaseAgent
-from .category_manager import CategoryManager
-from .markdown_writer import MarkdownWriter
-from .state_manager import StateManager
-from .config import Config
-from .exceptions import (
+from knowledge_base_agent.agent import KnowledgeBaseAgent
+from knowledge_base_agent.category_manager import CategoryManager
+from knowledge_base_agent.markdown_writer import MarkdownWriter
+from knowledge_base_agent.state_manager import StateManager
+from knowledge_base_agent.config import Config
+from knowledge_base_agent.exceptions import (
     KnowledgeBaseError,
     ConfigurationError,
     CategoryError,
