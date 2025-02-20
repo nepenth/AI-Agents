@@ -143,11 +143,6 @@ class StateManager:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
                 raise StateError(f"Failed to update processing state: {e}")
 
-    async def is_processed(self, tweet_id: str) -> bool:
-        """Check if a tweet has been processed."""
-        async with self._lock:
-            return tweet_id in self._processed_tweets
-
     async def get_unprocessed_tweets(self, all_tweets: Set[str]) -> Set[str]:
         """Get set of unprocessed tweets."""
         async with self._lock:
@@ -203,45 +198,20 @@ class StateManager:
             logging.error(f"Failed to save unprocessed tweets: {e}")
             raise StateManagerError(f"Failed to save unprocessed state: {e}")
 
-    async def get_unprocessed_tweets(self) -> List[str]:
-        """Get list of unprocessed tweet IDs."""
-        return list(self._unprocessed_tweets)
-
-    async def is_tweet_fully_processed(self, tweet_id: str) -> bool:
-        """Check if a tweet has completed all processing steps."""
-        if tweet_id in self._processed_tweets:
-            return True
-        
-        # Get tweet data from cache
-        tweet_data = await self.get_tweet(tweet_id)
-        if not tweet_data:
-            return False
-        
-        # Check all processing steps
-        return all([
-            tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
-            tweet_data.get('categories_processed', False),
-            tweet_data.get('kb_item_created', False),
-            tweet_data.get('kb_item_path', None) is not None
-        ])
-
-    async def get_processing_status(self, tweet_id: str) -> Dict[str, bool]:
-        """Get the processing status of a tweet."""
-        tweet_data = await self.get_tweet(tweet_id)
-        if not tweet_data:
+    async def get_processing_state(self, tweet_id: str) -> Dict[str, bool]:
+        """Get the processing state for a tweet."""
+        try:
+            tweet_data = await self.get_tweet(tweet_id)
+            if not tweet_data:
+                return {}
             return {
-                'media_processed': False,
-                'categories_processed': False,
-                'kb_item_created': False,
-                'fully_processed': False
+                'media_processed': tweet_data.get('media_processed', False),
+                'categories_processed': tweet_data.get('categories_processed', False),
+                'fully_processed': tweet_data.get('processed', False)
             }
-        
-        return {
-            'media_processed': tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
-            'categories_processed': tweet_data.get('categories_processed', False),
-            'kb_item_created': tweet_data.get('kb_item_created', False),
-            'fully_processed': self.is_tweet_fully_processed(tweet_id)
-        }
+        except Exception as e:
+            logging.error(f"Failed to get processing state for tweet {tweet_id}: {e}")
+            raise StateError(f"Failed to get processing state: {e}")
 
     async def get_tweet(self, tweet_id: str) -> Optional[Dict[str, Any]]:
         """Get tweet data from cache."""
@@ -284,4 +254,95 @@ class StateManager:
     async def get_tweet_cache(self, tweet_id: str) -> Optional[Dict[str, Any]]:
         """Get cached tweet data if available."""
         return self._tweet_cache.get(tweet_id)
+
+    async def verify_cache_status(self) -> List[str]:
+        """
+        Verify cache status for all unprocessed tweets.
+        Returns list of tweet IDs needing cache updates.
+        """
+        tweets_needing_cache = []
+        
+        for tweet_id in self._unprocessed_tweets:
+            # Check if tweet exists in cache
+            cached_data = self._tweet_cache.get(tweet_id)
+            if not cached_data or not cached_data.get('cache_complete', False):
+                tweets_needing_cache.append(tweet_id)
+                logging.info(f"Tweet {tweet_id} needs cache update")
+            
+        return tweets_needing_cache
+
+    async def update_media_analysis(self, tweet_id: str, media_analysis: Dict[str, Any]) -> None:
+        """
+        Update tweet cache with media analysis results.
+        """
+        if tweet_id not in self._tweet_cache:
+            raise StateError(f"Tweet {tweet_id} not found in cache")
+        
+        # Update existing tweet data with media analysis
+        self._tweet_cache[tweet_id].update({
+            'media_analysis': media_analysis,
+            'media_analysis_complete': True
+        })
+        
+        # Save updated cache
+        await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
+        logging.info(f"Updated media analysis for tweet {tweet_id}")
+
+    async def update_categories(self, tweet_id: str, category_data: Dict[str, Any]) -> None:
+        """
+        Update tweet cache with categorization results.
+        """
+        if tweet_id not in self._tweet_cache:
+            raise StateError(f"Tweet {tweet_id} not found in cache")
+        
+        # Update existing tweet data with categories
+        self._tweet_cache[tweet_id].update({
+            'category': category_data.get('category'),
+            'subcategory': category_data.get('subcategory'),
+            'item_name': category_data.get('item_name'),
+            'categories_processed': True
+        })
+        
+        # Save updated cache
+        await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
+        logging.info(f"Updated categories for tweet {tweet_id}")
+
+    async def mark_kb_item_created(self, tweet_id: str, kb_item_path: str) -> None:
+        """
+        Mark tweet as having KB item created and update cache.
+        """
+        if tweet_id not in self._tweet_cache:
+            raise StateError(f"Tweet {tweet_id} not found in cache")
+        
+        # Update cache with KB item info
+        self._tweet_cache[tweet_id].update({
+            'kb_item_path': kb_item_path,
+            'kb_item_created': True
+        })
+        
+        # Save updated cache
+        await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
+        logging.info(f"Marked KB item created for tweet {tweet_id}")
+
+    async def mark_media_processed(self, tweet_id: str) -> None:
+        """Mark media as processed for a tweet."""
+        try:
+            tweet_data = await self.get_tweet(tweet_id)
+            if tweet_data:
+                tweet_data['media_processed'] = True
+                await self.update_tweet_data(tweet_id, tweet_data)
+        except Exception as e:
+            logging.error(f"Failed to mark media as processed for tweet {tweet_id}: {e}")
+            raise StateError(f"Failed to mark media as processed: {e}")
+
+    async def mark_categories_processed(self, tweet_id: str) -> None:
+        """Mark categories as processed for a tweet."""
+        try:
+            tweet_data = await self.get_tweet(tweet_id)
+            if tweet_data:
+                tweet_data['categories_processed'] = True
+                await self.update_tweet_data(tweet_id, tweet_data)
+        except Exception as e:
+            logging.error(f"Failed to mark categories as processed for tweet {tweet_id}: {e}")
+            raise StateError(f"Failed to mark categories as processed: {e}")
 

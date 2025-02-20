@@ -526,54 +526,39 @@ class ContentProcessor:
         try:
             # Import here to avoid circular import
             from knowledge_base_agent.markdown_writer import generate_root_readme
+            
+            # Get tweets with processing state
             tweets = await state_manager.get_all_tweets()
             unprocessed_tweets = await state_manager.get_unprocessed_tweets()
             total_tweets = len(unprocessed_tweets)
-            
-            # Phase 1: Cache tweets
-            logging.info("=== Phase 1: Tweet Caching ===")
-            for idx, tweet_id in enumerate(unprocessed_tweets, 1):
-                logging.info(f"[{idx}/{total_tweets}] Caching tweet {tweet_id}")
-                try:
-                    await self.cache_tweets([tweet_id])
-                    stats.success_count += 1
-                    logging.info(f"✓ Cached tweet {tweet_id}")
-                except Exception as e:
-                    logging.error(f"✗ Failed to cache tweet {tweet_id}: {e}")
-                    stats.error_count += 1
-                    continue
 
-            # Phase 2: Process media
-            logging.info("=== Phase 2: Media Processing ===")
-            media_items = await self._count_media_items()
-            if media_items > 0:
-                logging.info(f"Processing {media_items} media items...")
-                tweets_with_media = await self.get_tweets_with_media()
-                for tweet_id, tweet_data in tweets_with_media.items():
-                    if not tweet_data.get('media_processed', False):
-                        try:
-                            updated_data = await process_media_content(tweet_data, http_client, config)
-                            await state_manager.update_tweet_data(tweet_id, updated_data)
-                            stats.media_processed += len(tweet_data.get('media', []))
-                        except Exception as e:
-                            logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
-                            stats.error_count += 1
-                            continue
+            # Phase 1: Media Processing
+            for tweet_id, tweet_data in tweets.items():
+                if not tweet_data.get('media_processed', False):
+                    try:
+                        updated_data = await process_media_content(tweet_data, http_client, config)
+                        await state_manager.update_tweet_data(tweet_id, updated_data)
+                        await state_manager.mark_media_processed(tweet_id)  # New method call
+                        stats.media_processed += len(tweet_data.get('media', []))
+                    except Exception as e:
+                        logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
 
-            # Phase 3: Process categories
-            logging.info("=== Phase 3: Category Processing ===")
+            # Phase 2: Category Processing  
             for tweet_id, tweet_data in tweets.items():
                 if not tweet_data.get('categories_processed', False):
                     try:
                         updated_data = await process_categories(tweet_id, tweet_data, config, http_client, state_manager)
                         await state_manager.update_tweet_data(tweet_id, updated_data)
+                        await state_manager.mark_categories_processed(tweet_id)  # New method call
                         stats.categories_processed += 1
                     except Exception as e:
                         logging.error(f"Failed to process categories for tweet {tweet_id}: {e}")
                         stats.error_count += 1
                         continue
 
-            # Phase 4: Create knowledge base items
+            # Phase 3: Create knowledge base items
             logging.info("=== Phase 4: Knowledge Base Creation ===")
             for tweet_id, tweet_data in tweets.items():
                 if not tweet_data.get('kb_item_created', False):
