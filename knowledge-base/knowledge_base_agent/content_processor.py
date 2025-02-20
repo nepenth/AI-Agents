@@ -490,12 +490,21 @@ class ContentProcessor:
                 f"{item_name}.md"
             ))
 
+            # Add directory creation before file write
+            kb_dir = Path("kb-generated")
+            kb_dir.mkdir(exist_ok=True)
+            
+            category_dir = kb_dir / main_cat
+            category_dir.mkdir(exist_ok=True)
+            
+            subcategory_dir = category_dir / sub_cat
+            subcategory_dir.mkdir(exist_ok=True)
+
             return kb_item
 
         except Exception as e:
             logging.error(f"Failed to create knowledge base item for tweet {tweet_id}: {e}")
-            logging.error(f"Available tweet data keys: {list(tweet_data.keys())}")
-            raise KnowledgeBaseItemCreationError(f"Failed to create KB item: {e}")
+            raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item: {e}")
 
     async def process_media(self, tweet_data: Dict[str, Any]) -> None:
         """Process media content for a tweet."""
@@ -592,6 +601,15 @@ class ContentProcessor:
             # Phase 4: Knowledge Base Creation
             logging.info("=== Phase 4: Knowledge Base Creation ===")
             for tweet_id, tweet_data in tweets.items():
+                # Validate KB item existence first
+                if tweet_data.get('kb_item_created', False):
+                    kb_path = tweet_data.get('kb_item_path')
+                    if not kb_path or not Path(kb_path).exists():
+                        logging.warning(f"KB item marked as created but missing for tweet {tweet_id} at {kb_path}")
+                        tweet_data['kb_item_created'] = False
+                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+
+                # Continue with normal KB creation flow
                 if not tweet_data.get('kb_item_created', False):
                     try:
                         kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data, self.config)
