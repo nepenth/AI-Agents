@@ -32,73 +32,6 @@ def get_high_res_url(url: str) -> str:
         return re.sub(r"\?.*$", "?format=jpg&name=orig", url)
     return url
 
-async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[str, Any]:
-    """Fetch tweet data using Playwright, ensuring all links and media are captured."""
-    from playwright.async_api import async_playwright
-    import re
-
-    # Ensure proper URL format
-    if tweet_url.isdigit():
-        tweet_url = f"https://twitter.com/i/web/status/{tweet_url}"
-
-    tweet_data = {
-        'full_text': '',
-        'urls': [],
-        'media': [],
-        'tweet_url': tweet_url
-    }
-
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(tweet_url, wait_until="networkidle")  # Wait for full load
-
-            # Extract full text (your selector with fallback)
-            text_elem = await page.query_selector('article div[data-testid="tweetText"]') or \
-                        await page.query_selector('article div[lang]')
-            tweet_data['full_text'] = await text_elem.inner_text() if text_elem else ''
-
-            # Extract URLs (broader approach with your filtering)
-            url_elems = await page.query_selector_all('article a[href^="http"]')
-            urls = set()
-            for elem in url_elems:
-                href = await elem.get_attribute('href')
-                if href and "status" not in href and "t.co" in href:
-                    urls.add(href)  # Keep t.co links for expansion later
-            tweet_data['urls'] = list(urls)
-
-            # Extract media (simplified but with your high-res logic)
-            media = set()
-            # Images
-            image_elems = await page.query_selector_all('article img[src*="twimg.com"]')
-            for img in image_elems:
-                src = await img.get_attribute('src')
-                if src and not any(skip in src.lower() for skip in ['profile_images', 'emoji']):
-                    high_quality_url = get_high_res_url(src)  # Your function
-                    media.add((high_quality_url, 'image', await img.get_attribute('alt') or ''))
-
-            # Videos (with your poster logic)
-            video_elems = await page.query_selector_all('article video[src], article div[data-testid="videoPlayer"] video')
-            for video in video_elems:
-                src = await video.get_attribute('src')
-                poster = await video.get_attribute('poster')
-                if src:
-                    media.add((src, 'video', ''))
-                if poster:
-                    high_quality_poster = get_high_res_url(poster)
-                    media.add((high_quality_poster, 'image', ''))
-
-            tweet_data['media'] = [{'url': url, 'type': m_type, 'alt_text': alt} for url, m_type, alt in media]
-
-            await browser.close()
-            logging.info(f"Fetched tweet data for {tweet_url}: {len(urls)} URLs, {len(media)} media items")
-            return tweet_data
-
-    except Exception as e:
-        logging.error(f"Failed to fetch tweet data for {tweet_url}: {e}")
-        return tweet_data  # Return partial data instead of empty dict
-
 class PlaywrightFetcher:
     """Handles tweet data fetching using Playwright."""
     
@@ -140,44 +73,67 @@ class PlaywrightFetcher:
 
     async def fetch_tweet_data(self, tweet_url: str) -> Dict[str, Any]:
         """
-        Fetch tweet data including text and media URLs.
+        Fetch tweet data including text, media URLs, and links.
         
         Args:
             tweet_url: URL of the tweet to fetch
             
         Returns:
-            Dict containing tweet text and media information
+            Dict containing tweet text, media, and URLs
         """
         async with self._lock:  # Ensure single concurrent fetch
             try:
-                await self.page.goto(tweet_url, wait_until="networkidle")
+                await self.page.goto(tweet_url, wait_until="networkidle")  # Wait for full load
                 
                 # Wait for tweet content
                 await self.page.wait_for_selector('article[data-testid="tweet"]', timeout=30000)
                 
                 # Get tweet text
-                text_element = await self.page.query_selector('div[data-testid="tweetText"]')
-                tweet_text = await text_element.inner_text() if text_element else ""
+                text_elem = await self.page.query_selector('div[data-testid="tweetText"]') or \
+                            await self.page.query_selector('article div[lang]')
+                tweet_text = await text_elem.inner_text() if text_elem else ""
                 
-                # Get media items
-                media_elements = await self.page.query_selector_all('img[src*="/media/"]')
-                media_urls = []
+                # Get media (images, videos, GIFs)
+                media = set()
+                image_elems = await self.page.query_selector_all('article img[src*="twimg.com"]')
+                for img in image_elems:
+                    src = await img.get_attribute('src')
+                    if src and not any(skip in src.lower() for skip in ['profile_images', 'emoji']):
+                        high_quality_url = get_high_res_url(src)
+                        media.add((high_quality_url, 'image', await img.get_attribute('alt') or ''))
                 
-                for media in media_elements:
-                    src = await media.get_attribute('src')
-                    if src and not src.endswith(('thumb', 'small')):
-                        media_urls.append(src)
+                video_elems = await self.page.query_selector_all('article video[src], article div[data-testid="videoPlayer"] video')
+                for video in video_elems:
+                    src = await video.get_attribute('src')
+                    poster = await video.get_attribute('poster')
+                    if src:
+                        media.add((src, 'video', ''))
+                    if poster:
+                        high_quality_poster = get_high_res_url(poster)
+                        media.add((high_quality_poster, 'image', ''))
                 
-                return {
+                # Get URLs
+                url_elems = await self.page.query_selector_all('article a[href^="http"]')
+                urls = set()
+                for elem in url_elems:
+                    href = await elem.get_attribute('href')
+                    if href and "status" not in href and "t.co" in href:
+                        urls.add(href)
+                
+                tweet_data = {
                     "full_text": tweet_text,
-                    "media": media_urls,
-                    "downloaded_media": [],  # Will be populated during media download
-                    "urls": []  # Initialize urls list
+                    "media": [{"url": url, "type": m_type, "alt_text": alt} for url, m_type, alt in media],
+                    "urls": list(urls),
+                    "downloaded_media": []  # Will be populated during media download
                 }
+                logging.info(f"Fetched tweet {tweet_url}: {len(urls)} URLs, {len(media)} media items")
+                return tweet_data
                 
             except PlaywrightTimeout:
+                logging.error(f"Timeout while fetching tweet {tweet_url}")
                 raise FetchError(f"Timeout while fetching tweet {tweet_url}")
             except Exception as e:
+                logging.error(f"Failed to fetch tweet {tweet_url}: {e}")
                 raise FetchError(f"Failed to fetch tweet {tweet_url}: {e}")
 
 async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[str, Any]:
@@ -189,7 +145,7 @@ async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[st
         config: Config instance containing settings
         
     Returns:
-        Dict containing tweet text and media information
+        Dict containing tweet text, media, and URLs
     """
     async with PlaywrightFetcher(config) as fetcher:
         return await fetcher.fetch_tweet_data(tweet_url)
@@ -234,4 +190,3 @@ async def download_media_playwright(
                 continue
                 
     return downloaded_paths
-    

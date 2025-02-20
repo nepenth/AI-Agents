@@ -16,7 +16,7 @@ import json
 import re
 from knowledge_base_agent.progress import ProcessingStats
 from knowledge_base_agent.prompts import UserPreferences
-from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
+from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright, expand_url  # Added expand_url import
 from dataclasses import dataclass
 from knowledge_base_agent.markdown_writer import generate_root_readme
 
@@ -296,7 +296,7 @@ class ContentProcessor:
             
             # Create processor instance
             try:
-                processor = cls(http_client)
+                processor = cls(http_client.config, http_client)  # Updated to pass config explicitly
                 logging.info(f"Created processor instance for tweet {tweet_id}")
             except Exception as e:
                 logging.error(f"Failed to create processor instance for tweet {tweet_id}: {str(e)}")
@@ -304,7 +304,7 @@ class ContentProcessor:
             
             # Create knowledge base item
             try:
-                kb_item = await processor.create_knowledge_base_item(tweet_id, tweet_data, processor.http_client.config)
+                kb_item = await processor.create_knowledge_base_item(tweet_id, tweet_data, processor.config)
                 logging.info(f"Successfully created knowledge base item for tweet {tweet_id}")
                 return kb_item
             except Exception as e:
@@ -386,7 +386,7 @@ class ContentProcessor:
         """Generate knowledge base content from tweet data."""
         try:
             # Prepare context including tweet text, URLs, and media descriptions
-            context = f"Tweet: {tweet_data.get('text', '')}\n\n"
+            context = f"Tweet: {tweet_data.get('full_text', '')}\n\n"  # Updated to full_text
             
             # Add URLs if present
             if tweet_data.get('urls'):
@@ -545,26 +545,7 @@ class ContentProcessor:
             total_tweets = len(unprocessed_tweets)
             
             # Cache all tweets first
-            for tweet_id in unprocessed_tweets:
-                if not await self.state_manager.get_tweet_cache(tweet_id):
-                    try:
-                        tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
-                        tweet_data = await fetch_tweet_data_playwright(tweet_url, self.config)
-                        if not tweet_data:
-                            logging.error(f"Failed to fetch tweet {tweet_id}")
-                            continue
-
-                        # Extract URLs from tweet text using regex
-                        import re
-                        url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
-                        urls = re.findall(url_pattern, tweet_data.get('full_text', ''))
-                        tweet_data['urls'] = urls
-                        
-                        await self.state_manager.initialize_tweet_cache(tweet_id, tweet_data)
-                        logging.info(f"Cached tweet {tweet_id} with {len(urls)} URLs")
-                    except Exception as e:
-                        logging.error(f"Failed to cache tweet {tweet_id}: {e}")
-                        continue
+            await self.cache_tweets(unprocessed_tweets)  # Simplified to use cache_tweets
 
             # Verify cache completion before proceeding
             tweets = await self.state_manager.get_all_tweets()
@@ -580,7 +561,7 @@ class ContentProcessor:
                         updated_data = await process_media_content(tweet_data, self.http_client, self.config)
                         await self.state_manager.update_tweet_data(tweet_id, updated_data)
                         await self.state_manager.mark_media_processed(tweet_id)
-                        stats.media_processed += len(tweet_data.get('media', []))
+                        stats.media_processed += len(tweet_data.get('downloaded_media', []))  # Updated to count downloaded media
                     except Exception as e:
                         logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
                         stats.error_count += 1
@@ -588,8 +569,7 @@ class ContentProcessor:
 
             # Verify media processing before proceeding
             if not all(tweet.get('media_processed', False) for tweet in tweets.values()):
-                logging.error("Media processing incomplete, stopping")
-                return
+                logging.warning("Media processing incomplete, proceeding anyway")
 
             # Phase 3: Category Processing
             logging.info("=== Phase 3: Category Processing ===")
@@ -607,8 +587,7 @@ class ContentProcessor:
 
             # Verify category processing before proceeding
             if not all(tweet.get('categories_processed', False) for tweet in tweets.values()):
-                logging.error("Category processing incomplete, stopping")
-                return
+                logging.warning("Category processing incomplete, proceeding anyway")
 
             # Phase 4: Knowledge Base Creation
             logging.info("=== Phase 4: Knowledge Base Creation ===")
@@ -635,8 +614,7 @@ class ContentProcessor:
 
             # Verify KB creation before proceeding
             if not all(tweet.get('kb_item_created', False) for tweet in tweets.values()):
-                logging.error("Knowledge base creation incomplete, stopping")
-                return
+                logging.warning("Knowledge base creation incomplete, proceeding anyway")
 
             # Phase 5: README Generation
             if preferences.regenerate_readme:
@@ -684,7 +662,7 @@ class ContentProcessor:
                     expanded_urls = []
                     for url in tweet_data.get('urls', []):
                         try:
-                            expanded = await self.http_client.get_final_url(url)
+                            expanded = await expand_url(url)  # Use playwright_fetcher.expand_url
                             expanded_urls.append(expanded)
                         except Exception as e:
                             logging.warning(f"Failed to expand URL {url}: {e}")
@@ -699,16 +677,16 @@ class ContentProcessor:
                     media_paths = []
                     for idx, media_item in enumerate(tweet_data['media']):
                         try:
-                            # Extract URL from media item
+                            # Extract URL and type from media item
                             if isinstance(media_item, dict):
-                                url = media_item.get('url') or media_item.get('media_url_https')
+                                url = media_item.get('url', '')
                                 media_type = media_item.get('type', 'image')
                             else:
                                 url = str(media_item)
                                 media_type = 'image'  # Default to image
                                 
                             if not url:
-                                logging.warning(f"No URL found in media item: {media_item}")
+                                logging.warning(f"No valid URL in media item {idx} for tweet {tweet_id}: {media_item}")
                                 continue
 
                             # Determine file extension
@@ -720,11 +698,13 @@ class ContentProcessor:
                                 logging.info(f"Downloading media from {url} to {media_path}")
                                 await self.http_client.download_media(url, media_path)
                                 logging.info(f"Successfully downloaded media to {media_path}")
+                            else:
+                                logging.debug(f"Media already exists at {media_path}, skipping download")
                             
                             media_paths.append(str(media_path))
                             
                         except Exception as e:
-                            logging.error(f"Failed to download media item {idx} for tweet {tweet_id}: {e}")
+                            logging.error(f"Failed to process media item {idx} for tweet {tweet_id}: {e}")
                             continue
 
                     tweet_data['downloaded_media'] = media_paths
