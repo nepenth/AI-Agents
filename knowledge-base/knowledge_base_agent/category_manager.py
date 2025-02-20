@@ -615,6 +615,18 @@ class CategoryManager:
             logging.error(f"Failed to update indexes: {e}")
             raise CategoryError(f"Failed to update indexes: {e}")
 
+    def category_exists(self, main_cat: str, sub_cat: str) -> bool:
+        """Check if a category/subcategory combination exists."""
+        main_cat = main_cat.lower().replace(' ', '_')
+        sub_cat = sub_cat.lower().replace(' ', '_')
+        
+        # Check if main category exists
+        if main_cat not in self.categories:
+            return False
+            
+        # Check if subcategory exists under main category
+        return sub_cat in self.categories[main_cat]
+
     async def classify_content(self, text: str, tweet_id: str) -> Tuple[str, str]:
         """Classify content into main and sub categories."""
         try:
@@ -639,7 +651,7 @@ Return as a JSON object:
             response = await self.http_client.ollama_generate(
                 model=self.config.text_model,
                 prompt=prompt,
-                temperature=0.1  # Lower temperature for more consistent output
+                temperature=0.1
             )
 
             # Extract JSON from response using regex
@@ -657,7 +669,7 @@ Return as a JSON object:
                 if not main_cat or not sub_cat:
                     raise ValueError("Missing category or subcategory")
 
-                if is_new:
+                if is_new or not self.category_exists(main_cat, sub_cat):
                     logging.info(f"New category suggested: {main_cat}/{sub_cat} - Reason: {result.get('reason')}")
                     # Add new category to our structure
                     if main_cat not in self.categories:
