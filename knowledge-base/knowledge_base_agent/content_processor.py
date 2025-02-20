@@ -437,48 +437,22 @@ class ContentProcessor:
     async def create_knowledge_base_item(self, tweet_id: str, tweet_data: Dict[str, Any], config: Config) -> KnowledgeBaseItem:
         """Create a knowledge base item from a tweet."""
         try:
-            # Get tweet text and any URLs
-            text = tweet_data.get('full_text', '')
-            urls = tweet_data.get('urls', [])
-            image_descriptions = tweet_data.get('image_descriptions', [])
-
-            # Combine content for categorization
-            combined_text = text
-            if urls:
-                combined_text += "\nRelevant links:\n" + "\n".join(urls)
-            if image_descriptions:
-                combined_text += "\nImage content:\n" + "\n".join(image_descriptions)
-
-            # Get AI categorization
-            category_manager = CategoryManager(config, http_client=self.http_client)
-            main_cat, sub_cat, item_name = await categorize_and_name_content(
-                ollama_url=config.ollama_url,
-                text=combined_text,
-                text_model=config.text_model,
-                tweet_id=tweet_id,
-                category_manager=category_manager,
-                http_client=self.http_client
-            )
-
-            # Create the knowledge base item
+            # Create proper KnowledgeBaseItem object
+            categories = tweet_data.get('categories', {})
             kb_item = KnowledgeBaseItem(
-                title=item_name.replace('_', ' ').title(),
-                description=combined_text[:200] + "...",  # First 200 chars as description
-                content=combined_text,
-                category_info={
-                    'main_category': main_cat,
-                    'sub_category': sub_cat,
-                    'item_name': item_name
-                },
+                title=categories.get('item_name', ''),
+                description=tweet_data.get('full_text', ''),
+                content=tweet_data.get('full_text', ''),
+                category_info=CategoryInfo(
+                    main_category=categories.get('main_category', ''),
+                    sub_category=categories.get('sub_category', ''),
+                    item_name=categories.get('item_name', '')
+                ),
                 source_tweet={
-                    'id': tweet_id,
-                    'text': text,
-                    'urls': urls,
-                    'media': tweet_data.get('media', []),
-                    'image_descriptions': image_descriptions
-                },
-                created_at=datetime.now(),
-                last_updated=datetime.now()
+                    'url': tweet_data.get('tweet_url', ''),
+                    'author': tweet_data.get('author', ''),
+                    'created_at': datetime.fromisoformat(tweet_data.get('created_at', datetime.now().isoformat()))
+                }
             )
 
             # Create the markdown writer instance
@@ -500,9 +474,9 @@ class ContentProcessor:
             tweet_data['kb_item_created'] = True
             tweet_data['kb_item_path'] = str(Path(
                 config.knowledge_base_dir,
-                main_cat,
-                sub_cat,
-                f"{item_name}.md"
+                categories.get('main_category', ''),
+                categories.get('sub_category', ''),
+                f"{categories.get('item_name', '')}.md"
             ))
             await self.state_manager.update_tweet_data(tweet_id, tweet_data)
 
@@ -510,10 +484,10 @@ class ContentProcessor:
             kb_dir = Path("kb-generated")
             kb_dir.mkdir(exist_ok=True)
             
-            category_dir = kb_dir / main_cat
+            category_dir = kb_dir / categories.get('main_category', '')
             category_dir.mkdir(exist_ok=True)
             
-            subcategory_dir = category_dir / sub_cat
+            subcategory_dir = category_dir / categories.get('sub_category', '')
             subcategory_dir.mkdir(exist_ok=True)
 
             return kb_item
