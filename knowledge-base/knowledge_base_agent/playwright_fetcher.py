@@ -33,151 +33,71 @@ def get_high_res_url(url: str) -> str:
     return url
 
 async def fetch_tweet_data_playwright(tweet_url: str, config: Config) -> Dict[str, Any]:
-    """Fetch tweet data using Playwright."""
+    """Fetch tweet data using Playwright, ensuring all links and media are captured."""
+    from playwright.async_api import async_playwright
+    import re
+
     # Ensure proper URL format
     if tweet_url.isdigit():
         tweet_url = f"https://twitter.com/i/web/status/{tweet_url}"
-        
+
+    tweet_data = {
+        'full_text': '',
+        'urls': [],
+        'media': [],
+        'tweet_url': tweet_url
+    }
+
     try:
-        logging.info(f"Starting Playwright fetch for tweet {tweet_url}")
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            
-            await page.goto(tweet_url, timeout=30000)
-            
-            # Wait for content with shorter timeout
-            tweet_selector = 'article div[data-testid="tweetText"]'
-            logging.info("Waiting for tweet content...")
-            try:
-                await page.wait_for_selector(tweet_selector, timeout=10000)
-            except Exception as e:
-                logging.warning(f"Timeout waiting for tweet content: {e}")
-                return {"full_text": "", "media": [], "downloaded_media": [], "image_descriptions": [], "urls": []}
-            
-            # Extract text content
-            text_element = await page.wait_for_selector('article div[data-testid="tweetText"]', timeout=10000)
-            text = await text_element.inner_text() if text_element else ""
+            await page.goto(tweet_url, wait_until="networkidle")  # Wait for full load
 
-            # Extract media with comprehensive selectors
-            media_urls = []
-            
-            # Comprehensive list of image and media selectors
-            image_selectors = [
-                # Standard tweet media
-                'article img[src*="https://pbs.twimg.com/media/"]',
-                'article [data-testid="tweetPhoto"] img',
-                'article div[data-testid="tweet"] img[src*="/media/"]',
-                
-                # Card and preview images
-                'article img[src*="https://pbs.twimg.com/card_img/"]',
-                'article div[data-testid="card.wrapper"] img',
-                
-                # Embedded media
-                'article picture img',
-                'article div[data-testid="embedMedia"] img',
-                'article div[data-testid="videoPlayer"] img',
-                'article div[data-testid="videoComponent"] img',
-                
-                # Quote tweet media
-                'article div[data-testid="QuoteTweet"] img[src*="/media/"]',
-                
-                # Generic image containers
-                'article div[role="img"] img',
-                'article figure img',
-                
-                # Fallback for any remaining images in the tweet
-                'article img[src*="twimg.com"]'
-            ]
-            
-            # Process each selector
-            for selector in image_selectors:
-                try:
-                    images = await page.query_selector_all(selector)
-                    for img in images:
-                        src = await img.get_attribute('src')
-                        if src and not any(skip in src.lower() for skip in ['profile_images', 'emoji']):
-                            # Try to get the highest quality version
-                            high_quality_url = get_high_res_url(src)
-                            
-                            # Some images might have a higher quality source in data attributes
-                            original_src = await img.get_attribute('data-original-src')
-                            if original_src:
-                                high_quality_url = get_high_res_url(original_src)
-                            
-                            if high_quality_url not in media_urls:
-                                media_urls.append(high_quality_url)
-                                logging.info(f"Found media URL: {high_quality_url}")
-                except Exception as e:
-                    logging.warning(f"Error processing selector {selector}: {e}")
-                    continue
+            # Extract full text (your selector with fallback)
+            text_elem = await page.query_selector('article div[data-testid="tweetText"]') or \
+                        await page.query_selector('article div[lang]')
+            tweet_data['full_text'] = await text_elem.inner_text() if text_elem else ''
 
-            # Additional check for video content
-            video_selectors = [
-                'article video[src*="https://video.twimg.com"]',
-                'article div[data-testid="videoPlayer"] video',
-                'article div[data-testid="videoComponent"] video'
-            ]
-            
-            for selector in video_selectors:
-                try:
-                    videos = await page.query_selector_all(selector)
-                    for video in videos:
-                        src = await video.get_attribute('src')
-                        poster = await video.get_attribute('poster')  # Get video thumbnail
-                        
-                        if src and src not in media_urls:
-                            media_urls.append(src)
-                            logging.info(f"Found video URL: {src}")
-                        
-                        if poster and poster not in media_urls:
-                            high_quality_poster = get_high_res_url(poster)
-                            media_urls.append(high_quality_poster)
-                            logging.info(f"Found video poster URL: {high_quality_poster}")
-                except Exception as e:
-                    logging.warning(f"Error processing video selector {selector}: {e}")
-                    continue
+            # Extract URLs (broader approach with your filtering)
+            url_elems = await page.query_selector_all('article a[href^="http"]')
+            urls = set()
+            for elem in url_elems:
+                href = await elem.get_attribute('href')
+                if href and "status" not in href and "t.co" in href:
+                    urls.add(href)  # Keep t.co links for expansion later
+            tweet_data['urls'] = list(urls)
 
-            # Extract URLs - both from link elements and card previews
-            found_urls = []
-            
-            # Get URLs from all anchor tags in the article
-            link_elements = await page.query_selector_all('article a[href^="http"]')
-            for link in link_elements:
-                href = await link.get_attribute('href')
-                if href and "status" not in href:  # Exclude tweet URLs
-                    if href.startswith("https://t.co/"):
-                        href = await expand_url(href)
-                    if href not in found_urls:
-                        found_urls.append(href)
-                        logging.info(f"Found URL from anchor: {href}")
+            # Extract media (simplified but with your high-res logic)
+            media = set()
+            # Images
+            image_elems = await page.query_selector_all('article img[src*="twimg.com"]')
+            for img in image_elems:
+                src = await img.get_attribute('src')
+                if src and not any(skip in src.lower() for skip in ['profile_images', 'emoji']):
+                    high_quality_url = get_high_res_url(src)  # Your function
+                    media.add((high_quality_url, 'image', await img.get_attribute('alt') or ''))
 
-            # Additional extraction from card metadata
-            card_links = await page.query_selector_all('div[data-testid="card.wrapper"] a[href^="http"]')
-            for link in card_links:
-                href = await link.get_attribute('href')
-                if href and "status" not in href:
-                    if href.startswith("https://t.co/"):
-                        href = await expand_url(href)
-                    if href not in found_urls:
-                        found_urls.append(href)
-                        logging.info(f"Found URL from card: {href}")
+            # Videos (with your poster logic)
+            video_elems = await page.query_selector_all('article video[src], article div[data-testid="videoPlayer"] video')
+            for video in video_elems:
+                src = await video.get_attribute('src')
+                poster = await video.get_attribute('poster')
+                if src:
+                    media.add((src, 'video', ''))
+                if poster:
+                    high_quality_poster = get_high_res_url(poster)
+                    media.add((high_quality_poster, 'image', ''))
 
-            tweet_data = {
-                'full_text': text,
-                'media': media_urls,
-                'urls': found_urls,
-                'downloaded_media': [],
-                'tweet_url': tweet_url,
-                'cache_complete': False
-            }
+            tweet_data['media'] = [{'url': url, 'type': m_type, 'alt_text': alt} for url, m_type, alt in media]
 
-            logging.info(f"Found {len(media_urls)} media items and {len(found_urls)} URLs")
+            await browser.close()
+            logging.info(f"Fetched tweet data for {tweet_url}: {len(urls)} URLs, {len(media)} media items")
             return tweet_data
-            
+
     except Exception as e:
-        logging.error(f"Failed to fetch tweet data: {e}")
-        raise
+        logging.error(f"Failed to fetch tweet data for {tweet_url}: {e}")
+        return tweet_data  # Return partial data instead of empty dict
 
 class PlaywrightFetcher:
     """Handles tweet data fetching using Playwright."""

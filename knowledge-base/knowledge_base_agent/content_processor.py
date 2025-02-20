@@ -17,6 +17,16 @@ import re
 from knowledge_base_agent.progress import ProcessingStats
 from knowledge_base_agent.prompts import UserPreferences
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright
+from dataclasses import dataclass
+from knowledge_base_agent.markdown_writer import generate_root_readme
+
+@dataclass
+class ProcessingStats:
+    media_processed: int = 0
+    categories_processed: int = 0
+    processed_count: int = 0
+    error_count: int = 0
+    readme_generated: bool = False
 
 async def categorize_and_name_content(
     ollama_url: str,
@@ -25,32 +35,39 @@ async def categorize_and_name_content(
     tweet_id: str,
     category_manager: CategoryManager
 ) -> Tuple[str, str, str]:
-    """Categorize and name content for a tweet using AI."""
-    if not text:
-        raise ContentProcessingError("No text content found for tweet")
-
+    """Categorize content and generate item name."""
     try:
-        # Pass the required arguments to classify_content
-        categories = await classify_content(
+        # Get categories using the category manager
+        main_cat, sub_cat = await category_manager.classify_content(
             text=text,
-            model=text_model,
-            ollama_url=ollama_url,
-            category_manager=category_manager
+            tweet_id=tweet_id
+        )  # Remove the model parameter
+        
+        # Generate item name
+        item_name = await category_manager.generate_item_name(
+            text=text,
+            main_category=main_cat,
+            sub_category=sub_cat,
+            tweet_id=tweet_id
         )
         
-        main_cat = categories['category'].lower().replace(' ', '_')
-        sub_cat = categories['subcategory'].lower().replace(' ', '_')
+        # Normalize categories
+        main_cat = main_cat.lower().replace(' ', '_')
+        sub_cat = sub_cat.lower().replace(' ', '_')
         
+        # Ensure category exists
         if not category_manager.category_exists(main_cat, sub_cat):
             category_manager.add_category(main_cat, sub_cat)
             
+        # Generate and sanitize name
         name = await generate_content_name(text, text_model)
         name = sanitize_filename(name)
         
         return main_cat, sub_cat, name
         
     except Exception as e:
-        raise ContentProcessingError(f"Failed to categorize content for tweet {tweet_id}: {e}")
+        logging.error(f"Failed to categorize content for tweet {tweet_id}: {e}")
+        raise CategoryGenerationError(f"Failed to categorize content for tweet {tweet_id}: {e}")
 
 async def process_media_content(
     tweet_data: Dict[str, Any],
@@ -113,7 +130,7 @@ async def process_categories(
         image_descriptions = tweet_data.get('image_descriptions', [])
         combined_text = f"{tweet_text}\n\nImage Descriptions:\n" + "\n".join(image_descriptions)
 
-        category_manager = CategoryManager(config)
+        category_manager = CategoryManager(config, http_client=http_client)
         main_cat, sub_cat, item_name = await categorize_and_name_content(
             ollama_url=config.ollama_url,
             text=combined_text,
@@ -174,7 +191,7 @@ async def create_knowledge_base_entry(
         categories = tweet_data.get('categories')
         if not categories:
             try:
-                category_manager = CategoryManager(config)
+                category_manager = CategoryManager(config, http_client=http_client)
             except Exception as e:
                 logging.error(f"Failed to initialize CategoryManager: {e}")
                 raise ContentProcessingError(f"Category manager initialization failed: {e}")
@@ -251,16 +268,14 @@ class ContentProcessor:
     """Handles processing of tweet content into knowledge base items."""
     
     def __init__(self, config: Config, http_client: HTTPClient):
-        """Initialize the content processor with configuration."""
-        if not http_client:
-            raise ValueError("HTTP client is required")
-            
+        """Initialize the content processor."""
         self.config = config
         self.http_client = http_client
+        self.category_manager = CategoryManager(config, http_client=http_client)  # Pass http_client here
+        self.state_manager = StateManager(config)
+        self.stats = ProcessingStats()
         self.text_model = self.http_client.config.text_model
         logging.info(f"Initialized ContentProcessor with model: {self.text_model}")
-        self.category_manager = CategoryManager(config)
-        self.state_manager = StateManager(config)
 
     @classmethod
     async def create_knowledge_base_entry(cls, tweet_data: Dict[str, Any], http_client: HTTPClient, tweet_cache: Dict[str, Any]) -> KnowledgeBaseItem:
@@ -436,7 +451,7 @@ class ContentProcessor:
                 combined_text += "\nImage content:\n" + "\n".join(image_descriptions)
 
             # Get AI categorization
-            category_manager = CategoryManager(config)
+            category_manager = CategoryManager(config, http_client=self.http_client)
             main_cat, sub_cat, item_name = await categorize_and_name_content(
                 ollama_url=config.ollama_url,
                 text=combined_text,
@@ -516,84 +531,20 @@ class ContentProcessor:
 
     async def process_all_tweets(
         self,
-        config: Config,
-        http_client: HTTPClient,
-        state_manager: StateManager,
+        preferences,
+        unprocessed_tweets: List[str],
+        total_tweets: int,
         stats: ProcessingStats,
-        preferences: UserPreferences
+        category_manager: CategoryManager
     ) -> None:
-        """Process all tweets in phases: caching, media, categories, KB items, and README."""
+        """Process all tweets through the pipeline."""
         try:
-            # Import here to avoid circular import
-            from knowledge_base_agent.markdown_writer import generate_root_readme
-            
-            # Get tweets with processing state
-            tweets = await state_manager.get_all_tweets()
-            unprocessed_tweets = await state_manager.get_unprocessed_tweets()
+            # Phase 1: Tweet Cache Initialization
+            logging.info("=== Phase 1: Tweet Cache Initialization ===")
+            unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
             total_tweets = len(unprocessed_tweets)
-
-            # Phase 1: Media Processing
-            for tweet_id, tweet_data in tweets.items():
-                if not tweet_data.get('media_processed', False):
-                    try:
-                        updated_data = await process_media_content(tweet_data, http_client, config)
-                        await state_manager.update_tweet_data(tweet_id, updated_data)
-                        await state_manager.mark_media_processed(tweet_id)  # New method call
-                        stats.media_processed += len(tweet_data.get('media', []))
-                    except Exception as e:
-                        logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
-                        stats.error_count += 1
-                        continue
-
-            # Phase 2: Category Processing  
-            for tweet_id, tweet_data in tweets.items():
-                if not tweet_data.get('categories_processed', False):
-                    try:
-                        updated_data = await process_categories(tweet_id, tweet_data, config, http_client, state_manager)
-                        await state_manager.update_tweet_data(tweet_id, updated_data)
-                        await state_manager.mark_categories_processed(tweet_id)  # New method call
-                        stats.categories_processed += 1
-                    except Exception as e:
-                        logging.error(f"Failed to process categories for tweet {tweet_id}: {e}")
-                        stats.error_count += 1
-                        continue
-
-            # Phase 3: Create knowledge base items
-            logging.info("=== Phase 4: Knowledge Base Creation ===")
-            for tweet_id, tweet_data in tweets.items():
-                if not tweet_data.get('kb_item_created', False):
-                    try:
-                        kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data, config)
-                        # Update tweet data with KB creation status
-                        tweet_data['kb_item_created'] = True
-                        await state_manager.update_tweet_data(tweet_id, tweet_data)
-                        
-                        # Move to processed tweets if all phases are complete
-                        if (tweet_data.get('media_processed', True) and 
-                            tweet_data.get('categories_processed', False) and 
-                            tweet_data.get('kb_item_created', False)):
-                            await state_manager.mark_tweet_processed(tweet_id, tweet_data)
-                            logging.info(f"Tweet {tweet_id} fully processed and moved to processed tweets")
-                        
-                        stats.processed_count += 1
-                    except Exception as e:
-                        logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
-                        stats.error_count += 1
-                        continue
-
-            # Phase 5: Generate README
-            if preferences.regenerate_readme:
-                logging.info("=== Phase 5: README Generation ===")
-                try:
-                    category_manager = CategoryManager(config)
-                    await generate_root_readme(config.knowledge_base_dir, category_manager)
-                    logging.info("✓ Successfully regenerated README")
-                    stats.readme_generated = True
-                except Exception as e:
-                    logging.error(f"Failed to regenerate README: {e}")
-                    stats.error_count += 1
-
-            # This is where tweets are initially cached
+            
+            # Cache all tweets first
             for tweet_id in unprocessed_tweets:
                 if not await self.state_manager.get_tweet_cache(tweet_id):
                     try:
@@ -603,22 +554,111 @@ class ContentProcessor:
                             logging.error(f"Failed to fetch tweet {tweet_id}")
                             continue
 
-                        # Use new initialization method
+                        # Extract URLs from tweet text using regex
+                        import re
+                        url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+                        urls = re.findall(url_pattern, tweet_data.get('full_text', ''))
+                        tweet_data['urls'] = urls
+                        
                         await self.state_manager.initialize_tweet_cache(tweet_id, tweet_data)
-                        logging.info(f"Successfully cached tweet {tweet_id}")
+                        logging.info(f"Cached tweet {tweet_id} with {len(urls)} URLs")
                     except Exception as e:
                         logging.error(f"Failed to cache tweet {tweet_id}: {e}")
-                        # Don't raise here, continue with next tweet
                         continue
+
+            # Verify cache completion before proceeding
+            tweets = await self.state_manager.get_all_tweets()
+            if not tweets:
+                logging.error("No tweets cached, stopping processing")
+                return
+
+            # Phase 2: Media Processing
+            logging.info("=== Phase 2: Media Processing ===")
+            for tweet_id, tweet_data in tweets.items():
+                if not tweet_data.get('media_processed', False):
+                    try:
+                        updated_data = await process_media_content(tweet_data, self.http_client, self.config)
+                        await self.state_manager.update_tweet_data(tweet_id, updated_data)
+                        await self.state_manager.mark_media_processed(tweet_id)
+                        stats.media_processed += len(tweet_data.get('media', []))
+                    except Exception as e:
+                        logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
+
+            # Verify media processing before proceeding
+            if not all(tweet.get('media_processed', False) for tweet in tweets.values()):
+                logging.error("Media processing incomplete, stopping")
+                return
+
+            # Phase 3: Category Processing
+            logging.info("=== Phase 3: Category Processing ===")
+            for tweet_id, tweet_data in tweets.items():
+                if not tweet_data.get('categories_processed', False):
+                    try:
+                        updated_data = await process_categories(tweet_id, tweet_data, self.config, self.http_client, self.state_manager)
+                        await self.state_manager.update_tweet_data(tweet_id, updated_data)
+                        await self.state_manager.mark_categories_processed(tweet_id)
+                        stats.categories_processed += 1
+                    except Exception as e:
+                        logging.error(f"Failed to process categories for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
+
+            # Verify category processing before proceeding
+            if not all(tweet.get('categories_processed', False) for tweet in tweets.values()):
+                logging.error("Category processing incomplete, stopping")
+                return
+
+            # Phase 4: Knowledge Base Creation
+            logging.info("=== Phase 4: Knowledge Base Creation ===")
+            for tweet_id, tweet_data in tweets.items():
+                if not tweet_data.get('kb_item_created', False):
+                    try:
+                        kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data, self.config)
+                        # Update tweet data with KB creation status
+                        tweet_data['kb_item_created'] = True
+                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                        
+                        # Move to processed tweets if all phases are complete
+                        if (tweet_data.get('media_processed', True) and 
+                            tweet_data.get('categories_processed', False) and 
+                            tweet_data.get('kb_item_created', False)):
+                            await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
+                            logging.info(f"Tweet {tweet_id} fully processed and moved to processed tweets")
+                        
+                        stats.processed_count += 1
+                    except Exception as e:
+                        logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
+
+            # Verify KB creation before proceeding
+            if not all(tweet.get('kb_item_created', False) for tweet in tweets.values()):
+                logging.error("Knowledge base creation incomplete, stopping")
+                return
+
+            # Phase 5: README Generation
+            if preferences.regenerate_readme:
+                logging.info("=== Phase 5: README Generation ===")
+                try:
+                    await generate_root_readme(self.config.knowledge_base_dir, category_manager)
+                    logging.info("✓ Successfully regenerated README")
+                    stats.readme_generated = True
+                except Exception as e:
+                    logging.error(f"Failed to regenerate README: {e}")
+                    stats.error_count += 1
 
         except Exception as e:
             logging.error(f"Failed to process all tweets: {str(e)}")
             raise ContentProcessingError(f"Failed to process all tweets: {str(e)}")
 
     async def cache_tweets(self, tweet_ids: List[str]) -> None:
-        """Cache tweet data including media."""
-        cached_tweets = await self.state_manager.get_all_tweets()
+        """Cache tweet data including expanded URLs and all media."""
+        from urllib.parse import urlparse
         
+        cached_tweets = await self.state_manager.get_all_tweets()
+
         for tweet_id in tweet_ids:
             try:
                 # Check if tweet exists and is fully cached
@@ -639,6 +679,18 @@ class ContentProcessor:
                         logging.error(f"Failed to fetch tweet {tweet_id}")
                         continue
 
+                # Expand URLs if present
+                if 'urls' in tweet_data:
+                    expanded_urls = []
+                    for url in tweet_data.get('urls', []):
+                        try:
+                            expanded = await self.http_client.get_final_url(url)
+                            expanded_urls.append(expanded)
+                        except Exception as e:
+                            logging.warning(f"Failed to expand URL {url}: {e}")
+                            expanded_urls.append(url)  # Fallback to original
+                    tweet_data['urls'] = expanded_urls
+
                 # Download media if present and not already downloaded
                 if 'media' in tweet_data and not tweet_data.get('downloaded_media'):
                     media_dir = Path(self.config.media_cache_dir) / tweet_id
@@ -646,27 +698,45 @@ class ContentProcessor:
                     
                     media_paths = []
                     for idx, media_item in enumerate(tweet_data['media']):
-                        if isinstance(media_item, str):
-                            url = media_item
-                        else:
-                            url = media_item.get('url', '')
+                        try:
+                            # Extract URL from media item
+                            if isinstance(media_item, dict):
+                                url = media_item.get('url') or media_item.get('media_url_https')
+                                media_type = media_item.get('type', 'image')
+                            else:
+                                url = str(media_item)
+                                media_type = 'image'  # Default to image
+                                
+                            if not url:
+                                logging.warning(f"No URL found in media item: {media_item}")
+                                continue
+
+                            # Determine file extension
+                            ext = '.mp4' if media_type == 'video' else (Path(urlparse(url).path).suffix or '.jpg')
+                            media_path = media_dir / f"media_{idx}{ext}"
                             
-                        if url:
-                            media_path = media_dir / f"media_{idx}{Path(url).suffix}"
-                            if not media_path.exists():  # Only download if file doesn't exist
+                            # Download if not exists
+                            if not media_path.exists():
+                                logging.info(f"Downloading media from {url} to {media_path}")
                                 await self.http_client.download_media(url, media_path)
+                                logging.info(f"Successfully downloaded media to {media_path}")
+                            
                             media_paths.append(str(media_path))
-                    
+                            
+                        except Exception as e:
+                            logging.error(f"Failed to download media item {idx} for tweet {tweet_id}: {e}")
+                            continue
+
                     tweet_data['downloaded_media'] = media_paths
+                    logging.info(f"Downloaded {len(media_paths)} media files for tweet {tweet_id}")
 
                 # Mark as fully cached and save
                 tweet_data['cache_complete'] = True
                 await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                logging.info(f"Successfully cached tweet {tweet_id} and its media")
-                
+                logging.info(f"Cached tweet {tweet_id}: {len(tweet_data.get('urls', []))} URLs, {len(tweet_data.get('downloaded_media', []))} media items")
+
             except Exception as e:
                 logging.error(f"Failed to cache tweet {tweet_id}: {e}")
-                # Don't raise here, continue with next tweet
                 continue
 
     async def _count_media_items(self) -> int:

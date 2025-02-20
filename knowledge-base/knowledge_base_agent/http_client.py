@@ -205,6 +205,24 @@ class HTTPClient:
             logging.error(f"Failed to download media from {url}: {str(e)}")
             raise NetworkError(f"Failed to download media from {url}") from e
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((asyncio.TimeoutError, aiohttp.ClientError))
+    )
+    async def get_final_url(self, url: str) -> str:
+        """Follow redirects to get the final URL."""
+        try:
+            await self.ensure_session()
+            async with self.session.get(url, allow_redirects=True) as response:
+                response.raise_for_status()
+                final_url = str(response.url)
+                logging.debug(f"Expanded URL {url} to {final_url}")
+                return final_url
+        except Exception as e:
+            logging.error(f"Failed to expand URL {url}: {str(e)}")
+            raise NetworkError(f"Failed to get final URL for {url}") from e
+        
 class OllamaClient:
     """Client for interacting with Ollama API."""
     

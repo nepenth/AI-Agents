@@ -27,12 +27,13 @@ import logging
 import asyncio
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, List, Set, Optional, Any
+from typing import Dict, List, Set, Optional, Any, Tuple
 from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump
-from .path_utils import PathNormalizer, DirectoryManager
-from .types import CategoryInfo
-from .config import Config
+from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager
+from knowledge_base_agent.types import CategoryInfo
+from knowledge_base_agent.config import Config
+from knowledge_base_agent.http_client import HTTPClient
 
 @dataclass
 class Category:
@@ -175,8 +176,9 @@ class CategoryManager:
         ]
     }
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, http_client: Optional['HTTPClient'] = None):
         self.config = config
+        self.http_client = http_client or config.http_client  # Use provided client or from config
         self.categories_file = Path(config.categories_file)
         self.knowledge_base_dir = Path(config.knowledge_base_dir)
         self._initialized = False
@@ -610,3 +612,54 @@ class CategoryManager:
         except Exception as e:
             logging.error(f"Failed to update indexes: {e}")
             raise CategoryError(f"Failed to update indexes: {e}")
+
+    async def classify_content(self, text: str, tweet_id: str) -> Tuple[str, str]:
+        """
+        Classify content into main and sub categories, allowing for new category suggestions.
+        """
+        try:
+            prompt = f"""Given this content:
+{text}
+
+Either classify it into one of these existing categories and subcategories:
+{json.dumps(self.DEFAULT_CATEGORIES, indent=2)}
+
+OR, if none of the existing categories fit well, suggest a new category and subcategory.
+The new category should be specific but generalizable to similar content.
+
+Return as a JSON object:
+{{
+    "category": "category_name",
+    "subcategory": "subcategory_name",
+    "is_new": true/false,
+    "reason": "Brief explanation if suggesting new category"
+}}"""
+
+            # Get classification from model
+            response = await self.http_client.generate(
+                model=self.config.text_model,
+                prompt=prompt
+            )
+
+            # Parse response
+            result = json.loads(response)
+            main_cat = result.get('category', '').lower().replace(' ', '_')
+            sub_cat = result.get('subcategory', '').lower().replace(' ', '_')
+            is_new = result.get('is_new', False)
+
+            if is_new:
+                logging.info(f"New category suggested: {main_cat}/{sub_cat} - Reason: {result.get('reason')}")
+                # Add new category to our structure
+                if main_cat not in self.categories:
+                    self.categories[main_cat] = []
+                if sub_cat not in self.categories[main_cat]:
+                    self.categories[main_cat].append(sub_cat)
+                    # Save updated categories
+                    self._save_categories()
+                    logging.info(f"Added new category combination: {main_cat}/{sub_cat}")
+
+            return main_cat, sub_cat
+
+        except Exception as e:
+            logging.error(f"Failed to classify content for tweet {tweet_id}: {e}")
+            raise CategoryError(f"Classification failed: {e}")
