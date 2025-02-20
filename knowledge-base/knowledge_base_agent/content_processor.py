@@ -593,6 +593,24 @@ class ContentProcessor:
                     logging.error(f"Failed to regenerate README: {e}")
                     stats.error_count += 1
 
+            # This is where tweets are initially cached
+            for tweet_id in unprocessed_tweets:
+                if not await self.state_manager.get_tweet_cache(tweet_id):
+                    try:
+                        tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
+                        tweet_data = await fetch_tweet_data_playwright(tweet_url, self.config)
+                        if not tweet_data:
+                            logging.error(f"Failed to fetch tweet {tweet_id}")
+                            continue
+
+                        # Use new initialization method
+                        await self.state_manager.initialize_tweet_cache(tweet_id, tweet_data)
+                        logging.info(f"Successfully cached tweet {tweet_id}")
+                    except Exception as e:
+                        logging.error(f"Failed to cache tweet {tweet_id}: {e}")
+                        # Don't raise here, continue with next tweet
+                        continue
+
         except Exception as e:
             logging.error(f"Failed to process all tweets: {str(e)}")
             raise ContentProcessingError(f"Failed to process all tweets: {str(e)}")

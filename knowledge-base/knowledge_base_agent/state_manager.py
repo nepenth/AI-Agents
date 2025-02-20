@@ -346,3 +346,48 @@ class StateManager:
             logging.error(f"Failed to mark categories as processed for tweet {tweet_id}: {e}")
             raise StateError(f"Failed to mark categories as processed: {e}")
 
+    async def initialize_tweet_cache(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
+        """
+        Initialize a new tweet in the cache with its basic data.
+        This should be the first point of entry for new tweet data.
+        """
+        if tweet_id in self._tweet_cache:
+            logging.debug(f"Tweet {tweet_id} already in cache, updating...")
+        
+        # Ensure comprehensive basic structure
+        base_data = {
+            # Core tweet data
+            'tweet_id': tweet_id,
+            'full_text': tweet_data.get('full_text', ''),
+            'created_at': tweet_data.get('created_at', ''),
+            'author': tweet_data.get('author', ''),
+            
+            # Media related fields
+            'media': tweet_data.get('media', []),
+            'downloaded_media': tweet_data.get('downloaded_media', []),
+            'media_analysis': {},
+            'media_processed': False,
+            'media_analysis_complete': False,
+            
+            # Category related fields
+            'category': '',
+            'subcategory': '',
+            'item_name': '',
+            'categories_processed': False,
+            
+            # Knowledge base related fields
+            'kb_item_path': '',
+            'kb_item_created': False,
+            
+            # Processing state flags
+            'cache_complete': False,
+            'fully_processed': False
+        }
+        
+        # Merge with provided data, preserving any existing values
+        base_data.update(tweet_data)
+        
+        # Save to cache
+        await self.update_tweet_data(tweet_id, base_data)
+        logging.info(f"Initialized cache for tweet {tweet_id}")
+
