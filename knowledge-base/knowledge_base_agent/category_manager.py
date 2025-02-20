@@ -25,6 +25,7 @@ The category structure is stored in a JSON file with the format:
 import json
 import logging
 import asyncio
+import re
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Set, Optional, Any, Tuple
@@ -34,6 +35,7 @@ from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager
 from knowledge_base_agent.types import CategoryInfo
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
+from datetime import datetime
 
 @dataclass
 class Category:
@@ -614,15 +616,13 @@ class CategoryManager:
             raise CategoryError(f"Failed to update indexes: {e}")
 
     async def classify_content(self, text: str, tweet_id: str) -> Tuple[str, str]:
-        """
-        Classify content into main and sub categories, allowing for new category suggestions.
-        """
+        """Classify content into main and sub categories."""
         try:
             prompt = f"""Given this content:
 {text}
 
-Either classify it into one of these existing categories and subcategories:
-{json.dumps(self.DEFAULT_CATEGORIES, indent=2)}
+Either classify it into one of these existing categories:
+{json.dumps(self.categories, indent=2)}
 
 OR, if none of the existing categories fit well, suggest a new category and subcategory.
 The new category should be specific but generalizable to similar content.
@@ -636,30 +636,120 @@ Return as a JSON object:
 }}"""
 
             # Get classification from model
-            response = await self.http_client.generate(
+            response = await self.http_client.ollama_generate(
                 model=self.config.text_model,
-                prompt=prompt
+                prompt=prompt,
+                temperature=0.1  # Lower temperature for more consistent output
             )
 
-            # Parse response
-            result = json.loads(response)
-            main_cat = result.get('category', '').lower().replace(' ', '_')
-            sub_cat = result.get('subcategory', '').lower().replace(' ', '_')
-            is_new = result.get('is_new', False)
+            # Extract JSON from response using regex
+            json_match = re.search(r'\{[^{]*"category":[^}]*"subcategory":[^}]*"is_new":[^}]*\}', response)
+            if not json_match:
+                logging.error(f"No valid JSON found in response: {response[:200]}...")
+                raise CategoryError(f"Invalid response format from model")
 
-            if is_new:
-                logging.info(f"New category suggested: {main_cat}/{sub_cat} - Reason: {result.get('reason')}")
-                # Add new category to our structure
-                if main_cat not in self.categories:
-                    self.categories[main_cat] = []
-                if sub_cat not in self.categories[main_cat]:
-                    self.categories[main_cat].append(sub_cat)
-                    # Save updated categories
-                    self._save_categories()
-                    logging.info(f"Added new category combination: {main_cat}/{sub_cat}")
+            try:
+                result = json.loads(json_match.group(0))
+                main_cat = result.get('category', '').strip().lower().replace(' ', '_')
+                sub_cat = result.get('subcategory', '').strip().lower().replace(' ', '_')
+                is_new = result.get('is_new', False)
 
-            return main_cat, sub_cat
+                if not main_cat or not sub_cat:
+                    raise ValueError("Missing category or subcategory")
 
+                if is_new:
+                    logging.info(f"New category suggested: {main_cat}/{sub_cat} - Reason: {result.get('reason')}")
+                    # Add new category to our structure
+                    if main_cat not in self.categories:
+                        self.categories[main_cat] = []
+                    if sub_cat not in self.categories[main_cat]:
+                        self.categories[main_cat].append(sub_cat)
+                        # Save updated categories
+                        self._save_categories()
+                        logging.info(f"Added new category combination: {main_cat}/{sub_cat}")
+                
+                return main_cat, sub_cat
+                
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse JSON for tweet {tweet_id}: {e}")
+                raise CategoryError(f"Failed to parse model response: {e}")
+                
         except Exception as e:
             logging.error(f"Failed to classify content for tweet {tweet_id}: {e}")
             raise CategoryError(f"Classification failed: {e}")
+
+    async def generate_item_name(self, text: str, main_category: str, sub_category: str, tweet_id: str) -> str:
+        """Generate a descriptive name for the content."""
+        try:
+            prompt = f"""Given this content and its categories, generate a short descriptive name.
+Content: {text}
+Main Category: {main_category}
+Sub Category: {sub_category}
+
+The name should be:
+- Brief but descriptive
+- Lowercase with underscores
+- No special characters
+- Max 50 characters
+
+Respond with just the name, no explanation."""
+
+            name = await self.http_client.ollama_generate(
+                model=self.config.text_model,
+                prompt=prompt
+            )
+            
+            # Clean up the name
+            name = name.strip().lower()
+            name = re.sub(r'[^a-z0-9_]', '_', name)
+            name = re.sub(r'_+', '_', name)
+            name = name[:50].strip('_')
+            
+            return name
+            
+        except Exception as e:
+            logging.error(f"Failed to generate name for tweet {tweet_id}: {e}")
+            raise CategoryError(f"Name generation failed: {e}")
+
+    async def process_categories(self, tweet_id: str, tweet_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process and assign categories to a tweet."""
+        try:
+            # Skip if already categorized
+            if tweet_data.get('categories_processed', False):
+                logging.info(f"Categories already processed for tweet {tweet_id}, skipping...")
+                return tweet_data
+
+            # Generate categories
+            tweet_text = tweet_data.get('full_text', '')
+            image_descriptions = tweet_data.get('image_descriptions', [])
+            combined_text = f"{tweet_text}\n\nImage Descriptions:\n" + "\n".join(image_descriptions)
+
+            # Get categories and item name
+            main_cat, sub_cat = await self.classify_content(
+                text=combined_text,
+                tweet_id=tweet_id
+            )
+
+            # Generate item name
+            item_name = await self.generate_item_name(
+                text=combined_text,
+                main_category=main_cat,
+                sub_category=sub_cat,
+                tweet_id=tweet_id
+            )
+            
+            # Save categories
+            tweet_data['categories'] = {
+                'main_category': main_cat,
+                'sub_category': sub_cat,
+                'item_name': item_name,
+                'model_used': self.config.text_model,
+                'categorized_at': datetime.now().isoformat()
+            }
+            tweet_data['categories_processed'] = True
+
+            return tweet_data
+
+        except Exception as e:
+            logging.error(f"Failed to process categories for tweet {tweet_id}: {str(e)}")
+            raise CategoryError(f"Failed to process categories: {str(e)}")
