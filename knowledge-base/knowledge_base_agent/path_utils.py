@@ -5,6 +5,9 @@ from typing import Union, List
 import os
 import platform
 from .exceptions import PathValidationError
+import shutil
+import asyncio
+import logging
 
 class PathValidator:
     # Maximum length for different OS
@@ -92,6 +95,29 @@ class DirectoryManager:
             )
         except Exception:
             return False
+
+    async def copy_file(self, source: Path, destination: Path) -> None:
+        """
+        Asynchronously copy a file from source to destination.
+        
+        Args:
+            source (Path): Source file path
+            destination (Path): Destination file path
+        """
+        try:
+            # Ensure destination directory exists
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Use asyncio to run shutil.copy2 in a thread pool
+            await asyncio.get_event_loop().run_in_executor(
+                None, shutil.copy2, str(source), str(destination)
+            )
+            
+            logging.debug(f"Copied file from {source} to {destination}")
+            
+        except Exception as e:
+            logging.error(f"Failed to copy file from {source} to {destination}: {e}")
+            raise
 
 def create_kb_path(category: str, subcategory: str, name: str) -> Path:
     """Create a knowledge base item path."""

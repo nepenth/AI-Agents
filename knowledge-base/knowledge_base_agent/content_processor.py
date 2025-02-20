@@ -437,65 +437,86 @@ class ContentProcessor:
     async def create_knowledge_base_item(self, tweet_id: str, tweet_data: Dict[str, Any], config: Config) -> KnowledgeBaseItem:
         """Create a knowledge base item from a tweet."""
         try:
-            # Create proper KnowledgeBaseItem object
+            # Get categories data
             categories = tweet_data.get('categories', {})
+            
+            # Prepare context for LLM
+            context = {
+                'tweet_text': tweet_data.get('full_text', ''),
+                'urls': tweet_data.get('urls', []),
+                'media_descriptions': tweet_data.get('image_descriptions', []),
+                'main_category': categories.get('main_category', ''),
+                'sub_category': categories.get('sub_category', ''),
+                'item_name': categories.get('item_name', '')
+            }
+            
+            # Generate comprehensive content using LLM
+            prompt = (
+                "As a technical knowledge base writer, create a comprehensive entry using this information:\n\n"
+                f"Tweet: {context['tweet_text']}\n"
+                f"Category: {context['main_category']}/{context['sub_category']}\n"
+                f"Topic: {context['item_name']}\n\n"
+                "Additional Context:\n"
+                f"URLs: {', '.join(context['urls'])}\n"
+                "Media Descriptions:\n" + 
+                '\n'.join([f"- {desc}" for desc in context['media_descriptions']]) + "\n\n"
+                "Generate a detailed technical knowledge base entry that includes:\n"
+                "1. A clear title\n"
+                "2. A concise description\n"
+                "3. Detailed technical content with examples if applicable\n"
+                "4. Key takeaways and best practices\n"
+                "5. References to any tools or technologies mentioned\n"
+                "\nFormat the response in markdown with appropriate sections."
+            )
+            
+            # Generate content using LLM
+            generated_content = await self.http_client.ollama_generate(
+                model=self.text_model,
+                prompt=prompt
+            )
+            
+            if not generated_content:
+                raise ContentGenerationError("Generated content is empty")
+            
+            # Parse generated content to extract title and description
+            content_parts = generated_content.split('\n', 2)
+            title = content_parts[0].lstrip('#').strip() if content_parts else context['item_name']
+            description = content_parts[1].strip() if len(content_parts) > 1 else context['tweet_text'][:200]
+            main_content = content_parts[2] if len(content_parts) > 2 else generated_content
+            
+            # Create CategoryInfo object
+            category_info = CategoryInfo(
+                main_category=str(categories.get('main_category', '')),
+                sub_category=str(categories.get('sub_category', '')),
+                item_name=str(categories.get('item_name', '')),
+                description=description
+            )
+            
+            # Get current timestamp
+            current_time = datetime.now()
+            
+            # Create KnowledgeBaseItem with generated content
             kb_item = KnowledgeBaseItem(
-                title=categories.get('item_name', ''),
-                description=tweet_data.get('full_text', ''),
-                content=tweet_data.get('full_text', ''),
-                category_info=CategoryInfo(
-                    main_category=categories.get('main_category', ''),
-                    sub_category=categories.get('sub_category', ''),
-                    item_name=categories.get('item_name', '')
-                ),
+                title=title,
+                description=description,
+                content=main_content,
+                category_info=category_info,
                 source_tweet={
-                    'url': tweet_data.get('tweet_url', ''),
+                    'url': f"https://twitter.com/i/web/status/{tweet_id}",
                     'author': tweet_data.get('author', ''),
-                    'created_at': datetime.fromisoformat(tweet_data.get('created_at', datetime.now().isoformat()))
-                }
+                    'created_at': current_time
+                },
+                media_urls=tweet_data.get('downloaded_media', []),
+                image_descriptions=tweet_data.get('image_descriptions', []),
+                created_at=current_time,
+                last_updated=current_time
             )
-
-            # Create the markdown writer instance
-            markdown_writer = MarkdownWriter(config)
             
-            # Get media files and descriptions
-            media_files = [Path(p) for p in tweet_data.get('downloaded_media', [])]
-            media_descriptions = tweet_data.get('image_descriptions', [])
-
-            # Write the KB item and get the path
-            kb_path = await markdown_writer.write_kb_item(
-                item=kb_item,
-                media_files=media_files,
-                media_descriptions=media_descriptions,
-                root_dir=Path(config.knowledge_base_dir)
-            )
-
-            # Update tweet data with KB creation status
-            tweet_data['kb_item_created'] = True
-            tweet_data['kb_item_path'] = str(Path(
-                config.knowledge_base_dir,
-                categories.get('main_category', ''),
-                categories.get('sub_category', ''),
-                f"{categories.get('item_name', '')}.md"
-            ))
-            await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-
-            # Add directory creation before file write
-            kb_dir = Path("kb-generated")
-            kb_dir.mkdir(exist_ok=True)
-            
-            category_dir = kb_dir / categories.get('main_category', '')
-            category_dir.mkdir(exist_ok=True)
-            
-            subcategory_dir = category_dir / categories.get('sub_category', '')
-            subcategory_dir.mkdir(exist_ok=True)
-
             return kb_item
-
+            
         except Exception as e:
-            error_msg = f"Failed to create knowledge base entry for tweet {tweet_id}: {str(e)}"
-            logging.error(error_msg)
-            raise KnowledgeBaseItemCreationError(error_msg)
+            logging.error(f"Failed to create knowledge base item for tweet {tweet_id}: {e}")
+            raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item: {str(e)}")
 
     async def process_media(self, tweet_data: Dict[str, Any]) -> None:
         """Process media content for a tweet."""
@@ -603,19 +624,41 @@ class ContentProcessor:
                 # Continue with normal KB creation flow
                 if not tweet_data.get('kb_item_created', False):
                     try:
+                        # Create the knowledge base item
                         kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data, self.config)
-                        # Update tweet data with KB creation status
+                        
+                        # Initialize markdown writer and write the item
+                        markdown_writer = MarkdownWriter(self.config)
+                        kb_path = await markdown_writer.write_kb_item(
+                            item=kb_item,
+                            media_files=[Path(p) for p in tweet_data.get('downloaded_media', [])],
+                            media_descriptions=tweet_data.get('image_descriptions', []),
+                            root_dir=Path(self.config.knowledge_base_dir)
+                        )
+                        
+                        # Update tweet data with KB creation status and path
                         tweet_data['kb_item_created'] = True
+                        tweet_data['kb_item_path'] = str(kb_path)
                         await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                         
-                        # Move to processed tweets if all phases are complete
+                        # Move to processed tweets if all phases complete
                         if (tweet_data.get('media_processed', True) and 
                             tweet_data.get('categories_processed', True) and 
                             tweet_data.get('kb_item_created', True)):
                             await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
                             logging.info(f"Tweet {tweet_id} fully processed and moved to processed tweets")
+                        else:
+                            logging.warning(f"Tweet {tweet_id} has not completed all processing steps")
+                            logging.warning("Missing steps: ")
+                            if not tweet_data.get('media_processed', True):
+                                logging.warning("- Media processing")
+                            if not tweet_data.get('categories_processed', True):
+                                logging.warning("- Category processing")
+                            if not tweet_data.get('kb_item_created', True):
+                                logging.warning("- KB item creation")
                         
                         stats.processed_count += 1
+                        
                     except Exception as e:
                         logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
                         stats.error_count += 1
@@ -629,7 +672,10 @@ class ContentProcessor:
             if preferences.regenerate_readme:
                 logging.info("=== Phase 5: README Generation ===")
                 try:
-                    await generate_root_readme(self.config.knowledge_base_dir, category_manager)
+                    await generate_root_readme(
+                        kb_dir=Path(self.config.knowledge_base_dir),  # Convert to Path
+                        category_manager=self.category_manager  # Use instance's category manager
+                    )
                     logging.info("✓ Successfully regenerated README")
                     stats.readme_generated = True
                 except Exception as e:

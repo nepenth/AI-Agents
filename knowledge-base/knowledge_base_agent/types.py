@@ -9,6 +9,7 @@ from typing import TypedDict, List, Dict, Optional, Any
 from datetime import datetime
 import json
 from pathlib import Path
+from dataclasses import dataclass
 
 class TweetMedia(TypedDict):
     """Media information from a tweet."""
@@ -45,21 +46,22 @@ class TweetData(TypedDict):
     kb_item_path: Optional[str]
     kb_item_created_at: Optional[str]
 
-class CategoryInfo(TypedDict):
-    """Category structure for knowledge base organization."""
-    category: str
-    subcategory: str
-    name: str
-    description: str
+@dataclass
+class CategoryInfo:
+    main_category: str
+    sub_category: str
+    item_name: str
+    description: str  # We'll generate this from full_text or image description
 
-class KnowledgeBaseItem(TypedDict):
-    """Structure for a knowledge base entry."""
+@dataclass
+class KnowledgeBaseItem:
     title: str
     description: str
     content: str
     category_info: CategoryInfo
-    source_tweet: TweetData
-    media_analysis: List[Dict[str, str]]
+    source_tweet: Dict[str, Any]
+    media_urls: List[str]  # Store downloaded_media paths
+    image_descriptions: List[str]  # Store image descriptions
     created_at: datetime
     last_updated: datetime
 
