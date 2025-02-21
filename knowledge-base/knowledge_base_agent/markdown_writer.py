@@ -378,14 +378,19 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) 
                             'description': await get_item_description(readme_path)
                         })
 
-        # Organize items by category
+        # Organize items by category using CategoryManager's structure
         categories = {}
+        default_categories = CategoryManager.DEFAULT_CATEGORIES
+        
         for item in kb_items:
             main_cat = item['main_category']
             sub_cat = item['sub_category']
             
             if main_cat not in categories:
-                categories[main_cat] = {'description': category_manager.get_category_description(main_cat), 'subcategories': {}}
+                categories[main_cat] = {
+                    'description': default_categories.get(main_cat, []),  # Get default subcategories list
+                    'subcategories': {}
+                }
             
             if sub_cat not in categories[main_cat]['subcategories']:
                 categories[main_cat]['subcategories'][sub_cat] = []
@@ -399,37 +404,44 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) 
             f"\n## Overview\n",
             f"- Total Knowledge Base Items: {len(kb_items)}",
             f"- Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"- Categories: {len(categories)}",
-            f"- Subcategories: {sum(len(cat['subcategories']) for cat in categories.values())}\n",
-            "\n## Quick Links\n"
+            f"- Main Categories: {len(categories)}",
+            f"- Total Subcategories: {sum(len(cat['subcategories']) for cat in categories.values())}\n",
+            "\n## Quick Navigation\n"
         ]
 
-        # Add table of contents
+        # Add table of contents using CategoryManager's structure
         for main_cat in sorted(categories.keys()):
-            content.append(f"- [{main_cat.replace('_', ' ').title()}](#{main_cat})")
-            for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
-                content.append(f"  - [{sub_cat.replace('_', ' ').title()}](#{main_cat}-{sub_cat})")
+            main_cat_display = main_cat.replace('_', ' ').title()
+            content.append(f"- [{main_cat_display}](#{main_cat})")
+            
+            # Add subcategories if they exist in our knowledge base
+            if categories[main_cat]['subcategories']:
+                for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
+                    sub_cat_display = sub_cat.replace('_', ' ').title()
+                    content.append(f"  - [{sub_cat_display}](#{main_cat}-{sub_cat})")
 
         # Add detailed category sections
         content.append("\n## Categories\n")
         for main_cat in sorted(categories.keys()):
             cat_data = categories[main_cat]
+            main_cat_display = main_cat.replace('_', ' ').title()
+            
+            # Get default subcategories for this main category
+            default_subcats = CategoryManager.DEFAULT_CATEGORIES.get(main_cat, [])
+            
             content.extend([
-                f"\n### {main_cat.replace('_', ' ').title()} {{{main_cat}}}\n",
-                f"{cat_data['description']}\n" if cat_data['description'] else "",
-                f"*Number of items: {sum(len(items) for items in cat_data['subcategories'].values())}*\n"
+                f"\n### {main_cat_display} {{{main_cat}}}\n",
+                f"*Available subcategories: {', '.join(default_subcats)}*\n" if default_subcats else "",
+                f"*Current items: {sum(len(items) for items in cat_data['subcategories'].values())}*\n"
             ])
 
-            # Add subcategories
+            # Add subcategories with actual content
             for sub_cat in sorted(cat_data['subcategories'].keys()):
                 items = cat_data['subcategories'][sub_cat]
+                sub_cat_display = sub_cat.replace('_', ' ').title()
                 content.extend([
-                    f"\n#### {sub_cat.replace('_', ' ').title()} {{{main_cat}-{sub_cat}}}\n",
-                    "*Items in this category:*\n"
-                ])
-
-                # Add items table
-                content.extend([
+                    f"\n#### {sub_cat_display} {{{main_cat}-{sub_cat}}}\n",
+                    "*Items in this category:*\n",
                     "| Item | Description |",
                     "|------|-------------|"
                 ])

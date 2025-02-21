@@ -2,23 +2,25 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class ProcessingStats:
-    start_time: datetime
+    """Track progress of content processing."""
+    start_time: datetime = datetime.now()
+    media_processed: int = 0
+    categories_processed: int = 0
+    processed_count: int = 0
+    error_count: int = 0
+    readme_generated: bool = False
     processed_count: int = 0
     success_count: int = 0
-    error_count: int = 0
     skipped_count: int = 0
-    media_processed: int = 0
     cache_hits: int = 0
     cache_misses: int = 0
     network_errors: int = 0
     retry_count: int = 0
     processing_times: List[float] = field(default_factory=list)
-    categories_processed: int = 0
-    readme_generated: bool = False
 
     def __init__(self, start_time: datetime):
         self.start_time = start_time
@@ -28,6 +30,16 @@ class ProcessingStats:
         self.media_processed = 0
         self.categories_processed = 0
         self.readme_generated = False
+
+    def __str__(self) -> str:
+        return (
+            f"Started: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}, "
+            f"Processed: {self.processed_count}, "
+            f"Media: {self.media_processed}, "
+            f"Categories: {self.categories_processed}, "
+            f"Errors: {self.error_count}, "
+            f"README Generated: {self.readme_generated}"
+        )
 
     def to_dict(self) -> dict:
         """Convert stats to dictionary format."""
