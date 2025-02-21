@@ -669,18 +669,24 @@ class ContentProcessor:
                 logging.warning("Knowledge base creation incomplete, proceeding anyway")
 
             # Phase 5: README Generation
-            if preferences.regenerate_readme:
-                logging.info("=== Phase 5: README Generation ===")
+            logging.info("=== Phase 5: README Generation ===")
+            kb_dir = Path(self.config.knowledge_base_dir)
+            readme_path = kb_dir / "README.md"
+            
+            if not readme_path.exists():
+                logging.info("Root README.md does not exist, generating...")
                 try:
                     await generate_root_readme(
-                        kb_dir=Path(self.config.knowledge_base_dir),  # Convert to Path
-                        category_manager=self.category_manager  # Use instance's category manager
+                        kb_dir=kb_dir,
+                        category_manager=category_manager
                     )
-                    logging.info("✓ Successfully regenerated README")
+                    logging.info("✓ Successfully generated root README.md")
                     stats.readme_generated = True
                 except Exception as e:
-                    logging.error(f"Failed to regenerate README: {e}")
+                    logging.error(f"Failed to generate root README: {e}")
                     stats.error_count += 1
+            else:
+                logging.debug("Root README.md already exists, skipping generation")
 
         except Exception as e:
             logging.error(f"Failed to process all tweets: {str(e)}")
