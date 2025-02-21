@@ -60,8 +60,6 @@ An intelligent agent for automatically building and maintaining a structured tec
 - Playwright for web interaction
 - Git for version control
 
-### Environment Variables
-
 ## Installation
 
 1. Clone the repository
