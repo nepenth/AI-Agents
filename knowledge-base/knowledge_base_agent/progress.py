@@ -88,4 +88,19 @@ class ProcessingStats:
 
     def add_processing_time(self, duration: float) -> None:
         self.processing_times.append(duration) 
+
+@dataclass
+class ProcessingResult:
+    """Results of a knowledge base agent run."""
+    stats: ProcessingStats
+    readme_generated: bool = False
+    readme_path: Optional[Path] = None
+    readme_generation_method: str = "none"  # "intelligent", "static", or "none"
+    
+    def __str__(self) -> str:
+        return (
+            f"Processing completed:\n"
+            f"{self.stats}\n"
+            f"README Generated: {self.readme_generated} (Method: {self.readme_generation_method})"
+        ) 
         
