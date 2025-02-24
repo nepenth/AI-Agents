@@ -15,7 +15,7 @@ from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
 from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
 from knowledge_base_agent.markdown_writer import MarkdownWriter
-from knowledge_base_agent.readme_generator import generate_root_readme
+from knowledge_base_agent.readme_generator import generate_root_readme  # Updated import
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.types import TweetData, KnowledgeBaseItem
 from knowledge_base_agent.prompts import UserPreferences
@@ -236,9 +236,9 @@ class KnowledgeBaseAgent:
             if has_work_to_do:
                 logging.info(f"Processing {len(unprocessed_tweets)} tweets...")
                 await self.content_processor.process_all_tweets(
-                    self.config,
-                    self.http_client,
-                    self.state_manager,
+                    self.config,  # Updated to match signature
+                    self.http_client,  # Updated to match signature
+                    self.state_manager,  # Updated to match signature
                     stats,
                     preferences
                 )
@@ -315,7 +315,12 @@ class KnowledgeBaseAgent:
         """Regenerate the root README file."""
         try:
             logging.info("Starting README regeneration")
-            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager)
+            await generate_root_readme(
+                kb_dir=self.config.knowledge_base_dir,
+                category_manager=self.category_manager,
+                http_client=self.http_client,  # Added
+                config=self.config  # Added
+            )
             logging.info("README regeneration completed")
         except Exception as e:
             logging.error(f"Failed to regenerate README: {str(e)}")
