@@ -91,33 +91,31 @@ async def process_media_content(tweet_data: Dict[str, Any], http_client: HTTPCli
         return tweet_data
 
     processed_media = []
-    has_analyzable_media = False
-    analysis_errors = []
+    has_non_video_media = False
 
     for media in media_items:
-        if is_video(media):  # Skip videos
-            logging.warning(f"Skipping video analysis for {media['local_path']}")
-            media['processed'] = True  # Mark as processed
+        if is_video(media):
+            logging.info(f"Skipping video analysis for {media['local_path']}")
+            media['processed'] = True
             processed_media.append(media)
             continue
             
+        has_non_video_media = True
         try:
-            # Process non-video media
             analysis = await interpret_image(media['local_path'], http_client, config)
             processed_media.append({
                 **media,
                 'analysis': analysis,
                 'processed': True
             })
-            has_analyzable_media = True
         except Exception as e:
-            analysis_errors.append(str(e))
+            logging.error(f"Failed to process media: {str(e)}")
             processed_media.append(media)
 
-    # Mark as processed if all media were handled (either skipped or processed)
+    # Mark as processed if all media are either videos or successfully processed images
     tweet_data['media'] = processed_media
-    tweet_data['media_processed'] = not has_analyzable_media or not analysis_errors
-
+    tweet_data['media_processed'] = not has_non_video_media  # True if only videos present
+    
     return tweet_data
 
 async def process_categories(
