@@ -13,6 +13,7 @@ from knowledge_base_agent.text_processor import process_categories
 from knowledge_base_agent.kb_item_generator import create_knowledge_base_item
 from knowledge_base_agent.readme_generator import generate_root_readme
 from knowledge_base_agent.markdown_writer import MarkdownWriter
+from knowledge_base_agent.types import KnowledgeBaseItem
 
 @dataclass
 class ProcessingStats:
