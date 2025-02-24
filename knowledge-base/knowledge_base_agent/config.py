@@ -6,6 +6,8 @@ from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import HttpUrl, Field, field_validator
 from knowledge_base_agent.exceptions import ConfigurationError
+import os
+from dotenv import load_dotenv
 
 def setup_logging(log_file: Path) -> None:
     """Configure logging with proper formatting for long messages."""
@@ -83,6 +85,24 @@ class Config(BaseSettings):
     request_timeout: int = Field(default=180, alias="REQUEST_TIMEOUT")
     retry_backoff: bool = Field(default=True, alias="RETRY_BACKOFF")
     
+    # Reprocessing flags
+    reprocess_media: bool = Field(
+        default=False,
+        description="Whether to reprocess media for all tweets"
+    )
+    reprocess_categories: bool = Field(
+        default=False,
+        description="Whether to reprocess categories for all tweets"
+    )
+    reprocess_kb_items: bool = Field(
+        default=False,
+        description="Whether to regenerate knowledge base items"
+    )
+    regenerate_root_readme: bool = Field(
+        default=False,
+        description="Whether to regenerate the root README.md"
+    )
+    
     @field_validator("*")
     def validate_paths(cls, v, field):
         if isinstance(v, Path):
@@ -142,3 +162,24 @@ class Config(BaseSettings):
         def success(self, message, *args, **kwargs):
             self._log(25, message, args, **kwargs)
         logging.Logger.success = success
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Create Config from environment variables."""
+        load_dotenv()
+        
+        # ... existing env loading ...
+
+        # Load reprocessing flags from environment
+        reprocess_media = os.getenv('REPROCESS_MEDIA', 'false').lower() == 'true'
+        reprocess_categories = os.getenv('REPROCESS_CATEGORIES', 'false').lower() == 'true'
+        reprocess_kb_items = os.getenv('REPROCESS_KB_ITEMS', 'false').lower() == 'true'
+        regenerate_root_readme = os.getenv('REGENERATE_ROOT_README', 'false').lower() == 'true'
+
+        return cls(
+            # ... existing fields ...
+            reprocess_media=reprocess_media,
+            reprocess_categories=reprocess_categories,
+            reprocess_kb_items=reprocess_kb_items,
+            regenerate_root_readme=regenerate_root_readme
+        )

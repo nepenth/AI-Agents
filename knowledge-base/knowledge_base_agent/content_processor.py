@@ -66,7 +66,7 @@ class ContentProcessor:
 
     async def process_all_tweets(
         self,
-        preferences,  # Assuming UserPreferences or similar
+        preferences, 
         unprocessed_tweets: List[str],
         total_tweets: int,
         stats: ProcessingStats,
@@ -88,7 +88,7 @@ class ContentProcessor:
                 # Phase 2: Media Processing
                 logging.info("=== Phase 2: Media Processing ===")
                 for tweet_id, tweet_data in tweets.items():
-                    if not tweet_data.get('media_processed', False) or self.config.reprocess_media:
+                    if not tweet_data.get('media_processed', False):
                         try:
                             updated_data = await process_media(tweet_data, self.http_client, self.config)
                             await self.state_manager.update_tweet_data(tweet_id, updated_data)
@@ -131,7 +131,7 @@ class ContentProcessor:
 
                     if not tweet_data.get('kb_item_created', False) or self.config.reprocess_kb_items:
                         try:
-                            kb_item = await create_knowledge_base_item(tweet_id, tweet_data, self.config, self.http_client)
+                            kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data)
                             markdown_writer = MarkdownWriter(self.config)
                             kb_path = await markdown_writer.write_kb_item(
                                 item=kb_item,
@@ -172,11 +172,21 @@ class ContentProcessor:
             logging.info("=== Phase 5: README Generation ===")
             kb_dir = Path(self.config.knowledge_base_dir)
             readme_path = kb_dir / "README.md"
+
+            # Check if README exists
+            readme_exists = readme_path.exists()
             
-            # Generate README if explicitly requested OR if new KB items were created
-            if self.config.regenerate_root_readme or kb_items_created:
-                reason = "REGENERATE_ROOT_README is True" if self.config.regenerate_root_readme else "new KB items were created"
-                logging.info(f"Generating README because {reason}")
+            # Generate README if it doesn't exist, REGENERATE_ROOT_README is True, or new KB items were created
+            if not readme_exists or self.config.regenerate_root_readme or kb_items_created:
+                reasons = []
+                if not readme_exists:
+                    reasons.append("README.md does not exist")
+                if self.config.regenerate_root_readme:
+                    reasons.append("REGENERATE_ROOT_README is True")
+                if kb_items_created:
+                    reasons.append("new KB items were created")
+                reason_str = " and ".join(reasons)
+                logging.info(f"Generating README because {reason_str}")
                 try:
                     await generate_root_readme(
                         kb_dir=kb_dir,
@@ -190,7 +200,7 @@ class ContentProcessor:
                     logging.error(f"Failed to generate root README: {e}")
                     stats.error_count += 1
             else:
-                logging.info("Skipping README generation (no new items and not explicitly requested)")
+                logging.info("Skipping README generation (README exists, no new items, and not explicitly requested)")
 
         except Exception as e:
             logging.error(f"Failed to process all tweets: {str(e)}")
@@ -209,3 +219,7 @@ class ContentProcessor:
         """Count total number of unprocessed non-video media items."""
         tweets = await self.state_manager.get_all_tweets()
         return await count_media_items(tweets)
+
+    async def create_knowledge_base_item(self, tweet_id: str, tweet_data: Dict[str, Any]) -> KnowledgeBaseItem:
+        """Create a knowledge base item from tweet data."""
+        return await create_knowledge_base_item(tweet_id, tweet_data, self.config, self.http_client)
