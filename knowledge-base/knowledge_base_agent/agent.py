@@ -8,14 +8,15 @@ from pathlib import Path
 import asyncio
 from datetime import datetime
 import time
+import aiofiles
 
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import AgentError
+from knowledge_base_agent.exceptions import AgentError, MarkdownGenerationError
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
 from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
 from knowledge_base_agent.markdown_writer import MarkdownWriter
-from knowledge_base_agent.readme_generator import generate_root_readme  # Updated import
+from knowledge_base_agent.readme_generator import generate_root_readme, generate_static_root_readme  # Updated import
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.types import TweetData, KnowledgeBaseItem
 from knowledge_base_agent.prompts import UserPreferences
@@ -245,9 +246,17 @@ class KnowledgeBaseAgent:
             else:
                 logging.info("No tweets to process")
             
-            # 3. Sync to GitHub
-            logging.info("3. Syncing to GitHub...")
-            await self.sync_changes()
+            # 3. Regenerate README
+            logging.info("3. Regenerating README...")
+            await self.regenerate_readme()
+            self.stats.readme_generated = True
+            
+            # 4. Sync to GitHub
+            logging.info("4. Syncing to GitHub...")
+            if self.config.git_enabled:
+                if self.git_handler is None:
+                    self.git_handler = GitSyncHandler(self.config)
+                await self.git_handler.sync_to_github("Update knowledge base with new items and README")
             
             # Summary
             logging.info("\n=== Processing Summary ===")
@@ -315,16 +324,32 @@ class KnowledgeBaseAgent:
         """Regenerate the root README file."""
         try:
             logging.info("Starting README regeneration")
-            await generate_root_readme(
-                kb_dir=self.config.knowledge_base_dir,
-                category_manager=self.category_manager,
-                http_client=self.http_client,  # Added
-                config=self.config  # Added
-            )
-            logging.info("README regeneration completed")
+            readme_path = self.config.knowledge_base_dir / "README.md"
+            
+            # Always attempt to generate an intelligent README first
+            try:
+                await generate_root_readme(
+                    self.config.knowledge_base_dir,
+                    self.category_manager,
+                    self.http_client,
+                    self.config
+                )
+                logging.info("Generated intelligent README")
+            except Exception as e:
+                logging.warning(f"Intelligent README generation failed: {e}")
+                
+                # Fall back to static README if intelligent generation fails
+                content = await generate_static_root_readme(
+                    self.config.knowledge_base_dir,
+                    self.category_manager
+                )
+                async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
+                    await f.write(content)
+                logging.info("Generated static README as fallback")
+                
         except Exception as e:
-            logging.error(f"Failed to regenerate README: {str(e)}")
-            raise
+            logging.error(f"README regeneration failed: {e}")
+            raise MarkdownGenerationError(f"Failed to regenerate README: {e}")
 
     async def _verify_tweet_cached(self, tweet_id: str) -> bool:
         """Verify that a tweet exists in the cache."""

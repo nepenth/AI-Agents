@@ -8,11 +8,12 @@ from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.exceptions import MarkdownGenerationError
 from knowledge_base_agent.config import Config
+import json
 
 async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config) -> None:
     """Generate an intelligent root README.md using an LLM based on knowledge base content."""
     try:
-        # Collect knowledge base items
+        # Collect knowledge base items from file system
         kb_items = []
         for main_cat in kb_dir.iterdir():
             if not main_cat.is_dir() or main_cat.name.startswith('.'):
@@ -33,6 +34,28 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
                             'description': await get_item_description(readme_path),
                             'last_updated': readme_path.stat().st_mtime
                         })
+
+        # Supplement with information from tweet cache if available
+        try:
+            cache_path = config.tweet_cache_file
+            if cache_path.exists():
+                async with aiofiles.open(cache_path, 'r', encoding='utf-8') as f:
+                    cache_content = await f.read()
+                    tweet_cache = json.loads(cache_content)
+                    
+                # Add metadata from tweet cache for existing KB items
+                for tweet_id, tweet_data in tweet_cache.items():
+                    kb_path = tweet_data.get('kb_item_path')
+                    if kb_path and Path(kb_path).exists():
+                        # Find the matching kb_item and enrich it with tweet metadata
+                        for item in kb_items:
+                            if str(item['path']) == kb_path:
+                                item['tweet_id'] = tweet_id
+                                item['created_date'] = tweet_data.get('processed_date')
+                                item['source_url'] = f"https://twitter.com/user/status/{tweet_id}"
+                                break
+        except Exception as e:
+            logging.warning(f"Could not enrich KB items with tweet cache data: {e}")
 
         # Calculate basic stats
         total_items = len(kb_items)

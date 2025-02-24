@@ -11,9 +11,10 @@ from knowledge_base_agent.tweet_cacher import cache_tweets
 from knowledge_base_agent.media_processor import process_media, has_unprocessed_non_video_media, count_media_items
 from knowledge_base_agent.text_processor import process_categories
 from knowledge_base_agent.kb_item_generator import create_knowledge_base_item
-from knowledge_base_agent.readme_generator import generate_root_readme
+from knowledge_base_agent.readme_generator import generate_root_readme, generate_static_root_readme
 from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.types import KnowledgeBaseItem
+import aiofiles
 
 @dataclass
 class ProcessingStats:
@@ -188,12 +189,7 @@ class ContentProcessor:
                 reason_str = " and ".join(reasons)
                 logging.info(f"Generating README because {reason_str}")
                 try:
-                    await generate_root_readme(
-                        kb_dir=kb_dir,
-                        category_manager=self.category_manager,
-                        http_client=self.http_client,
-                        config=self.config
-                    )
+                    await self._regenerate_readme()
                     stats.readme_generated = True
                     logging.info("Successfully generated root README.md")
                 except Exception as e:
@@ -202,9 +198,32 @@ class ContentProcessor:
             else:
                 logging.info("Skipping README generation (README exists, no new items, and not explicitly requested)")
 
+            # Always regenerate README at the end
+            if preferences.regenerate_readme or not (self.config.knowledge_base_dir / "README.md").exists():
+                await self._regenerate_readme()
+                stats.readme_generated = True
+            
         except Exception as e:
             logging.error(f"Failed to process all tweets: {str(e)}")
             raise ContentProcessingError(f"Failed to process all tweets: {str(e)}")
+
+    async def _regenerate_readme(self) -> None:
+        """Regenerate the README file."""
+        try:
+            await generate_root_readme(
+                self.config.knowledge_base_dir,
+                self.category_manager,
+                self.http_client,
+                self.config
+            )
+        except Exception as e:
+            logging.warning(f"Intelligent README generation failed: {e}")
+            content = await generate_static_root_readme(
+                self.config.knowledge_base_dir,
+                self.category_manager
+            )
+            async with aiofiles.open(self.config.knowledge_base_dir / "README.md", 'w', encoding='utf-8') as f:
+                await f.write(content)
 
     async def get_tweets_with_media(self) -> Dict[str, Any]:
         """Get all tweets that have unprocessed non-video media."""

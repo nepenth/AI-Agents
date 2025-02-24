@@ -33,6 +33,7 @@ class Config(BaseSettings):
     github_user_name: str = Field(..., alias="GITHUB_USER_NAME")
     github_repo_url: HttpUrl = Field(..., alias="GITHUB_REPO_URL")
     github_user_email: str = Field(..., alias="GITHUB_USER_EMAIL")
+    git_enabled: bool = Field(default=True, alias="GIT_ENABLED")
     
     # File paths
     data_processing_dir: Path = Field(default=Path("data"), alias="DATA_PROCESSING_DIR")
@@ -175,11 +176,13 @@ class Config(BaseSettings):
         reprocess_categories = os.getenv('REPROCESS_CATEGORIES', 'false').lower() == 'true'
         reprocess_kb_items = os.getenv('REPROCESS_KB_ITEMS', 'false').lower() == 'true'
         regenerate_root_readme = os.getenv('REGENERATE_ROOT_README', 'false').lower() == 'true'
+        git_enabled = os.getenv('GIT_ENABLED', 'true').lower() == 'true'
 
         return cls(
             # ... existing fields ...
             reprocess_media=reprocess_media,
             reprocess_categories=reprocess_categories,
             reprocess_kb_items=reprocess_kb_items,
-            regenerate_root_readme=regenerate_root_readme
+            regenerate_root_readme=regenerate_root_readme,
+            git_enabled=git_enabled
         )
