@@ -174,7 +174,12 @@ class ContentProcessor:
             if not readme_path.exists():
                 logging.info("Root README.md does not exist, generating...")
                 try:
-                    await generate_root_readme(kb_dir=kb_dir, category_manager=category_manager)
+                    await generate_root_readme(
+                        kb_dir=kb_dir,
+                        category_manager=category_manager,
+                        http_client=self.http_client,  # Added
+                        config=self.config  # Added
+                    )
                     stats.readme_generated = True
                 except Exception as e:
                     logging.error(f"Failed to generate root README: {e}")
