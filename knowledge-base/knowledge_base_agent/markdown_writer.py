@@ -352,22 +352,19 @@ async def write_markdown_content(
         raise MarkdownGenerationError(f"Failed to write markdown content: {e}")
 
 async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) -> None:
-    """Generate comprehensive root README.md with knowledge base structure."""
+    """Generate a polished root README.md with accurate navigation and enhanced content."""
     try:
-        # Get all knowledge base items
+        # Collect all knowledge base items
         kb_items = []
         for main_cat in kb_dir.iterdir():
             if not main_cat.is_dir() or main_cat.name.startswith('.'):
                 continue
-                
             for sub_cat in main_cat.iterdir():
                 if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
                     continue
-                    
                 for item_dir in sub_cat.iterdir():
                     if not item_dir.is_dir() or item_dir.name.startswith('.'):
                         continue
-                    
                     readme_path = item_dir / "README.md"
                     if readme_path.exists():
                         kb_items.append({
@@ -375,112 +372,127 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) 
                             'sub_category': sub_cat.name,
                             'item_name': item_dir.name,
                             'path': readme_path.relative_to(kb_dir),
-                            'description': await get_item_description(readme_path)
+                            'description': await get_item_description(readme_path),
+                            'last_updated': readme_path.stat().st_mtime  # For recent updates
                         })
 
-        # Organize items by category using CategoryManager's structure
+        # Organize items by category
         categories = {}
-        default_categories = CategoryManager.DEFAULT_CATEGORIES
-        
         for item in kb_items:
             main_cat = item['main_category']
             sub_cat = item['sub_category']
-            
             if main_cat not in categories:
-                categories[main_cat] = {
-                    'description': default_categories.get(main_cat, []),  # Get default subcategories list
-                    'subcategories': {}
-                }
-            
+                categories[main_cat] = {'subcategories': {}}
             if sub_cat not in categories[main_cat]['subcategories']:
                 categories[main_cat]['subcategories'][sub_cat] = []
-                
             categories[main_cat]['subcategories'][sub_cat].append(item)
+
+        # Calculate stats
+        total_items = len(kb_items)
+        total_main_cats = len(categories)
+        total_subcats = sum(len(subcats) for subcats in categories.values())
+        total_media = sum(len(list(item_dir.glob("image_*.jpg"))) 
+                         for main_cat in kb_dir.iterdir() if main_cat.is_dir()
+                         for sub_cat in main_cat.iterdir() if sub_cat.is_dir()
+                         for item_dir in sub_cat.iterdir() if item_dir.is_dir())
 
         # Generate markdown content
         content = [
             "# Technical Knowledge Base\n",
-            "Welcome to our curated technical knowledge base! This repository contains a collection of technical articles, guides, and resources organized by category.\n",
-            f"\n## Overview\n",
-            f"- Total Knowledge Base Items: {len(kb_items)}",
-            f"- Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"- Main Categories: {len(categories)}",
-            f"- Total Subcategories: {sum(len(cat['subcategories']) for cat in categories.values())}\n",
-            "\n## Quick Navigation\n"
+            "Welcome to our curated technical knowledge base! Explore a wealth of technical articles, guides, and resources organized by category.\n",
+            "## Overview\n",
+            f"- **Total Items**: {total_items}",
+            f"- **Main Categories**: {total_main_cats}",
+            f"- **Subcategories**: {total_subcats}",
+            f"- **Media Files**: {total_media}",
+            f"- **Last Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            "## Quick Navigation\n"
         ]
 
-        # Add table of contents using CategoryManager's structure
+        # Table of Contents with corrected anchors
         for main_cat in sorted(categories.keys()):
-            main_cat_display = main_cat.replace('_', ' ').title()
-            content.append(f"- [{main_cat_display}](#{main_cat})")
-            
-            # Add subcategories if they exist in our knowledge base
-            if categories[main_cat]['subcategories']:
-                for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
-                    sub_cat_display = sub_cat.replace('_', ' ').title()
-                    content.append(f"  - [{sub_cat_display}](#{main_cat}-{sub_cat})")
+            main_display = main_cat.replace('_', ' ').title()
+            content.append(f"- [{main_display}](#{main_cat})")
+            for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
+                sub_display = sub_cat.replace('_', ' ').title()
+                anchor = f"{main_cat}-{sub_cat}"
+                content.append(f"  - [{sub_display}](#{anchor})")
 
-        # Add detailed category sections
+        # Recent Updates section (last 5 items)
+        recent_items = sorted(kb_items, key=lambda x: x['last_updated'], reverse=True)[:5]
+        if recent_items:
+            content.extend([
+                "\n## Recent Updates\n",
+                "| Item | Category | Last Updated |",
+                "|------|----------|--------------|"
+            ])
+            for item in recent_items:
+                name = item['item_name'].replace('-', ' ').title()
+                path = item['path']
+                cat = f"{item['main_category'].title()}/{item['sub_category'].title()}"
+                updated = datetime.fromtimestamp(item['last_updated']).strftime('%Y-%m-%d')
+                content.append(f"| [{name}]({path}) | {cat} | {updated} |")
+
+        # Detailed Categories
         content.append("\n## Categories\n")
         for main_cat in sorted(categories.keys()):
             cat_data = categories[main_cat]
-            main_cat_display = main_cat.replace('_', ' ').title()
-            
-            # Get default subcategories for this main category
-            default_subcats = CategoryManager.DEFAULT_CATEGORIES.get(main_cat, [])
-            
+            main_display = main_cat.replace('_', ' ').title()
+            active_subcats = sorted(cat_data['subcategories'].keys())
+            active_subcat_display = ', '.join(sub.replace('_', ' ') for sub in active_subcats)
+            total_cat_items = sum(len(items) for items in cat_data['subcategories'].values())
+
             content.extend([
-                f"\n### {main_cat_display} {{{main_cat}}}\n",
-                f"*Available subcategories: {', '.join(default_subcats)}*\n" if default_subcats else "",
-                f"*Current items: {sum(len(items) for items in cat_data['subcategories'].values())}*\n"
+                f"\n### {main_display} <a name=\"{main_cat}\"></a>\n",
+                f"*Subcategories with content: {active_subcat_display}*",
+                f"*Items: {total_cat_items}*\n"
             ])
 
-            # Add subcategories with actual content
-            for sub_cat in sorted(cat_data['subcategories'].keys()):
+            for sub_cat in active_subcats:
                 items = cat_data['subcategories'][sub_cat]
-                sub_cat_display = sub_cat.replace('_', ' ').title()
+                sub_display = sub_cat.replace('_', ' ').title()
+                anchor = f"{main_cat}-{sub_cat}"
                 content.extend([
-                    f"\n#### {sub_cat_display} {{{main_cat}-{sub_cat}}}\n",
-                    "*Items in this category:*\n",
+                    f"\n#### {sub_display} <a name=\"{anchor}\"></a>\n",
                     "| Item | Description |",
                     "|------|-------------|"
                 ])
-                
                 for item in sorted(items, key=lambda x: x['item_name']):
                     name = item['item_name'].replace('-', ' ').title()
-                    desc = item['description'].replace('\n', ' ').strip()
+                    desc = sanitize_markdown_cell(item['description'])
                     path = item['path']
                     content.append(f"| [{name}]({path}) | {desc} |")
-                content.append("")
 
         # Write README
         readme_path = kb_dir / "README.md"
         async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
             await f.write('\n'.join(content))
-            
-        logging.info("Generated comprehensive root README.md")
-        
+        logging.info("Generated polished root README.md")
+
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
         raise MarkdownGenerationError(f"Failed to generate root README: {e}")
 
 async def get_item_description(readme_path: Path) -> str:
-    """Extract description from a knowledge base item's README."""
+    """Extract a polished description from a knowledge base item's README."""
     try:
         async with aiofiles.open(readme_path, 'r', encoding='utf-8') as f:
             content = await f.read()
-            
+        
         # Look for description section
         desc_match = re.search(r'^## Description\s*\n(.*?)(?=\n#|$)', content, re.MULTILINE | re.DOTALL)
         if desc_match:
-            return desc_match.group(1).strip()[:200] + "..."  # Truncate long descriptions
-        
-        # Fallback to first non-empty paragraph after title
-        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
-        if len(paragraphs) > 1:
-            return paragraphs[1][:200] + "..."
-            
-        return "No description available"
+            desc = desc_match.group(1).strip()
+        else:
+            # Fallback to first non-empty paragraph after title
+            paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+            desc = paragraphs[1] if len(paragraphs) > 1 else paragraphs[0] if paragraphs else ""
+
+        # Truncate at word boundary
+        if len(desc) > 200:
+            truncated = desc[:200].rsplit(' ', 1)[0] + "..."
+            return truncated if len(truncated) > 50 else desc[:200] + "..."
+        return desc if desc else "No description available"
         
     except Exception as e:
         logging.warning(f"Failed to get description from {readme_path}: {e}")
