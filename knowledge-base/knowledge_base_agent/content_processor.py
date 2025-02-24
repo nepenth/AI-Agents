@@ -19,6 +19,10 @@ from knowledge_base_agent.prompts import UserPreferences
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright, expand_url  # Added expand_url import
 from dataclasses import dataclass
 from knowledge_base_agent.markdown_writer import generate_root_readme, MarkdownWriter
+import copy
+from mimetypes import guess_type
+
+VIDEO_MIME_TYPES = {'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'}
 
 @dataclass
 class ProcessingStats:
@@ -66,42 +70,55 @@ async def categorize_and_name_content(
         logging.error(f"Failed to categorize content for tweet {tweet_id}: {e}")
         raise CategoryGenerationError(f"Failed to categorize content for tweet {tweet_id}: {e}")
 
-async def process_media_content(
-    tweet_data: Dict[str, Any],
-    http_client: HTTPClient,
-    config: Config
-) -> Dict[str, Any]:
-    """Process media content for a tweet."""
-    try:
-        if tweet_data.get('media_processed', False):
-            logging.info("Media already processed, skipping...")
-            return tweet_data
+def is_video(media_item: dict) -> bool:
+    """Check if media item is a video."""
+    if not media_item.get('local_path'):
+        return False
+        
+    file_path = Path(media_item['local_path'])
+    mime_type, _ = guess_type(file_path)
+    
+    return (
+        mime_type in VIDEO_MIME_TYPES or 
+        file_path.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv'}
+    )
 
-        media_paths = tweet_data.get('downloaded_media', [])
-        if not media_paths:
-            tweet_data['media_processed'] = True
-            return tweet_data
-
-        image_descriptions = []
-        for media_path in media_paths:
-            if not Path(media_path).exists():
-                raise ContentProcessingError(f"Media file not found: {media_path}")
-
-            description = await interpret_image(
-                http_client=http_client,
-                image_path=Path(media_path),
-                vision_model=config.vision_model
-            )
-            if description:
-                image_descriptions.append(description)
-
-        # Update only media-related fields
-        tweet_data['image_descriptions'] = image_descriptions
-        tweet_data['media_processed'] = True
+async def process_media_content(tweet_data: Dict[str, Any], http_client: HTTPClient, config: Config) -> Dict[str, Any]:
+    """Process media content, skipping video analysis while preserving video references."""
+    media_items = tweet_data.get('media', [])
+    
+    if not media_items or tweet_data.get('media_processed', False):
         return tweet_data
 
-    except Exception as e:
-        raise ContentProcessingError(f"Failed to process media content: {e}")
+    processed_media = []
+    has_analyzable_media = False
+    analysis_errors = []
+
+    for media in media_items:
+        if is_video(media):  # Skip videos
+            logging.warning(f"Skipping video analysis for {media['local_path']}")
+            media['processed'] = True  # Mark as processed
+            processed_media.append(media)
+            continue
+            
+        try:
+            # Process non-video media
+            analysis = await interpret_image(media['local_path'], http_client, config)
+            processed_media.append({
+                **media,
+                'analysis': analysis,
+                'processed': True
+            })
+            has_analyzable_media = True
+        except Exception as e:
+            analysis_errors.append(str(e))
+            processed_media.append(media)
+
+    # Mark as processed if all media were handled (either skipped or processed)
+    tweet_data['media'] = processed_media
+    tweet_data['media_processed'] = not has_analyzable_media or not analysis_errors
+
+    return tweet_data
 
 async def process_categories(
     tweet_id: str,
@@ -165,6 +182,7 @@ async def create_knowledge_base_entry(
     state_manager: Optional[StateManager] = None
 ) -> None:
     """Create a knowledge base entry for a tweet."""
+    original_state = copy.deepcopy(tweet_data)
     try:
         logging.info(f"Starting knowledge base entry creation for tweet {tweet_id}")
         
@@ -259,8 +277,16 @@ async def create_knowledge_base_entry(
         
         logging.info(f"Successfully created knowledge base entry for tweet {tweet_id}")
         
+        # Only update state AFTER successful completion
+        if state_manager:
+            await state_manager.mark_tweet_processed(tweet_id)
+            
     except Exception as e:
         logging.error(f"Failed to create knowledge base entry for {tweet_id}: {str(e)}")
+        # Restore original state on failure
+        if state_manager:
+            await state_manager.update_tweet_data(tweet_id, original_state)
+            await state_manager.add_unprocessed_tweet(tweet_id)  # Requeue
         raise StorageError(f"Failed to create knowledge base entry: {e}")
 
 class ContentProcessor:
@@ -790,10 +816,17 @@ class ContentProcessor:
         return count
 
     async def get_tweets_with_media(self) -> Dict[str, Any]:
-        """Get all tweets that have unprocessed media."""
+        """Get all tweets that have unprocessed non-video media."""
         tweets = await self.state_manager.get_all_tweets()
         return {
             tweet_id: tweet_data 
             for tweet_id, tweet_data in tweets.items() 
-            if tweet_data.get('media', []) and not tweet_data.get('media_processed', False)
+            if self.has_unprocessed_non_video_media(tweet_data)
         }
+
+    def has_unprocessed_non_video_media(self, tweet_data: dict) -> bool:
+        """Check if tweet has any unprocessed non-video media."""
+        if tweet_data.get('media_processed', False):
+            return False
+        
+        return any(not is_video(m) for m in tweet_data.get('media', []))

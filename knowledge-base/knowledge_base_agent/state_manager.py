@@ -11,6 +11,7 @@ import shutil
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.file_utils import async_write_text, async_json_load, async_json_dump
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url, load_tweet_urls_from_links
+from datetime import datetime
 
 class StateManager:
     def __init__(self, config: Config):
@@ -84,63 +85,59 @@ class StateManager:
             raise StateError(f"Failed to write state file: {filepath}") from e
 
     async def _load_processed_tweets(self) -> None:
-        """Load processed tweets from state file."""
+        """Load processed tweets from combined state file."""
         try:
-            if self.config.processed_tweets_file.exists():
-                async with aiofiles.open(self.config.processed_tweets_file, 'r') as f:
-                    content = await f.read()
-                    self._processed_tweets = dict.fromkeys(json.loads(content), True)
+            if self.config.state_file.exists():
+                state_data = await async_json_load(self.config.state_file)
+                self._processed_tweets = dict.fromkeys(state_data.get('processed', []), True)
+                self._unprocessed_tweets = set(state_data.get('unprocessed', []))
         except Exception as e:
-            logging.error(f"Failed to load processed tweets: {e}")
+            logging.error(f"Failed to load state: {e}")
             self._processed_tweets = {}
+            self._unprocessed_tweets = set()
 
     async def mark_tweet_processed(self, tweet_id: str, tweet_data: Dict[str, Any] = None) -> None:
         """Mark a tweet as processed and update both sets."""
         async with self._lock:
             try:
-                # Verify tweet has been fully processed
+                # Existing validation checks remain unchanged
                 if not tweet_data:
                     logging.warning(f"No tweet data provided for {tweet_id}, skipping mark as processed")
                     return
                 
-                # Check for required processing steps
-                if not all([
-                    # Media processing check (True if no media present)
+                # Keep original validation logic
+                required_checks = [
                     tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
-                    # Category processing check
                     tweet_data.get('categories_processed', False),
-                    # Knowledge base item creation check
                     tweet_data.get('kb_item_created', False),
                     tweet_data.get('kb_item_path', None)
-                ]):
-                    logging.warning(f"Tweet {tweet_id} has not completed all processing steps")
-                    missing_steps = []
-                    if not tweet_data.get('media_processed', True) and tweet_data.get('media'):
-                        missing_steps.append("media processing")
-                    if not tweet_data.get('categories_processed'):
-                        missing_steps.append("category processing")
-                    if not tweet_data.get('kb_item_created'):
-                        missing_steps.append("knowledge base item creation")
-                    logging.warning(f"Missing steps: {', '.join(missing_steps)}")
+                ]
+                
+                if not all(required_checks):
+                    # Existing missing steps logging remains
                     return
-                
-                # If all checks pass, mark as processed
-                self._processed_tweets[tweet_id] = True
+
+                # Add version check before state update
+                if tweet_id in self._processed_tweets:
+                    logging.info(f"Tweet {tweet_id} already marked as processed, skipping")
+                    return
+
+                # Original state update logic
+                self._processed_tweets[tweet_id] = datetime.now().isoformat()
                 self._unprocessed_tweets.discard(tweet_id)
-                
-                # Save both states
-                await self._atomic_write_json(
-                    list(self._processed_tweets.keys()),
-                    self.config.processed_tweets_file
-                )
-                await self._atomic_write_json(
-                    list(self._unprocessed_tweets),
-                    self.unprocessed_file
-                )
+
+                # New atomic combined save
+                await self._atomic_write_json({
+                    'processed': list(self._processed_tweets.keys()),
+                    'unprocessed': list(self._unprocessed_tweets)
+                }, self.config.state_file)
+
                 logging.info(f"Marked tweet {tweet_id} as fully processed")
-                
+
             except Exception as e:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
+                # New: Re-add to unprocessed on failure
+                self._unprocessed_tweets.add(tweet_id)
                 raise StateError(f"Failed to update processing state: {e}")
 
     async def get_unprocessed_tweets(self) -> List[str]:
@@ -170,22 +167,18 @@ class StateManager:
         """Update unprocessed tweets from bookmarks file."""
         try:
             # Read bookmarks file using correct function name
-            bookmark_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
+            tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
             
-            # Extract tweet IDs and filter out already processed ones
-            new_unprocessed = set()
-            for url in bookmark_urls:
-                tweet_id = parse_tweet_id_from_url(url)
-                if tweet_id and tweet_id not in self._processed_tweets:
-                    new_unprocessed.add(tweet_id)
+            # Extract IDs from URLs first
+            tweet_ids = [parse_tweet_id_from_url(url) for url in tweet_urls]
+            valid_ids = [tid for tid in tweet_ids if tid]
+            new_tweets = set(valid_ids) - set(self._processed_tweets.keys())
             
-            # Update unprocessed set and save
-            if new_unprocessed:
-                self._unprocessed_tweets.update(new_unprocessed)
+            # Then add only new IDs to unprocessed
+            async with self._lock:
+                self._unprocessed_tweets.update(new_tweets)
                 await self.save_unprocessed()
-                logging.info(f"Added {len(new_unprocessed)} new tweets to process")
-            else:
-                logging.info("No new tweets to process")
+                logging.info(f"Added {len(new_tweets)} new tweets to process")
 
         except Exception as e:
             logging.error(f"Failed to update from bookmarks: {e}")

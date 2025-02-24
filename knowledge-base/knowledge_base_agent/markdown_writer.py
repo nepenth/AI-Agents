@@ -101,19 +101,27 @@ class MarkdownWriter:
             if not tweet_text.strip():
                 logging.warning(f"Empty tweet text for {tweet_id}")
                 
-            # Ensure image files exist before copying
-            valid_image_files = [img for img in image_files if img.exists()]
-            if len(valid_image_files) != len(image_files):
-                logging.warning(f"Some image files missing for {tweet_id}")
+            # Add media type validation
+            valid_image_extensions = ('.jpg', '.jpeg', '.png', '.webp')
+            valid_image_files = [
+                img for img in image_files 
+                if img.suffix.lower() in valid_image_extensions
+            ]
 
+            if len(valid_image_files) != len(image_files):
+                invalid_files = [img.name for img in image_files if img not in valid_image_files]
+                logging.warning(f"Invalid media types skipped for {tweet_id}: {invalid_files}")
+
+            # Update media processing to use validated files
             content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
             content_md_path = temp_folder / "content.md"
             async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
                 await f.write(content_md)
 
-            for i, img_path in enumerate(image_files):
+            # Copy only valid image files
+            for i, img_path in enumerate(valid_image_files):
                 if img_path.exists():
-                    img_name = f"image_{i+1}.jpg"
+                    img_name = f"image_{i+1}{img_path.suffix.lower()}"
                     shutil.copy2(img_path, temp_folder / img_name)
 
             # Atomic rename of temp folder to final folder
@@ -123,10 +131,10 @@ class MarkdownWriter:
                 if img_path.exists():
                     img_path.unlink()
         except Exception as e:
+            logging.error(f"Media processing failure for {tweet_id}: {str(e)}")
             if temp_folder.exists():
                 shutil.rmtree(temp_folder)
-            logging.error(f"Failed to write tweet markdown for {tweet_id}: {e}")
-            raise
+            raise MarkdownGenerationError(f"Media processing failed: {str(e)}")
 
     async def write_kb_item(
         self,
