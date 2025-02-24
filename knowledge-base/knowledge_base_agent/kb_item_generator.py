@@ -7,6 +7,7 @@ from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.types import KnowledgeBaseItem, CategoryInfo
+from knowledge_base_agent.category_manager import CategoryManager
 import copy
 
 async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str) -> str:

@@ -7,18 +7,17 @@ from pathlib import Path
 from .naming_utils import safe_directory_name
 import asyncio
 import aiofiles
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, AsyncGenerator
 
-from knowledge_base_agent.exceptions import StorageError
+from knowledge_base_agent.exceptions import MarkdownGenerationError
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import KnowledgeBaseError, MarkdownGenerationError
-from knowledge_base_agent.file_utils import async_json_load, async_write_text
 from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager, create_kb_path
 from knowledge_base_agent.types import KnowledgeBaseItem
 
 _folder_creation_lock = asyncio.Lock()
 
 def format_links_in_text(text: str) -> str:
+    """Format URLs in text as markdown links."""
     url_pattern = re.compile(r'(https?://\S+)')
     return url_pattern.sub(r'[\1](\1)', text)
 
@@ -26,8 +25,9 @@ def generate_tweet_markdown_content(
     item_name: str,
     tweet_url: str,
     tweet_text: str,
-    image_descriptions: list
+    image_descriptions: List[str]
 ) -> str:
+    """Generate markdown content for a tweet."""
     formatted_tweet_text = format_links_in_text(tweet_text)
     lines = [
         f"# {item_name}",
@@ -52,21 +52,35 @@ class MarkdownWriter:
         self.config = config
         self.path_normalizer = PathNormalizer()
         self.dir_manager = DirectoryManager()
+        self.valid_image_extensions = ('.jpg', '.jpeg', '.png', '.webp')  # Could move to Config
+
+    async def _validate_and_copy_media(self, media_files: List[Path], target_dir: Path) -> AsyncGenerator[Path, None]:
+        """Validate and copy media files, yielding valid files copied."""
+        valid_files = [img for img in media_files if img.suffix.lower() in self.valid_image_extensions]
+        if len(valid_files) != len(media_files):
+            invalid_files = [img.name for img in media_files if img not in valid_files]
+            logging.warning(f"Invalid media types skipped: {invalid_files}")
+
+        for i, img_path in enumerate(valid_files):
+            if img_path.exists():
+                img_name = f"image_{i+1}{img_path.suffix.lower()}"
+                await self.dir_manager.copy_file(img_path, target_dir / img_name)
+                yield img_path  # Yield for cleanup later
 
     async def write_tweet_markdown(
         self,
         root_dir: Path,
         tweet_id: str,
         tweet_data: Dict[str, Any],
-        image_files: list,
-        image_descriptions: list,
+        image_files: List[Path],
+        image_descriptions: List[str],
         main_category: str = None,
         sub_category: str = None,
         item_name: str = None,
         tweet_text: str = None,
         tweet_url: str = None
-    ):
-        """Write tweet markdown using cached tweet data."""
+    ) -> str:
+        """Write tweet markdown using cached tweet data, returning the content file path."""
         categories = tweet_data.get('categories')
         if not categories:
             raise MarkdownGenerationError(f"No category data found for tweet {tweet_id}")
@@ -90,38 +104,32 @@ class MarkdownWriter:
 
         try:
             if not tweet_text.strip():
-                logging.warning(f"Empty tweet text for {tweet_id}")
-                
-            valid_image_extensions = ('.jpg', '.jpeg', '.png', '.webp')
-            valid_image_files = [
-                img for img in image_files 
-                if img.suffix.lower() in valid_image_extensions
-            ]
-
-            if len(valid_image_files) != len(image_files):
-                invalid_files = [img.name for img in image_files if img not in valid_image_files]
-                logging.warning(f"Invalid media types skipped for {tweet_id}: {invalid_files}")
+                logging.warning(f"Empty tweet text for tweet {tweet_id}")
 
             content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
             content_md_path = temp_folder / "content.md"
             async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
                 await f.write(content_md)
 
-            for i, img_path in enumerate(valid_image_files):
-                if img_path.exists():
-                    img_name = f"image_{i+1}{img_path.suffix.lower()}"
-                    shutil.copy2(img_path, temp_folder / img_name)
+            # Copy valid media files and track for cleanup
+            cleanup_files = []
+            async for img_path in self._validate_and_copy_media(image_files, temp_folder):
+                cleanup_files.append(img_path)
 
             temp_folder.rename(tweet_folder)
 
+            # Cleanup original files
             for img_path in image_files:
-                if img_path.exists():
+                if img_path.exists() and img_path in cleanup_files:
                     img_path.unlink()
+
+            return str(tweet_folder / "content.md")
+
         except Exception as e:
-            logging.error(f"Media processing failure for {tweet_id}: {str(e)}")
+            logging.error(f"Failed to write tweet markdown for {tweet_id}: {str(e)}")
             if temp_folder.exists():
                 shutil.rmtree(temp_folder)
-            raise MarkdownGenerationError(f"Media processing failed: {str(e)}")
+            raise MarkdownGenerationError(f"Failed to write tweet markdown: {str(e)}")
 
     async def write_kb_item(
         self,
@@ -129,8 +137,8 @@ class MarkdownWriter:
         media_files: List[Path] = None,
         media_descriptions: List[str] = None,
         root_dir: Path = None
-    ) -> str:  # Changed to return str
-        """Write knowledge base item to markdown with media."""
+    ) -> str:
+        """Write knowledge base item to markdown with media, returning the README path."""
         try:
             kb_path = create_kb_path(
                 item.category_info.main_category,
@@ -154,23 +162,32 @@ class MarkdownWriter:
                 async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
                     await f.write(content)
 
+                cleanup_files = []
                 if media_files:
-                    await self._copy_media_files(media_files, temp_dir)
+                    async for img_path in self._validate_and_copy_media(media_files, temp_dir):
+                        cleanup_files.append(img_path)
 
                 if kb_path.exists():
                     shutil.rmtree(kb_path)
                 temp_dir.rename(kb_path)
 
+                # Cleanup original files
+                if media_files:
+                    for img_path in media_files:
+                        if img_path.exists() and img_path in cleanup_files:
+                            img_path.unlink()
+
                 return str(kb_path / "README.md")
 
             except Exception as e:
+                logging.error(f"Failed to write KB item content: {str(e)}")
                 if temp_dir.exists():
                     shutil.rmtree(temp_dir)
                 raise
 
         except Exception as e:
-            logging.error(f"Failed to write KB item: {e}")
-            raise MarkdownGenerationError(f"Failed to write KB item: {e}")
+            logging.error(f"Failed to create KB item directory: {str(e)}")
+            raise MarkdownGenerationError(f"Failed to write KB item: {str(e)}")
 
     def _generate_content(
         self,
@@ -198,121 +215,3 @@ class MarkdownWriter:
         
         timestamp = f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
         return content + '\n'.join(source_section + media_section) + timestamp
-
-    async def _copy_media_files(self, media_files: List[Path], target_dir: Path) -> None:
-        """Copy media files to target directory."""
-        for media_file in media_files:
-            if media_file.exists():
-                await self.dir_manager.copy_file(media_file, target_dir / media_file.name)
-
-    async def generate_readme(self) -> None:
-        """Generate README files for all knowledge base items."""
-        try:
-            kb_root = Path(self.config.knowledge_base_dir)
-            processed_tweets_path = Path(self.config.processed_tweets_file)
-            
-            try:
-                processed_tweets = await async_json_load(processed_tweets_path)
-            except Exception as e:
-                logging.error(f"Failed to load processed tweets: {e}")
-                raise MarkdownGenerationError(f"Failed to load processed tweets: {e}")
-
-            for main_cat in kb_root.iterdir():
-                if not main_cat.is_dir() or main_cat.name.startswith('.'):
-                    continue
-                for sub_cat in main_cat.iterdir():
-                    if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
-                        continue
-                    for item_dir in sub_cat.iterdir():
-                        if not item_dir.is_dir() or item_dir.name.startswith('.'):
-                            continue
-                        try:
-                            item_name = item_dir.name
-                            tweet_data = next(
-                                (tweet for tweet in processed_tweets 
-                                 if safe_directory_name(tweet.get('item_name', '')) == item_name),
-                                None
-                            )
-                            
-                            if not tweet_data:
-                                logging.warning(f"No processed tweet data found for {item_name}")
-                                continue
-
-                            media_files = sorted(
-                                [f for f in item_dir.glob("image_*.*")],
-                                key=lambda x: int(x.stem.split('_')[1])
-                            )
-                            media_descriptions = tweet_data.get('image_descriptions', [])
-                            
-                            kb_item = {
-                                'title': tweet_data.get('item_name', ''),
-                                'description': tweet_data.get('description', ''),
-                                'content': tweet_data.get('tweet_text', ''),
-                                'source_tweet': {
-                                    'url': tweet_data.get('tweet_url', ''),
-                                    'author': tweet_data.get('author', ''),
-                                    'created_at': datetime.fromisoformat(
-                                        tweet_data.get('created_at', datetime.now().isoformat())
-                                    )
-                                }
-                            }
-                            
-                            content = self._generate_content(
-                                item=kb_item,
-                                media_files=media_files,
-                                media_descriptions=media_descriptions
-                            )
-                            
-                            readme_path = item_dir / "README.md"
-                            await async_write_text(content, readme_path)
-                            
-                        except Exception as e:
-                            logging.error(f"Failed to generate README for {item_dir}: {e}")
-                            continue
-                            
-            logging.info("Successfully generated README files for knowledge base items")
-            
-        except Exception as e:
-            logging.error(f"Failed to generate READMEs: {str(e)}")
-            raise MarkdownGenerationError(f"Failed to generate READMEs: {str(e)}")
-
-async def write_markdown_content(
-    content_dir: Path,
-    main_category: str,
-    sub_category: str,
-    item_name: str,
-    tweet_text: str,
-    tweet_url: str,
-    image_files: List[Path],
-    image_descriptions: List[str]
-) -> None:
-    """Write markdown content for a knowledge base item."""
-    try:
-        content_dir.mkdir(parents=True, exist_ok=True)
-        
-        content_file = content_dir / "content.md"
-        
-        content = [
-            f"# {item_name}\n",
-            f"\n## Source\n",
-            f"[Original Tweet]({tweet_url})\n",
-            f"\n## Content\n",
-            f"{tweet_text}\n"
-        ]
-        
-        if image_files:
-            content.append("\n## Images\n")
-            for i, (img_file, description) in enumerate(zip(image_files, image_descriptions)):
-                rel_path = img_file.relative_to(content_dir)
-                content.append(f"\n![{description}]({rel_path})\n")
-                if description:
-                    content.append(f"\n*{description}*\n")
-        
-        async with aiofiles.open(content_file, 'w', encoding='utf-8') as f:
-            await f.write(''.join(content))
-            
-        logging.info(f"Created markdown content at {content_file}")
-        
-    except Exception as e:
-        logging.error(f"Failed to write markdown content: {e}")
-        raise MarkdownGenerationError(f"Failed to write markdown content: {e}")
