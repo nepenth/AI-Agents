@@ -11,20 +11,14 @@ from typing import Dict, List, Optional, Any
 
 from knowledge_base_agent.exceptions import StorageError
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.exceptions import KnowledgeBaseError, MarkdownGenerationError
 from knowledge_base_agent.file_utils import async_json_load, async_write_text
 from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager, create_kb_path
-from knowledge_base_agent.types import KnowledgeBaseItem, CategoryInfo
+from knowledge_base_agent.types import KnowledgeBaseItem
 
 _folder_creation_lock = asyncio.Lock()
 
-def sanitize_markdown_cell(text: str) -> str:
-    """Escape vertical bars for markdown tables."""
-    return text.replace('|', '&#124;').strip()
-
 def format_links_in_text(text: str) -> str:
-    import re
     url_pattern = re.compile(r'(https?://\S+)')
     return url_pattern.sub(r'[\1](\1)', text)
 
@@ -73,12 +67,10 @@ class MarkdownWriter:
         tweet_url: str = None
     ):
         """Write tweet markdown using cached tweet data."""
-        # Get categories from tweet data
         categories = tweet_data.get('categories')
         if not categories:
             raise MarkdownGenerationError(f"No category data found for tweet {tweet_id}")
             
-        # Use provided values or fall back to tweet_data
         main_category = main_category or categories['main_category']
         sub_category = sub_category or categories['sub_category']
         item_name = item_name or categories['item_name']
@@ -97,11 +89,9 @@ class MarkdownWriter:
         temp_folder.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Add content validation before writing
             if not tweet_text.strip():
                 logging.warning(f"Empty tweet text for {tweet_id}")
                 
-            # Add media type validation
             valid_image_extensions = ('.jpg', '.jpeg', '.png', '.webp')
             valid_image_files = [
                 img for img in image_files 
@@ -112,19 +102,16 @@ class MarkdownWriter:
                 invalid_files = [img.name for img in image_files if img not in valid_image_files]
                 logging.warning(f"Invalid media types skipped for {tweet_id}: {invalid_files}")
 
-            # Update media processing to use validated files
             content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
             content_md_path = temp_folder / "content.md"
             async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
                 await f.write(content_md)
 
-            # Copy only valid image files
             for i, img_path in enumerate(valid_image_files):
                 if img_path.exists():
                     img_name = f"image_{i+1}{img_path.suffix.lower()}"
                     shutil.copy2(img_path, temp_folder / img_name)
 
-            # Atomic rename of temp folder to final folder
             temp_folder.rename(tweet_folder)
 
             for img_path in image_files:
@@ -142,10 +129,9 @@ class MarkdownWriter:
         media_files: List[Path] = None,
         media_descriptions: List[str] = None,
         root_dir: Path = None
-    ) -> None:
+    ) -> str:  # Changed to return str
         """Write knowledge base item to markdown with media."""
         try:
-            # Create KB path using existing utility
             kb_path = create_kb_path(
                 item.category_info.main_category,
                 item.category_info.sub_category,
@@ -154,28 +140,23 @@ class MarkdownWriter:
             if root_dir:
                 kb_path = root_dir / kb_path
 
-            # Create temp directory for atomic operations
             temp_dir = kb_path.with_suffix('.temp')
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             try:
-                # Generate content using existing method
                 content = self._generate_content(
                     item=item,
                     media_files=media_files,
                     media_descriptions=media_descriptions
                 )
 
-                # Write markdown file
                 readme_path = temp_dir / "README.md"
                 async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
                     await f.write(content)
 
-                # Copy media files if they exist
                 if media_files:
                     await self._copy_media_files(media_files, temp_dir)
 
-                # Atomic directory rename
                 if kb_path.exists():
                     shutil.rmtree(kb_path)
                 temp_dir.rename(kb_path)
@@ -198,17 +179,13 @@ class MarkdownWriter:
         media_descriptions: List[str] = None
     ) -> str:
         """Generate markdown content with proper formatting."""
-        # The content is already in markdown format from the LLM
         content = item.content
-
-        # Add source information
         source_section = [
             "\n## Source\n",
             f"- Original Tweet: [{item.source_tweet['url']}]({item.source_tweet['url']})",
             f"- Date: {item.source_tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')}\n"
         ]
         
-        # Add media section if present
         media_section = []
         if media_files and media_descriptions:
             media_section.append("\n## Media\n")
@@ -219,10 +196,7 @@ class MarkdownWriter:
                     f"**Description:** {desc}\n"
                 ])
         
-        # Add last updated timestamp
         timestamp = f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
-        
-        # Combine all sections
         return content + '\n'.join(source_section + media_section) + timestamp
 
     async def _copy_media_files(self, media_files: List[Path], target_dir: Path) -> None:
@@ -237,29 +211,22 @@ class MarkdownWriter:
             kb_root = Path(self.config.knowledge_base_dir)
             processed_tweets_path = Path(self.config.processed_tweets_file)
             
-            # Load processed tweets data
             try:
                 processed_tweets = await async_json_load(processed_tweets_path)
             except Exception as e:
                 logging.error(f"Failed to load processed tweets: {e}")
                 raise MarkdownGenerationError(f"Failed to load processed tweets: {e}")
 
-            # Iterate through all categories and subcategories
             for main_cat in kb_root.iterdir():
                 if not main_cat.is_dir() or main_cat.name.startswith('.'):
                     continue
-                    
                 for sub_cat in main_cat.iterdir():
                     if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
                         continue
-                        
-                    # Process each knowledge base item
                     for item_dir in sub_cat.iterdir():
                         if not item_dir.is_dir() or item_dir.name.startswith('.'):
                             continue
-                            
                         try:
-                            # Find corresponding tweet data from processed_tweets.json
                             item_name = item_dir.name
                             tweet_data = next(
                                 (tweet for tweet in processed_tweets 
@@ -271,14 +238,12 @@ class MarkdownWriter:
                                 logging.warning(f"No processed tweet data found for {item_name}")
                                 continue
 
-                            # Get media files and descriptions
                             media_files = sorted(
-                                [f for f in item_dir.glob("image_*.jpg")],
+                                [f for f in item_dir.glob("image_*.*")],
                                 key=lambda x: int(x.stem.split('_')[1])
                             )
                             media_descriptions = tweet_data.get('image_descriptions', [])
                             
-                            # Create knowledge base item from tweet data
                             kb_item = {
                                 'title': tweet_data.get('item_name', ''),
                                 'description': tweet_data.get('description', ''),
@@ -286,20 +251,18 @@ class MarkdownWriter:
                                 'source_tweet': {
                                     'url': tweet_data.get('tweet_url', ''),
                                     'author': tweet_data.get('author', ''),
-                                    'created_at': datetime.datetime.fromisoformat(
-                                        tweet_data.get('created_at', datetime.datetime.now().isoformat())
+                                    'created_at': datetime.fromisoformat(
+                                        tweet_data.get('created_at', datetime.now().isoformat())
                                     )
                                 }
                             }
                             
-                            # Generate content using existing method
                             content = self._generate_content(
                                 item=kb_item,
                                 media_files=media_files,
                                 media_descriptions=media_descriptions
                             )
                             
-                            # Write README.md
                             readme_path = item_dir / "README.md"
                             await async_write_text(content, readme_path)
                             
@@ -325,13 +288,10 @@ async def write_markdown_content(
 ) -> None:
     """Write markdown content for a knowledge base item."""
     try:
-        # Ensure directory exists
         content_dir.mkdir(parents=True, exist_ok=True)
         
-        # Create content.md
         content_file = content_dir / "content.md"
         
-        # Build markdown content
         content = [
             f"# {item_name}\n",
             f"\n## Source\n",
@@ -340,7 +300,6 @@ async def write_markdown_content(
             f"{tweet_text}\n"
         ]
         
-        # Add images section if there are images
         if image_files:
             content.append("\n## Images\n")
             for i, (img_file, description) in enumerate(zip(image_files, image_descriptions)):
@@ -349,7 +308,6 @@ async def write_markdown_content(
                 if description:
                     content.append(f"\n*{description}*\n")
         
-        # Write content
         async with aiofiles.open(content_file, 'w', encoding='utf-8') as f:
             await f.write(''.join(content))
             
@@ -358,150 +316,3 @@ async def write_markdown_content(
     except Exception as e:
         logging.error(f"Failed to write markdown content: {e}")
         raise MarkdownGenerationError(f"Failed to write markdown content: {e}")
-
-async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager) -> None:
-    """Generate a polished root README.md with accurate navigation and enhanced content."""
-    try:
-        # Collect all knowledge base items
-        kb_items = []
-        for main_cat in kb_dir.iterdir():
-            if not main_cat.is_dir() or main_cat.name.startswith('.'):
-                continue
-            for sub_cat in main_cat.iterdir():
-                if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
-                    continue
-                for item_dir in sub_cat.iterdir():
-                    if not item_dir.is_dir() or item_dir.name.startswith('.'):
-                        continue
-                    readme_path = item_dir / "README.md"
-                    if readme_path.exists():
-                        kb_items.append({
-                            'main_category': main_cat.name,
-                            'sub_category': sub_cat.name,
-                            'item_name': item_dir.name,
-                            'path': readme_path.relative_to(kb_dir),
-                            'description': await get_item_description(readme_path),
-                            'last_updated': readme_path.stat().st_mtime  # For recent updates
-                        })
-
-        # Organize items by category
-        categories = {}
-        for item in kb_items:
-            main_cat = item['main_category']
-            sub_cat = item['sub_category']
-            if main_cat not in categories:
-                categories[main_cat] = {'subcategories': {}}
-            if sub_cat not in categories[main_cat]['subcategories']:
-                categories[main_cat]['subcategories'][sub_cat] = []
-            categories[main_cat]['subcategories'][sub_cat].append(item)
-
-        # Calculate stats
-        total_items = len(kb_items)
-        total_main_cats = len(categories)
-        total_subcats = sum(len(subcats) for subcats in categories.values())
-        total_media = sum(len(list(item_dir.glob("image_*.jpg"))) 
-                         for main_cat in kb_dir.iterdir() if main_cat.is_dir()
-                         for sub_cat in main_cat.iterdir() if sub_cat.is_dir()
-                         for item_dir in sub_cat.iterdir() if item_dir.is_dir())
-
-        # Generate markdown content
-        content = [
-            "# Technical Knowledge Base\n",
-            "Welcome to our curated technical knowledge base! Explore a wealth of technical articles, guides, and resources organized by category.\n",
-            "## Overview\n",
-            f"- **Total Items**: {total_items}",
-            f"- **Main Categories**: {total_main_cats}",
-            f"- **Subcategories**: {total_subcats}",
-            f"- **Media Files**: {total_media}",
-            f"- **Last Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            "## Quick Navigation\n"
-        ]
-
-        # Table of Contents with corrected anchors
-        for main_cat in sorted(categories.keys()):
-            main_display = main_cat.replace('_', ' ').title()
-            content.append(f"- [{main_display}](#{main_cat})")
-            for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
-                sub_display = sub_cat.replace('_', ' ').title()
-                anchor = f"{main_cat}-{sub_cat}"
-                content.append(f"  - [{sub_display}](#{anchor})")
-
-        # Recent Updates section (last 5 items)
-        recent_items = sorted(kb_items, key=lambda x: x['last_updated'], reverse=True)[:5]
-        if recent_items:
-            content.extend([
-                "\n## Recent Updates\n",
-                "| Item | Category | Last Updated |",
-                "|------|----------|--------------|"
-            ])
-            for item in recent_items:
-                name = item['item_name'].replace('-', ' ').title()
-                path = item['path']
-                cat = f"{item['main_category'].title()}/{item['sub_category'].title()}"
-                updated = datetime.fromtimestamp(item['last_updated']).strftime('%Y-%m-%d')
-                content.append(f"| [{name}]({path}) | {cat} | {updated} |")
-
-        # Detailed Categories
-        content.append("\n## Categories\n")
-        for main_cat in sorted(categories.keys()):
-            cat_data = categories[main_cat]
-            main_display = main_cat.replace('_', ' ').title()
-            active_subcats = sorted(cat_data['subcategories'].keys())
-            active_subcat_display = ', '.join(sub.replace('_', ' ') for sub in active_subcats)
-            total_cat_items = sum(len(items) for items in cat_data['subcategories'].values())
-
-            content.extend([
-                f"\n### {main_display} <a name=\"{main_cat}\"></a>\n",
-                f"*Subcategories with content: {active_subcat_display}*",
-                f"*Items: {total_cat_items}*\n"
-            ])
-
-            for sub_cat in active_subcats:
-                items = cat_data['subcategories'][sub_cat]
-                sub_display = sub_cat.replace('_', ' ').title()
-                anchor = f"{main_cat}-{sub_cat}"
-                content.extend([
-                    f"\n#### {sub_display} <a name=\"{anchor}\"></a>\n",
-                    "| Item | Description |",
-                    "|------|-------------|"
-                ])
-                for item in sorted(items, key=lambda x: x['item_name']):
-                    name = item['item_name'].replace('-', ' ').title()
-                    desc = sanitize_markdown_cell(item['description'])
-                    path = item['path']
-                    content.append(f"| [{name}]({path}) | {desc} |")
-
-        # Write README
-        readme_path = kb_dir / "README.md"
-        async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
-            await f.write('\n'.join(content))
-        logging.info("Generated polished root README.md")
-
-    except Exception as e:
-        logging.error(f"Failed to generate root README: {e}")
-        raise MarkdownGenerationError(f"Failed to generate root README: {e}")
-
-async def get_item_description(readme_path: Path) -> str:
-    """Extract a polished description from a knowledge base item's README."""
-    try:
-        async with aiofiles.open(readme_path, 'r', encoding='utf-8') as f:
-            content = await f.read()
-        
-        # Look for description section
-        desc_match = re.search(r'^## Description\s*\n(.*?)(?=\n#|$)', content, re.MULTILINE | re.DOTALL)
-        if desc_match:
-            desc = desc_match.group(1).strip()
-        else:
-            # Fallback to first non-empty paragraph after title
-            paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
-            desc = paragraphs[1] if len(paragraphs) > 1 else paragraphs[0] if paragraphs else ""
-
-        # Truncate at word boundary
-        if len(desc) > 200:
-            truncated = desc[:200].rsplit(' ', 1)[0] + "..."
-            return truncated if len(truncated) > 50 else desc[:200] + "..."
-        return desc if desc else "No description available"
-        
-    except Exception as e:
-        logging.warning(f"Failed to get description from {readme_path}: {e}")
-        return "Description unavailable"
