@@ -37,6 +37,7 @@ class StateManager:
         # Ensure parent directories exist
         self.tweet_cache_file.parent.mkdir(parents=True, exist_ok=True)
         self.processed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
+        self.unprocessed_tweets_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Load unprocessed tweets
         if self.unprocessed_tweets_file.exists():
@@ -49,6 +50,18 @@ class StateManager:
             except Exception as e:
                 logging.error(f"Error loading unprocessed tweets: {e}")
                 self._unprocessed_tweets = set()
+
+        # Load processed tweets
+        if self.processed_tweets_file.exists():
+            try:
+                async with aiofiles.open(self.processed_tweets_file, 'r') as f:
+                    content = await f.read()
+                    processed_data = json.loads(content) if content.strip() else {}
+                    self._processed_tweets = {k: v for k, v in processed_data.items()}
+                logging.info(f"Loaded {len(self._processed_tweets)} processed tweets")
+            except Exception as e:
+                logging.error(f"Error loading processed tweets: {e}")
+                self._processed_tweets = {}
 
         # Load existing tweet cache if file exists
         if self.tweet_cache_file.exists():
@@ -63,20 +76,17 @@ class StateManager:
 
         self._initialized = True
 
-    async def _atomic_write_json(self, data: Dict[str, Any], filepath: Path) -> None:
+    async def _atomic_write_json(self, data: Any, filepath: Path) -> None:
         """Write JSON data atomically using a temporary file."""
         temp_file = None
         try:
-            # Create temporary file in the same directory
             temp_fd, temp_path = tempfile.mkstemp(dir=filepath.parent)
             os.close(temp_fd)
             temp_file = Path(temp_path)
             
-            # Write to temporary file
             async with aiofiles.open(temp_file, 'w') as f:
                 await f.write(json.dumps(data, indent=2))
             
-            # Atomic rename
             shutil.move(str(temp_file), str(filepath))
             
         except Exception as e:
@@ -84,102 +94,93 @@ class StateManager:
                 temp_file.unlink()
             raise StateError(f"Failed to write state file: {filepath}") from e
 
-    async def _load_processed_tweets(self) -> None:
-        """Load processed tweets from combined state file."""
-        try:
-            if self.config.state_file.exists():
-                state_data = await async_json_load(self.config.state_file)
-                self._processed_tweets = dict.fromkeys(state_data.get('processed', []), True)
-                self._unprocessed_tweets = set(state_data.get('unprocessed', []))
-        except Exception as e:
-            logging.error(f"Failed to load state: {e}")
-            self._processed_tweets = {}
-            self._unprocessed_tweets = set()
-
     async def mark_tweet_processed(self, tweet_id: str, tweet_data: Dict[str, Any] = None) -> None:
         """Mark a tweet as processed and update both sets."""
         async with self._lock:
             try:
-                # Existing validation checks remain unchanged
                 if not tweet_data:
                     logging.warning(f"No tweet data provided for {tweet_id}, skipping mark as processed")
                     return
                 
-                # Keep original validation logic
-                required_checks = [
-                    tweet_data.get('media_processed', not bool(tweet_data.get('media'))),
-                    tweet_data.get('categories_processed', False),
-                    tweet_data.get('kb_item_created', False),
-                    tweet_data.get('kb_item_path', None)
-                ]
-                
-                if not all(required_checks):
-                    # Existing missing steps logging remains
-                    return
-
-                # Add version check before state update
+                # Check if already processed
                 if tweet_id in self._processed_tweets:
                     logging.info(f"Tweet {tweet_id} already marked as processed, skipping")
                     return
 
-                # Original state update logic
+                # Required checks for processing completion
+                required_checks = [
+                    tweet_data.get('media_processed', not bool(tweet_data.get('media', []))),  # Default True if no media
+                    tweet_data.get('categories_processed', False),
+                    tweet_data.get('kb_item_created', False),
+                    tweet_data.get('kb_item_path', None) is not None  # Ensure path exists
+                ]
+                
+                if not all(required_checks):
+                    missing_steps = [
+                        "media_processed" if not required_checks[0] else "",
+                        "categories_processed" if not required_checks[1] else "",
+                        "kb_item_created" if not required_checks[2] else "",
+                        "kb_item_path" if not required_checks[3] else ""
+                    ]
+                    logging.warning(f"Tweet {tweet_id} not fully processed. Missing steps: {', '.join(filter(None, missing_steps))}")
+                    return
+
+                # Update state
                 self._processed_tweets[tweet_id] = datetime.now().isoformat()
                 self._unprocessed_tweets.discard(tweet_id)
 
-                # New atomic combined save
-                await self._atomic_write_json({
-                    'processed': list(self._processed_tweets.keys()),
-                    'unprocessed': list(self._unprocessed_tweets)
-                }, self.config.state_file)
+                # Save both files atomically
+                await self._atomic_write_json(list(self._unprocessed_tweets), self.unprocessed_tweets_file)
+                await self._atomic_write_json(self._processed_tweets, self.processed_tweets_file)
 
                 logging.info(f"Marked tweet {tweet_id} as fully processed")
 
             except Exception as e:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
-                # New: Re-add to unprocessed on failure
-                self._unprocessed_tweets.add(tweet_id)
+                self._unprocessed_tweets.add(tweet_id)  # Re-add on failure
                 raise StateError(f"Failed to update processing state: {e}")
 
     async def get_unprocessed_tweets(self) -> List[str]:
-        """Get list of unprocessed tweet IDs."""
+        """Get list of unprocessed tweet IDs and reconcile with cache."""
         if not self._initialized:
             await self.initialize()
+        
+        # Create a copy of the set for iteration
+        to_process = list(self._unprocessed_tweets)
+        to_remove = []
+        
+        # Check each tweet in the copy
+        for tweet_id in to_process:
+            tweet_data = self._tweet_cache.get(tweet_id, {})
+            if (tweet_data.get('media_processed', not bool(tweet_data.get('media', []))) and
+                tweet_data.get('categories_processed', False) and
+                tweet_data.get('kb_item_created', False) and
+                tweet_data.get('kb_item_path', None)):
+                await self.mark_tweet_processed(tweet_id, tweet_data)
+                continue
+        
         return list(self._unprocessed_tweets)
 
     async def clear_state(self) -> None:
         """Clear all state (useful for testing or reset)."""
         async with self._lock:
             self._processed_tweets.clear()
-            await self._atomic_write_json([], self.config.processed_tweets_file)
-
-    async def load_processed_tweets(self) -> set:
-        """Load processed tweets from state file."""
-        try:
-            if self.config.processed_tweets_file.exists():
-                data = await async_json_load(str(self.config.processed_tweets_file))
-                return set(data)
-            return set()
-        except Exception as e:
-            logging.error(f"Failed to load processed tweets: {e}")
-            return set()
+            self._unprocessed_tweets.clear()
+            await self._atomic_write_json({}, self.processed_tweets_file)
+            await self._atomic_write_json([], self.unprocessed_tweets_file)
 
     async def update_from_bookmarks(self) -> None:
         """Update unprocessed tweets from bookmarks file."""
         try:
-            # Read bookmarks file using correct function name
             tweet_urls = load_tweet_urls_from_links(self.config.bookmarks_file)
-            
-            # Extract IDs from URLs first
             tweet_ids = [parse_tweet_id_from_url(url) for url in tweet_urls]
             valid_ids = [tid for tid in tweet_ids if tid]
             new_tweets = set(valid_ids) - set(self._processed_tweets.keys())
             
-            # Then add only new IDs to unprocessed
             async with self._lock:
                 self._unprocessed_tweets.update(new_tweets)
                 await self.save_unprocessed()
                 logging.info(f"Added {len(new_tweets)} new tweets to process")
-
         except Exception as e:
             logging.error(f"Failed to update from bookmarks: {e}")
             raise StateManagerError(f"Failed to update from bookmarks: {e}")
@@ -187,7 +188,7 @@ class StateManager:
     async def save_unprocessed(self) -> None:
         """Save unprocessed tweets to file."""
         try:
-            await async_json_dump(list(self._unprocessed_tweets), self.unprocessed_file)
+            await self._atomic_write_json(list(self._unprocessed_tweets), self.unprocessed_tweets_file)
         except Exception as e:
             logging.error(f"Failed to save unprocessed tweets: {e}")
             raise StateManagerError(f"Failed to save unprocessed state: {e}")
@@ -201,7 +202,8 @@ class StateManager:
             return {
                 'media_processed': tweet_data.get('media_processed', False),
                 'categories_processed': tweet_data.get('categories_processed', False),
-                'fully_processed': tweet_data.get('processed', False)
+                'kb_item_created': tweet_data.get('kb_item_created', False),
+                'fully_processed': tweet_id in self._processed_tweets
             }
         except Exception as e:
             logging.error(f"Failed to get processing state for tweet {tweet_id}: {e}")
@@ -218,15 +220,12 @@ class StateManager:
     async def update_tweet_data(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
         """Update existing tweet data without overwriting the entire cache."""
         if tweet_id in self._tweet_cache:
-            # Update existing tweet data while preserving other fields
             self._tweet_cache[tweet_id].update(tweet_data)
         else:
             self._tweet_cache[tweet_id] = tweet_data
-
-        # Save the updated cache
+        
         try:
-            async with aiofiles.open(self.tweet_cache_file, 'w') as f:
-                await f.write(json.dumps(self._tweet_cache, indent=2))
+            await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         except Exception as e:
             logging.error(f"Failed to save updated tweet cache: {e}")
             raise StateError(f"Cache update failed: {e}")
@@ -239,8 +238,7 @@ class StateManager:
         """Save tweet data to cache without overwriting entire cache."""
         self._tweet_cache[tweet_id] = data
         try:
-            async with aiofiles.open(self.tweet_cache_file, 'w') as f:
-                await f.write(json.dumps(self._tweet_cache, indent=2))
+            await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         except Exception as e:
             logging.error(f"Failed to save tweet cache for {tweet_id}: {e}")
             raise StateError(f"Cache save failed: {e}")
@@ -250,71 +248,50 @@ class StateManager:
         return self._tweet_cache.get(tweet_id)
 
     async def verify_cache_status(self) -> List[str]:
-        """
-        Verify cache status for all unprocessed tweets.
-        Returns list of tweet IDs needing cache updates.
-        """
+        """Verify cache status for all unprocessed tweets."""
         tweets_needing_cache = []
-        
         for tweet_id in self._unprocessed_tweets:
-            # Check if tweet exists in cache
             cached_data = self._tweet_cache.get(tweet_id)
             if not cached_data or not cached_data.get('cache_complete', False):
                 tweets_needing_cache.append(tweet_id)
                 logging.info(f"Tweet {tweet_id} needs cache update")
-            
         return tweets_needing_cache
 
     async def update_media_analysis(self, tweet_id: str, media_analysis: Dict[str, Any]) -> None:
-        """
-        Update tweet cache with media analysis results.
-        """
+        """Update tweet cache with media analysis results."""
         if tweet_id not in self._tweet_cache:
             raise StateError(f"Tweet {tweet_id} not found in cache")
         
-        # Update existing tweet data with media analysis
         self._tweet_cache[tweet_id].update({
             'media_analysis': media_analysis,
             'media_analysis_complete': True
         })
-        
-        # Save updated cache
         await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         logging.info(f"Updated media analysis for tweet {tweet_id}")
 
     async def update_categories(self, tweet_id: str, category_data: Dict[str, Any]) -> None:
-        """
-        Update tweet cache with categorization results.
-        """
+        """Update tweet cache with categorization results."""
         if tweet_id not in self._tweet_cache:
             raise StateError(f"Tweet {tweet_id} not found in cache")
         
-        # Update existing tweet data with categories
         self._tweet_cache[tweet_id].update({
             'category': category_data.get('category'),
             'subcategory': category_data.get('subcategory'),
             'item_name': category_data.get('item_name'),
             'categories_processed': True
         })
-        
-        # Save updated cache
         await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         logging.info(f"Updated categories for tweet {tweet_id}")
 
     async def mark_kb_item_created(self, tweet_id: str, kb_item_path: str) -> None:
-        """
-        Mark tweet as having KB item created and update cache.
-        """
+        """Mark tweet as having KB item created and update cache."""
         if tweet_id not in self._tweet_cache:
             raise StateError(f"Tweet {tweet_id} not found in cache")
         
-        # Update cache with KB item info
         self._tweet_cache[tweet_id].update({
             'kb_item_path': kb_item_path,
             'kb_item_created': True
         })
-        
-        # Save updated cache
         await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         logging.info(f"Marked KB item created for tweet {tweet_id}")
 
@@ -341,47 +318,30 @@ class StateManager:
             raise StateError(f"Failed to mark categories as processed: {e}")
 
     async def initialize_tweet_cache(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
-        """
-        Initialize a new tweet in the cache with its basic data.
-        This should be the first point of entry for new tweet data.
-        """
+        """Initialize a new tweet in the cache with its basic data."""
         if tweet_id in self._tweet_cache:
             logging.debug(f"Tweet {tweet_id} already in cache, updating...")
         
-        # Ensure comprehensive basic structure
         base_data = {
-            # Core tweet data
             'tweet_id': tweet_id,
             'full_text': tweet_data.get('full_text', ''),
             'created_at': tweet_data.get('created_at', ''),
             'author': tweet_data.get('author', ''),
-            
-            # Media related fields
             'media': tweet_data.get('media', []),
             'downloaded_media': tweet_data.get('downloaded_media', []),
             'media_analysis': {},
             'media_processed': False,
             'media_analysis_complete': False,
-            
-            # Category related fields
             'category': '',
             'subcategory': '',
             'item_name': '',
             'categories_processed': False,
-            
-            # Knowledge base related fields
             'kb_item_path': '',
             'kb_item_created': False,
-            
-            # Processing state flags
             'cache_complete': False,
             'fully_processed': False
         }
         
-        # Merge with provided data, preserving any existing values
         base_data.update(tweet_data)
-        
-        # Save to cache
         await self.update_tweet_data(tweet_id, base_data)
         logging.info(f"Initialized cache for tweet {tweet_id}")
-
