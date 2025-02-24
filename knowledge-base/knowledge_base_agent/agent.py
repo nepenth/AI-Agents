@@ -14,7 +14,8 @@ from knowledge_base_agent.exceptions import AgentError
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
 from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
-from knowledge_base_agent.markdown_writer import MarkdownWriter, generate_root_readme
+from knowledge_base_agent.markdown_writer import MarkdownWriter
+from knowledge_base_agent.readme_generator import generate_root_readme
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.types import TweetData, KnowledgeBaseItem
 from knowledge_base_agent.prompts import UserPreferences
