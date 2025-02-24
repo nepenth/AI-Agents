@@ -36,9 +36,16 @@ async def async_json_load(filepath: Union[str, Path], default: Any = None) -> An
         return default if default is not None else []
 
 async def async_json_dump(data: Any, filepath: Union[str, Path]) -> None:
-    """Save JSON data to a file asynchronously."""
-    async with aiofiles.open(filepath, 'w') as f:
-        await f.write(json.dumps(data, indent=2))
+    """Atomic JSON write with temp file"""
+    temp_path = Path(filepath).with_suffix('.tmp')
+    try:
+        async with aiofiles.open(temp_path, 'w') as f:
+            await f.write(json.dumps(data, indent=2))
+        temp_path.rename(filepath)
+    except Exception as e:
+        logging.error(f"Atomic write failed: {e}")
+        temp_path.unlink(missing_ok=True)
+        raise
 
 async def async_read_text(file_path: Union[str, Path]) -> str:
     """Asynchronously read text file."""
