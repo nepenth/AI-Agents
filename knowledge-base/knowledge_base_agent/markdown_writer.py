@@ -25,9 +25,10 @@ def generate_tweet_markdown_content(
     item_name: str,
     tweet_url: str,
     tweet_text: str,
-    image_descriptions: List[str]
+    image_descriptions: List[str],
+    image_filenames: List[str] = None
 ) -> str:
-    """Generate markdown content for a tweet."""
+    """Generate markdown content for a tweet with correct image references."""
     formatted_tweet_text = format_links_in_text(tweet_text)
     lines = [
         f"# {item_name}",
@@ -38,10 +39,13 @@ def generate_tweet_markdown_content(
         ""
     ]
 
-    for i, desc in enumerate(image_descriptions):
-        img_name = f"image_{i+1}.jpg"
+    # Use provided filenames or default to image_{i+1}.jpg
+    if not image_filenames:
+        image_filenames = [f"image_{i+1}.jpg" for i in range(len(image_descriptions))]
+
+    for i, (desc, filename) in enumerate(zip(image_descriptions, image_filenames)):
         lines.append(f"**Image {i+1} Description:** {desc}")
-        lines.append(f"![Image {i+1}](./{img_name})")
+        lines.append(f"![Image {i+1}](./{filename})")
         lines.append("")
     return "\n".join(lines)
 
@@ -54,8 +58,8 @@ class MarkdownWriter:
         self.dir_manager = DirectoryManager()
         self.valid_image_extensions = ('.jpg', '.jpeg', '.png', '.webp')  # Could move to Config
 
-    async def _validate_and_copy_media(self, media_files: List[Path], target_dir: Path) -> AsyncGenerator[Path, None]:
-        """Validate and copy media files, yielding valid files copied."""
+    async def _validate_and_copy_media(self, media_files: List[Path], target_dir: Path) -> AsyncGenerator[tuple, None]:
+        """Validate and copy media files, yielding valid files copied and their new names."""
         valid_files = [img for img in media_files if img.suffix.lower() in self.valid_image_extensions]
         if len(valid_files) != len(media_files):
             invalid_files = [img.name for img in media_files if img not in valid_files]
@@ -63,9 +67,21 @@ class MarkdownWriter:
 
         for i, img_path in enumerate(valid_files):
             if img_path.exists():
+                # Extract the original index from the filename if it follows media_X pattern
+                original_idx = None
+                if img_path.stem.startswith('media_'):
+                    try:
+                        original_idx = int(img_path.stem.split('_')[1])
+                    except (IndexError, ValueError):
+                        pass
+                
+                # Use consistent naming: image_{i+1}{suffix}
                 img_name = f"image_{i+1}{img_path.suffix.lower()}"
-                await self.dir_manager.copy_file(img_path, target_dir / img_name)
-                yield img_path  # Yield for cleanup later
+                new_path = target_dir / img_name
+                await self.dir_manager.copy_file(img_path, new_path)
+                
+                # Yield both the original path and the new name for tracking
+                yield (img_path, img_name)
 
     async def write_tweet_markdown(
         self,
@@ -106,24 +122,33 @@ class MarkdownWriter:
             if not tweet_text.strip():
                 logging.warning(f"Empty tweet text for tweet {tweet_id}")
 
-            content_md = generate_tweet_markdown_content(item_name, tweet_url, tweet_text, image_descriptions)
-            content_md_path = temp_folder / "content.md"
+            # Copy valid media files and track new filenames
+            cleanup_files = []
+            image_filenames = []
+            
+            async for img_path, new_filename in self._validate_and_copy_media(image_files, temp_folder):
+                cleanup_files.append(img_path)
+                image_filenames.append(new_filename)
+
+            # Generate content with correct filenames
+            content_md = generate_tweet_markdown_content(
+                item_name, 
+                tweet_url, 
+                tweet_text, 
+                image_descriptions,
+                image_filenames
+            )
+            
+            content_md_path = temp_folder / "README.md"  # Use README.md instead of content.md
             async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
                 await f.write(content_md)
-
-            # Copy valid media files and track for cleanup
-            cleanup_files = []
-            async for img_path in self._validate_and_copy_media(image_files, temp_folder):
-                cleanup_files.append(img_path)
-
-            temp_folder.rename(tweet_folder)
 
             # Cleanup original files
             for img_path in image_files:
                 if img_path.exists() and img_path in cleanup_files:
                     img_path.unlink()
 
-            return str(tweet_folder / "content.md")
+            return str(tweet_folder / "README.md")
 
         except Exception as e:
             logging.error(f"Failed to write tweet markdown for {tweet_id}: {str(e)}")
@@ -164,7 +189,7 @@ class MarkdownWriter:
 
                 cleanup_files = []
                 if media_files:
-                    async for img_path in self._validate_and_copy_media(media_files, temp_dir):
+                    async for img_path, img_name in self._validate_and_copy_media(media_files, temp_dir):
                         cleanup_files.append(img_path)
 
                 if kb_path.exists():
@@ -215,3 +240,19 @@ class MarkdownWriter:
         
         timestamp = f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
         return content + '\n'.join(source_section + media_section) + timestamp
+
+def validate_media_references(content: str, directory: Path) -> bool:
+    """Validate that all media references in the content exist in the directory."""
+    # Extract all image references
+    image_pattern = r'!\[.*?\]\(\./(.*?)\)'
+    referenced_images = re.findall(image_pattern, content)
+    
+    missing_images = []
+    for img in referenced_images:
+        if not (directory / img).exists():
+            missing_images.append(img)
+    
+    if missing_images:
+        logging.warning(f"Missing referenced images: {missing_images}")
+        return False
+    return True
