@@ -28,6 +28,13 @@ class PathNormalizer:
     @staticmethod
     def normalize_name(name: str) -> str:
         """Normalize a string for use in file/directory names."""
+        # First remove apostrophes and quotes
+        name = re.sub(r"['‘’\"“”]", "", name)
+        
+        # Remove special characters first
+        name = re.sub(r"[‘’""]", "", name)  # Handle different quote types
+        name = name.replace("'", "").replace('"', '')
+        
         # Convert to lowercase and normalize unicode characters
         name = unicodedata.normalize('NFKD', name.lower())
         
@@ -123,6 +130,6 @@ def create_kb_path(category: str, subcategory: str, name: str) -> Path:
     """Create a knowledge base item path."""
     normalizer = PathNormalizer()
     try:
-        return normalizer.normalize_path([category, subcategory, f"{name}.md"])
+        return normalizer.normalize_path([category, subcategory, name])
     except Exception as e:
         raise PathValidationError(f"Failed to create KB path: {e}") from e 
