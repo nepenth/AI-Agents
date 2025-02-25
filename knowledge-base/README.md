@@ -11,40 +11,23 @@ collaboration.
 
 ## Key Features ✨
 
-### Automated Content Processing
+### Enhanced Migration System
+- **Folder Name Correction**: Automatic renaming of knowledge base items to match tweet_cache.json entries
+- **Dry-run Mode**: Safe simulation of migration operations (`--dry-run` flag)
+- **Force Mode**: Override safety checks for incomplete matches (`--force` flag)
+- **Atomic Operations**: Temporary directory strategy for safe folder renames
+- **Tweet Cache Synchronization**: Automatic updates to `kb_item_path` references
 
--   **AI-Driven Analysis**: Leverages Ollama models for text
-    categorization and media description generation.
--   **Media Handling**: Downloads and processes images, generating
-    descriptive captions using vision models.
--   **Tweet Processing**: Extracts text, media, and metadata from
-    Twitter/X bookmarks for structured storage.
+### Automated Content Processing
+- **AI-Driven Analysis**: Leverages Ollama models for text categorization and media description generation
+- **Media Handling**: Downloads and processes images, generating descriptive captions using vision models
+- **Tweet Processing**: Extracts text, media, and metadata from Twitter/X bookmarks for structured storage
 
 ### Intelligent Organization
-
--   **Hierarchical Structure**: Organizes content into a two-level
-    category system (e.g., `programming/python`).
--   **Dynamic Categorization**: Uses AI to suggest and validate
-    categories based on content.
--   **Centralized Index**: Automatically generates a root `README.md`
-    with navigation and summaries.
-
-### Enterprise-Grade Operations
-
--   **State Management**: Tracks processing state with atomic file
-    operations for reliability.
--   **GitHub Sync**: Commits changes to a GitHub repository with
-    customizable commit messages.
--   **Error Resilience**: Implements retries, logging, and recovery
-    mechanisms for robust operation.
-
-### Advanced Capabilities
-
--   **Processing Stats**: Tracks metrics like tweets processed, media
-    items handled, and errors encountered.
--   **Idempotency**: Caches tweet data to avoid redundant processing.
--   **Markdown Generation**: Produces clean, semantic Markdown files
-    with links and media references.
+- **Hierarchical Structure**: Organizes content into a three-level system (main category > subcategory > item)
+- **Dynamic Categorization**: Uses AI to suggest and validate categories based on content
+- **Name Sanitization**: Ensures filesystem-safe directory names with `safe_directory_name()`
+- **Consistency Checks**: Validation of tweet_cache.json paths post-migration
 
 ------------------------------------------------------------------------
 
