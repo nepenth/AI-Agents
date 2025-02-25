@@ -37,3 +37,5 @@ __all__ = [
     'NetworkError',
     'StateError',
 ]
+
+# Initialize knowledge_base_agent package

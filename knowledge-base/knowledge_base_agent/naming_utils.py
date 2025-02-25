@@ -13,10 +13,14 @@ def validate_directory_name(name: str, max_length: int = 50) -> bool:
     return True
 
 def normalize_name_for_filesystem(name: str, max_length: int = 30) -> str:
+    # First remove any .md extension and apostrophes
+    name = name.replace('.md', '').replace("'", "")
+    
+    # Then process as before
     name = ' '.join(name.split())
     name = name.lower().replace(' ', '_')
-    name = re.sub(r'[^\w-]', '', name)
-    name = re.sub(r'[-_]+', '_', name)
+    name = re.sub(r"[^\w-]", '', name)  # Remove all non-word chars except hyphens
+    name = re.sub(r"[-_]+", '_', name)
     if len(name) > max_length:
         name = name[:max_length].rsplit('_', 1)[0]
     name = name.strip('_-')

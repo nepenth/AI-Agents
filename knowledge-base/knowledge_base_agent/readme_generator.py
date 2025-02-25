@@ -9,31 +9,55 @@ from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.exceptions import MarkdownGenerationError
 from knowledge_base_agent.config import Config
 import json
+import os
 
 async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config) -> None:
     """Generate an intelligent root README.md using an LLM based on knowledge base content."""
     try:
         # Collect knowledge base items from file system
         kb_items = []
-        for main_cat in kb_dir.iterdir():
-            if not main_cat.is_dir() or main_cat.name.startswith('.'):
+        
+        # Walk through the entire directory structure to find all README.md files
+        for root, dirs, files in os.walk(kb_dir):
+            root_path = Path(root)
+            # Skip hidden directories
+            if any(part.startswith('.') for part in root_path.parts):
                 continue
-            for sub_cat in main_cat.iterdir():
-                if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
+                
+            # Look for README.md files
+            if "README.md" in files:
+                readme_path = root_path / "README.md"
+                
+                # Get relative path components to determine category structure
+                rel_path = readme_path.relative_to(kb_dir)
+                path_parts = list(rel_path.parts)
+                
+                # Skip the root README
+                if len(path_parts) <= 1:
                     continue
-                for item_dir in sub_cat.iterdir():
-                    if not item_dir.is_dir() or item_dir.name.startswith('.'):
-                        continue
-                    readme_path = item_dir / "README.md"
-                    if readme_path.exists():
-                        kb_items.append({
-                            'main_category': main_cat.name,
-                            'sub_category': sub_cat.name,
-                            'item_name': item_dir.name,
-                            'path': readme_path.relative_to(kb_dir),
-                            'description': await get_item_description(readme_path),
-                            'last_updated': readme_path.stat().st_mtime
-                        })
+                    
+                # Extract category information
+                if len(path_parts) >= 3:  # main_cat/sub_cat/item_name.md/README.md
+                    main_cat = path_parts[0]
+                    sub_cat = path_parts[1]
+                    item_name = path_parts[2]
+                    
+                    # Remove .md extension from item_name if it exists
+                    if item_name.endswith('.md'):
+                        item_name = item_name[:-3]
+                    
+                    # Create a clean path for linking in the README
+                    # This handles both old (.md extension) and new (no extension) directory structures
+                    path = f"{main_cat}/{sub_cat}/{path_parts[2]}"
+                    
+                    kb_items.append({
+                        'main_category': main_cat,
+                        'sub_category': sub_cat,
+                        'item_name': item_name,
+                        'path': path,
+                        'description': await get_item_description(readme_path),
+                        'last_updated': readme_path.stat().st_mtime
+                    })
 
         # Supplement with information from tweet cache if available
         try:
@@ -61,10 +85,17 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
         total_items = len(kb_items)
         total_main_cats = len(set(item['main_category'] for item in kb_items))
         total_subcats = len(set(f"{item['main_category']}/{item['sub_category']}" for item in kb_items))
-        total_media = sum(len(list(item_dir.glob("image_*.*"))) 
-                         for main_cat in kb_dir.iterdir() if main_cat.is_dir()
-                         for sub_cat in main_cat.iterdir() if sub_cat.is_dir()
-                         for item_dir in sub_cat.iterdir() if item_dir.is_dir())
+        
+        # Count media files more accurately
+        total_media = 0
+        for root, dirs, files in os.walk(kb_dir):
+            # Skip hidden directories
+            if any(part.startswith('.') for part in Path(root).parts):
+                continue
+            # Count image files
+            for file in files:
+                if file.startswith('image_') or any(file.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    total_media += 1
 
         # Prepare context for LLM
         context = [
@@ -86,11 +117,12 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
             "Include:\n"
             "1. A welcoming introduction\n"
             "2. An overview section with stats (total items, categories, etc.)\n"
-            "3. A quick navigation section with links to categories and subcategories\n"
+            "3. A quick navigation section with links to ALL categories and subcategories - do not truncate with 'And more...' or similar\n"
             "4. A recent updates section highlighting the 5 most recently updated items\n"
-            "5. A detailed categories section with item tables\n"
+            "5. A detailed categories section with item tables that includes EVERY SINGLE ITEM in the knowledge base, organized by category and subcategory\n"
             "Format in Markdown with proper headers, links (e.g., [Item](path)), and tables."
             "Use anchor tags (e.g., <a name=\"category\"></a>) for navigation."
+            "Make sure all navigation links correctly point to their corresponding sections in the document."
             "Make it concise, professional, and readable."
         )
 
@@ -118,25 +150,48 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
 async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryManager) -> str:
     """Fallback method to generate a static root README.md."""
     kb_items = []
-    for main_cat in kb_dir.iterdir():
-        if not main_cat.is_dir() or main_cat.name.startswith('.'):
+    
+    # Walk through the entire directory structure to find all README.md files
+    for root, dirs, files in os.walk(kb_dir):
+        root_path = Path(root)
+        # Skip hidden directories
+        if any(part.startswith('.') for part in root_path.parts):
             continue
-        for sub_cat in main_cat.iterdir():
-            if not sub_cat.is_dir() or sub_cat.name.startswith('.'):
+            
+        # Look for README.md files
+        if "README.md" in files:
+            readme_path = root_path / "README.md"
+            
+            # Get relative path components to determine category structure
+            rel_path = readme_path.relative_to(kb_dir)
+            path_parts = list(rel_path.parts)
+            
+            # Skip the root README
+            if len(path_parts) <= 1:
                 continue
-            for item_dir in sub_cat.iterdir():
-                if not item_dir.is_dir() or item_dir.name.startswith('.'):
-                    continue
-                readme_path = item_dir / "README.md"
-                if readme_path.exists():
-                    kb_items.append({
-                        'main_category': main_cat.name,
-                        'sub_category': sub_cat.name,
-                        'item_name': item_dir.name,
-                        'path': readme_path.relative_to(kb_dir),
-                        'description': await get_item_description(readme_path),
-                        'last_updated': readme_path.stat().st_mtime
-                    })
+                
+            # Extract category information
+            if len(path_parts) >= 3:  # main_cat/sub_cat/item_name.md/README.md
+                main_cat = path_parts[0]
+                sub_cat = path_parts[1]
+                item_name = path_parts[2]
+                
+                # Remove .md extension from item_name if it exists
+                if item_name.endswith('.md'):
+                    item_name = item_name[:-3]
+                
+                # Create a clean path for linking in the README
+                # This handles both old (.md extension) and new (no extension) directory structures
+                path = f"{main_cat}/{sub_cat}/{path_parts[2]}"
+                
+                kb_items.append({
+                    'main_category': main_cat,
+                    'sub_category': sub_cat,
+                    'item_name': item_name,
+                    'path': path,
+                    'description': await get_item_description(readme_path),
+                    'last_updated': readme_path.stat().st_mtime
+                })
 
     categories = {}
     for item in kb_items:
@@ -151,10 +206,17 @@ async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryMa
     total_items = len(kb_items)
     total_main_cats = len(categories)
     total_subcats = sum(len(subcats) for subcats in categories.values())
-    total_media = sum(len(list(item_dir.glob("image_*.*"))) 
-                     for main_cat in kb_dir.iterdir() if main_cat.is_dir()
-                     for sub_cat in main_cat.iterdir() if sub_cat.is_dir()
-                     for item_dir in sub_cat.iterdir() if item_dir.is_dir())
+    
+    # Count media files more accurately
+    total_media = 0
+    for root, dirs, files in os.walk(kb_dir):
+        # Skip hidden directories
+        if any(part.startswith('.') for part in Path(root).parts):
+            continue
+        # Count image files
+        for file in files:
+            if file.startswith('image_') or any(file.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                total_media += 1
 
     content = [
         "# Technical Knowledge Base\n",
@@ -168,13 +230,16 @@ async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryMa
         "## Quick Navigation\n"
     ]
 
+    # Add all main categories to navigation with their subcategories
     for main_cat in sorted(categories.keys()):
         main_display = main_cat.replace('_', ' ').title()
-        content.append(f"- [{main_display}](#{main_cat})")
-        for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
-            sub_display = sub_cat.replace('_', ' ').title()
-            anchor = f"{main_cat}-{sub_cat}"
-            content.append(f"  - [{sub_display}](#{anchor})")
+        content.append(f"- [{main_display}](#{main_cat.lower().replace('_', '-')})")
+        subcats = sorted(categories[main_cat]['subcategories'].keys())
+        if subcats:
+            for sub_cat in subcats:
+                sub_display = sub_cat.replace('_', ' ').title()
+                anchor = f"{main_cat.lower().replace('_', '-')}-{sub_cat.lower().replace('_', '-')}"
+                content.append(f"  - [{sub_display}](#{anchor})")
 
     recent_items = sorted(kb_items, key=lambda x: x['last_updated'], reverse=True)[:5]
     if recent_items:
@@ -199,7 +264,7 @@ async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryMa
         total_cat_items = sum(len(items) for items in cat_data['subcategories'].values())
 
         content.extend([
-            f"\n### {main_display} <a name=\"{main_cat}\"></a>\n",
+            f"\n### {main_display} <a name=\"{main_cat.lower().replace('_', '-')}\"></a>\n",
             f"*Subcategories with content: {active_subcat_display}*",
             f"*Items: {total_cat_items}*\n"
         ])
@@ -207,7 +272,7 @@ async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryMa
         for sub_cat in active_subcats:
             items = cat_data['subcategories'][sub_cat]
             sub_display = sub_cat.replace('_', ' ').title()
-            anchor = f"{main_cat}-{sub_cat}"
+            anchor = f"{main_cat.lower().replace('_', '-')}-{sub_cat.lower().replace('_', '-')}"
             content.extend([
                 f"\n#### {sub_display} <a name=\"{anchor}\"></a>\n",
                 "| Item | Description |",
