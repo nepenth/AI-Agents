@@ -36,11 +36,11 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
                     if len(path_parts) >= 3:  # main_cat/sub_cat/.../item_name
                         sub_cat = path_parts[1]
                         item_name = path_parts[-1].replace('.md', '')
-                        item_path = '/'.join(path_parts[:-1] + [item_name])
+                        item_path = str(rel_path.parent)
                     elif len(path_parts) == 2:  # main_cat/item_name
                         sub_cat = main_cat
                         item_name = path_parts[1].replace('.md', '')
-                        item_path = f"{main_cat}/{item_name}"
+                        item_path = str(rel_path.parent)
                     else:
                         continue
                     
@@ -190,11 +190,11 @@ async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryMa
                 if len(path_parts) >= 3:
                     sub_cat = path_parts[1]
                     item_name = path_parts[-1].replace('.md', '')
-                    item_path = '/'.join(path_parts[:-1] + [item_name])
+                    item_path = str(rel_path.parent)
                 elif len(path_parts) == 2:
                     sub_cat = main_cat
                     item_name = path_parts[1].replace('.md', '')
-                    item_path = f"{main_cat}/{item_name}"
+                    item_path = str(rel_path.parent)
                 else:
                     continue
                 
