@@ -60,3 +60,8 @@ downloaded_media/*
 
 # Cursosr ignore
 .cursorignore
+.cursor/
+
+# scripts folder
+.scripts/
+agent.mdc

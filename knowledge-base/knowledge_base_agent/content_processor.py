@@ -169,8 +169,29 @@ class ContentProcessor:
                 if not all(tweet.get('kb_item_created', False) for tweet in tweets.values()):
                     logging.warning("Knowledge base creation incomplete, proceeding anyway")
 
-            # Phase 5: README Generation - Always run this phase
-            logging.info("=== Phase 5: README Generation ===")
+            # Phase 5: Validation & Cleanup
+            logging.info("=== Phase 5: Validation & Cleanup ===")
+            all_tweets = await self.state_manager.get_all_tweets()
+            kb_dir = Path(self.config.knowledge_base_dir)
+            
+            validation_errors = 0
+            for tweet_id, tweet_data in all_tweets.items():
+                if tweet_data.get('kb_item_created', False):
+                    kb_path = tweet_data.get('kb_item_path')
+                    valid = await self._validate_kb_item(tweet_id, tweet_data, kb_dir)
+                    
+                    if not valid:
+                        logging.warning(f"Invalidating processed status for {tweet_id}")
+                        await self.state_manager.mark_tweet_unprocessed(tweet_id)
+                        validation_errors += 1
+                        stats.processed_count -= 1  # Correct stats
+                        stats.error_count += 1
+
+            if validation_errors:
+                logging.warning(f"Found {validation_errors} tweets with invalid KB items")
+
+            # Phase 6: README Generation
+            logging.info("=== Phase 6: README Generation ===")
             kb_dir = Path(self.config.knowledge_base_dir)
             readme_path = kb_dir / "README.md"
 
@@ -242,3 +263,33 @@ class ContentProcessor:
     async def create_knowledge_base_item(self, tweet_id: str, tweet_data: Dict[str, Any]) -> KnowledgeBaseItem:
         """Create a knowledge base item from tweet data."""
         return await create_knowledge_base_item(tweet_id, tweet_data, self.config, self.http_client)
+
+    async def _validate_kb_item(self, tweet_id: str, tweet_data: dict, kb_dir: Path) -> bool:
+        """Validate that a created KB item actually exists and is correct."""
+        try:
+            kb_path_str = tweet_data.get('kb_item_path')
+            if not kb_path_str:
+                logging.warning(f"Tweet {tweet_id} marked as processed but has no KB path")
+                return False
+
+            kb_path = kb_dir / kb_path_str
+            if not kb_path.exists():
+                logging.warning(f"KB path does not exist for {tweet_id}: {kb_path}")
+                return False
+
+            # Verify the README contains the tweet URL
+            async with aiofiles.open(kb_path / "README.md", 'r') as f:
+                content = await f.read()
+                if f"https://twitter.com/i/web/status/{tweet_id}" not in content:
+                    logging.warning(f"Tweet URL missing in KB item for {tweet_id}")
+                    return False
+
+            return True
+        except Exception as e:
+            logging.error(f"Validation failed for {tweet_id}: {str(e)}")
+            return False
+
+    async def _cleanup_orphaned_items(self, kb_dir: Path):
+        """Identify and handle KB items without corresponding tweets"""
+        # This could be extended to archive/move orphaned items
+        pass
