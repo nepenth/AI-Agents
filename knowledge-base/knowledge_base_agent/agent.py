@@ -26,6 +26,7 @@ from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 from knowledge_base_agent.file_utils import async_json_load
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.content_processor import ContentProcessor
+from knowledge_base_agent.tweet_cacher import TweetCacheValidator
 
 def setup_logging(config: Config) -> None:
     """Configure logging with different levels for file and console."""
@@ -217,6 +218,17 @@ class KnowledgeBaseAgent:
         try:
             stats = ProcessingStats(start_time=datetime.now())
             
+            # Phase 0: Validate tweet cache
+            logging.info("0. Validating tweet cache integrity...")
+            validator = TweetCacheValidator(
+                tweet_cache_path=self.config.tweet_cache_file,
+                media_cache_dir=self.config.media_cache_dir,
+                kb_base_dir=self.config.knowledge_base_dir
+            )
+            total_tweets, modified_tweets = await validator.validate()
+            logging.info(f"Tweet cache validation complete: {total_tweets} tweets, {modified_tweets} modified")
+            stats.validation_count = modified_tweets
+            
             # 1. Initialize state and check for new bookmarks/tweets
             logging.info("1. Initializing state and checking for new content...")
             await self.state_manager.initialize()
@@ -237,9 +249,9 @@ class KnowledgeBaseAgent:
             if has_work_to_do:
                 logging.info(f"Processing {len(unprocessed_tweets)} tweets...")
                 await self.content_processor.process_all_tweets(
-                    self.config,  # Updated to match signature
-                    self.http_client,  # Updated to match signature
-                    self.state_manager,  # Updated to match signature
+                    self.config,
+                    self.http_client,
+                    self.state_manager,
                     stats,
                     preferences
                 )
@@ -260,6 +272,7 @@ class KnowledgeBaseAgent:
             
             # Summary
             logging.info("\n=== Processing Summary ===")
+            logging.info(f"Cache validation fixes: {stats.validation_count}")
             logging.info(f"Total tweets processed: {stats.processed_count}")
             logging.info(f"Media items processed: {stats.media_processed}")
             logging.info(f"Categories processed: {stats.categories_processed}")

@@ -21,6 +21,7 @@ class ProcessingStats:
     network_errors: int = 0
     retry_count: int = 0
     processing_times: List[float] = field(default_factory=list)
+    validation_count: int = 0
 
     def __init__(self, start_time: datetime):
         self.start_time = start_time
@@ -30,6 +31,7 @@ class ProcessingStats:
         self.media_processed = 0
         self.categories_processed = 0
         self.readme_generated = False
+        self.validation_count = 0
 
     def __str__(self) -> str:
         return (
