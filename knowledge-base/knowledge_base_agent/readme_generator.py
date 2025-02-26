@@ -23,7 +23,8 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
                 continue
                 
             for file in files:
-                if file == "README.md" or file.endswith('.md'):
+                # Only count README.md files that have 3 path components (main/sub/item)
+                if file == "README.md" and len(root_path.relative_to(kb_dir).parts) >= 3:  # Critical path depth check
                     readme_path = root_path / file
                     rel_path = readme_path.relative_to(kb_dir)
                     path_parts = list(rel_path.parts)
@@ -164,6 +165,20 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
         if not verify_readme_links(content, kb_dir):
             logging.warning("README contains invalid links")
 
+        logging.info(f"Raw count of README.md files: {len(kb_items)}")
+        
+        # New debug logging
+        logging.info("First 5 KB items paths:")
+        for item in kb_items[:5]:
+            logging.info(f"- {item['path']}")
+            
+        # Verify against tweet cache
+        if cache_path.exists():
+            async with aiofiles.open(cache_path, 'r', encoding='utf-8') as f:
+                tweet_cache = json.loads(await f.read())
+            valid_entries = sum(1 for t in tweet_cache.values() if t.get('kb_item_path'))
+            logging.info(f"Tweet cache entries with KB paths: {valid_entries}/{len(tweet_cache)}")
+
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
         raise MarkdownGenerationError(f"Failed to generate root README: {e}")
@@ -178,7 +193,8 @@ async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryMa
             continue
             
         for file in files:
-            if file == "README.md" or file.endswith('.md'):
+            # Same path depth check
+            if file == "README.md" and len(root_path.relative_to(kb_dir).parts) >= 3:
                 readme_path = root_path / file
                 rel_path = readme_path.relative_to(kb_dir)
                 path_parts = list(rel_path.parts)

@@ -159,10 +159,10 @@ class MarkdownWriter:
     async def write_kb_item(
         self,
         item: KnowledgeBaseItem,
-        media_files: List[Path] = None,
-        media_descriptions: List[str] = None,
-        root_dir: Path = None
-    ) -> str:
+        media_files: List[Path],
+        media_descriptions: List[str],
+        root_dir: Path
+    ) -> Path:
         """Write knowledge base item to markdown with media, returning the README path."""
         try:
             kb_path = create_kb_path(
@@ -177,12 +177,9 @@ class MarkdownWriter:
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             try:
-                content = self._generate_content(
-                    item=item,
-                    media_files=media_files,
-                    media_descriptions=media_descriptions
-                )
-
+                # Ensure tweet URL is included
+                content = f"{item.content}\n\n---\n**Source**: [Original Tweet]({item.source_tweet['url']})"
+                
                 readme_path = temp_dir / "README.md"
                 async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
                     await f.write(content)
@@ -202,7 +199,7 @@ class MarkdownWriter:
                         if img_path.exists() and img_path in cleanup_files:
                             img_path.unlink()
 
-                return str(kb_path / "README.md")
+                return kb_path
 
             except Exception as e:
                 logging.error(f"Failed to write KB item content: {str(e)}")
