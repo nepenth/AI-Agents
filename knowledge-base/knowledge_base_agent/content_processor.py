@@ -304,4 +304,18 @@ class ContentProcessor:
     async def _cleanup_orphaned_items(self, kb_dir: Path):
         """Identify and handle KB items without corresponding tweets"""
         # This could be extended to archive/move orphaned items
-        pass
+        logging.info("Checking for orphaned media references...")
+        all_tweets = await self.state_manager.get_all_tweets()
+        
+        # Build set of all referenced media files
+        referenced_media = set()
+        for tweet_data in all_tweets.values():
+            referenced_media.update(Path(p).name for p in tweet_data.get('downloaded_media', []))
+        
+        # Check all media files in KB directory
+        media_dir = kb_dir / "_media"
+        if media_dir.exists():
+            for media_file in media_dir.iterdir():
+                if media_file.name not in referenced_media:
+                    logging.warning(f"Found orphaned media file: {media_file}")
+                    # Consider moving to archive or deleting

@@ -765,3 +765,16 @@ Respond with just the name, no explanation."""
         except Exception as e:
             logging.error(f"Failed to process categories for tweet {tweet_id}: {str(e)}")
             raise CategoryError(f"Failed to process categories: {str(e)}")
+
+    def sanitize_category_name(self, name: str) -> str:
+        """Sanitize category names for URLs/paths"""
+        return (
+            name.strip()
+               .lower()
+               .replace(' ', '_')
+               .replace('(', '')
+               .replace(')', '')
+               .replace(',', '')
+               .replace("'", "")
+               .replace('&', 'and')
+        )

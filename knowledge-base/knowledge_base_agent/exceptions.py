@@ -103,3 +103,8 @@ class CategoryGenerationError(KnowledgeBaseError):
 class KnowledgeBaseItemCreationError(KnowledgeBaseError):
     """Raised when knowledge base item creation fails."""
     pass
+
+class CommandError(KnowledgeBaseError):
+    """Raised when a command-line operation fails"""
+    def __init__(self, message: str):
+        super().__init__(f"Command failed: {message}")

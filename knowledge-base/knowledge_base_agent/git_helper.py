@@ -6,7 +6,7 @@ from .exceptions import KnowledgeBaseError
 from typing import List, Optional
 import git
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.exceptions import GitSyncError
+from knowledge_base_agent.exceptions import GitSyncError, CommandError
 from git import Repo, GitCommandError
 import asyncio
 from functools import partial
@@ -128,6 +128,18 @@ class GitHelper:
         except Exception as e:
             raise KnowledgeBaseError(f"Failed to commit and push changes: {e}")
 
+    async def run_command(self, cmd: str, cwd: Path) -> None:
+        """Run a git command asynchronously"""
+        process = await asyncio.create_subprocess_exec(
+            *cmd.split(),
+            cwd=str(cwd),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode != 0:
+            raise CommandError(f"Command failed: {stderr.decode()}")
+
 def push_to_github(
     knowledge_base_dir: Path,
     github_repo_url: str,
@@ -234,3 +246,14 @@ class GitSyncHandler:
         except Exception as e:
             logging.error(f"GitHub sync failed: {e}")
             raise GitSyncError(f"Git command failed: {e}")
+
+    async def handle_git_conflicts(self, repo_path: Path):
+        try:
+            # Try standard merge
+            await self.run_command('git pull --rebase origin master', repo_path)
+        except CommandError as e:
+            if 'CONFLICT' in e.output:
+                logging.warning("Resolving merge conflict by keeping both changes")
+                await self.run_command('git checkout --ours README.md', repo_path)
+                await self.run_command('git add README.md', repo_path)
+                await self.run_command('git rebase --continue', repo_path)
