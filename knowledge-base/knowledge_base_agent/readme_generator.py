@@ -158,24 +158,49 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
                 f"[Source: {item.get('source_url', 'N/A')}]"
             )
 
-        prompt = (
-            "Generate a polished root README.md for a technical knowledge base using this data:\n\n"
-            f"{'\n'.join(context)}\n\n"
-            "Include:\n"
-            "1. A welcoming introduction with an emoji (📚) and a brief description\n"
-            "2. An overview section (📊) with stats (total items, categories, subcategories, media files)\n"
-            "3. A quick navigation section (🧭) with ALL categories and subcategories nested under main categories\n"
-            "4. A recent updates section (🔔) as a table with the 5 most recently updated items, including links and source URLs\n"
-            "5. A detailed categories section (📋) with collapsible subcategories (<details><summary>) listing ALL items in tables with ONLY two columns: Item and Description (no Source column)\n"
-            "6. A footer (🌟) encouraging exploration\n"
-            "Format in Markdown with:\n"
-            "- Emojis in headers (e.g., ## 📊 Overview)\n"
-            "- Horizontal rules (---) between major sections\n"
-            "- Bold table headers with separators (e.g., | **Item** | **Description** |)\n"
-            "- Anchor tags (e.g., <a name=\"category\"></a>) matching navigation links\n"
-            "- All links to items should point to the item directory, not README.md (e.g., path/to/item/)\n"
-            "Ensure it's concise, professional, readable, and includes EVERY SINGLE ITEM and category without truncation or omission."
-        )
+        # Update the statistics gathering
+        kb_stats = {
+            'kb_items': sum(1 for item in kb_items if (Path(kb_dir) / item['path']).exists()),
+            'main_categories': len({item['main_category'] for item in kb_items}),
+            'sub_categories': len({'/'.join(item['path'].split('/')[:2]) for item in kb_items if len(item['path'].split('/')) > 1}),
+            'media_files': sum(
+                len(list(Path(kb_dir) / item['path']).glob('*.jpg')) + 
+                len(list(Path(kb_dir) / item['path']).glob('*.png'))
+                for item in kb_items if (Path(kb_dir) / item['path']).exists()
+            ),
+            'last_updated': datetime.fromtimestamp(
+                max((Path(kb_dir) / item['path']).stat().st_mtime 
+                    for item in kb_items 
+                    if (Path(kb_dir) / item['path']).exists())
+            ).strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        # Update the LLM prompt to focus on accurate statistics
+        prompt = f"""Create a README.md for a technical knowledge base with these key metrics:
+
+Knowledge Base Overview:
+- Knowledge Base Items: {kb_stats['kb_items']}
+- Main Categories: {kb_stats['main_categories']}
+- Sub-Categories: {kb_stats['sub_categories']}
+- Media Files: {kb_stats['media_files']}
+- Last Updated: {kb_stats['last_updated']}
+
+{'\n'.join(context)}\n\n"
+"Include:\n"
+"1. A welcoming introduction with an emoji (📚) and a brief description\n"
+"2. An overview section (📊) with stats (total items, categories, subcategories, media files)\n"
+"3. A quick navigation section (🧭) with ALL categories and subcategories nested under main categories\n"
+"4. A recent updates section (🔔) as a table with the 5 most recently updated items, including links and source URLs\n"
+"5. A detailed categories section (📋) with collapsible subcategories (<details><summary>) listing ALL items in tables with ONLY two columns: Item and Description (no Source column)\n"
+"6. A footer (🌟) encouraging exploration\n"
+"Format in Markdown with:\n"
+"- Emojis in headers (e.g., ## 📊 Overview)\n"
+"- Horizontal rules (---) between major sections\n"
+"- Bold table headers with separators (e.g., | **Item** | **Description** |)\n"
+"- Anchor tags (e.g., <a name=\"category\"></a>) matching navigation links\n"
+"- All links to items should point to the item directory, not README.md (e.g., path/to/item/)\n"
+"Ensure it's concise, professional, readable, and includes EVERY SINGLE ITEM and category without truncation or omission."
+"""
 
         # Generate with LLM only
         content = await http_client.ollama_generate(
