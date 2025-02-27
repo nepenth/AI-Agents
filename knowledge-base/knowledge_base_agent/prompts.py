@@ -55,7 +55,7 @@ def prompt_for_preferences(config: Config) -> UserPreferences:
     
     # Only prompt for review if we have processed tweets
     if kb_state['has_processed_tweets']:
-        prefs.review_existing = input("Re-review previously processed tweets? (y/n): ").lower().startswith('y')
+        prefs.review_existing = input("Re-process previously processed tweets? (y/n): ").lower().startswith('y')
     else:
         prefs.review_existing = False
     
