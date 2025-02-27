@@ -547,5 +547,10 @@ def main():
 
     print(f"Cleaned {orphan_count} orphaned KB items")
 
+async def validate_readme_links(content: str) -> bool:
+    """Check for malformed links before writing"""
+    invalid_chars = ['(', ')', "'", '&']
+    return all(char not in link for link in re.findall(r'\(([^)]+)', content) for char in invalid_chars)
+
 if __name__ == "__main__":
     main()

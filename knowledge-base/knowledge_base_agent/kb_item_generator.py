@@ -9,6 +9,8 @@ from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.types import KnowledgeBaseItem, CategoryInfo
 from knowledge_base_agent.category_manager import CategoryManager
 import copy
+from mimetypes import guess_type
+from knowledge_base_agent.media_processor import VIDEO_MIME_TYPES
 
 async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str) -> str:
     """Generate knowledge base content from tweet data."""
@@ -217,7 +219,17 @@ async def create_knowledge_base_entry(
         # Extract necessary data
         content_text = tweet_data.get('full_text', '')
         tweet_url = tweet_data.get('tweet_url', '')
-        image_files = [Path(p) for p in tweet_data.get('downloaded_media', [])]
+        
+        # Filter out video files before passing to markdown writer
+        media_paths = tweet_data.get('downloaded_media', [])
+        image_files = []
+        for media_path in media_paths:
+            path_obj = Path(media_path)
+            mime_type, _ = guess_type(str(path_obj))
+            is_video = mime_type in VIDEO_MIME_TYPES or path_obj.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv'}
+            if not is_video and path_obj.exists():  # Only include non-video files that exist
+                image_files.append(path_obj)
+        
         image_descriptions = tweet_data.get('image_descriptions', [])
         
         logging.info(f"Preparing to write markdown for tweet {tweet_id}")
