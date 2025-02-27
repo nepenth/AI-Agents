@@ -150,13 +150,26 @@ class Config(BaseSettings):
         self.init_log_file()
         
         logging.basicConfig(
-            level=getattr(logging, self.log_level),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            level=logging.DEBUG,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
-                logging.FileHandler(self.log_file),
+                logging.FileHandler('agent_program.log'),
                 logging.StreamHandler()
             ]
         )
+
+        # Create a custom formatter for console
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_formatter = logging.Formatter('%(levelname)s - %(message)s')
+        console_handler.setFormatter(console_formatter)
+
+        # Configure root logger
+        root_logger = logging.getLogger()
+        root_logger.handlers = [
+            logging.FileHandler('agent_program.log', mode='a', encoding='utf-8'),
+            console_handler
+        ]
 
         # Add custom success level
         logging.addLevelName(25, "SUCCESS")

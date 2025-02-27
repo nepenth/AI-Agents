@@ -181,19 +181,56 @@ class GitSyncHandler:
             
             # Add and commit changes
             repo.git.add(A=True)
-            if repo.is_dirty():
+            
+            # Check if there are changes to commit
+            if repo.is_dirty(untracked_files=True):
+                logging.info(f"Committing changes with message: {commit_message}")
                 repo.index.commit(commit_message)
-            
-            # Set up upstream branch if needed
-            current = repo.active_branch
-            if not current.tracking_branch():
-                logging.info("Setting up upstream branch...")
-                origin.push(f'{current.name}:refs/heads/{current.name}', set_upstream=True)
-            else:
-                origin.push()
                 
-            logging.info("Successfully synced to GitHub")
-            
+                # Try to pull with rebase first to avoid merge conflicts
+                try:
+                    logging.info("Pulling latest changes from remote...")
+                    repo.git.pull('--rebase', 'origin', repo.active_branch.name)
+                except GitCommandError as e:
+                    logging.warning(f"Pull failed, attempting to continue: {e}")
+                    # If pull fails, try to abort the rebase and continue
+                    try:
+                        repo.git.rebase('--abort')
+                    except:
+                        pass
+                
+                # Set up upstream branch if needed
+                current = repo.active_branch
+                if not current.tracking_branch():
+                    logging.info("Setting up upstream branch...")
+                    try:
+                        origin.push(f'{current.name}:refs/heads/{current.name}', set_upstream=True)
+                    except GitCommandError as e:
+                        logging.error(f"Failed to set upstream branch: {e}")
+                        raise GitSyncError(f"Failed to set upstream branch: {e}")
+                else:
+                    # Push with force if needed to resolve conflicts
+                    try:
+                        logging.info("Pushing changes to remote...")
+                        origin.push()
+                    except GitCommandError as e:
+                        if "rejected" in str(e) or "non-fast-forward" in str(e):
+                            logging.warning("Push rejected, trying force push with lease...")
+                            try:
+                                # Force push with lease is safer than force push
+                                origin.push(force_with_lease=True)
+                                logging.info("Force push with lease successful")
+                            except GitCommandError as force_error:
+                                logging.error(f"Force push failed: {force_error}")
+                                raise GitSyncError(f"Git push failed: {force_error}")
+                        else:
+                            logging.error(f"Push failed: {e}")
+                            raise GitSyncError(f"Git push failed: {e}")
+                
+                logging.info("Successfully synced to GitHub")
+            else:
+                logging.info("No changes to commit")
+                
         except Exception as e:
             logging.error(f"GitHub sync failed: {e}")
             raise GitSyncError(f"Git command failed: {e}")
