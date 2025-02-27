@@ -25,9 +25,19 @@ class StateManager:
         self.unprocessed_tweets_file = Path(config.unprocessed_tweets_file)
         self._processed_tweets = {}
         self._tweet_cache = {}
-        self._unprocessed_tweets = set()
+        self._unprocessed_tweets = []
         self._initialized = False
         self._lock = asyncio.Lock()
+
+    @property
+    def processed_tweets(self) -> Dict[str, Any]:
+        """Get processed tweets with proper encapsulation."""
+        return self._processed_tweets
+        
+    @property
+    def unprocessed_tweets(self) -> List[str]:
+        """Get unprocessed tweet IDs."""
+        return self._unprocessed_tweets
 
     async def initialize(self) -> None:
         """Initialize state manager and load existing state."""
@@ -45,11 +55,11 @@ class StateManager:
                 async with aiofiles.open(self.unprocessed_tweets_file, 'r') as f:
                     content = await f.read()
                     tweet_ids = json.loads(content) if content.strip() else []
-                    self._unprocessed_tweets = set(tweet_ids)
+                    self._unprocessed_tweets = tweet_ids
                 logging.info(f"Loaded {len(self._unprocessed_tweets)} unprocessed tweets")
             except Exception as e:
                 logging.error(f"Error loading unprocessed tweets: {e}")
-                self._unprocessed_tweets = set()
+                self._unprocessed_tweets = []
 
         # Load processed tweets
         if self.processed_tweets_file.exists():
@@ -127,7 +137,7 @@ class StateManager:
 
                 # Update state
                 self._processed_tweets[tweet_id] = datetime.now().isoformat()
-                self._unprocessed_tweets.discard(tweet_id)
+                self._unprocessed_tweets.remove(tweet_id)
 
                 # Save both files atomically
                 await self._atomic_write_json(list(self._unprocessed_tweets), self.unprocessed_tweets_file)
@@ -137,7 +147,7 @@ class StateManager:
 
             except Exception as e:
                 logging.exception(f"Failed to mark tweet {tweet_id} as processed")
-                self._unprocessed_tweets.add(tweet_id)  # Re-add on failure
+                self._unprocessed_tweets.append(tweet_id)  # Re-add on failure
                 raise StateError(f"Failed to update processing state: {e}")
 
     async def get_unprocessed_tweets(self) -> List[str]:
@@ -178,7 +188,7 @@ class StateManager:
             new_tweets = set(valid_ids) - set(self._processed_tweets.keys())
             
             async with self._lock:
-                self._unprocessed_tweets.update(new_tweets)
+                self._unprocessed_tweets.extend(new_tweets)
                 await self.save_unprocessed()
                 logging.info(f"Added {len(new_tweets)} new tweets to process")
         except Exception as e:
@@ -345,3 +355,11 @@ class StateManager:
         base_data.update(tweet_data)
         await self.update_tweet_data(tweet_id, base_data)
         logging.info(f"Initialized cache for tweet {tweet_id}")
+
+    async def mark_tweet_unprocessed(self, tweet_id: str) -> None:
+        """Move a processed tweet back to unprocessed state."""
+        if tweet_id in self._processed_tweets:
+            self._unprocessed_tweets.append(tweet_id)
+            del self._processed_tweets[tweet_id]
+            await self.save_unprocessed()
+            logging.info(f"Marked tweet {tweet_id} as unprocessed")

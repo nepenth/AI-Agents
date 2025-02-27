@@ -15,6 +15,7 @@ from knowledge_base_agent.readme_generator import generate_root_readme, generate
 from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.types import KnowledgeBaseItem
 import aiofiles
+import asyncio
 
 @dataclass
 class ProcessingStats:
@@ -77,121 +78,129 @@ class ContentProcessor:
         try:
             # Phase 1: Tweet Cache Initialization
             logging.info("=== Phase 1: Tweet Cache Initialization ===")
-            unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
-            total_tweets = len(unprocessed_tweets)
-            
-            tweets = await self.state_manager.get_all_tweets()
-            kb_items_created = False
-            
-            if tweets:  # Only process tweets if we have any
-                await cache_tweets(unprocessed_tweets, self.config, self.http_client, self.state_manager)
-                
-                # Phase 2: Media Processing
-                logging.info("=== Phase 2: Media Processing ===")
-                for tweet_id, tweet_data in tweets.items():
-                    if not tweet_data.get('media_processed', False):
-                        try:
-                            updated_data = await process_media(tweet_data, self.http_client, self.config)
-                            await self.state_manager.update_tweet_data(tweet_id, updated_data)
-                            await self.state_manager.mark_media_processed(tweet_id)
-                            stats.media_processed += len(tweet_data.get('downloaded_media', []))
-                        except Exception as e:
-                            logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
-                            stats.error_count += 1
-                            continue
-
-                if not all(tweet.get('media_processed', False) for tweet in tweets.values()):
-                    logging.warning("Media processing incomplete, proceeding anyway")
-
-                # Phase 3: Category Processing
-                logging.info("=== Phase 3: Category Processing ===")
-                for tweet_id, tweet_data in tweets.items():
-                    if not tweet_data.get('categories_processed', False) or self.config.reprocess_categories:
-                        try:
-                            updated_data = await process_categories(tweet_id, tweet_data, self.config, self.http_client, self.state_manager)
-                            await self.state_manager.update_tweet_data(tweet_id, updated_data)
-                            await self.state_manager.mark_categories_processed(tweet_id)
-                            stats.categories_processed += 1
-                        except Exception as e:
-                            logging.error(f"Failed to process categories for tweet {tweet_id}: {e}")
-                            stats.error_count += 1
-                            continue
-
-                if not all(tweet.get('categories_processed', False) for tweet in tweets.values()):
-                    logging.warning("Category processing incomplete, proceeding anyway")
-
-                # Phase 4: Knowledge Base Creation
-                logging.info("=== Phase 4: Knowledge Base Creation ===")
-                for tweet_id, tweet_data in tweets.items():
-                    if tweet_data.get('kb_item_created', False):
-                        kb_path = tweet_data.get('kb_item_path')
-                        if not kb_path or not Path(kb_path).exists():
-                            logging.warning(f"KB item marked as created but missing for tweet {tweet_id} at {kb_path}")
-                            tweet_data['kb_item_created'] = False
-                            await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-
-                    if not tweet_data.get('kb_item_created', False) or self.config.reprocess_kb_items:
-                        try:
-                            kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data)
-                            markdown_writer = MarkdownWriter(self.config)
-                            kb_path = await markdown_writer.write_kb_item(
-                                item=kb_item,
-                                media_files=[Path(p) for p in tweet_data.get('downloaded_media', [])],
-                                media_descriptions=tweet_data.get('image_descriptions', []),
-                                root_dir=Path(self.config.knowledge_base_dir)
-                            )
-                            tweet_data['kb_item_created'] = True
-                            tweet_data['kb_item_path'] = str(kb_path)
-                            await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                            kb_items_created = True  # Mark that we created new KB items
-                            
-                            if (tweet_data.get('media_processed', True) and 
-                                tweet_data.get('categories_processed', True) and 
-                                tweet_data.get('kb_item_created', True)):
-                                await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
-                                logging.info(f"Tweet {tweet_id} fully processed and moved to processed tweets")
-                            else:
-                                logging.warning(f"Tweet {tweet_id} has not completed all processing steps")
-                                logging.warning("Missing steps: ")
-                                if not tweet_data.get('media_processed', True):
-                                    logging.warning("- Media processing")
-                                if not tweet_data.get('categories_processed', True):
-                                    logging.warning("- Category processing")
-                                if not tweet_data.get('kb_item_created', True):
-                                    logging.warning("- KB item creation")
-                            
-                            stats.processed_count += 1
-                        except Exception as e:
-                            logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
-                            stats.error_count += 1
-                            continue
-
-                if not all(tweet.get('kb_item_created', False) for tweet in tweets.values()):
-                    logging.warning("Knowledge base creation incomplete, proceeding anyway")
-
-            # Phase 5: Validation & Cleanup
-            logging.info("=== Phase 5: Validation & Cleanup ===")
             all_tweets = await self.state_manager.get_all_tweets()
-            kb_dir = Path(self.config.knowledge_base_dir)
+            unprocessed = self.state_manager.unprocessed_tweets
+            processed = list(self.state_manager.processed_tweets.keys())
             
-            validation_errors = 0
+            logging.info(f"Tweet Status:\n"
+                        f"- Total: {len(all_tweets)}\n"
+                        f"- Unprocessed: {len(unprocessed)}\n"
+                        f"- Processed: {len(processed)}\n"
+                        f"- Incomplete Cache: {sum(1 for t in all_tweets.values() if not t.get('cache_complete'))}")
+
+            # Phase 2: Media Processing
+            logging.info("\n=== Phase 2: Media Processing ===")
+            media_todo = sum(1 for t in all_tweets.values() if not t.get('media_processed'))
+            logging.info(f"Media Processing Needed: {media_todo} tweets")
+            
+            for tweet_id, tweet_data in all_tweets.items():
+                if not tweet_data.get('media_processed', False):
+                    try:
+                        updated_data = await process_media(tweet_data, self.http_client, self.config)
+                        await self.state_manager.update_tweet_data(tweet_id, updated_data)
+                        await self.state_manager.mark_media_processed(tweet_id)
+                        stats.media_processed += len(tweet_data.get('downloaded_media', []))
+                    except Exception as e:
+                        logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
+
+            if not all(tweet.get('media_processed', False) for tweet in all_tweets.values()):
+                logging.warning("Media processing incomplete, proceeding anyway")
+
+            # Phase 3: Category Processing
+            logging.info("\n=== Phase 3: Category Processing ===")
+            cat_todo = sum(1 for t in all_tweets.values() if not t.get('categories_processed'))
+            logging.info(f"Category Processing Needed: {cat_todo} tweets")
+            
+            for tweet_id, tweet_data in all_tweets.items():
+                if not tweet_data.get('categories_processed', False) or self.config.reprocess_categories:
+                    try:
+                        updated_data = await process_categories(tweet_id, tweet_data, self.config, self.http_client, self.state_manager)
+                        await self.state_manager.update_tweet_data(tweet_id, updated_data)
+                        await self.state_manager.mark_categories_processed(tweet_id)
+                        stats.categories_processed += 1
+                    except Exception as e:
+                        logging.error(f"Failed to process categories for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
+
+            if not all(tweet.get('categories_processed', False) for tweet in all_tweets.values()):
+                logging.warning("Category processing incomplete, proceeding anyway")
+
+            # Phase 4: Knowledge Base Creation
+            logging.info("\n=== Phase 4: Knowledge Base Creation ===")
+            kb_todo = sum(1 for t in all_tweets.values() if not t.get('kb_item_created'))
+            logging.info(f"KB Items Needed: {kb_todo} tweets")
+            
             for tweet_id, tweet_data in all_tweets.items():
                 if tweet_data.get('kb_item_created', False):
                     kb_path = tweet_data.get('kb_item_path')
+                    if not kb_path or not Path(kb_path).exists():
+                        logging.warning(f"KB item marked as created but missing for tweet {tweet_id} at {kb_path}")
+                        tweet_data['kb_item_created'] = False
+                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+
+                if not tweet_data.get('kb_item_created', False) or self.config.reprocess_kb_items:
+                    try:
+                        kb_item = await self.create_knowledge_base_item(tweet_id, tweet_data)
+                        markdown_writer = MarkdownWriter(self.config)
+                        kb_path = await markdown_writer.write_kb_item(
+                            item=kb_item,
+                            media_files=[Path(p) for p in tweet_data.get('downloaded_media', [])],
+                            media_descriptions=tweet_data.get('image_descriptions', []),
+                            root_dir=Path(self.config.knowledge_base_dir)
+                        )
+                        tweet_data['kb_item_created'] = True
+                        tweet_data['kb_item_path'] = str(kb_path)
+                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                        stats.processed_count += 1
+                        
+                        if (tweet_data.get('media_processed', True) and 
+                            tweet_data.get('categories_processed', True) and 
+                            tweet_data.get('kb_item_created', True)):
+                            await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
+                            logging.info(f"Tweet {tweet_id} fully processed and moved to processed tweets")
+                        else:
+                            logging.warning(f"Tweet {tweet_id} has not completed all processing steps")
+                            logging.warning("Missing steps: ")
+                            if not tweet_data.get('media_processed', True):
+                                logging.warning("- Media processing")
+                            if not tweet_data.get('categories_processed', True):
+                                logging.warning("- Category processing")
+                            if not tweet_data.get('kb_item_created', True):
+                                logging.warning("- KB item creation")
+                        
+                    except Exception as e:
+                        logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
+                        stats.error_count += 1
+                        continue
+
+            if not all(tweet.get('kb_item_created', False) for tweet in all_tweets.values()):
+                logging.warning("Knowledge base creation incomplete, proceeding anyway")
+
+            # Phase 5: Validation & Cleanup
+            logging.info("\n=== Phase 5: Validation & Cleanup ===")
+            validation_results = []
+            kb_dir = Path(self.config.knowledge_base_dir)
+            
+            for tweet_id, tweet_data in all_tweets.items():
+                if tweet_data.get('kb_item_created', False):
                     valid = await self._validate_kb_item(tweet_id, tweet_data, kb_dir)
-                    
                     if not valid:
-                        logging.warning(f"Invalidating processed status for {tweet_id}")
+                        validation_results.append(tweet_id)
                         await self.state_manager.mark_tweet_unprocessed(tweet_id)
-                        validation_errors += 1
-                        stats.processed_count -= 1  # Correct stats
+                        stats.processed_count -= 1
                         stats.error_count += 1
 
-            if validation_errors:
-                logging.warning(f"Found {validation_errors} tweets with invalid KB items")
+            if validation_results:
+                logging.warning(f"Validation Issues Found: {len(validation_results)} tweets")
+                logging.info(f"Invalidated tweets: {validation_results}")
+            else:
+                logging.info("All KB items validated successfully")
 
             # Phase 6: README Generation
-            logging.info("=== Phase 6: README Generation ===")
+            logging.info("\n=== Phase 6: README Generation ===")
             kb_dir = Path(self.config.knowledge_base_dir)
             readme_path = kb_dir / "README.md"
 
@@ -199,13 +208,13 @@ class ContentProcessor:
             readme_exists = readme_path.exists()
             
             # Generate README if it doesn't exist, REGENERATE_ROOT_README is True, or new KB items were created
-            if not readme_exists or self.config.regenerate_root_readme or kb_items_created:
+            if not readme_exists or self.config.regenerate_root_readme or kb_todo > 0:
                 reasons = []
                 if not readme_exists:
                     reasons.append("README.md does not exist")
                 if self.config.regenerate_root_readme:
                     reasons.append("REGENERATE_ROOT_README is True")
-                if kb_items_created:
+                if kb_todo > 0:
                     reasons.append("new KB items were created")
                 reason_str = " and ".join(reasons)
                 logging.info(f"Generating README because {reason_str}")
@@ -224,9 +233,12 @@ class ContentProcessor:
                 await self._regenerate_readme()
                 stats.readme_generated = True
             
+        except asyncio.CancelledError:
+            logging.warning("Agent run cancelled by user")
+            raise
         except Exception as e:
-            logging.error(f"Failed to process all tweets: {str(e)}")
-            raise ContentProcessingError(f"Failed to process all tweets: {str(e)}")
+            logging.error(f"Processing failed: {str(e)}")
+            raise
 
     async def _regenerate_readme(self) -> None:
         """Regenerate the README file."""

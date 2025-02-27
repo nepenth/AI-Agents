@@ -142,6 +142,9 @@ class TweetCacheValidator:
         total_tweets = len(self.tweet_cache)
         self.modified_tweets = set()
         
+        # Print KB directory structure for debugging
+        self.print_kb_directory_structure()
+        
         # Reset validation results
         for key in self.validation_results:
             self.validation_results[key] = []
@@ -264,7 +267,7 @@ class TweetCacheValidator:
             kb_path = tweet_data.get('kb_item_path')
             
             if not kb_path:
-                logging.debug(f"Tweet {tweet_id} marked as kb_item_created but missing kb_item_path")
+                logging.warning(f"Tweet {tweet_id} marked as kb_item_created but missing kb_item_path")
                 tweet_data['kb_item_created'] = False
                 self.validation_results['kb_items_missing'].append({
                     'tweet_id': tweet_id,
@@ -272,10 +275,71 @@ class TweetCacheValidator:
                 })
                 modified = True
             else:
-                # Check if the KB item exists
-                full_path = self.kb_base_dir / kb_path
-                if not full_path.exists() and not (full_path.parent / "README.md").exists():
-                    logging.debug(f"KB item {kb_path} for tweet {tweet_id} not found")
+                # Critical fix: The kb_base_dir is already the full path to the kb-generated directory
+                # So we should NOT prepend kb-generated/ to the path again
+                
+                # Normalize the path
+                kb_path = kb_path.rstrip('/')
+                
+                # Check if the path already includes kb-generated prefix
+                if kb_path.startswith('kb-generated/'):
+                    # Remove the prefix for checking against the base directory
+                    check_path = kb_path[len('kb-generated/'):]
+                    full_path = self.kb_base_dir / check_path
+                else:
+                    # Use the path as is
+                    full_path = self.kb_base_dir / kb_path
+                
+                # Debug output to see what we're checking
+                logging.debug(f"Checking KB item existence: {full_path} (from path {kb_path})")
+                
+                # Try different path variations
+                path_exists = False
+                
+                # Check if the exact path exists (file or directory)
+                if full_path.exists():
+                    path_exists = True
+                    logging.debug(f"KB item exists at exact path: {full_path}")
+                
+                # Check if it's a directory with README.md inside
+                elif full_path.is_dir() and (full_path / "README.md").exists():
+                    path_exists = True
+                    logging.debug(f"KB item exists as README.md in directory: {full_path / 'README.md'}")
+                
+                # Check if the parent directory exists with README.md
+                elif full_path.parent.exists() and (full_path.parent / "README.md").exists():
+                    path_exists = True
+                    logging.debug(f"KB item exists as README.md in parent directory: {full_path.parent / 'README.md'}")
+                
+                # If we still haven't found it, try with the original path
+                if not path_exists:
+                    # Try the direct path without any manipulation
+                    direct_path = Path(self.kb_base_dir.parent) / kb_path
+                    if direct_path.exists():
+                        path_exists = True
+                        logging.debug(f"KB item exists at direct path: {direct_path}")
+                    elif direct_path.is_dir() and (direct_path / "README.md").exists():
+                        path_exists = True
+                        logging.debug(f"KB item exists as README.md in direct path directory: {direct_path / 'README.md'}")
+                
+                if not path_exists:
+                    # One last attempt - check if the file exists in the repository root
+                    repo_root = self.kb_base_dir.parent
+                    repo_path = repo_root / kb_path
+                    
+                    if repo_path.exists():
+                        path_exists = True
+                        logging.debug(f"KB item exists at repository root: {repo_path}")
+                    elif kb_path.endswith('README.md') and repo_path.parent.exists():
+                        if repo_path.parent.is_dir() and (repo_path.parent / "README.md").exists():
+                            path_exists = True
+                            logging.debug(f"KB item exists as README.md in repository root directory: {repo_path.parent / 'README.md'}")
+                
+                if not path_exists:
+                    logging.warning(f"KB item {kb_path} for tweet {tweet_id} not found at any expected location")
+                    # Log all the paths we tried
+                    logging.debug(f"Tried paths: {full_path}, {self.kb_base_dir.parent / kb_path}, {repo_root / kb_path}")
+                    
                     tweet_data['kb_item_created'] = False
                     self.validation_results['kb_items_missing'].append({
                         'tweet_id': tweet_id,
@@ -339,3 +403,60 @@ class TweetCacheValidator:
             
             logging.info(f"Total validation issues: {total_issues} across {len(affected_tweets)} tweets")
             logging.info("These tweets will be reprocessed in the appropriate phases")
+
+    def print_kb_directory_structure(self) -> None:
+        """Print the knowledge base directory structure for debugging."""
+        logging.info("=== Knowledge Base Directory Structure ===")
+        
+        # Count files by type
+        md_files = 0
+        readme_files = 0
+        media_files = 0
+        other_files = 0
+        
+        # Track categories and subcategories
+        categories = set()
+        subcategories = set()
+        
+        for root, dirs, files in os.walk(self.kb_base_dir):
+            root_path = Path(root)
+            rel_path = root_path.relative_to(self.kb_base_dir)
+            
+            # Skip hidden directories
+            if any(part.startswith('.') for part in rel_path.parts):
+                continue
+            
+            # Track categories and subcategories
+            if len(rel_path.parts) >= 1 and rel_path.parts[0]:
+                categories.add(rel_path.parts[0])
+            if len(rel_path.parts) >= 2:
+                subcategories.add(f"{rel_path.parts[0]}/{rel_path.parts[1]}")
+            
+            # Count files by type
+            for file in files:
+                if file.lower() == "readme.md":
+                    readme_files += 1
+                elif file.lower().endswith('.md'):
+                    md_files += 1
+                elif any(file.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    media_files += 1
+                else:
+                    other_files += 1
+        
+        logging.info(f"Categories: {len(categories)}")
+        logging.info(f"Subcategories: {len(subcategories)}")
+        logging.info(f"README.md files: {readme_files}")
+        logging.info(f"Other Markdown files: {md_files}")
+        logging.info(f"Media files: {media_files}")
+        logging.info(f"Other files: {other_files}")
+        
+        # List the first few categories and subcategories
+        if categories:
+            logging.info("Sample categories:")
+            for category in sorted(list(categories))[:5]:
+                logging.info(f"  - {category}")
+        
+        if subcategories:
+            logging.info("Sample subcategories:")
+            for subcategory in sorted(list(subcategories))[:5]:
+                logging.info(f"  - {subcategory}")
