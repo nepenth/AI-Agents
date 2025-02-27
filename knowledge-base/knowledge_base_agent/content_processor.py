@@ -8,7 +8,7 @@ from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.exceptions import ContentProcessingError, KnowledgeBaseItemCreationError
 from knowledge_base_agent.tweet_cacher import cache_tweets
-from knowledge_base_agent.media_processor import process_media, has_unprocessed_non_video_media, count_media_items
+from knowledge_base_agent.media_processor import process_media, has_unprocessed_non_video_media, count_media_items, VIDEO_MIME_TYPES
 from knowledge_base_agent.text_processor import process_categories
 from knowledge_base_agent.kb_item_generator import create_knowledge_base_item
 from knowledge_base_agent.readme_generator import generate_root_readme, generate_static_root_readme
@@ -16,6 +16,9 @@ from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.types import KnowledgeBaseItem
 import aiofiles
 import asyncio
+import re
+from mimetypes import guess_type
+import shutil
 
 @dataclass
 class ProcessingStats:
@@ -87,6 +90,14 @@ class ContentProcessor:
                         f"- Unprocessed: {len(unprocessed)}\n"
                         f"- Processed: {len(processed)}\n"
                         f"- Incomplete Cache: {sum(1 for t in all_tweets.values() if not t.get('cache_complete'))}")
+
+            # Validate tweet states
+            logging.info("=== Pre-processing: Tweet State Validation ===")
+            if all_tweets:
+                for tweet_id, tweet_data in all_tweets.items():
+                    await self._validate_tweet_state(tweet_id, tweet_data)
+            else:
+                logging.warning("No tweets found in cache for validation")
 
             # Phase 2: Media Processing
             logging.info("\n=== Phase 2: Media Processing ===")
@@ -170,6 +181,23 @@ class ContentProcessor:
                                 logging.warning("- Category processing")
                             if not tweet_data.get('kb_item_created', True):
                                 logging.warning("- KB item creation")
+                        
+                        # Verify media files are present and correctly linked
+                        kb_path = Path(tweet_data['kb_item_path'])
+                        media_files = [p for p in tweet_data.get('downloaded_media', []) 
+                                      if not self._is_video_file(p)]
+                        
+                        for media_file in media_files:
+                            source = Path(media_file)
+                            dest = kb_path / source.name
+                            if not dest.exists():
+                                logging.warning(f"Media file missing from KB item: {dest}")
+                                try:
+                                    shutil.copy2(source, dest)
+                                    logging.info(f"Copied missing media file: {source.name}")
+                                except Exception as e:
+                                    logging.error(f"Failed to copy media file: {e}")
+                                    stats.error_count += 1
                         
                     except Exception as e:
                         logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
@@ -289,17 +317,42 @@ class ContentProcessor:
                 logging.warning(f"KB path does not exist for {tweet_id}: {kb_path}")
                 return False
 
-            # Verify the README contains the tweet URL
+            # Verify the README contains the tweet URL and check media files
             async with aiofiles.open(kb_path / "README.md", 'r') as f:
                 content = await f.read()
                 if f"https://twitter.com/i/web/status/{tweet_id}" not in content:
                     logging.warning(f"Tweet URL missing in KB item for {tweet_id}")
+                    return False
+                
+                # Extract media references from markdown
+                media_refs = re.findall(r'!\[.*?\]\((.*?)\)', content)
+                for media_ref in media_refs:
+                    media_path = kb_path / media_ref
+                    if not media_path.exists():
+                        logging.warning(f"Referenced media file missing: {media_path}")
+                        return False
+                
+                # Check if all downloaded media is referenced
+                downloaded_media = tweet_data.get('downloaded_media', [])
+                media_files = [Path(p).name for p in downloaded_media if not self._is_video_file(p)]
+                referenced_files = [Path(ref).name for ref in media_refs]
+                
+                missing_refs = set(media_files) - set(referenced_files)
+                if missing_refs:
+                    logging.warning(f"Media files not referenced in KB item: {missing_refs}")
                     return False
 
             return True
         except Exception as e:
             logging.error(f"Validation failed for {tweet_id}: {str(e)}")
             return False
+
+    def _is_video_file(self, path: str) -> bool:
+        """Check if file is a video based on extension or mime type."""
+        path_obj = Path(path)
+        mime_type, _ = guess_type(str(path_obj))
+        return (mime_type in VIDEO_MIME_TYPES or 
+                path_obj.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv'})
 
     async def _cleanup_orphaned_items(self, kb_dir: Path):
         """Identify and handle KB items without corresponding tweets"""
@@ -319,3 +372,41 @@ class ContentProcessor:
                 if media_file.name not in referenced_media:
                     logging.warning(f"Found orphaned media file: {media_file}")
                     # Consider moving to archive or deleting
+
+    async def _validate_tweet_state(self, tweet_id: str, tweet_data: Dict[str, Any]) -> bool:
+        """Validate and fix inconsistencies in tweet processing state."""
+        try:
+            needs_update = False
+            
+            # Check if KB item exists despite being marked as not created
+            if not tweet_data.get('kb_item_created') and tweet_data.get('kb_item_path'):
+                kb_path = Path(tweet_data['kb_item_path'])
+                if kb_path.exists() and (kb_path / "README.md").exists():
+                    tweet_data['kb_item_created'] = True
+                    needs_update = True
+                else:
+                    # Path doesn't exist, remove invalid path
+                    tweet_data.pop('kb_item_path', None)
+            
+            # Check cache completion state
+            if not tweet_data.get('cache_complete'):
+                if (tweet_data.get('media_processed') and 
+                    tweet_data.get('categories_processed')):
+                    tweet_data['cache_complete'] = True
+                    needs_update = True
+            
+            if needs_update:
+                await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                
+                # If all processing is complete, mark as processed
+                if (tweet_data.get('media_processed') and 
+                    tweet_data.get('categories_processed') and 
+                    tweet_data.get('kb_item_created') and 
+                    tweet_data.get('cache_complete')):
+                    await self.state_manager.mark_tweet_processed(tweet_id)
+                    logging.info(f"Tweet {tweet_id} state validated and marked as processed")
+            
+            return True
+        except Exception as e:
+            logging.error(f"State validation failed for tweet {tweet_id}: {e}")
+            return False
