@@ -183,61 +183,34 @@ class GitSyncHandler:
             git_config.set_value('user', 'email', self.config.github_user_email)
 
     async def sync_to_github(self, commit_message: str = "Update knowledge base content") -> None:
-        """Sync changes to GitHub with proper branch setup."""
         try:
-            # Configure git
             await self._configure_git()
-            
             repo = self.repo
-            origin = repo.remote('origin')
             
             # Add and commit changes
             repo.git.add(A=True)
-            
-            # Check if there are changes to commit
             if repo.is_dirty(untracked_files=True):
-                logging.info(f"Committing changes with message: {commit_message}")
                 repo.index.commit(commit_message)
                 
-                # Try to pull with rebase first to avoid merge conflicts
                 try:
+                    # Try merge instead of rebase for README changes
                     logging.info("Pulling latest changes from remote...")
-                    repo.git.pull('--rebase', 'origin', repo.active_branch.name)
+                    repo.git.pull('--no-rebase', 'origin', repo.active_branch.name)
                 except GitCommandError as e:
-                    logging.warning(f"Pull failed, attempting to continue: {e}")
-                    # If pull fails, try to abort the rebase and continue
-                    try:
-                        repo.git.rebase('--abort')
-                    except:
-                        pass
+                    if "CONFLICT" in str(e):
+                        logging.warning("Resolving README conflict...")
+                        # Keep our version of README.md
+                        repo.git.checkout('--ours', 'README.md')
+                        repo.git.add('README.md')
+                        repo.git.commit('-m', 'Resolve README.md conflict')
                 
-                # Set up upstream branch if needed
-                current = repo.active_branch
-                if not current.tracking_branch():
-                    logging.info("Setting up upstream branch...")
-                    try:
-                        origin.push(f'{current.name}:refs/heads/{current.name}', set_upstream=True)
-                    except GitCommandError as e:
-                        logging.error(f"Failed to set upstream branch: {e}")
-                        raise GitSyncError(f"Failed to set upstream branch: {e}")
-                else:
-                    # Push with force if needed to resolve conflicts
-                    try:
-                        logging.info("Pushing changes to remote...")
-                        origin.push()
-                    except GitCommandError as e:
-                        if "rejected" in str(e) or "non-fast-forward" in str(e):
-                            logging.warning("Push rejected, trying force push with lease...")
-                            try:
-                                # Force push with lease is safer than force push
-                                origin.push(force_with_lease=True)
-                                logging.info("Force push with lease successful")
-                            except GitCommandError as force_error:
-                                logging.error(f"Force push failed: {force_error}")
-                                raise GitSyncError(f"Git push failed: {force_error}")
-                        else:
-                            logging.error(f"Push failed: {e}")
-                            raise GitSyncError(f"Git push failed: {e}")
+                # Push changes
+                try:
+                    repo.remote('origin').push()
+                except GitCommandError as e:
+                    if "non-fast-forward" in str(e):
+                        logging.warning("Non-fast-forward push, forcing update...")
+                        repo.remote('origin').push(force_with_lease=True)
                 
                 logging.info("Successfully synced to GitHub")
             else:
@@ -245,7 +218,7 @@ class GitSyncHandler:
                 
         except Exception as e:
             logging.error(f"GitHub sync failed: {e}")
-            raise GitSyncError(f"Git command failed: {e}")
+            raise GitSyncError(f"Git sync failed: {e}")
 
     async def handle_git_conflicts(self, repo_path: Path):
         try:

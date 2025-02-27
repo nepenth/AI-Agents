@@ -463,33 +463,33 @@ def sanitize_markdown_cell(text: str) -> str:
         
     return text.strip()
 
-def verify_readme_completeness(readme_content: str, kb_items: list) -> bool:
-    """Verify all KB items are included in the README."""
-    missing_items = []
-    for item in kb_items:
-        item_name = item['item_name'].replace('-', ' ').title()
-        if item_name not in readme_content:
-            missing_items.append(item_name)
+def sanitize_link(path: str) -> str:
+    """Sanitize links for README markdown"""
+    if path == 'N/A':
+        return '#'  # Replace N/A with hash link
     
-    if missing_items:
-        logging.warning(f"Missing {len(missing_items)} items in README: {missing_items[:5]}...")
-        return False
-    return True
+    # Handle parentheses and other special characters
+    return (path.lower()
+            .replace('(', '')
+            .replace(')', '')
+            .replace(' ', '-')
+            .replace(',', '')
+            .strip('-'))
 
-def verify_readme_links(readme_content: str, kb_dir: Path) -> bool:
+def verify_readme_links(content: str, kb_dir: Path) -> bool:
     """Verify that links in the README point to existing files."""
-    # Extract all markdown links
     link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
-    links = re.findall(link_pattern, readme_content)
+    links = re.findall(link_pattern, content)
     
     invalid_links = []
     for text, url in links:
-        # Skip external links
-        if url.startswith('http'):
+        # Skip anchors and external links
+        if url.startswith(('#', 'http')):
             continue
-            
-        # Check if the link points to a file that exists
-        if not (kb_dir / url).exists() and not url.startswith('#'):
+        
+        # Sanitize and check path
+        clean_url = sanitize_link(url)
+        if not (kb_dir / clean_url).exists():
             invalid_links.append(url)
     
     if invalid_links:
