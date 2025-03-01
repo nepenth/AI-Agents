@@ -10,84 +10,68 @@ import json
 import os
 from typing import Tuple
 
-async def cache_tweets(tweet_ids: List[str], config: Config, http_client: HTTPClient, state_manager: StateManager) -> None:
+async def cache_tweets(tweet_ids: List[str], config: Config, http_client: HTTPClient, state_manager: StateManager, force_recache: bool = False) -> None:
     """Cache tweet data including expanded URLs and all media."""
     cached_tweets = await state_manager.get_all_tweets()
 
     for tweet_id in tweet_ids:
         try:
-            # Check if tweet exists and is fully cached
             existing_tweet = cached_tweets.get(tweet_id, {})
-            if existing_tweet and existing_tweet.get('cache_complete', False):
+            if not force_recache and existing_tweet and existing_tweet.get('cache_complete', False):
                 logging.info(f"Tweet {tweet_id} already fully cached, skipping...")
                 continue
 
-            # If we have partial data, preserve it
-            if existing_tweet:
-                logging.info(f"Found partial cache for tweet {tweet_id}, completing cache...")
-                tweet_data = existing_tweet
-            else:
-                # Fetch new tweet data
+            tweet_data = existing_tweet if existing_tweet else {}
+            if not tweet_data or force_recache:
                 tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
                 tweet_data = await fetch_tweet_data_playwright(tweet_url, config)
                 if not tweet_data:
                     logging.error(f"Failed to fetch tweet {tweet_id}")
                     continue
 
-            # Expand URLs if present
-            if 'urls' in tweet_data:
+            # Expand URLs if present and not already expanded
+            if 'urls' in tweet_data and not tweet_data.get('urls_expanded', False):
                 expanded_urls = []
                 for url in tweet_data.get('urls', []):
                     try:
-                        expanded = await expand_url(url)  # Use playwright_fetcher.expand_url
+                        expanded = await expand_url(url)
                         expanded_urls.append(expanded)
                     except Exception as e:
                         logging.warning(f"Failed to expand URL {url}: {e}")
-                        expanded_urls.append(url)  # Fallback to original
+                        expanded_urls.append(url)
                 tweet_data['urls'] = expanded_urls
+                tweet_data['urls_expanded'] = True
 
-            # Download media if present and not already downloaded
-            if 'media' in tweet_data and not tweet_data.get('downloaded_media'):
+            # Download media if present and not already downloaded or forced
+            if 'media' in tweet_data and (force_recache or not tweet_data.get('downloaded_media')):
                 media_dir = Path(config.media_cache_dir) / tweet_id
                 media_dir.mkdir(parents=True, exist_ok=True)
-                
                 media_paths = []
+
                 for idx, media_item in enumerate(tweet_data['media']):
                     try:
-                        # Extract URL and type from media item
-                        if isinstance(media_item, dict):
-                            url = media_item.get('url', '')
-                            media_type = media_item.get('type', 'image')
-                        else:
-                            url = str(media_item)
-                            media_type = 'image'  # Default to image
-                            
+                        url = media_item.get('url', '') if isinstance(media_item, dict) else str(media_item)
+                        media_type = media_item.get('type', 'image') if isinstance(media_item, dict) else 'image'
                         if not url:
-                            logging.warning(f"No valid URL in media item {idx} for tweet {tweet_id}: {media_item}")
+                            logging.warning(f"No valid URL in media item {idx} for tweet {tweet_id}")
                             continue
 
-                        # Determine file extension
                         ext = '.mp4' if media_type == 'video' else (Path(urlparse(url).path).suffix or '.jpg')
                         media_path = media_dir / f"media_{idx}{ext}"
-                        
-                        # Download if not exists
+
                         if not media_path.exists():
                             logging.info(f"Downloading media from {url} to {media_path}")
                             await http_client.download_media(url, media_path)
-                            logging.info(f"Successfully downloaded media to {media_path}")
-                        else:
-                            logging.debug(f"Media already exists at {media_path}, skipping download")
-                        
+                            if not media_path.exists():
+                                logging.error(f"Media download failed for {url} at {media_path}")
+                                continue
                         media_paths.append(str(media_path))
-                        
                     except Exception as e:
-                        logging.error(f"Failed to process media item {idx} for tweet {tweet_id}: {e}")
+                        logging.error(f"Failed to download media item {idx} for tweet {tweet_id}: {e}")
                         continue
 
                 tweet_data['downloaded_media'] = media_paths
-                logging.info(f"Downloaded {len(media_paths)} media files for tweet {tweet_id}")
 
-            # Mark as fully cached and save
             tweet_data['cache_complete'] = True
             await state_manager.update_tweet_data(tweet_id, tweet_data)
             logging.info(f"Cached tweet {tweet_id}: {len(tweet_data.get('urls', []))} URLs, {len(tweet_data.get('downloaded_media', []))} media items")
@@ -97,7 +81,11 @@ async def cache_tweets(tweet_ids: List[str], config: Config, http_client: HTTPCl
             continue
 
 class TweetCacheValidator:
-    """Validates the integrity of the tweet cache and fixes inconsistencies."""
+    """Validates the integrity of the tweet cache and fixes inconsistencies.
+    
+    Retained for compatibility but likely redundant since StateManager now handles comprehensive validation.
+    Consider removing if no other code references this class explicitly.
+    """
     
     def __init__(self, tweet_cache_path: Path, media_cache_dir: Path, kb_base_dir: Path):
         self.tweet_cache_path = tweet_cache_path
@@ -275,19 +263,14 @@ class TweetCacheValidator:
                 })
                 modified = True
             else:
-                # Critical fix: The kb_base_dir is already the full path to the kb-generated directory
-                # So we should NOT prepend kb-generated/ to the path again
-                
                 # Normalize the path
                 kb_path = kb_path.rstrip('/')
                 
                 # Check if the path already includes kb-generated prefix
                 if kb_path.startswith('kb-generated/'):
-                    # Remove the prefix for checking against the base directory
                     check_path = kb_path[len('kb-generated/'):]
                     full_path = self.kb_base_dir / check_path
                 else:
-                    # Use the path as is
                     full_path = self.kb_base_dir / kb_path
                 
                 # Debug output to see what we're checking
@@ -313,7 +296,6 @@ class TweetCacheValidator:
                 
                 # If we still haven't found it, try with the original path
                 if not path_exists:
-                    # Try the direct path without any manipulation
                     direct_path = Path(self.kb_base_dir.parent) / kb_path
                     if direct_path.exists():
                         path_exists = True
@@ -323,7 +305,6 @@ class TweetCacheValidator:
                         logging.debug(f"KB item exists as README.md in direct path directory: {direct_path / 'README.md'}")
                 
                 if not path_exists:
-                    # One last attempt - check if the file exists in the repository root
                     repo_root = self.kb_base_dir.parent
                     repo_path = repo_root / kb_path
                     
@@ -337,9 +318,6 @@ class TweetCacheValidator:
                 
                 if not path_exists:
                     logging.warning(f"KB item {kb_path} for tweet {tweet_id} not found at any expected location")
-                    # Log all the paths we tried
-                    logging.debug(f"Tried paths: {full_path}, {self.kb_base_dir.parent / kb_path}, {repo_root / kb_path}")
-                    
                     tweet_data['kb_item_created'] = False
                     self.validation_results['kb_items_missing'].append({
                         'tweet_id': tweet_id,
@@ -352,21 +330,18 @@ class TweetCacheValidator:
     
     def _log_validation_results(self) -> None:
         """Log detailed validation results to both file and console."""
-        # Detailed logging to file
         if any(len(items) > 0 for items in self.validation_results.values()):
             logging.info("=== Tweet Cache Validation Results ===")
             
-            # Media files
             if self.validation_results['media_files_missing']:
                 media_count = len(self.validation_results['media_files_missing'])
                 affected_tweets = {item['tweet_id'] for item in self.validation_results['media_files_missing']}
                 logging.info(f"🖼️  Media files missing: {media_count} files from {len(affected_tweets)} tweets")
-                for item in self.validation_results['media_files_missing'][:5]:  # Log first 5 only
+                for item in self.validation_results['media_files_missing'][:5]:
                     logging.debug(f"  - Tweet {item['tweet_id']}: Missing media {item['media_path']}")
                 if media_count > 5:
                     logging.debug(f"  - ... and {media_count - 5} more")
             
-            # Image descriptions
             if self.validation_results['image_descriptions_missing']:
                 desc_count = len(self.validation_results['image_descriptions_missing'])
                 logging.info(f"📝 Image descriptions missing: {desc_count} tweets need media processing")
@@ -375,7 +350,6 @@ class TweetCacheValidator:
                 if desc_count > 5:
                     logging.debug(f"  - ... and {desc_count - 5} more")
             
-            # Categories
             if self.validation_results['categories_incomplete']:
                 cat_count = len(self.validation_results['categories_incomplete'])
                 logging.info(f"🏷️  Categories incomplete: {cat_count} tweets need category processing")
@@ -384,7 +358,6 @@ class TweetCacheValidator:
                 if cat_count > 5:
                     logging.debug(f"  - ... and {cat_count - 5} more")
             
-            # KB items
             if self.validation_results['kb_items_missing']:
                 kb_count = len(self.validation_results['kb_items_missing'])
                 logging.info(f"📚 KB items missing: {kb_count} tweets need KB item creation")
@@ -394,7 +367,6 @@ class TweetCacheValidator:
                 if kb_count > 5:
                     logging.debug(f"  - ... and {kb_count - 5} more")
             
-            # Summary for console
             total_issues = sum(len(items) for items in self.validation_results.values())
             affected_tweets = set()
             for category in self.validation_results.values():
@@ -450,7 +422,6 @@ class TweetCacheValidator:
         logging.info(f"Media files: {media_files}")
         logging.info(f"Other files: {other_files}")
         
-        # List the first few categories and subcategories
         if categories:
             logging.info("Sample categories:")
             for category in sorted(list(categories))[:5]:
