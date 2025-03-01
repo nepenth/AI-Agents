@@ -3,17 +3,17 @@ from datetime import datetime
 import json
 from pathlib import Path
 from typing import List, Optional
+import logging
 
 @dataclass
 class ProcessingStats:
     """Track progress of content processing."""
-    start_time: datetime = datetime.now()
+    start_time: datetime = field(default_factory=datetime.now)
     media_processed: int = 0
     categories_processed: int = 0
     processed_count: int = 0
     error_count: int = 0
     readme_generated: bool = False
-    processed_count: int = 0
     success_count: int = 0
     skipped_count: int = 0
     cache_hits: int = 0
@@ -45,7 +45,6 @@ class ProcessingStats:
 
     def to_dict(self) -> dict:
         """Convert stats to dictionary format."""
-        # Calculate rates safely (avoid division by zero)
         success_rate = (self.success_count / self.processed_count * 100) if self.processed_count else 0
         cache_hit_rate = (self.cache_hits / (self.cache_hits + self.cache_misses) * 100) if (self.cache_hits + self.cache_misses) > 0 else 0
         error_rate = (self.error_count / self.processed_count * 100) if self.processed_count else 0
@@ -69,15 +68,21 @@ class ProcessingStats:
         }
 
     def save_report(self, output_path: Path) -> None:
-        report = self.to_dict()
-        report['duration'] = str(datetime.now() - self.start_time)
-        with output_path.open('w') as f:
-            json.dump(report, f, indent=2)
+        """Save stats report to a JSON file."""
+        try:
+            report = self.to_dict()
+            report['duration'] = str(datetime.now() - self.start_time)
+            with output_path.open('w') as f:
+                json.dump(report, f, indent=2)
+            logging.debug(f"Saved stats report to {output_path}")
+        except Exception as e:
+            logging.error(f"Failed to save stats report: {e}")
 
     def get_performance_metrics(self) -> dict:
+        """Generate performance metrics."""
         metrics = {
-            'cache_hit_rate': f"{(self.cache_hits / (self.cache_hits + self.cache_misses) * 100):.1f}%",
-            'error_rate': f"{(self.error_count / self.processed_count * 100):.1f}%",
+            'cache_hit_rate': "N/A" if (self.cache_hits + self.cache_misses) == 0 else f"{(self.cache_hits / (self.cache_hits + self.cache_misses) * 100):.1f}%",
+            'error_rate': f"{(self.error_count / self.processed_count * 100):.1f}%" if self.processed_count else "0.0%",
             'average_retries': self.retry_count / self.processed_count if self.processed_count else 0
         }
         if self.processing_times:
@@ -89,7 +94,8 @@ class ProcessingStats:
         return metrics
 
     def add_processing_time(self, duration: float) -> None:
-        self.processing_times.append(duration) 
+        """Add processing time for a single operation."""
+        self.processing_times.append(duration)
 
 @dataclass
 class ProcessingResult:
@@ -104,5 +110,4 @@ class ProcessingResult:
             f"Processing completed:\n"
             f"{self.stats}\n"
             f"README Generated: {self.readme_generated} (Method: {self.readme_generation_method})"
-        ) 
-        
+        )
