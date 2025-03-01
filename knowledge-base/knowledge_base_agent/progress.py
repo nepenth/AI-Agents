@@ -32,6 +32,12 @@ class ProcessingStats:
         self.categories_processed = 0
         self.readme_generated = False
         self.validation_count = 0
+        self.skipped_count = 0
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self.network_errors = 0
+        self.retry_count = 0
+        self.processing_times = []  # Explicitly initialize
 
     def __str__(self) -> str:
         return (
@@ -85,7 +91,7 @@ class ProcessingStats:
             'error_rate': f"{(self.error_count / self.processed_count * 100):.1f}%" if self.processed_count else "0.0%",
             'average_retries': self.retry_count / self.processed_count if self.processed_count else 0
         }
-        if self.processing_times:
+        if self.processing_times:  # Check if list is populated
             metrics.update({
                 'avg_processing_time': f"{sum(self.processing_times) / len(self.processing_times):.2f}s",
                 'max_processing_time': f"{max(self.processing_times):.2f}s",
