@@ -73,7 +73,7 @@ async def run_agent(agent: KnowledgeBaseAgent, preferences: UserPreferences) -> 
         for metric, value in metrics.items():
             logging.info(f"{metric}: {value}")
         
-        await agent.stats.save_report(agent.config.data_processing_dir / "processing_stats.json")
+        agent.stats.save_report(agent.config.data_processing_dir / "processing_stats.json")
         logging.info("Agent run completed successfully")
         
     except Exception as e:

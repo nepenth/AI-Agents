@@ -175,6 +175,7 @@ class ContentProcessor:
                         tweet_data.get('kb_item_path') and 
                         Path(tweet_data['kb_item_path']).exists()):
                         await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
+                        stats.processed_count += 1
                         processed_in_phase += 1
                         logging.debug(f"Tweet {tweet_id} fully processed and moved to processed tweets")
                     else:
