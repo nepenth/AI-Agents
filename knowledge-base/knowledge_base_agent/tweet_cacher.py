@@ -329,52 +329,22 @@ class TweetCacheValidator:
         return modified
     
     def _log_validation_results(self) -> None:
-        """Log detailed validation results to both file and console."""
-        if any(len(items) > 0 for items in self.validation_results.values()):
-            logging.info("=== Tweet Cache Validation Results ===")
-            
-            if self.validation_results['media_files_missing']:
-                media_count = len(self.validation_results['media_files_missing'])
-                affected_tweets = {item['tweet_id'] for item in self.validation_results['media_files_missing']}
-                logging.info(f"🖼️  Media files missing: {media_count} files from {len(affected_tweets)} tweets")
-                for item in self.validation_results['media_files_missing'][:5]:
-                    logging.debug(f"  - Tweet {item['tweet_id']}: Missing media {item['media_path']}")
-                if media_count > 5:
-                    logging.debug(f"  - ... and {media_count - 5} more")
-            
-            if self.validation_results['image_descriptions_missing']:
-                desc_count = len(self.validation_results['image_descriptions_missing'])
-                logging.info(f"📝 Image descriptions missing: {desc_count} tweets need media processing")
-                for item in self.validation_results['image_descriptions_missing'][:5]:
-                    logging.debug(f"  - Tweet {item['tweet_id']}: Has {item['media_count']} media but only {item['descriptions_count']} descriptions")
-                if desc_count > 5:
-                    logging.debug(f"  - ... and {desc_count - 5} more")
-            
-            if self.validation_results['categories_incomplete']:
-                cat_count = len(self.validation_results['categories_incomplete'])
-                logging.info(f"🏷️  Categories incomplete: {cat_count} tweets need category processing")
-                for item in self.validation_results['categories_incomplete'][:5]:
-                    logging.debug(f"  - Tweet {item['tweet_id']}: Missing fields {', '.join(item['missing_fields'])}")
-                if cat_count > 5:
-                    logging.debug(f"  - ... and {cat_count - 5} more")
-            
-            if self.validation_results['kb_items_missing']:
-                kb_count = len(self.validation_results['kb_items_missing'])
-                logging.info(f"📚 KB items missing: {kb_count} tweets need KB item creation")
-                for item in self.validation_results['kb_items_missing'][:5]:
-                    reason = "missing path" if item.get('reason') == 'missing_path' else f"file not found at {item.get('kb_path', 'unknown')}"
-                    logging.debug(f"  - Tweet {item['tweet_id']}: {reason}")
-                if kb_count > 5:
-                    logging.debug(f"  - ... and {kb_count - 5} more")
-            
-            total_issues = sum(len(items) for items in self.validation_results.values())
-            affected_tweets = set()
-            for category in self.validation_results.values():
-                for item in category:
-                    affected_tweets.add(item['tweet_id'])
-            
-            logging.info(f"Total validation issues: {total_issues} across {len(affected_tweets)} tweets")
-            logging.info("These tweets will be reprocessed in the appropriate phases")
+        """Log validation results."""
+        logging.info("=== Knowledge Base Directory Structure ===")
+        logging.info(f"Categories: {len(self.kb_categories)}")
+        logging.info(f"Subcategories: {len(self.kb_subcategories)}")
+        logging.info(f"README.md files: {self.kb_readme_count}")
+        logging.info(f"Other Markdown files: {self.kb_other_md_count}")
+        logging.info(f"Media files: {self.kb_media_count}")
+        logging.info(f"Other files: {self.kb_other_files_count}")
+        
+        # Remove these lines that print sample categories and subcategories
+        # logging.info("Sample categories:")
+        # for category in list(self.kb_categories)[:5]:
+        #     logging.info(f"  - {category}")
+        # logging.info("Sample subcategories:")
+        # for subcategory in list(self.kb_subcategories)[:5]:
+        #     logging.info(f"  - {subcategory}")
 
     def print_kb_directory_structure(self) -> None:
         """Print the knowledge base directory structure for debugging."""

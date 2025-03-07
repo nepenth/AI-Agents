@@ -115,6 +115,11 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
 
         logging.info(f"Validated {len(kb_items)} KB items (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)])})")
         
+        # Log item names for debugging
+        logging.debug("KB item names for validation:")
+        for item in kb_items:
+            logging.debug(f"- {item['item_name'].replace('-', ' ').title()}")
+        
         total_items = len(kb_items)
         total_main_cats = len(set(item['main_category'] for item in kb_items))
         total_subcats = len(set(f"{item['main_category']}/{item['sub_category']}" for item in kb_items))
@@ -125,21 +130,26 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
         for item in kb_items[:5]:
             logging.debug(f"- {item['path']}")
 
-        context = [
-            f"Total Items: {total_items}",
-            f"Main Categories: {total_main_cats}",
-            f"Subcategories: {total_subcats}",
-            f"Media Files: {total_media}",
-            "Knowledge Base Items:"
-        ]
-        sorted_items = sorted(kb_items, key=lambda x: (x['main_category'], x['sub_category'], x['item_name']))
-        for item in sorted_items:
-            context.append(
-                f"- {item['item_name'].replace('-', ' ').title()} "
-                f"({item['main_category']}/{item['sub_category']}): {item['description']} "
-                f"[Source: {item.get('source_url', 'N/A')}]"
-            )
-
+        # Instead of trying to include all items in the prompt, let's use a category-based approach
+        categories = {}
+        for item in kb_items:
+            main_cat = item['main_category']
+            sub_cat = item['sub_category']
+            if main_cat not in categories:
+                categories[main_cat] = {'subcategories': {}}
+            if sub_cat not in categories[main_cat]['subcategories']:
+                categories[main_cat]['subcategories'][sub_cat] = []
+            categories[main_cat]['subcategories'][sub_cat].append(item)
+        
+        # Create a category summary for the prompt
+        category_summary = []
+        for main_cat, data in categories.items():
+            subcats = data['subcategories']
+            total_items = sum(len(items) for items in subcats.values())
+            category_summary.append(f"- {main_cat.replace('_', ' ').title()}: {total_items} items across {len(subcats)} subcategories")
+            for sub_cat, items in subcats.items():
+                category_summary.append(f"  - {sub_cat.replace('_', ' ').title()}: {len(items)} items")
+        
         kb_stats = {
             'kb_items': total_items,
             'main_categories': total_main_cats,
@@ -150,6 +160,7 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
             ).strftime('%Y-%m-%d %H:%M:%S')
         }
 
+        # Create a more structured prompt that doesn't try to include all items
         prompt = f"""Create a README.md for a technical knowledge base with these key metrics:
 Knowledge Base Overview:
 - Knowledge Base Items: {kb_stats['kb_items']}
@@ -157,61 +168,62 @@ Knowledge Base Overview:
 - Sub-Categories: {kb_stats['sub_categories']}
 - Media Files: {kb_stats['media_files']}
 - Last Updated: {kb_stats['last_updated']}
-{'\n'.join(context)}\n\n
+
+Category Structure:
+{chr(10).join(category_summary)}
+
 Include:
 1. A welcoming introduction with an emoji (📚) and a brief description
 2. An overview section (📊) with stats (total items, categories, subcategories, media files)
 3. A quick navigation section (🧭) with ALL categories and subcategories nested under main categories
-4. A recent updates section (🔔) as a table with the 5 most recently updated items, including links and source URLs
-5. A detailed categories section (📋) with collapsible subcategories (<details><summary>) listing ALL items in tables with ONLY two columns: Item and Description (no Source column)
-6. A footer (🌟) encouraging exploration
+4. A recent updates section (🔔) as a table with the 5 most recently updated items
+5. A detailed categories section (📋) with collapsible subcategories (<details><summary>) listing items by category
+
 Format in Markdown with:
 - Emojis in headers (e.g., ## 📊 Overview)
 - Horizontal rules (---) between major sections
 - Bold table headers with separators (e.g., | **Item** | **Description** |)
 - Anchor tags (e.g., <a name=\"category\"></a>) matching navigation links
 - All links to items should point to the item directory, not README.md (e.g., path/to/item/)
-Ensure it's concise, professional, readable, and includes EVERY SINGLE ITEM and category without truncation or omission.
+
+Focus on structure and organization rather than listing every single item in the prompt.
 """
 
+        # Use a longer timeout specifically for README generation (30 minutes)
+        README_GENERATION_TIMEOUT = 1800
+        
+        logging.info(f"Sending prompt to LLM (length: {len(prompt)}, timeout: {README_GENERATION_TIMEOUT}s)")
         content = await http_client.ollama_generate(
             model=config.text_model,
             prompt=prompt,
             temperature=0.7,
-            max_tokens=8000
+            max_tokens=20000,
+            timeout=README_GENERATION_TIMEOUT
         )
         if not content:
             logging.error("LLM returned empty content")
             raise MarkdownGenerationError("LLM returned empty content")
             
-        logging.debug(f"LLM generated content length: {len(content.strip())} characters")
+        logging.info(f"LLM generated content length: {len(content.strip())} characters")
         
-        all_items_included = all(item['item_name'].replace('-', ' ').title() in content for item in kb_items)
-        if not content or len(content.strip()) < 500 or not all_items_included:
-            logging.warning(f"LLM generated insufficient or incomplete content (length: {len(content.strip())}, all items included: {all_items_included}); retrying with adjusted prompt")
-            simplified_prompt = f"""Create a README.md for a technical knowledge base:
-- Items: {total_items}
-- Categories: {total_main_cats}
-- Subcategories: {total_subcats}
-- Media: {total_media}
-- Updated: {kb_stats['last_updated']}
-List all {total_items} items with their category/subcategory and description in a simple table.
-{'\n'.join(context)}\n\n
-Use Markdown, include all items without truncation."""
-            content = await http_client.ollama_generate(
-                model=config.text_model,
-                prompt=simplified_prompt,
-                temperature=0.7,
-                max_tokens=10000
-            )
-            all_items_included = all(item['item_name'].replace('-', ' ').title() in content for item in kb_items)
-            if not content or len(content.strip()) < 500 or not all_items_included:
-                logging.warning("LLM retry failed; falling back to static generation")
-                content = await generate_static_root_readme(kb_dir, category_manager)
-            else:
-                logging.info("Using LLM retry-generated README content")
+        # Instead of checking if all items are included (which is unrealistic for large KBs),
+        # let's check if the content has a reasonable structure and length
+        has_valid_structure = (
+            "# " in content and  # Has a title
+            "## " in content and  # Has sections
+            "|" in content and    # Has tables
+            len(content.strip()) > 1000  # Has reasonable length
+        )
+        
+        if not has_valid_structure:
+            logging.warning(f"LLM generated content with invalid structure (length: {len(content.strip())}); falling back to static generation")
+            content = await generate_static_root_readme(kb_dir, category_manager)
+            logging.info("Using static README content")
         else:
-            logging.info("Using LLM-generated README content")
+            # Enhance the generated content with a complete item listing
+            enhanced_content = await enhance_readme_with_complete_listing(content, kb_items, categories)
+            content = enhanced_content
+            logging.info("Enhanced LLM-generated README with complete item listing")
 
         readme_path = kb_dir / "README.md"
         async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
@@ -529,6 +541,61 @@ async def validate_readme_links(content: str) -> bool:
     result = all(char not in link for link in re.findall(r'\(([^)]+)', content) for char in invalid_chars)
     logging.debug(f"Validated README links: {'valid' if result else 'invalid characters found'}")
     return result
+
+async def enhance_readme_with_complete_listing(content: str, kb_items: List[Dict[str, Any]], categories: Dict[str, Any]) -> str:
+    """Enhance the LLM-generated README with a complete listing of all items."""
+    # Find where to insert the complete listing
+    if "## 📋 Categories" in content:
+        # Split at the categories section
+        parts = content.split("## 📋 Categories", 1)
+        header = parts[0] + "## 📋 Categories\n\n"
+        
+        # Generate a complete listing of all categories and items
+        listing = []
+        for main_cat, data in sorted(categories.items()):
+            main_display = main_cat.replace('_', ' ').title()
+            anchor = main_cat.lower().replace('_', '-')
+            listing.append(f"\n### {main_display} <a name=\"{anchor}\"></a>")
+            
+            for sub_cat, items in sorted(data['subcategories'].items()):
+                sub_display = sub_cat.replace('_', ' ').title()
+                sub_anchor = f"{anchor}-{sub_cat.lower().replace('_', '-')}"
+                listing.append(f"\n<details><summary>{sub_display}</summary>\n\n#### {sub_display} <a name=\"{sub_anchor}\"></a>")
+                listing.append("\n| **Item** | **Description** |")
+                listing.append("|----------|-----------------|")
+                
+                for item in sorted(items, key=lambda x: x['item_name']):
+                    name = item['item_name'].replace('-', ' ').title()
+                    desc = sanitize_markdown_cell(item['description'])
+                    path = f"{item['path']}"
+                    listing.append(f"| [{name}]({path}) | {desc} |")
+                
+                listing.append("</details>\n")
+            
+        # Combine with the original content
+        if len(parts) > 1 and len(parts[1].strip()) > 0:
+            # The LLM already generated some category content, append our complete listing
+            footer = "\n\n## 🔍 Complete Item Listing\n\n" + "\n".join(listing)
+            return header + parts[1] + footer
+        else:
+            # The LLM didn't generate category content, use our listing
+            return header + "\n".join(listing)
+    else:
+        # No categories section found, append to the end
+        return content + "\n\n## 🔍 Complete Item Listing\n\n" + "\n".join([
+            f"### {main_cat.replace('_', ' ').title()}\n" +
+            "\n".join([
+                f"#### {sub_cat.replace('_', ' ').title()}\n" +
+                "| **Item** | **Description** |\n" +
+                "|----------|------------------|\n" +
+                "\n".join([
+                    f"| [{item['item_name'].replace('-', ' ').title()}]({item['path']}) | {sanitize_markdown_cell(item['description'])} |"
+                    for item in sorted(items, key=lambda x: x['item_name'])
+                ])
+                for sub_cat, items in sorted(data['subcategories'].items())
+            ])
+            for main_cat, data in sorted(categories.items())
+        ])
 
 if __name__ == "__main__":
     main()
