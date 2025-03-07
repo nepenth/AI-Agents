@@ -190,11 +190,15 @@ class ContentProcessor:
             # Phase 5: README Generation
             logging.info("=== Phase 5: README Generation ===")
             if preferences.regenerate_readme or not (self.config.knowledge_base_dir / "README.md").exists() or kb_todo > 0:
-                logging.info(f"Generating root README for {len(all_tweets)} items...")
+                logging.info(f"Phase 5:Generating root README for {len(all_tweets)} items...")
                 await self._regenerate_readme()
                 stats.readme_generated = True
             else:
                 logging.info("No README regeneration needed")
+
+            # Phase 6: Final Validation
+            logging.info("\n=== Phase 6: Final Validation ===")
+            await self.state_manager.finalize_processing()
 
         except asyncio.CancelledError:
             logging.warning("Agent run cancelled by user")

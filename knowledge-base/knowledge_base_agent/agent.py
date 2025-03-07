@@ -183,18 +183,12 @@ class KnowledgeBaseAgent:
         try:
             stats = ProcessingStats(start_time=datetime.now())
             
-            logging.info("0. Validating tweet cache integrity...")
-            validator = TweetCacheValidator(
-                tweet_cache_path=self.config.tweet_cache_file,
-                media_cache_dir=self.config.media_cache_dir,
-                kb_base_dir=self.config.knowledge_base_dir
-            )
-            total_tweets, modified_tweets = await validator.validate()
-            logging.info(f"Tweet cache validation complete: {total_tweets} tweets, {modified_tweets} modified")
-            stats.validation_count = modified_tweets
-            
             logging.info("1. Initializing state and checking for new content...")
+            # State manager will handle validation internally
             await self.state_manager.initialize()
+            
+            # Get validation stats from state manager
+            stats.validation_count = getattr(self.state_manager, 'validation_fixes', 0)
             
             unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
             has_work_to_do = bool(unprocessed_tweets)
@@ -204,15 +198,13 @@ class KnowledgeBaseAgent:
                 await self.process_bookmarks()
                 await self.state_manager.update_from_bookmarks()
                 unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
-                has_work_to_do = bool(unprocessed_tweets)
-                logging.info(f"Found {len(unprocessed_tweets)} unprocessed tweets")
             
             if has_work_to_do:
                 logging.info(f"Processing {len(unprocessed_tweets)} tweets...")
                 await self.content_processor.process_all_tweets(
                     preferences,
                     unprocessed_tweets,
-                    total_tweets,
+                    stats.validation_count,
                     stats,
                     self.category_manager
                 )
@@ -245,6 +237,7 @@ class KnowledgeBaseAgent:
             raise
         finally:
             logging.info(f"Final state: {len(self.state_manager.unprocessed_tweets)} unprocessed, {len(self.state_manager.processed_tweets)} processed")
+
     async def process_tweet(self, tweet_url: str) -> None:
         """Process a single tweet."""
         try:

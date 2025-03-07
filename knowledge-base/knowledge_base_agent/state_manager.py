@@ -15,7 +15,7 @@ from datetime import datetime
 
 class StateManager:
     def __init__(self, config: Config):
-        """Initialize StateManager with config."""
+        """Initialize the state manager."""
         self.config = config
         self.processed_file = config.processed_tweets_file
         self.unprocessed_file = config.unprocessed_tweets_file
@@ -28,6 +28,7 @@ class StateManager:
         self._unprocessed_tweets = []
         self._initialized = False
         self._lock = asyncio.Lock()
+        self.validation_fixes = 0  # Add counter for validation fixes
 
     @property
     def processed_tweets(self) -> Dict[str, Any]:
@@ -43,6 +44,9 @@ class StateManager:
         """Initialize state manager, load existing state, and reconcile inconsistencies including knowledge base."""
         if self._initialized:
             return
+
+        # Reset validation counter
+        self.validation_fixes = 0
 
         # Ensure parent directories exist
         self.tweet_cache_file.parent.mkdir(parents=True, exist_ok=True)
@@ -84,26 +88,49 @@ class StateManager:
                 logging.error(f"Error loading tweet cache: {e}")
                 self._tweet_cache = {}
 
-        # Reconcile tweet states
+        # Validate KB items first to ensure paths are correct
+        logging.info("Validating tweet cache integrity...")
+        await self.validate_kb_items()
+
+        # Perform a more thorough reconciliation of tweet states
         logging.info("Reconciling tweet states across processed and unprocessed lists...")
         tweets_to_process = set()
         tweets_to_mark_processed = set()
+        
+        # First, ensure all cached tweets are either in processed or unprocessed
+        for tweet_id in self._tweet_cache:
+            if tweet_id not in self._processed_tweets and tweet_id not in self._unprocessed_tweets:
+                logging.info(f"Tweet {tweet_id} found in cache but not in processed/unprocessed lists")
+                self._unprocessed_tweets.append(tweet_id)
+        
+        # Then validate each tweet's state
         for tweet_id, tweet_data in self._tweet_cache.items():
             is_fully_processed = await self._validate_tweet_state_comprehensive(tweet_id, tweet_data)
+            
             if is_fully_processed:
                 if tweet_id not in self._processed_tweets:
                     tweets_to_mark_processed.add(tweet_id)
                     self._processed_tweets[tweet_id] = datetime.now().isoformat()
-                    if tweet_id in self._unprocessed_tweets:
-                        self._unprocessed_tweets.remove(tweet_id)
-                        logging.debug(f"Tweet {tweet_id} validated as fully processed, moved to processed")
+                    logging.info(f"Tweet {tweet_id} validated as fully processed, moving to processed")
+                
+                # Ensure it's removed from unprocessed list
+                if tweet_id in self._unprocessed_tweets:
+                    self._unprocessed_tweets.remove(tweet_id)
+                    logging.debug(f"Removed tweet {tweet_id} from unprocessed list")
             else:
-                if tweet_id not in self._unprocessed_tweets:
+                # Only add to unprocessed if not already processed
+                if tweet_id not in self._processed_tweets and tweet_id not in self._unprocessed_tweets:
                     tweets_to_process.add(tweet_id)
                     self._unprocessed_tweets.append(tweet_id)
-                    if tweet_id in self._processed_tweets:
-                        del self._processed_tweets[tweet_id]
-                    logging.debug(f"Tweet {tweet_id} incomplete, moved to unprocessed")
+                    logging.debug(f"Tweet {tweet_id} incomplete, added to unprocessed")
+        
+        # Remove any processed tweets that are still in unprocessed list
+        processed_in_unprocessed = set(self._processed_tweets.keys()).intersection(set(self._unprocessed_tweets))
+        if processed_in_unprocessed:
+            logging.info(f"Found {len(processed_in_unprocessed)} tweets that are both processed and unprocessed")
+            for tweet_id in processed_in_unprocessed:
+                self._unprocessed_tweets.remove(tweet_id)
+                logging.debug(f"Removed processed tweet {tweet_id} from unprocessed list")
 
         # Reconcile knowledge base with tweet cache
         logging.info("Reconciling knowledge base with tweet cache...")
@@ -173,7 +200,7 @@ class StateManager:
             raise StateError(f"Failed to write state file: {filepath}") from e
 
     async def mark_tweet_processed(self, tweet_id: str, tweet_data: Dict[str, Any] = None) -> None:
-        """Mark a tweet as processed and update both sets."""
+        """Mark a tweet as processed and remove from unprocessed list."""
         async with self._lock:
             try:
                 if not tweet_data:
@@ -445,41 +472,194 @@ class StateManager:
         all_valid = True
         updates_needed = {}
 
-        media_list = tweet_data.get('media', [])
-        downloaded_media = tweet_data.get('downloaded_media', [])
-        logging.debug(f"Tweet {tweet_id} media: {media_list}, downloaded_media: {downloaded_media}")
-
-        if tweet_data.get('cache_complete', False) or tweet_data.get('media_processed', False):
+        # Check cache completion
+        if not tweet_data.get('cache_complete', False):
+            # If media and categories are processed, mark cache as complete
+            has_media = bool(tweet_data.get('media', []))
+            media_processed = tweet_data.get('media_processed', not has_media)
+            categories_processed = tweet_data.get('categories_processed', False)
+            
+            if media_processed and categories_processed:
+                updates_needed['cache_complete'] = True
+                logging.info(f"Tweet {tweet_id} has processed media and categories, marking cache complete")
+            else:
+                all_valid = False
+        
+        # Validate media processing
+        if tweet_data.get('media_processed', False):
             media_paths = tweet_data.get('downloaded_media', [])
             has_media = bool(tweet_data.get('media', []))
+            
             if has_media and (not media_paths or not all(Path(p).exists() for p in media_paths)):
                 logging.warning(f"Tweet {tweet_id} has media but missing files: {media_paths}")
                 updates_needed['cache_complete'] = False
                 updates_needed['media_processed'] = False
                 all_valid = False
+        elif not tweet_data.get('media', []):
+            # No media to process, mark as processed
+            updates_needed['media_processed'] = True
+        else:
+            all_valid = False
 
+        # Validate categories
         if tweet_data.get('categories_processed', False):
             categories = tweet_data.get('categories', {})
             required_fields = ['main_category', 'sub_category', 'item_name']
+            
             if not categories or not all(categories.get(f) for f in required_fields):
                 logging.warning(f"Tweet {tweet_id} categories_processed but missing fields: {required_fields}")
                 updates_needed['categories_processed'] = False
                 all_valid = False
+        else:
+            all_valid = False
 
+        # Validate KB item
         if tweet_data.get('kb_item_created', False):
-            kb_path = tweet_data.get('kb_item_path', '')
-            if not kb_path or not Path(kb_path).exists() or not (Path(kb_path) / "README.md").exists():
-                logging.warning(f"Tweet {tweet_id} kb_item_created but path invalid: {kb_path}")
+            kb_path_str = tweet_data.get('kb_item_path', '')
+            if not kb_path_str:
+                logging.warning(f"Tweet {tweet_id} kb_item_created but path is empty")
                 updates_needed['kb_item_created'] = False
+                all_valid = False
+            else:
+                # Check if KB item exists at the specified path
+                kb_base = Path(self.config.knowledge_base_dir)
+                kb_path = None
+                
+                # Handle different path formats
+                if kb_path_str.startswith('kb-generated/'):
+                    kb_path = kb_base.parent / kb_path_str
+                elif not Path(kb_path_str).is_absolute():
+                    kb_path = kb_base / kb_path_str
+                else:
+                    kb_path = Path(kb_path_str)
+                    
+                readme_path = kb_path / "README.md" if kb_path.is_dir() else kb_path.parent / "README.md"
+                
+                if not readme_path.exists():
+                    logging.warning(f"Tweet {tweet_id} KB item README not found at {readme_path}")
+                    updates_needed['kb_item_created'] = False
+                    all_valid = False
+        else:
+            # Check if KB item exists but isn't marked as created
+            await self._find_and_update_kb_item(tweet_id, tweet_data, updates_needed)
+            if not updates_needed.get('kb_item_created', False):
                 all_valid = False
 
         if updates_needed:
             tweet_data.update(updates_needed)
             await self.update_tweet_data(tweet_id, tweet_data)
             logging.debug(f"Updated tweet {tweet_id} state due to validation: {updates_needed}")
+            self.validation_fixes += 1
+            
+            # Re-check if all valid after updates
+            if 'kb_item_created' in updates_needed and updates_needed['kb_item_created']:
+                all_valid = await self._validate_tweet_state_comprehensive(tweet_id, tweet_data)
 
         return (all_valid and 
                 tweet_data.get('cache_complete', False) and 
                 tweet_data.get('media_processed', False) and 
                 tweet_data.get('categories_processed', False) and 
                 tweet_data.get('kb_item_created', False))
+
+    async def _find_and_update_kb_item(self, tweet_id: str, tweet_data: Dict[str, Any], updates_needed: Dict[str, Any]) -> None:
+        """Find KB item for a tweet and update state if found."""
+        kb_base = Path(self.config.knowledge_base_dir)
+        possible_locations = [
+            # Direct tweet ID path
+            kb_base / str(tweet_id),
+            # Categorized path
+            kb_base / tweet_data.get('categories', {}).get('main_category', '') / 
+                     tweet_data.get('categories', {}).get('sub_category', '') / 
+                     tweet_data.get('categories', {}).get('item_name', ''),
+            # Legacy category paths
+            kb_base / tweet_data.get('category', '') / 
+                     tweet_data.get('subcategory', '') / 
+                     tweet_data.get('item_name', '')
+        ]
+        
+        for path in possible_locations:
+            if not path or str(path) == str(kb_base):
+                continue
+            
+            if path.exists() and (path / "README.md").exists():
+                try:
+                    # Verify it's the correct KB item by checking content
+                    async with aiofiles.open(path / "README.md", 'r') as f:
+                        content = await f.read()
+                        if f"https://twitter.com/i/web/status/{tweet_id}" in content:
+                            # Found the correct KB item
+                            relative_path = path.relative_to(kb_base.parent)
+                            updates_needed['kb_item_path'] = str(relative_path)
+                            updates_needed['kb_item_created'] = True
+                            logging.info(f"Found existing KB item for tweet {tweet_id} at {path}")
+                            return
+                except Exception as e:
+                    logging.warning(f"Error reading README for potential KB item at {path}: {e}")
+                    continue
+
+    async def validate_kb_items(self) -> None:
+        """Validate KB items for all tweets and update paths if found."""
+        logging.info("Validating KB items for all tweets...")
+        kb_base = Path(self.config.knowledge_base_dir)
+        
+        # First, build a mapping of tweet IDs to README files
+        tweet_id_to_readme = {}
+        for readme_path in kb_base.rglob("README.md"):
+            try:
+                async with aiofiles.open(readme_path, 'r') as f:
+                    content = await f.read()
+                    # Extract tweet ID from content
+                    for line in content.splitlines():
+                        if "twitter.com/i/web/status/" in line:
+                            tweet_id_match = line.split("twitter.com/i/web/status/")[1].split('"')[0].split("?")[0]
+                            if tweet_id_match:
+                                tweet_id_to_readme[tweet_id_match] = readme_path
+                                break
+            except Exception as e:
+                logging.warning(f"Error reading README at {readme_path}: {e}")
+                continue
+        
+        logging.info(f"Found {len(tweet_id_to_readme)} README files with tweet IDs")
+        
+        # Now check all tweets with null kb_item_path
+        updates = 0
+        for tweet_id, tweet_data in self._tweet_cache.items():
+            if not tweet_data.get('kb_item_path') or not tweet_data.get('kb_item_created'):
+                if tweet_id in tweet_id_to_readme:
+                    readme_path = tweet_id_to_readme[tweet_id]
+                    kb_item_path = readme_path.parent
+                    relative_path = kb_item_path.relative_to(kb_base.parent)
+                    
+                    tweet_data['kb_item_path'] = str(relative_path)
+                    tweet_data['kb_item_created'] = True
+                    await self.update_tweet_data(tweet_id, tweet_data)
+                    
+                    logging.info(f"Updated tweet {tweet_id} with KB item path: {relative_path}")
+                    updates += 1
+        
+        logging.info(f"Updated {updates} tweets with KB item paths")
+        self.validation_fixes += updates
+
+    async def finalize_processing(self) -> None:
+        """Perform final validation and move completed tweets to processed list."""
+        logging.info("Finalizing processing and validating tweet states...")
+        
+        moved_to_processed = 0
+        for tweet_id in list(self._unprocessed_tweets):  # Use list to avoid modification during iteration
+            tweet_data = self._tweet_cache.get(tweet_id)
+            if not tweet_data:
+                logging.warning(f"Tweet {tweet_id} in unprocessed list but not in cache, removing")
+                self._unprocessed_tweets.remove(tweet_id)
+                continue
+            
+            is_fully_processed = await self._validate_tweet_state_comprehensive(tweet_id, tweet_data)
+            if is_fully_processed:
+                self._processed_tweets[tweet_id] = datetime.now().isoformat()
+                self._unprocessed_tweets.remove(tweet_id)
+                moved_to_processed += 1
+                logging.info(f"Finalized tweet {tweet_id} and moved to processed")
+        
+        if moved_to_processed > 0:
+            await self._atomic_write_json(list(self._unprocessed_tweets), self.unprocessed_tweets_file)
+            await self._atomic_write_json(self._processed_tweets, self.processed_tweets_file)
+            logging.info(f"Finalization complete: moved {moved_to_processed} tweets to processed")

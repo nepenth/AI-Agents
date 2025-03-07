@@ -59,7 +59,7 @@ class HTTPClient:
         model: str,
         prompt: str,
         temperature: float = 0.7,
-        max_tokens: int = 2000,
+        max_tokens: int = 50000,
         top_p: float = 0.9,
         timeout: Optional[int] = None
     ) -> str:
