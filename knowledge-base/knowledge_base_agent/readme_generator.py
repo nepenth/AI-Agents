@@ -209,7 +209,7 @@ Keep it concise, professional, and engaging. Use markdown formatting.
                 prompt=intro_prompt,
                 temperature=0.7,
                 max_tokens=500,
-                timeout=60  # Short timeout since this is just the intro
+                timeout=250  # Short timeout since this is just the intro
             )
             
             # Insert the LLM-generated intro after the title
