@@ -13,7 +13,7 @@ import os
 import shutil
 
 async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config) -> None:
-    """Generate an intelligent root README.md using an LLM based on knowledge base content."""
+    """Generate a hybrid README.md using both static generation and LLM enhancement."""
     logging.info(f"Generating root README for knowledge base at {kb_dir}...")
     try:
         kb_items = []
@@ -130,7 +130,7 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
         for item in kb_items[:5]:
             logging.debug(f"- {item['path']}")
 
-        # Instead of trying to include all items in the prompt, let's use a category-based approach
+        # Group items by category
         categories = {}
         for item in kb_items:
             main_cat = item['main_category']
@@ -141,100 +141,182 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
                 categories[main_cat]['subcategories'][sub_cat] = []
             categories[main_cat]['subcategories'][sub_cat].append(item)
         
-        # Create a category summary for the prompt
-        category_summary = []
-        for main_cat, data in categories.items():
-            subcats = data['subcategories']
-            total_items = sum(len(items) for items in subcats.values())
-            category_summary.append(f"- {main_cat.replace('_', ' ').title()}: {total_items} items across {len(subcats)} subcategories")
-            for sub_cat, items in subcats.items():
-                category_summary.append(f"  - {sub_cat.replace('_', ' ').title()}: {len(items)} items")
+        # Calculate statistics
+        total_items = len(kb_items)
+        total_main_cats = len(set(item['main_category'] for item in kb_items))
+        total_subcats = len(set(f"{item['main_category']}/{item['sub_category']}" for item in kb_items))
+        total_media = sum(1 for root, _, files in os.walk(kb_dir)
+                         for file in files if file.startswith('image_') or file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')))
         
-        kb_stats = {
-            'kb_items': total_items,
-            'main_categories': total_main_cats,
-            'sub_categories': total_subcats,
-            'media_files': total_media,
-            'last_updated': datetime.fromtimestamp(
-                max(item['last_updated'] for item in kb_items) if kb_items else datetime.now().timestamp()
-            ).strftime('%Y-%m-%d %H:%M:%S')
-        }
+        # Generate the static structure first (reliable)
+        static_content = [
+            "# 📚 Technical Knowledge Base",
+            "",
+            "---",
+            "## 📊 Overview",
+            f"- **Total Items**: {total_items}",
+            f"- **Main Categories**: {total_main_cats}",
+            f"- **Subcategories**: {total_subcats}",
+            f"- **Media Files**: {total_media}",
+            f"- **Last Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "---",
+            "## 🧭 Quick Navigation"
+        ]
 
-        # Create a more structured prompt that doesn't try to include all items
-        prompt = f"""Create a README.md for a technical knowledge base with these key metrics:
-Knowledge Base Overview:
-- Knowledge Base Items: {kb_stats['kb_items']}
-- Main Categories: {kb_stats['main_categories']}
-- Sub-Categories: {kb_stats['sub_categories']}
-- Media Files: {kb_stats['media_files']}
-- Last Updated: {kb_stats['last_updated']}
+        # Add navigation links
+        for main_cat in sorted(categories.keys()):
+            main_display = main_cat.replace('_', ' ').title()
+            anchor = main_cat.lower().replace('_', '-')
+            static_content.append(f"- **[{main_display}](#{anchor})**")
+            for sub_cat in sorted(categories[main_cat]['subcategories'].keys()):
+                sub_display = sub_cat.replace('_', ' ').title()
+                sub_anchor = f"{anchor}-{sub_cat.lower().replace('_', '-')}"
+                static_content.append(f"  - [{sub_display}](#{sub_anchor})")
 
-Category Structure:
-{chr(10).join(category_summary)}
+        # Add recent updates section
+        recent_items = sorted(kb_items, key=lambda x: x['last_updated'], reverse=True)[:5]
+        if recent_items:
+            static_content.extend([
+                "",
+                "---",
+                "## 🔔 Recent Updates",
+                "| **Item** | **Category** | **Last Updated** | **Source** |",
+                "|----------|--------------|------------------|------------|"
+            ])
+            for item in recent_items:
+                name = item['item_name'].replace('-', ' ').title()
+                path = f"{item['path']}"
+                cat = f"{item['main_category'].title()}/{item['sub_category'].title()}"
+                updated = datetime.fromtimestamp(item['last_updated']).strftime('%Y-%m-%d')
+                source = item.get('source_url', 'N/A')
+                static_content.append(f"| [{name}]({path}) | {cat} | {updated} | [{source}]({source}) |")
 
-Include:
-1. A welcoming introduction with an emoji (📚) and a brief description
-2. An overview section (📊) with stats (total items, categories, subcategories, media files)
-3. A quick navigation section (🧭) with ALL categories and subcategories nested under main categories
-4. A recent updates section (🔔) as a table with the 5 most recently updated items
-5. A detailed categories section (📋) with collapsible subcategories (<details><summary>) listing items by category
+        # Now use the LLM to generate just the introduction
+        intro_prompt = f"""Write a welcoming introduction for a technical knowledge base with {total_items} items across {total_main_cats} categories.
+The introduction should be 2-3 paragraphs that:
+1. Welcomes users to the knowledge base
+2. Explains that it contains curated technical content from tweets
+3. Encourages exploration of the different categories
+4. Mentions that items are organized by category and subcategory
 
-Format in Markdown with:
-- Emojis in headers (e.g., ## 📊 Overview)
-- Horizontal rules (---) between major sections
-- Bold table headers with separators (e.g., | **Item** | **Description** |)
-- Anchor tags (e.g., <a name=\"category\"></a>) matching navigation links
-- All links to items should point to the item directory, not README.md (e.g., path/to/item/)
-
-Focus on structure and organization rather than listing every single item in the prompt.
+Keep it concise, professional, and engaging. Use markdown formatting.
 """
-
-        # Use a longer timeout specifically for README generation (30 minutes)
-        README_GENERATION_TIMEOUT = 1800
         
-        logging.info(f"Sending prompt to LLM (length: {len(prompt)}, timeout: {README_GENERATION_TIMEOUT}s)")
-        content = await http_client.ollama_generate(
-            model=config.text_model,
-            prompt=prompt,
-            temperature=0.7,
-            max_tokens=20000,
-            timeout=README_GENERATION_TIMEOUT
-        )
-        if not content:
-            logging.error("LLM returned empty content")
-            raise MarkdownGenerationError("LLM returned empty content")
+        try:
+            intro_content = await http_client.ollama_generate(
+                model=config.text_model,
+                prompt=intro_prompt,
+                temperature=0.7,
+                max_tokens=500,
+                timeout=60  # Short timeout since this is just the intro
+            )
             
-        logging.info(f"LLM generated content length: {len(content.strip())} characters")
+            # Insert the LLM-generated intro after the title
+            if intro_content and len(intro_content.strip()) > 100:
+                static_content[1] = intro_content.strip()
+                logging.info("Added LLM-generated introduction")
+            else:
+                static_content[1] = "Welcome to our curated technical knowledge base! Dive into a rich collection of articles, guides, and resources organized for easy exploration."
+                logging.warning("Using default introduction due to insufficient LLM output")
+        except Exception as e:
+            logging.warning(f"Failed to generate introduction with LLM: {e}")
+            static_content[1] = "Welcome to our curated technical knowledge base! Dive into a rich collection of articles, guides, and resources organized for easy exploration."
         
-        # Instead of checking if all items are included (which is unrealistic for large KBs),
-        # let's check if the content has a reasonable structure and length
-        has_valid_structure = (
-            "# " in content and  # Has a title
-            "## " in content and  # Has sections
-            "|" in content and    # Has tables
-            len(content.strip()) > 1000  # Has reasonable length
-        )
+        # Add categories section
+        static_content.extend([
+            "",
+            "---",
+            "## 📋 Categories"
+        ])
         
-        if not has_valid_structure:
-            logging.warning(f"LLM generated content with invalid structure (length: {len(content.strip())}); falling back to static generation")
-            content = await generate_static_root_readme(kb_dir, category_manager)
-            logging.info("Using static README content")
-        else:
-            # Enhance the generated content with a complete item listing
-            enhanced_content = await enhance_readme_with_complete_listing(content, kb_items, categories)
-            content = enhanced_content
-            logging.info("Enhanced LLM-generated README with complete item listing")
+        # Add each category and its items
+        for main_cat in sorted(categories.keys()):
+            main_display = main_cat.replace('_', ' ').title()
+            anchor = main_cat.lower().replace('_', '-')
+            active_subcats = sorted(categories[main_cat]['subcategories'].keys())
+            total_cat_items = sum(len(items) for items in categories[main_cat]['subcategories'].values())
+            
+            # Try to get a category description from LLM
+            try:
+                cat_prompt = f"""Write a brief 1-2 sentence description for the '{main_display}' category in a technical knowledge base.
+This category contains {total_cat_items} items across {len(active_subcats)} subcategories: {', '.join(sub.replace('_', ' ').title() for sub in active_subcats)}.
+Keep it concise and informative."""
+                
+                cat_desc = await http_client.ollama_generate(
+                    model=config.text_model,
+                    prompt=cat_prompt,
+                    temperature=0.7,
+                    max_tokens=200,
+                    timeout=30  # Short timeout for category descriptions
+                )
+                
+                if cat_desc and len(cat_desc.strip()) > 20:
+                    cat_description = cat_desc.strip()
+                else:
+                    cat_description = f"A collection of {total_cat_items} items across {len(active_subcats)} subcategories."
+            except Exception as e:
+                logging.warning(f"Failed to generate category description for {main_display}: {e}")
+                cat_description = f"A collection of {total_cat_items} items across {len(active_subcats)} subcategories."
+            
+            static_content.extend([
+                f"\n### {main_display} <a name=\"{anchor}\"></a>",
+                f"{cat_description}",
+                f"*Subcategories: {', '.join(sub.replace('_', ' ').title() for sub in active_subcats)}*",
+                f"*Items: {total_cat_items}*\n"
+            ])
 
+            # Add subcategories with collapsible sections
+            for sub_cat in active_subcats:
+                sub_display = sub_cat.replace('_', ' ').title()
+                sub_anchor = f"{anchor}-{sub_cat.lower().replace('_', '-')}"
+                static_content.extend([
+                    f"<details><summary>{sub_display}</summary>\n\n#### {sub_display} <a name=\"{sub_anchor}\"></a>",
+                    "\n| **Item** | **Description** |",
+                    "|----------|-----------------|"
+                ])
+                for item in sorted(categories[main_cat]['subcategories'][sub_cat], key=lambda x: x['item_name']):
+                    name = item['item_name'].replace('-', ' ').title()
+                    desc = sanitize_markdown_cell(item['description'])
+                    path = f"{item['path']}"
+                    static_content.append(f"| [{name}]({path}) | {desc} |")
+                static_content.append("</details>\n")
+
+        # Add footer
+        static_content.extend([
+            "",
+            "---",
+            "## 🌟 Explore More",
+            "Discover the full depth of our knowledge base in the repository. Happy learning!",
+            ""
+        ])
+
+        # Combine all sections
+        final_content = "\n".join(static_content)
+        
+        # Write to file
         readme_path = kb_dir / "README.md"
         async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
-            await f.write(content)
-        logging.info("Generated intelligent root README.md")
-
-        if not verify_readme_links(content, kb_dir):
+            await f.write(final_content)
+        
+        logging.info("Generated hybrid root README.md")
+        
+        # Verify links
+        if not verify_readme_links(final_content, kb_dir):
             logging.warning("README contains invalid links")
+            
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
-        raise MarkdownGenerationError(f"Failed to generate root README: {e}")
+        # Fall back to fully static generation if anything fails
+        try:
+            content = await generate_static_root_readme(kb_dir, category_manager)
+            readme_path = kb_dir / "README.md"
+            async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
+                await f.write(content)
+            logging.info("Generated static README as fallback")
+        except Exception as fallback_error:
+            logging.error(f"Failed to generate static README: {fallback_error}")
+            raise MarkdownGenerationError(f"Failed to generate any README: {e}, fallback error: {fallback_error}")
 
 async def generate_static_root_readme(kb_dir: Path, category_manager: CategoryManager) -> str:
     """Fallback method to generate a static root README.md with enhanced styling."""

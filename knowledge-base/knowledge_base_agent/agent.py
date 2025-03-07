@@ -219,6 +219,10 @@ class KnowledgeBaseAgent:
             if self.config.git_enabled:
                 await self.git_handler.sync_to_github("Update knowledge base with new items and README")
             
+            # Before final summary
+            logging.info("Finalizing state...")
+            await self.state_manager.cleanup_unprocessed_tweets()
+            
             logging.info("\n=== Processing Summary ===")
             logging.info(f"Cache validation fixes: {stats.validation_count}")
             logging.info(f"Total tweets processed: {stats.processed_count}")
