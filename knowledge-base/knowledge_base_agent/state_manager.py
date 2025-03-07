@@ -180,6 +180,8 @@ class StateManager:
             await self._atomic_write_json(self._processed_tweets, self.processed_tweets_file)
             logging.info(f"Reconciliation results: {len(tweets_to_mark_processed)} moved to processed, {len(tweets_to_process)} moved to unprocessed")
 
+        await self.cleanup_unprocessed_tweets()
+
         self._initialized = True
 
     async def _atomic_write_json(self, data: Any, filepath: Path) -> None:
@@ -663,3 +665,51 @@ class StateManager:
             await self._atomic_write_json(list(self._unprocessed_tweets), self.unprocessed_tweets_file)
             await self._atomic_write_json(self._processed_tweets, self.processed_tweets_file)
             logging.info(f"Finalization complete: moved {moved_to_processed} tweets to processed")
+
+    async def cleanup_unprocessed_tweets(self) -> None:
+        """Clean up the unprocessed tweets list by removing any that are already processed or don't exist in cache."""
+        logging.info("Cleaning up unprocessed tweets list...")
+        
+        initial_count = len(self._unprocessed_tweets)
+        to_remove = []
+        
+        for tweet_id in self._unprocessed_tweets:
+            # Remove if already in processed list
+            if tweet_id in self._processed_tweets:
+                to_remove.append(tweet_id)
+                logging.debug(f"Tweet {tweet_id} is already in processed list, removing from unprocessed")
+                continue
+            
+            # Remove if not in tweet cache
+            if tweet_id not in self._tweet_cache:
+                to_remove.append(tweet_id)
+                logging.debug(f"Tweet {tweet_id} not found in cache, removing from unprocessed")
+                continue
+            
+            # Check if it's fully processed
+            tweet_data = self._tweet_cache[tweet_id]
+            is_fully_processed = (
+                tweet_data.get('cache_complete', False) and
+                tweet_data.get('media_processed', False) and
+                tweet_data.get('categories_processed', False) and
+                tweet_data.get('kb_item_created', False) and
+                tweet_data.get('kb_item_path')
+            )
+            
+            if is_fully_processed:
+                # Move to processed list
+                self._processed_tweets[tweet_id] = datetime.now().isoformat()
+                to_remove.append(tweet_id)
+                logging.info(f"Tweet {tweet_id} is fully processed, moving to processed list")
+        
+        # Remove from unprocessed list
+        for tweet_id in to_remove:
+            self._unprocessed_tweets.remove(tweet_id)
+        
+        # Save changes
+        if to_remove:
+            await self._atomic_write_json(list(self._unprocessed_tweets), self.unprocessed_tweets_file)
+            await self._atomic_write_json(self._processed_tweets, self.processed_tweets_file)
+        
+        removed_count = initial_count - len(self._unprocessed_tweets)
+        logging.info(f"Cleaned up {removed_count} tweets from unprocessed list")
