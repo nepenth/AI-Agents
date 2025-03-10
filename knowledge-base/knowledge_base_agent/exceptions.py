@@ -108,3 +108,7 @@ class CommandError(KnowledgeBaseError):
     """Raised when a command-line operation fails"""
     def __init__(self, message: str):
         super().__init__(f"Command failed: {message}")
+
+class PagesGenerationError(Exception):
+    """Raised when GitHub Pages generation fails."""
+    pass
