@@ -11,6 +11,7 @@ from knowledge_base_agent.config import Config
 import json
 import os
 import shutil
+from knowledge_base_agent.pages_generator import generate_github_pages
 
 async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config) -> None:
     """Generate a hybrid README.md using both static generation and LLM enhancement."""
@@ -304,6 +305,13 @@ Keep it concise and informative."""
         # Verify links
         if not verify_readme_links(final_content, kb_dir):
             logging.warning("README contains invalid links")
+        
+        # Generate GitHub Pages
+        try:
+            await generate_github_pages(kb_dir, http_client, config)
+        except Exception as pages_error:
+            logging.error(f"Failed to generate GitHub Pages: {pages_error}")
+            # Continue with README generation even if Pages generation fails
             
     except Exception as e:
         logging.error(f"Failed to generate root README: {e}")
