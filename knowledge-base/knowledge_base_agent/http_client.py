@@ -19,7 +19,7 @@ class HTTPClient:
         self.session = None
         self.initialized = False
         self.base_url = str(self.config.ollama_url).rstrip('/')
-        self.timeout = config.request_timeout
+        self.timeout = self.config.request_timeout
         self.max_retries = self.config.max_retries
         self.batch_size = self.config.batch_size
         self.max_concurrent = self.config.max_concurrent_requests
@@ -50,8 +50,8 @@ class HTTPClient:
             await self.initialize()
             
     @retry(
-        stop=stop_after_attempt(3),  # Use config.max_retries
-        wait=wait_exponential(multiplier=1, min=4, max=10),
+        stop=stop_after_attempt(lambda self: self.max_retries),
+        wait=wait_exponential(multiplier=2, min=5, max=30),
         retry=retry_if_exception_type((asyncio.TimeoutError, aiohttp.ClientError))
     )
     async def ollama_generate(

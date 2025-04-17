@@ -9,43 +9,31 @@ from knowledge_base_agent.exceptions import ConfigurationError
 import os
 from dotenv import load_dotenv
 
-def setup_logging(log_file: Path) -> None:
-    """Configure logging with proper formatting for long messages."""
-    logging.basicConfig(
-        filename=str(log_file),
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message).1000s',  # Increased message length limit
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    
-    # Reduce noise from git operations
-    logging.getLogger('git.cmd').setLevel(logging.INFO)
-    logging.getLogger('git.util').setLevel(logging.INFO)
-
 class Config(BaseSettings):
     # API endpoints and models
     ollama_url: HttpUrl = Field(..., alias="OLLAMA_URL")
-    vision_model: str = Field("llava", alias="VISION_MODEL")
-    text_model: str = Field("mistral", alias="TEXT_MODEL")
+    vision_model: str = Field(..., alias="VISION_MODEL")
+    text_model: str = Field(..., alias="TEXT_MODEL")
+    fallback_model: str = Field(..., alias="FALLBACK_MODEL")
     
     # GitHub settings
     github_token: str = Field(..., alias="GITHUB_TOKEN")
     github_user_name: str = Field(..., alias="GITHUB_USER_NAME")
     github_repo_url: HttpUrl = Field(..., alias="GITHUB_REPO_URL")
     github_user_email: str = Field(..., alias="GITHUB_USER_EMAIL")
-    git_enabled: bool = Field(default=True, alias="GIT_ENABLED")
+    git_enabled: bool = Field(..., alias="GIT_ENABLED")
     
     # File paths
-    data_processing_dir: Path = Field(default=Path("data"), alias="DATA_PROCESSING_DIR")
-    knowledge_base_dir: Path = Field(default=Path("kb-generated"), alias="KNOWLEDGE_BASE_DIR")
-    categories_file: Path = Field(default=Path("data/categories.json"), alias="CATEGORIES_FILE")
-    bookmarks_file: Path = Field(default=Path("data/bookmarks_links.txt"), alias="BOOKMARKS_FILE")
-    processed_tweets_file: Path = Field(default=Path("data/processed_tweets.json"), alias="PROCESSED_TWEETS_FILE")
-    media_cache_dir: Path = Field(default=Path("data/media_cache"), alias="MEDIA_CACHE_DIR")
-    tweet_cache_file: Path = Field(default=Path("data/tweet_cache.json"), alias="TWEET_CACHE_FILE")
-    log_file: Path = Field(default=Path("logs/agent_{timestamp}.log"), alias="LOG_FILE")
-    unprocessed_tweets_file: Path = Field(default=Path("data/unprocessed_tweets.json"), alias="UNPROCESSED_TWEETS_FILE")
-    log_dir: Path = Field(default=Path("logs"), alias="LOG_DIR")
+    data_processing_dir: Path = Field(..., alias="DATA_PROCESSING_DIR")
+    knowledge_base_dir: Path = Field(..., alias="KNOWLEDGE_BASE_DIR")
+    categories_file: Path = Field(..., alias="CATEGORIES_FILE")
+    bookmarks_file: Path = Field(..., alias="BOOKMARKS_FILE")
+    processed_tweets_file: Path = Field(..., alias="PROCESSED_TWEETS_FILE")
+    media_cache_dir: Path = Field(..., alias="MEDIA_CACHE_DIR")
+    tweet_cache_file: Path = Field(..., alias="TWEET_CACHE_FILE")
+    log_file: Path = Field(..., alias="LOG_FILE")
+    unprocessed_tweets_file: Path = Field(..., alias="UNPROCESSED_TWEETS_FILE")
+    log_dir: Path = Field(..., alias="LOG_DIR")
     
     # X/Twitter credentials
     x_username: str = Field(..., alias="X_USERNAME")
@@ -53,54 +41,54 @@ class Config(BaseSettings):
     x_bookmarks_url: str = Field(..., alias="X_BOOKMARKS_URL")
     
     # Logging and performance
-    log_level: str = Field(default="DEBUG", alias="LOG_LEVEL")
-    max_pool_size: int = Field(default=1, alias="MAX_POOL_SIZE")
-    rate_limit_requests: int = Field(default=100, alias="RATE_LIMIT_REQUESTS")
+    log_level: str = Field("DEBUG", alias="LOG_LEVEL")
+    max_pool_size: int = Field(1, alias="MAX_POOL_SIZE")
+    rate_limit_requests: int = Field(100, alias="RATE_LIMIT_REQUESTS")
     rate_limit_period: int = Field(
-        default=3600,
+        3600,
         alias="RATE_LIMIT_PERIOD",
         description="Rate limit period in seconds"
     )
     
     # Browser settings
-    selenium_timeout: int = Field(default=30, alias="SELENIUM_TIMEOUT")
-    selenium_headless: bool = Field(default=True, alias="SELENIUM_HEADLESS")
+    selenium_timeout: int = Field(30, alias="SELENIUM_TIMEOUT")
+    selenium_headless: bool = Field(True, alias="SELENIUM_HEADLESS")
     
     # Content settings
-    max_content_length: int = Field(default=5000, alias="MAX_CONTENT_LENGTH")
-    summary_length: int = Field(default=280, alias="SUMMARY_LENGTH")
-    min_content_length: int = Field(default=50, alias="MIN_CONTENT_LENGTH")
-    content_generation_timeout: int = Field(default=300, alias="CONTENT_GENERATION_TIMEOUT")
-    content_retries: int = Field(default=3, alias="CONTENT_RETRIES")
+    max_content_length: int = Field(5000, alias="MAX_CONTENT_LENGTH")
+    summary_length: int = Field(280, alias="SUMMARY_LENGTH")
+    min_content_length: int = Field(50, alias="MIN_CONTENT_LENGTH")
+    content_generation_timeout: int = Field(300, alias="CONTENT_GENERATION_TIMEOUT")
+    content_retries: int = Field(3, alias="CONTENT_RETRIES")
     
     # Processing phase settings
-    process_media: bool = Field(default=True, alias="PROCESS_MEDIA")
-    process_categories: bool = Field(default=True, alias="PROCESS_CATEGORIES")
-    process_kb_items: bool = Field(default=True, alias="PROCESS_KB_ITEMS")
-    regenerate_readme: bool = Field(default=True, alias="REGENERATE_README")
+    process_media: bool = Field(True, alias="PROCESS_MEDIA")
+    process_categories: bool = Field(True, alias="PROCESS_CATEGORIES")
+    process_kb_items: bool = Field(True, alias="PROCESS_KB_ITEMS")
+    regenerate_readme: bool = Field(True, alias="REGENERATE_README")
     
     # Request settings
-    batch_size: int = Field(default=1, alias="BATCH_SIZE")
-    max_retries: int = Field(default=5, alias="MAX_RETRIES")
-    max_concurrent_requests: int = Field(default=1, alias="MAX_CONCURRENT_REQUESTS")
-    request_timeout: int = Field(default=180, alias="REQUEST_TIMEOUT")
-    retry_backoff: bool = Field(default=True, alias="RETRY_BACKOFF")
+    batch_size: int = Field(1, alias="BATCH_SIZE")
+    max_retries: int = Field(5, alias="MAX_RETRIES")
+    max_concurrent_requests: int = Field(1, alias="MAX_CONCURRENT_REQUESTS")
+    request_timeout: int = Field(180, alias="REQUEST_TIMEOUT")
+    retry_backoff: bool = Field(True, alias="RETRY_BACKOFF")
     
     # Reprocessing flags
     reprocess_media: bool = Field(
-        default=False,
+        False,
         description="Whether to reprocess media for all tweets"
     )
     reprocess_categories: bool = Field(
-        default=False,
+        False,
         description="Whether to reprocess categories for all tweets"
     )
     reprocess_kb_items: bool = Field(
-        default=False,
+        False,
         description="Whether to regenerate knowledge base items"
     )
     regenerate_root_readme: bool = Field(
-        default=False,
+        False,
         description="Whether to regenerate the root README.md"
     )
     
@@ -114,7 +102,6 @@ class Config(BaseSettings):
     def validate_rate_limit_period(cls, v):
         logging.debug(f"Raw rate_limit_period value: '{v}', type: {type(v)}")
         if isinstance(v, str):
-            # Remove any inline comments (split on '#' and trim whitespace)
             v = v.split('#')[0].strip()
         try:
             return int(v)
@@ -126,7 +113,7 @@ class Config(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         populate_by_name = True
-        extra = "ignore" 
+        extra = "ignore"
 
     def ensure_directories(self) -> None:
         """Ensure all required directories exist."""
@@ -146,56 +133,57 @@ class Config(BaseSettings):
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
     def setup_logging(self) -> None:
-        """Configure logging system with proper handlers and formatting."""
+        """Configure logging with proper formatting for long messages."""
+        # Initialize log file with timestamp
         self.init_log_file()
         
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler('agent_program.log'),
-                logging.StreamHandler()
-            ]
+        # Clear any existing handlers to avoid duplicates
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+        
+        # File handler with timestamped log file
+        file_handler = logging.FileHandler(self.log_file, mode='a', encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message).1000s',
+            datefmt='%Y-%m-%d %H:%M:%S'
         )
-
-        # Create a custom formatter for console
+        file_handler.setFormatter(file_formatter)
+        
+        # Console handler
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_formatter = logging.Formatter('%(levelname)s - %(message)s')
         console_handler.setFormatter(console_formatter)
-
+        
         # Configure root logger
-        root_logger = logging.getLogger()
-        root_logger.handlers = [
-            logging.FileHandler('agent_program.log', mode='a', encoding='utf-8'),
-            console_handler
-        ]
-
-        # Add custom success level
-        logging.addLevelName(25, "SUCCESS")
-        def success(self, message, *args, **kwargs):
-            self._log(25, message, args, **kwargs)
-        logging.Logger.success = success
+        root_logger.setLevel(logging.DEBUG)
+        root_logger.addHandler(file_handler)
+        root_logger.addHandler(console_handler)
+        
+        # Reduce noise from git operations
+        logging.getLogger('git.cmd').setLevel(logging.INFO)
+        logging.getLogger('git.util').setLevel(logging.INFO)
+        
+        logging.debug("Logging configured with file: %s", self.log_file)
 
     @classmethod
     def from_env(cls) -> "Config":
         """Create Config from environment variables."""
         load_dotenv()
-        
-        # ... existing env loading ...
-
-        # Load reprocessing flags from environment
-        reprocess_media = os.getenv('REPROCESS_MEDIA', 'false').lower() == 'true'
-        reprocess_categories = os.getenv('REPROCESS_CATEGORIES', 'false').lower() == 'true'
-        reprocess_kb_items = os.getenv('REPROCESS_KB_ITEMS', 'false').lower() == 'true'
-        regenerate_root_readme = os.getenv('REGENERATE_ROOT_README', 'false').lower() == 'true'
-        git_enabled = os.getenv('GIT_ENABLED', 'true').lower() == 'true'
-
-        return cls(
-            # ... existing fields ...
-            reprocess_media=reprocess_media,
-            reprocess_categories=reprocess_categories,
-            reprocess_kb_items=reprocess_kb_items,
-            regenerate_root_readme=regenerate_root_readme,
-            git_enabled=git_enabled
-        )
+        # Log environment variables for debugging
+        logging.info("Loading environment variables for Config:")
+        required_vars = [
+            "TEXT_MODEL", "FALLBACK_MODEL", "VISION_MODEL", "OLLAMA_URL",
+            "KNOWLEDGE_BASE_DIR", "DATA_PROCESSING_DIR", "MEDIA_CACHE_DIR",
+            "GIT_ENABLED", "GITHUB_TOKEN", "GITHUB_USER_NAME", "GITHUB_REPO_URL",
+            "GITHUB_USER_EMAIL", "X_USERNAME", "X_PASSWORD", "X_BOOKMARKS_URL",
+            "CATEGORIES_FILE", "BOOKMARKS_FILE", "PROCESSED_TWEETS_FILE",
+            "TWEET_CACHE_FILE", "LOG_FILE", "UNPROCESSED_TWEETS_FILE", "LOG_DIR"
+        ]
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        if missing_vars:
+            raise ConfigurationError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        for env_var in required_vars:
+            logging.info(f"{env_var}: {os.getenv(env_var) if env_var not in ['X_PASSWORD', 'GITHUB_TOKEN'] else '***REDACTED***'}")
+        return cls()
