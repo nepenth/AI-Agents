@@ -29,13 +29,14 @@ import re
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Set, Optional, Any, Tuple
-from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError
+from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError, AIError
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump
 from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager
 from knowledge_base_agent.types import CategoryInfo
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
 from datetime import datetime
+from knowledge_base_agent.ai_categorization import categorize_and_name_content
 
 @dataclass
 class Category:
@@ -724,47 +725,54 @@ Respond with just the name, no explanation."""
             raise CategoryError(f"Name generation failed: {e}")
 
     async def process_categories(self, tweet_id: str, tweet_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process and assign categories to a tweet."""
+        """Process and assign categories to a tweet using ai_categorization."""
+        # Skip if already categorized and reprocessing is not forced
+        # (Add a check for config flag if you want force reprocessing)
+        if tweet_data.get('categories_processed', False): # and not self.config.reprocess_categories:
+            logging.debug(f"Categories already processed for tweet {tweet_id}, skipping...")
+            return tweet_data
+
         try:
-            # Skip if already categorized
-            if tweet_data.get('categories_processed', False):
-                logging.info(f"Categories already processed for tweet {tweet_id}, skipping...")
-                return tweet_data
-
-            # Generate categories
-            tweet_text = tweet_data.get('full_text', '')
-            image_descriptions = tweet_data.get('image_descriptions', [])
-            combined_text = f"{tweet_text}\n\nImage Descriptions:\n" + "\n".join(image_descriptions)
-
-            # Get categories and item name
-            main_cat, sub_cat = await self.classify_content(
-                text=combined_text,
-                tweet_id=tweet_id
+            # Call the updated function from ai_categorization
+            # It now expects the full tweet_data dictionary
+            main_cat, sub_cat, item_name = await categorize_and_name_content(
+                http_client=self.http_client,
+                tweet_data=tweet_data, # Pass the full dictionary
+                text_model=self.config.text_model,
+                tweet_id=tweet_id,
+                category_manager=self, # Pass self
+                max_retries=self.config.max_retries, # Use config value
+                fallback_model=self.config.fallback_model # Pass fallback model
             )
 
-            # Generate item name
-            item_name = await self.generate_item_name(
-                text=combined_text,
-                main_category=main_cat,
-                sub_category=sub_cat,
-                tweet_id=tweet_id
-            )
-            
-            # Save categories
+            # Store the results in the 'categories' sub-dictionary
             tweet_data['categories'] = {
                 'main_category': main_cat,
                 'sub_category': sub_cat,
-                'item_name': item_name,
-                'model_used': self.config.text_model,
-                'categorized_at': datetime.now().isoformat()
+                'item_name': item_name
             }
+            # Mark as processed ONLY on success
             tweet_data['categories_processed'] = True
+            logging.info(f"Successfully categorized tweet {tweet_id} as {main_cat}/{sub_cat}/{item_name}")
 
-            return tweet_data
-
+        except AIError as ai_err:
+            # Categorization failed permanently after retries in categorize_and_name_content
+            logging.error(f"Permanent categorization failure for tweet {tweet_id}: {ai_err}")
+            # Ensure flag remains false (or is set to false explicitly)
+            tweet_data['categories_processed'] = False
+            tweet_data['categories'] = {} # Clear any partial/old categories
+            # Re-raise the error so the ContentProcessor can handle stats and prevent progression
+            raise ai_err
         except Exception as e:
-            logging.error(f"Failed to process categories for tweet {tweet_id}: {str(e)}")
-            raise CategoryError(f"Failed to process categories: {str(e)}")
+            # Catch any other unexpected errors during the call
+            logging.exception(f"Unexpected error during category processing call for tweet {tweet_id}: {e}")
+            tweet_data['categories_processed'] = False
+            tweet_data['categories'] = {}
+            # Wrap in AIError or raise a specific CategoryError
+            raise CategoryError(f"Failed to process categories for tweet {tweet_id}: {e}") from e
+
+        # Return the updated tweet_data (either with new categories or with flag explicitly false on error)
+        return tweet_data
 
     def sanitize_category_name(self, name: str) -> str:
         """Sanitize category names for URLs/paths"""

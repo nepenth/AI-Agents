@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import logging
 from datetime import datetime
 from knowledge_base_agent.exceptions import StorageError, ContentProcessingError, ContentGenerationError, KnowledgeBaseItemCreationError
@@ -11,12 +11,13 @@ from knowledge_base_agent.category_manager import CategoryManager
 import copy
 from mimetypes import guess_type
 from knowledge_base_agent.media_processor import VIDEO_MIME_TYPES
+import asyncio
 
-async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str) -> str:
-    """Generate knowledge base content from tweet data."""
+async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str, fallback_model: str = "") -> str:
+    """Generate knowledge base content from tweet data with enhanced validation and fallback."""
     try:
         # Prepare context including tweet text, URLs, and media descriptions
-        context = f"Tweet: {tweet_data.get('full_text', '')}\n\n"  # Updated to full_text
+        context = f"Tweet: {tweet_data.get('full_text', '')}\n\n"
         
         # Add URLs if present
         if tweet_data.get('urls'):
@@ -32,53 +33,109 @@ async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, 
                 if isinstance(media, dict) and media.get('alt_text'):
                     context += f"{i}. {media['alt_text']}\n"
 
+        # Dynamically adjust prompt based on content
+        is_technical = any(keyword in context.lower() for keyword in ['code', 'programming', 'api', 'framework', 'library'])
+        prompt_focus = "technical concepts with code examples" if is_technical else "key ideas and practical insights"
         prompt = (
             f"Based on this content:\n\n{context}\n\n"
-            "Generate a detailed technical knowledge base entry that:\n"
-            "1. Explains the main technical concepts\n"
-            "2. Provides relevant code examples if applicable\n"
+            f"Generate a detailed knowledge base entry that focuses on {prompt_focus}:\n"
+            "1. Explains the main concepts or ideas\n"
+            "2. Provides relevant examples if applicable\n"
             "3. Lists key points and takeaways\n"
-            "4. Includes relevant technical details and references\n"
+            "4. Includes relevant details and references\n"
             "\nFormat in Markdown with proper headers and sections."
         )
 
         logging.debug(f"Sending content generation prompt: {prompt[:200]}...")
         
-        content = await http_client.ollama_generate(
-            model=text_model,
-            prompt=prompt
-        )
-        
-        if not content:
-            raise ContentGenerationError("Generated content is empty")
-        
-        if len(content.strip()) < 50:
-            raise ContentGenerationError("Generated content is too short")
-        
-        if not content.startswith('#'):
-            content = f"# Technical Note\n\n{content}"
-        
-        logging.info(f"Successfully generated content of length: {len(content)}")
-        return content.strip()
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                content = await http_client.ollama_generate(
+                    model=text_model,
+                    prompt=prompt,
+                    temperature=0.3  # Moderate temperature for content generation
+                )
+                
+                if not content:
+                    raise ContentGenerationError("Generated content is empty")
+                
+                if len(content.strip()) < 50:
+                    raise ContentGenerationError("Generated content is too short")
+                
+                # Enhanced validation for content structure
+                if not content.startswith('#') or '##' not in content or '-' not in content:
+                    logging.warning("Generated content lacks proper structure, adding basic formatting")
+                    content = f"# Knowledge Base Entry\n\n## Overview\n\n{content}\n\n## Key Takeaways\n\n- To be updated."
+
+                logging.info(f"Successfully generated content of length: {len(content)}")
+                return content.strip()
+            except Exception as e:
+                logging.error(f"Attempt {attempt + 1} with {text_model} for content generation failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                
+                # Try fallback model if available and this is the last attempt
+                if fallback_model and fallback_model != text_model:
+                    logging.info(f"Switching to fallback model {fallback_model} for content generation")
+                    for fallback_attempt in range(max_retries):
+                        try:
+                            content = await http_client.ollama_generate(
+                                model=fallback_model,
+                                prompt=prompt,
+                                temperature=0.3
+                            )
+                            
+                            if not content:
+                                raise ContentGenerationError("Generated content is empty from fallback model")
+                            
+                            if len(content.strip()) < 50:
+                                raise ContentGenerationError("Generated content is too short from fallback model")
+                            
+                            # Enhanced validation for content structure
+                            if not content.startswith('#') or '##' not in content or '-' not in content:
+                                logging.warning("Generated content lacks proper structure from fallback, adding basic formatting")
+                                content = f"# Knowledge Base Entry\n\n## Overview\n\n{content}\n\n## Key Takeaways\n\n- To be updated."
+
+                            logging.info(f"Successfully generated content with fallback model, length: {len(content)}")
+                            return content.strip()
+                        except Exception as fe:
+                            logging.error(f"Fallback attempt {fallback_attempt + 1} with {fallback_model} failed: {fe}")
+                            if fallback_attempt < max_retries - 1:
+                                await asyncio.sleep(2 ** fallback_attempt)
+                                continue
+
+        # If all retries and fallback fail, use fallback content
+        logging.error("All attempts failed, using fallback content")
+        fallback_content = f"# Tweet Summary\n\n## Content\n\n{tweet_data.get('full_text', 'No content available')}\n\n## Key Takeaways\n\n- Tweet content preserved as-is due to generation failure."
+        logging.info(f"Using fallback content for tweet due to generation failure")
+        return fallback_content
         
     except Exception as e:
         logging.error(f"Content generation failed: {str(e)}")
-        raise ContentGenerationError(f"Failed to generate content: {str(e)}")
+        # Fallback to a basic template using raw tweet data
+        fallback_content = f"# Tweet Summary\n\n## Content\n\n{tweet_data.get('full_text', 'No content available')}\n\n## Key Takeaways\n\n- Tweet content preserved as-is due to generation failure."
+        logging.info(f"Using fallback content for tweet due to generation failure")
+        return fallback_content
 
-async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], config: Config, http_client: HTTPClient) -> KnowledgeBaseItem:
-    """Create a knowledge base item from a tweet."""
+async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], config: Config, http_client: HTTPClient, state_manager: Optional[StateManager] = None) -> KnowledgeBaseItem:
+    """Create a knowledge base item from a tweet. Requires categories to be processed."""
     try:
-        # Get categories data
+        # Categories MUST exist and be processed before this step
         categories = tweet_data.get('categories', {})
-        
-        # Prepare context for LLM
+        if not categories or not all(categories.get(key) for key in ['main_category', 'sub_category', 'item_name']) or not tweet_data.get('categories_processed'):
+            logging.error(f"Cannot create KB item for tweet {tweet_id}: Categories are missing or incomplete. Tweet data: {tweet_data.get('categories')}, Processed Flag: {tweet_data.get('categories_processed')}")
+            raise KnowledgeBaseItemCreationError(f"Categories not processed or incomplete for tweet {tweet_id}")
+
+        # Prepare context for LLM (using guaranteed categories)
         context = {
             'tweet_text': tweet_data.get('full_text', ''),
             'urls': tweet_data.get('urls', []),
             'media_descriptions': tweet_data.get('image_descriptions', []),
-            'main_category': categories.get('main_category', ''),
-            'sub_category': categories.get('sub_category', ''),
-            'item_name': categories.get('item_name', '')
+            'main_category': categories['main_category'], # Use directly
+            'sub_category': categories['sub_category'],
+            'item_name': categories['item_name']
         }
         
         # Generate comprehensive content using LLM
@@ -101,14 +158,14 @@ async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], 
         )
         
         # Generate content using LLM
-        generated_content = await http_client.ollama_generate(
-            model=config.text_model,
-            prompt=prompt
-        )
-        
+        generated_content = await generate_content(tweet_data, http_client, config.text_model, config.fallback_model) # Pass fallback model from config
+
         if not generated_content:
-            raise ContentGenerationError("Generated content is empty")
-        
+            # generate_content now returns a fallback template if it truly fails,
+            # but we might still want stricter checking here if needed.
+            logging.warning(f"Content generation returned potentially empty or minimal content for tweet {tweet_id}")
+            # Let's proceed but rely on the fallback content from generate_content
+
         # Parse generated content to extract title and description
         content_parts = generated_content.split('\n', 2)
         title = content_parts[0].lstrip('#').strip() if content_parts else context['item_name']
@@ -117,10 +174,10 @@ async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], 
         
         # Create CategoryInfo object
         category_info = CategoryInfo(
-            main_category=str(categories.get('main_category', '')),
-            sub_category=str(categories.get('sub_category', '')),
-            item_name=str(categories.get('item_name', '')),
-            description=description
+            main_category=str(categories['main_category']),
+            sub_category=str(categories['sub_category']),
+            item_name=str(categories['item_name']),
+            description=description # Use parsed description
         )
         
         # Get current timestamp
@@ -128,14 +185,14 @@ async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], 
         
         # Create KnowledgeBaseItem with generated content
         kb_item = KnowledgeBaseItem(
-            title=title,
+            title=title, # Use parsed title
             description=description,
             content=main_content,
             category_info=category_info,
             source_tweet={
                 'url': f"https://twitter.com/i/web/status/{tweet_id}",
                 'author': tweet_data.get('author', ''),
-                'created_at': current_time
+                'created_at': tweet_data.get('created_at') or current_time.isoformat() # Use original creation time if available
             },
             media_urls=tweet_data.get('downloaded_media', []),
             image_descriptions=tweet_data.get('image_descriptions', []),
@@ -144,10 +201,12 @@ async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], 
         )
         
         return kb_item
-        
+
+    except KnowledgeBaseItemCreationError: # Re-raise specific error
+        raise
     except Exception as e:
-        logging.error(f"Failed to create knowledge base item for tweet {tweet_id}: {e}")
-        raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item: {str(e)}")
+        logging.exception(f"Unexpected error creating knowledge base item for tweet {tweet_id}: {e}") # Log traceback
+        raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item: {str(e)}") from e
 
 async def create_knowledge_base_entry(
     tweet_id: str,
@@ -274,3 +333,25 @@ async def create_knowledge_base_entry(
             await state_manager.update_tweet_data(tweet_id, original_state)
             await state_manager.add_unprocessed_tweet(tweet_id)  # Requeue
         raise StorageError(f"Failed to create knowledge base entry: {e}")
+
+def infer_basic_category(text: str) -> Tuple[str, str]:
+    """
+    Infer a basic category and subcategory based on content keywords.
+    
+    Args:
+        text: The content text to analyze
+        
+    Returns:
+        Tuple of (main_category, sub_category)
+    """
+    text = text.lower()
+    if "machine learning" in text or "neural" in text or "model" in text:
+        return ("machine_learning", "models")
+    elif "devops" in text or "ci/cd" in text or "pipeline" in text:
+        return ("devops", "ci_cd")
+    elif "database" in text or "sql" in text or "query" in text:
+        return ("databases", "query_processing")
+    elif "python" in text or "javascript" in text or "code" in text:
+        return ("software_engineering", "programming")
+    else:
+        return ("software_engineering", "best_practices")

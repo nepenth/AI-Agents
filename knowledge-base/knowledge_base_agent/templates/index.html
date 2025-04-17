@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Knowledge Base Agent Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #console { 
+            background: #f5f5f5; 
+            border: 1px solid #ccc; 
+            padding: 10px; 
+            height: 300px; 
+            overflow-y: auto; 
+            white-space: pre-wrap; 
+        }
+        .log-info { color: #333; }
+        .log-warning { color: #ff9800; }
+        .log-error { color: #f44336; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Knowledge Base Agent Dashboard</h1>
+        <div class="mb-3">
+            <h3>Configure Agent Preferences</h3>
+            <form id="preferencesForm">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="updateBookmarks" name="update_bookmarks">
+                    <label class="form-check-label" for="updateBookmarks">Fetch new bookmarks</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reviewExisting" name="review_existing">
+                    <label class="form-check-label" for="reviewExisting">Re-review processed tweets</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="recreateCache" name="recreate_tweet_cache">
+                    <label class="form-check-label" for="recreateCache">Re-cache all tweet data</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="regenerateReadme" name="regenerate_readme" checked>
+                    <label class="form-check-label" for="regenerateReadme">Regenerate README</label>
+                </div>
+                <button type="button" class="btn btn-primary mt-2" onclick="startAgent()">Run Agent</button>
+                <button type="button" class="btn btn-danger mt-2" onclick="stopAgent()">Stop Agent</button>
+            </form>
+        </div>
+        <div class="progress mb-3">
+            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+        </div>
+        <h2>Console Output</h2>
+        <div id="console" class="rounded"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        const consoleDiv = document.getElementById('console');
+        const progressBar = document.getElementById('progressBar');
+
+        socket.on('log', function(data) {
+            const logLine = document.createElement('div');
+            logLine.textContent = data.message;
+            logLine.className = `log-${data.level.toLowerCase()}`;
+            consoleDiv.appendChild(logLine);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        });
+
+        socket.on('progress', function(data) {
+            const total = data.total || 1;  // Avoid division by zero
+            const percentage = Math.min(100, Math.round((data.processed / total) * 100));
+            progressBar.style.width = `${percentage}%`;
+            progressBar.textContent = `${percentage}% (${data.processed}/${total})`;
+            progressBar.setAttribute('aria-valuenow', percentage);
+        });
+
+        function startAgent() {
+            const form = document.getElementById('preferencesForm');
+            const options = {
+                update_bookmarks: form.update_bookmarks.checked,
+                review_existing: form.review_existing.checked,
+                recreate_tweet_cache: form.recreate_tweet_cache.checked,
+                regenerate_readme: form.regenerate_readme.checked
+            };
+            socket.emit('start_agent', options);
+        }
+
+        function stopAgent() {
+            socket.emit('stop_agent');
+        }
+    </script>
+</body>
+</html>

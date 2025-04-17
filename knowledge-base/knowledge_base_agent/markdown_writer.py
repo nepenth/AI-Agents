@@ -82,6 +82,8 @@ class MarkdownWriter:
                 
                 # Yield both the original path and the new name for tracking
                 yield (img_path, img_name)
+            else:
+                logging.warning(f"Media file not found, skipping: {img_path}")
 
     async def write_tweet_markdown(
         self,
