@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis History</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"> <!-- Font Awesome for icons -->
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Collectible Analyzer</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('history') }}">History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('catalog') }}">Catalog</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="mb-4">Analysis History</h1>
+
+        <!-- Buttons Row -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <a href="{{ url_for('export_csv') }}" class="btn btn-outline-primary me-2">Export All Results (CSV)</a>
+                <a href="{{ url_for('export_csv', item_type='wine bottle') }}" class="btn btn-outline-primary">Export Wine Bottles (CSV)</a>
+                <!-- Add other export options if needed -->
+            </div>
+             <!-- Clear All History Button -->
+             <form id="clearHistoryForm" action="{{ url_for('clear_history') }}" method="POST" style="display: inline;">
+                 <button type="button" class="btn btn-danger" onclick="confirmClearHistory()">
+                     <i class="fas fa-trash-alt"></i> Clear All History
+                 </button>
+             </form>
+        </div>
+
+
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        {% if results %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-sort="id">ID</th>
+                            <th>Cropped Image</th>
+                            <th class="sortable" data-sort="item_type">Type</th>
+                            <th>Player</th>
+                            <th>Year</th>
+                            <th>Brand/Set</th>
+                            <th>LLM Value</th>
+                            <th>eBay Value</th>
+                            <th>eBay Link</th>
+                            <th class="sortable" data-sort="timestamp">Timestamp</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                            <tr data-item-type="{{ result.item_type.lower() }}">
+                                <td>{{ result.id }}</td>
+                                <td>
+                                    {% if result.cropped_image_path %}
+                                    <a href="#" class="image-preview" data-image="{{ url_for('static', filename=result.cropped_image_path.replace('static/', '', 1)) }}">
+                                        <img src="{{ url_for('static', filename=result.cropped_image_path.replace('static/', '', 1)) }}" alt="Cropped" width="50">
+                                    </a>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.item_type }}</td>
+                                <td>{{ result.card_player or 'N/A' }}</td>
+                                <td>{{ result.card_year or 'N/A' }}</td>
+                                <td>{{ result.card_brand or 'N/A' }}</td>
+                                <td>{{ result.card_value_insight or 'N/A' }}</td>
+                                <td>{{ result.ebay_value if result.ebay_value else 'N/A' }}</td>
+                                <td>
+                                    {% if result.ebay_search_url and result.ebay_search_url != 'None' %}
+                                        <a href="{{ result.ebay_search_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-external-link-alt"></i> View
+                                        </a>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.timestamp }}</td>
+                                <td>
+                                     <!-- Delete Item Button -->
+                                     <form id="deleteItemForm{{ result.id }}" action="{{ url_for('delete_item', result_id=result.id) }}" method="POST" style="display: inline;">
+                                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDeleteItem('{{ result.id }}')">
+                                             <i class="fas fa-times"></i>
+                                         </button>
+                                     </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No history results found.</p>
+        {% endif %}
+    </div>
+
+    <!-- Image Preview Modal (Include if not already present) -->
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="imagePreviewModalLabel">Image Preview</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center">
+            <img id="previewImage" src="" alt="Full Image" class="img-fluid">
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Link to your scripts.js -->
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script> 
+    
+    <!-- Add Javascript for confirmations -->
+    <script>
+        function confirmClearHistory() {
+            if (confirm("Are you sure you want to delete ALL history? This cannot be undone.")) {
+                document.getElementById('clearHistoryForm').submit();
+            }
+        }
+
+        function confirmDeleteItem(itemId) {
+            if (confirm(`Are you sure you want to delete item ID ${itemId}? This cannot be undone.`)) {
+                document.getElementById(`deleteItemForm${itemId}`).submit();
+            }
+        }
+    </script>
+
+</body>
+</html>
