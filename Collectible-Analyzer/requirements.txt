@@ -1,0 +1,6 @@
+flask
+pillow
+requests
+beautifulsoup4
+opencv-python
+numpy

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Catalog</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .card-catalog-item {
+            border: 1px solid #dee2e6;
+            border-radius: .375rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: #fff;
+        }
+        .card-catalog-item img {
+            max-width: 150px; /* Adjust as needed */
+            height: auto;
+            margin-bottom: 1rem;
+            border: 1px solid #eee;
+        }
+        .form-label { font-weight: 500; }
+        .save-status { font-size: 0.8em; margin-left: 10px; }
+        .reevaluate-status { font-size: 0.8em; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Collectible Analyzer</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('history') }}">History</a>
+                    </li>
+                     <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('catalog') }}">Catalog</a> <!-- Active link -->
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="mb-4">Card Catalog</h1>
+
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        {% if results %}
+            <div class="row">
+                {% for result in results %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card-catalog-item" id="card-item-{{ result.id }}">
+                            <h5>Card ID: {{ result.id }}</h5>
+                            {% if result.cropped_image_path %}
+                                <img src="{{ url_for('static', filename=result.cropped_image_path.replace('static/', '', 1)) }}" alt="Cropped Card {{ result.id }}">
+                            {% else %}
+                                <p><small>No cropped image available.</small></p>
+                            {% endif %}
+
+                            <form id="editForm{{ result.id }}" class="edit-card-form" data-result-id="{{ result.id }}">
+                                <div class="mb-2">
+                                    <label for="player_{{ result.id }}" class="form-label">Player:</label>
+                                    <input type="text" class="form-control form-control-sm" id="player_{{ result.id }}" name="player" value="{{ result.card_player or '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label for="year_{{ result.id }}" class="form-label">Year:</label>
+                                    <input type="text" class="form-control form-control-sm" id="year_{{ result.id }}" name="year" value="{{ result.card_year or '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label for="brand_{{ result.id }}" class="form-label">Brand/Set:</label>
+                                    <input type="text" class="form-control form-control-sm" id="brand_{{ result.id }}" name="brand" value="{{ result.card_brand or '' }}">
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-success me-2">
+                                    <i class="fas fa-save"></i> Save Changes
+                                </button>
+                                <span class="save-status text-muted" id="status-{{ result.id }}"></span>
+                            </form>
+
+                            <!-- Re-evaluate Button (Now Active) -->
+                            <button type="button" class="btn btn-sm btn-info reevaluate-button" data-result-id="{{ result.id }}">
+                                <i class="fas fa-sync-alt"></i> Re-evaluate eBay Value
+                            </button>
+                            <span class="reevaluate-status text-muted" id="reevaluate-status-{{ result.id }}"></span>
+
+                             <hr>
+                             <small><strong>LLM Value Insight:</strong> {{ result.card_value_insight or 'N/A' }}</small><br>
+                             <small><strong>eBay Value:</strong> <span id="ebay-value-{{ result.id }}">{{ result.ebay_value or 'N/A' }}</span>
+                             <span id="ebay-link-{{ result.id }}">
+                                {% if result.ebay_search_url and result.ebay_search_url != 'None' %}
+                                    <a href="{{ result.ebay_search_url }}" target="_blank" class="ms-1"><i class="fas fa-external-link-alt"></i></a>
+                                {% endif %}
+                             </span>
+                             </small><br>
+                             <small><strong>Original OCR Text:</strong> <pre style="font-size: 0.8em; max-height: 100px; overflow-y: auto;">{{ result.description }}</pre></small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No catalog results found. Upload some baseball card images!</p>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Link to your main scripts.js (if needed) -->
+    <!-- <script src="{{ url_for('static', filename='js/scripts.js') }}"></script> -->
+
+    <!-- JavaScript for Catalog Editing and Re-evaluation -->
+    <script>
+        $(document).ready(function() {
+            $('.edit-card-form').on('submit', function(e) {
+                e.preventDefault(); // Prevent default form submission
+
+                const form = $(this);
+                const resultId = form.data('result-id');
+                const statusElement = $(`#status-${resultId}`);
+
+                // Get data from form fields
+                const playerData = $(`#player_${resultId}`).val();
+                const yearData = $(`#year_${resultId}`).val();
+                const brandData = $(`#brand_${resultId}`).val();
+
+                statusElement.text('Saving...').removeClass('text-success text-danger').addClass('text-muted');
+
+                // Send data via AJAX POST
+                $.ajax({
+                    url: `/update_card/${resultId}`,
+                    type: 'POST',
+                    contentType: 'application/json', // Send as JSON
+                    data: JSON.stringify({ // Convert data to JSON string
+                        player: playerData,
+                        year: yearData,
+                        brand: brandData
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            statusElement.text('Saved!').removeClass('text-muted text-danger').addClass('text-success');
+                        } else {
+                            statusElement.text(`Error: ${response.message || 'Unknown error'}`).removeClass('text-muted text-success').addClass('text-danger');
+                        }
+                        // Clear status message after a few seconds
+                         setTimeout(() => statusElement.text(''), 3000);
+                    },
+                    error: function(xhr, status, error) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Request failed';
+                        statusElement.text(`Error: ${errorMsg}`).removeClass('text-muted text-success').addClass('text-danger');
+                         setTimeout(() => statusElement.text(''), 5000);
+                    }
+                });
+            });
+
+            $('.reevaluate-button').on('click', function() {
+                const button = $(this);
+                const resultId = button.data('result-id');
+                const statusElement = $(`#reevaluate-status-${resultId}`);
+                const ebayValueElement = $(`#ebay-value-${resultId}`);
+                const ebayLinkElement = $(`#ebay-link-${resultId}`);
+
+                statusElement.text('Re-evaluating...').removeClass('text-success text-danger').addClass('text-muted');
+                button.prop('disabled', true); // Disable button during request
+
+                // Send POST request to the re-evaluate endpoint
+                $.ajax({
+                    url: `/reevaluate/${resultId}`,
+                    type: 'POST', // Use POST for actions that change state
+                    contentType: 'application/json', // Sending JSON, though body might be empty
+                    // data: JSON.stringify({}), // No data needed in body for this action
+                    success: function(response) {
+                        if (response.success) {
+                            statusElement.text('Re-evaluation Complete!').removeClass('text-muted text-danger').addClass('text-success');
+                            // Update the displayed eBay value and link
+                            ebayValueElement.text(response.ebay_value || 'N/A');
+                            if (response.ebay_search_url) {
+                                ebayLinkElement.html(`<a href="${response.ebay_search_url}" target="_blank" class="ms-1"><i class="fas fa-external-link-alt"></i></a>`);
+                            } else {
+                                ebayLinkElement.html(''); // Clear link if none
+                            }
+                        } else {
+                            statusElement.text(`Error: ${response.message || 'Unknown error'}`).removeClass('text-muted text-success').addClass('text-danger');
+                        }
+                         setTimeout(() => statusElement.text(''), 5000); // Clear status later
+                    },
+                    error: function(xhr, status, error) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Request failed';
+                        statusElement.text(`Error: ${errorMsg}`).removeClass('text-muted text-success').addClass('text-danger');
+                         setTimeout(() => statusElement.text(''), 5000);
+                    },
+                    complete: function() {
+                        button.prop('disabled', false); // Re-enable button
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html> 
