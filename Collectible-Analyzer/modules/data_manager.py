@@ -185,18 +185,19 @@ class DataManager:
             return False
 
     def delete_all_results(self):
-        """Delete all results from the table."""
+        """Delete all results from the database and reset the auto-increment ID."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM results")
-                # Optional: Reset autoincrement counter if desired
-                # cursor.execute("DELETE FROM sqlite_sequence WHERE name='results'") 
                 conn.commit()
-                logger.info("Deleted all results from the database")
+                # Reset the SQLite sequence for the table to start IDs from 1 again
+                cursor.execute("DELETE FROM sqlite_sequence WHERE name='results'")
+                conn.commit()
+                logger.info("Successfully cleared all history results and reset ID sequence.")
                 return True
-        except sqlite3.Error as e:
-            logger.error(f"Error deleting all results: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error clearing all history results: {e}")
             return False
 
     # --- Add Method to Update eBay Info ---
