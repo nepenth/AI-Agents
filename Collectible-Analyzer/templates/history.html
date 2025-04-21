@@ -82,6 +82,10 @@
                                     <a href="#" class="image-preview" data-image="{{ url_for('static', filename=result.cropped_image_path.replace('static/', '', 1)) }}">
                                         <img src="{{ url_for('static', filename=result.cropped_image_path.replace('static/', '', 1)) }}" alt="Cropped" width="50">
                                     </a>
+                                    {% elif result.image_path %}
+                                    <a href="#" class="image-preview" data-image="{{ url_for('static', filename=result.image_path.replace('static/', '', 1)) }}">
+                                        <img src="{{ url_for('static', filename=result.image_path.replace('static/', '', 1)) }}" alt="Original" width="50">
+                                    </a>
                                     {% else %}
                                         N/A
                                     {% endif %}

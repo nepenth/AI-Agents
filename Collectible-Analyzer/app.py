@@ -37,18 +37,14 @@ def upload_image():
     try:
         # Check if a file was uploaded
         if 'image' not in request.files:
-            return render_template('index.html', error="No image uploaded")
+            return jsonify({"task_id": "unknown", "status": "error", "message": "No image uploaded"}) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else render_template('index.html', error="No image uploaded")
         
         file = request.files['image']
         if file.filename == '':
-            return render_template('index.html', error="No image selected")
+            return jsonify({"task_id": "unknown", "status": "error", "message": "No image selected"}) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else render_template('index.html', error="No image selected")
 
         # Get item type from form
         item_type = request.form.get('item_type', 'baseball card')
-
-        # Generate a unique task ID
-        task_id = str(uuid.uuid4())
-        task_status[task_id] = {"status": "starting", "message": "Upload started", "result": None, "image_path": ""}
 
         # Save the uploaded file
         filename = file.filename
@@ -56,47 +52,15 @@ def upload_image():
         file.save(file_path)
         logger.info(f"Saved uploaded image: {file_path}")
 
-        # Update status to processing
-        task_status[task_id]["status"] = "processing"
-        task_status[task_id]["message"] = "Processing image..."
-        task_status[task_id]["image_path"] = file_path
-
-        # Function to process item in background
-        def process_in_background(task_id, file_path, item_type):
-            try:
-                # process_item now returns a list of results
-                results_list = controller.process_item(file_path, item_type, task_id=task_id, task_status=task_status)
-                
-                # Update status upon successful completion
-                task_status[task_id]["status"] = "completed"
-                # Message is updated inside controller
-                task_status[task_id]["message"] = "Processing complete." 
-                task_status[task_id]["result"] = results_list # Store the list of results
-                logger.info(f"Completed processing for task {task_id}, found {len(results_list)} items.")
-            except Exception as e:
-                logger.error(f"Error processing task {task_id}: {str(e)}")
-                # Status should be updated inside controller.process_item on error
-                if task_id in task_status:
-                    task_status[task_id]["status"] = "error"
-                    # Ensure message reflects error if not already set
-                    if not task_status[task_id].get("message", "").startswith("Error:"):
-                        task_status[task_id]["message"] = f"Error: {str(e)}"
-
-        # Return task ID immediately for AJAX requests and start background processing
+        # Start background processing and get the task ID
+        task_id = controller.start_image_processing(file_path, item_type)
+        
+        # Return task ID immediately for AJAX requests
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Start background thread for processing
-            thread = threading.Thread(target=process_in_background, args=(task_id, file_path, item_type))
-            thread.daemon = True  # Ensure thread exits if app shuts down
-            thread.start()
             return jsonify({"task_id": task_id, "status": "processing", "message": "Processing started"})
 
-        # For non-AJAX (fallback), process and render results
-        result = controller.process_item(file_path, item_type)
-        task_status[task_id]["status"] = "completed"
-        task_status[task_id]["message"] = "Processing complete"
-        task_status[task_id]["result"] = result
-
-        return render_template('results.html', result=result, image_path=url_for('static', filename=f'uploads/{filename}'), task_id=task_id)
+        # For non-AJAX (fallback), redirect to history page
+        return redirect(url_for('history'))
 
     except Exception as e:
         logger.error(f"Error processing upload: {str(e)}")
@@ -110,8 +74,15 @@ def upload_image():
 @app.route('/status/<task_id>')
 def get_status(task_id):
     """Return the status of a processing task."""
-    status_info = task_status.get(task_id, {"status": "unknown", "message": "Task not found"})
+    # Sync with controller's tasks dictionary to ensure accuracy
+    from modules.controller import get_task_status
+    status_info = get_task_status(task_id)
     return jsonify(status_info)
+
+@app.route('/status_page/<task_id>')
+def status_page(task_id):
+    """Render a status page for a specific task. Redirect to history since no status.html exists."""
+    return redirect(url_for('history'))
 
 @app.route('/history')
 def history():
