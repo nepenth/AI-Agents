@@ -8,7 +8,7 @@ import logging
 from typing import Set, List, Dict, Any
 from pathlib import Path
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import aiofiles
 from flask_socketio import SocketIO
@@ -313,7 +313,9 @@ class KnowledgeBaseAgent:
             stats = ProcessingStats(start_time=datetime.now())
             
             logging.info("1. Initializing state and checking for new content...")
-            await self.state_manager.initialize()
+            from knowledge_base_agent.web import app  # Import app here to avoid circular import
+            with app.app_context():  # Ensure DB operations are in context
+                await self.state_manager.initialize()
             stats.validation_count = getattr(self.state_manager, 'validation_fixes', 0)
             
             unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
@@ -322,20 +324,22 @@ class KnowledgeBaseAgent:
             
             if preferences.update_bookmarks and not stop_flag:
                 logging.info("2. Processing bookmarks for new tweets...")
-                await self.process_bookmarks()
-                await self.state_manager.update_from_bookmarks()
+                with app.app_context():  # Ensure DB operations are in context
+                    await self.process_bookmarks()
+                    await self.state_manager.update_from_bookmarks()
                 unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
                 total_tweets = len(unprocessed_tweets)
             
             if has_work_to_do and not stop_flag:
                 logging.info(f"Processing {total_tweets} tweets...")
-                await self.content_processor.process_all_tweets(
-                    preferences,
-                    unprocessed_tweets,
-                    stats.validation_count,
-                    stats,
-                    self.category_manager
-                )
+                with app.app_context():  # Ensure DB operations are in context
+                    await self.content_processor.process_all_tweets(
+                        preferences,
+                        unprocessed_tweets,
+                        stats.validation_count,
+                        stats,
+                        self.category_manager
+                    )
                 # Emit progress after processing
                 if socketio:
                     progress = {
@@ -389,7 +393,8 @@ class KnowledgeBaseAgent:
             raise
         finally:
             logging.info(f"Final state: {len(self.state_manager.unprocessed_tweets)} unprocessed, {len(self.state_manager.processed_tweets)} processed")
-            await self.cleanup()
+            with app.app_context():  # Ensure cleanup is in context
+                await self.cleanup()
 
     async def process_tweet(self, tweet_url: str) -> None:
         """
@@ -417,13 +422,15 @@ class KnowledgeBaseAgent:
             if not tweet_id:
                 raise ValueError(f"Invalid tweet URL: {tweet_url}")
             
-            tweet_data = await self.state_manager.get_tweet(tweet_id)
-            if not tweet_data:
-                logging.info(f"Tweet {tweet_id} not found in cache, fetching data...")
-                await cache_tweets([tweet_id], self.config, self.http_client, self.state_manager)
+            from knowledge_base_agent.web import app  # Import app here to avoid circular import
+            with app.app_context():  # Ensure DB operations are in context
                 tweet_data = await self.state_manager.get_tweet(tweet_id)
                 if not tweet_data:
-                    raise ContentProcessingError(f"Failed to fetch and cache tweet {tweet_id}")
+                    logging.info(f"Tweet {tweet_id} not found in cache, fetching data...")
+                    await cache_tweets([tweet_id], self.config, self.http_client, self.state_manager)
+                    tweet_data = await self.state_manager.get_tweet(tweet_id)
+                    if not tweet_data:
+                        raise ContentProcessingError(f"Failed to fetch and cache tweet {tweet_id}")
             
             # Add to unprocessed list if not already processed
             if not await self.state_manager.is_tweet_processed(tweet_id):
@@ -451,6 +458,11 @@ class KnowledgeBaseAgent:
             if await self._verify_kb_item_created(tweet_id):
                 await self.state_manager.mark_tweet_processed(tweet_id, tweet_data)
                 logging.info(f"Successfully processed tweet {tweet_id} through phased approach")
+                
+                # Data for database storage will be handled elsewhere
+                kb_item_path = tweet_data.get('kb_item_path')
+                if kb_item_path:
+                    logging.info(f"Processed tweet {tweet_id} with KB item path {kb_item_path}")
             else:
                 raise ContentProcessingError(f"Failed to create knowledge base item for tweet {tweet_id}")
             

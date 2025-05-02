@@ -11,44 +11,81 @@ import os
 from typing import Tuple
 
 async def cache_tweets(tweet_ids: List[str], config: Config, http_client: HTTPClient, state_manager: StateManager, force_recache: bool = False) -> None:
-    """Cache tweet data including expanded URLs and all media."""
+    """Cache tweet data including expanded URLs and verifying/downloading all media."""
     cached_tweets = await state_manager.get_all_tweets()
 
     for tweet_id in tweet_ids:
+        tweet_successfully_cached_this_run = True # Flag for this specific attempt
         try:
             existing_tweet = cached_tweets.get(tweet_id, {})
-            if not force_recache and existing_tweet and existing_tweet.get('cache_complete', False):
-                logging.info(f"Tweet {tweet_id} already fully cached, skipping...")
+            # Determine if processing is needed based on force flag or incomplete cache state
+            needs_processing = force_recache or not existing_tweet.get('cache_complete', False)
+
+            if not needs_processing:
+                logging.info(f"Tweet {tweet_id} already fully cached (cache_complete=True), skipping...")
                 continue
 
+            logging.info(f"Processing cache for tweet {tweet_id} (force_recache={force_recache}, cache_complete={existing_tweet.get('cache_complete', False)})")
+
+            # --- Fetch Core Tweet Data (if needed) ---
             tweet_data = existing_tweet if existing_tweet else {}
             if not tweet_data or force_recache:
                 tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
-                tweet_data = await fetch_tweet_data_playwright(tweet_url, config)
-                if not tweet_data:
-                    logging.error(f"Failed to fetch tweet {tweet_id}")
-                    continue
+                logging.info(f"Fetching core data for tweet {tweet_id}")
+                fetched_data = await fetch_tweet_data_playwright(tweet_url, config)
+                if not fetched_data:
+                    logging.error(f"Failed to fetch core data for tweet {tweet_id}, skipping")
+                    tweet_successfully_cached_this_run = False
+                    continue # Cannot proceed without core data
+                # Merge fetched data
+                tweet_data.update(fetched_data)
+                # Reset dependent flags if forcing a full recache
+                if force_recache:
+                    tweet_data['urls_expanded'] = False
+                    tweet_data['downloaded_media'] = []
+                    tweet_data['media_processed'] = False
+                    tweet_data['categories_processed'] = False
+                    tweet_data['kb_item_created'] = False
+            else:
+                 logging.debug(f"Using existing core data for tweet {tweet_id}")
 
-            # Expand URLs if present and not already expanded
-            if 'urls' in tweet_data and not tweet_data.get('urls_expanded', False):
+            # --- Expand URLs (if needed) ---
+            urls_present = 'urls' in tweet_data and tweet_data['urls']
+            needs_url_expansion = urls_present and (force_recache or not tweet_data.get('urls_expanded', False))
+
+            if needs_url_expansion:
+                logging.info(f"Expanding URLs for tweet {tweet_id}")
                 expanded_urls = []
+                # url_expansion_failed = False # Optional: track if any single URL fails
                 for url in tweet_data.get('urls', []):
                     try:
                         expanded = await expand_url(url)
                         expanded_urls.append(expanded)
                     except Exception as e:
-                        logging.warning(f"Failed to expand URL {url}: {e}")
-                        expanded_urls.append(url)
+                        logging.warning(f"Failed to expand URL {url} for tweet {tweet_id}: {e}")
+                        expanded_urls.append(url) # Keep original on failure
+                        # url_expansion_failed = True
+                # if url_expansion_failed: tweet_successfully_cached_this_run = False
                 tweet_data['urls'] = expanded_urls
-                tweet_data['urls_expanded'] = True
+                tweet_data['urls_expanded'] = True # Mark expanded even if some failed to expand
+            elif urls_present:
+                 logging.debug(f"URLs already expanded for tweet {tweet_id}")
 
-            # Download media if present and not already downloaded or forced
-            if 'media' in tweet_data and (force_recache or not tweet_data.get('downloaded_media')):
+            # --- Download/Verify Media (if needed) ---
+            media_present = 'media' in tweet_data and tweet_data['media']
+            # Trigger media check/download if media exists AND (forced or cache was incomplete)
+            needs_media_processing = media_present and needs_processing
+
+            if needs_media_processing:
+                logging.info(f"Verifying/downloading media for tweet {tweet_id}")
                 media_dir = Path(config.media_cache_dir) / tweet_id
                 media_dir.mkdir(parents=True, exist_ok=True)
-                media_paths = []
+                # Start with existing list unless forcing full recache
+                downloaded_media_paths = tweet_data.get('downloaded_media', []) if not force_recache else []
+                current_media_paths_set = set(downloaded_media_paths) # For efficient adding check
+                media_download_failed = False
 
-                for idx, media_item in enumerate(tweet_data['media']):
+                for idx, media_item in enumerate(tweet_data.get('media', [])):
                     try:
                         url = media_item.get('url', '') if isinstance(media_item, dict) else str(media_item)
                         media_type = media_item.get('type', 'image') if isinstance(media_item, dict) else 'image'
@@ -56,29 +93,78 @@ async def cache_tweets(tweet_ids: List[str], config: Config, http_client: HTTPCl
                             logging.warning(f"No valid URL in media item {idx} for tweet {tweet_id}")
                             continue
 
+                        # Determine expected filename
                         ext = '.mp4' if media_type == 'video' else (Path(urlparse(url).path).suffix or '.jpg')
-                        media_path = media_dir / f"media_{idx}{ext}"
+                        ext = ''.join(c for c in ext if c.isalnum() or c == '.')[:5] # Sanitize extension
+                        media_filename = f"media_{idx}{ext}"
+                        media_path = media_dir / media_filename
+                        media_path_str = str(media_path)
 
-                        if not media_path.exists():
-                            logging.info(f"Downloading media from {url} to {media_path}")
-                            await http_client.download_media(url, media_path)
-                            if not media_path.exists():
-                                logging.error(f"Media download failed for {url} at {media_path}")
-                                continue
-                        media_paths.append(str(media_path))
+                        # Download if forced OR if the file doesn't exist
+                        if force_recache or not media_path.exists():
+                             if not media_path.exists():
+                                 logging.info(f"Media file missing: {media_path}. Downloading...")
+                             else: # force_recache must be true
+                                 logging.info(f"Forcing re-download of media: {media_path}")
+
+                             await http_client.download_media(url, media_path)
+                             if not media_path.exists():
+                                 logging.error(f"Media download FAILED for {url} (-> {media_path})")
+                                 media_download_failed = True
+                                 # Remove path from set if download failed and it was there before (e.g. during force_recache)
+                                 current_media_paths_set.discard(media_path_str)
+                                 continue # Skip adding path if download failed
+
+                        # Ensure path is in the list if the file exists now
+                        if media_path.exists():
+                            current_media_paths_set.add(media_path_str)
+                        else:
+                            # If file doesn't exist after check/download attempt, something is wrong
+                            logging.warning(f"Media path {media_path_str} confirmed non-existent after check/download attempt for tweet {tweet_id}")
+                            media_download_failed = True
+                            current_media_paths_set.discard(media_path_str) # Ensure it's not in the final list
+
                     except Exception as e:
-                        logging.error(f"Failed to download media item {idx} for tweet {tweet_id}: {e}")
-                        continue
+                        logging.error(f"Error processing media item {idx} for tweet {tweet_id}: {e}", exc_info=True)
+                        media_download_failed = True
+                        continue # Skip this item on error
 
-                tweet_data['downloaded_media'] = media_paths
+                # Update the list in tweet_data based on the final set of existing files
+                tweet_data['downloaded_media'] = sorted(list(current_media_paths_set)) # Sort for consistency
 
-            tweet_data['cache_complete'] = True
+                # If any download/check failed, the overall cache isn't complete for this run
+                if media_download_failed:
+                    tweet_successfully_cached_this_run = False
+                    logging.warning(f"One or more media downloads/verifications failed for tweet {tweet_id}, marking cache incomplete for this run.")
+
+            elif media_present:
+                 logging.debug(f"Media check skipped for tweet {tweet_id} as cache was already complete and force_recache=False.")
+
+            # --- Final Update ---
+            # Only mark cache_complete True if all required steps *for this run* succeeded
+            if tweet_successfully_cached_this_run:
+                 tweet_data['cache_complete'] = True
+                 logging.info(f"Successfully processed cache for tweet {tweet_id}")
+            else:
+                 # Ensure cache_complete is false if any step failed
+                 tweet_data['cache_complete'] = False
+                 logging.warning(f"Cache processing incomplete for tweet {tweet_id} in this run, cache_complete set to False.")
+
+            # Always save the latest state back to StateManager
             await state_manager.update_tweet_data(tweet_id, tweet_data)
-            logging.info(f"Cached tweet {tweet_id}: {len(tweet_data.get('urls', []))} URLs, {len(tweet_data.get('downloaded_media', []))} media items")
 
         except Exception as e:
-            logging.error(f"Failed to cache tweet {tweet_id}: {e}")
-            continue
+            logging.error(f"Unhandled exception caching tweet {tweet_id}: {e}", exc_info=True)
+            # Attempt to mark as incomplete in state manager on unexpected error
+            try:
+                failed_tweet_data = await state_manager.get_tweet(tweet_id) # Get latest state again
+                if failed_tweet_data:
+                     failed_tweet_data['cache_complete'] = False
+                     await state_manager.update_tweet_data(tweet_id, failed_tweet_data)
+                     logging.info(f"Marked tweet {tweet_id} cache_complete=False due to unhandled exception.")
+            except Exception as inner_e:
+                 logging.error(f"Failed to mark tweet {tweet_id} as incomplete after outer exception: {inner_e}")
+            continue # Move to next tweet
 
 class TweetCacheValidator:
     """Validates the integrity of the tweet cache and fixes inconsistencies.

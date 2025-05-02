@@ -26,7 +26,7 @@ def generate_tweet_markdown_content(
     tweet_url: str,
     tweet_text: str,
     image_descriptions: List[str],
-    image_filenames: List[str] = None
+    image_filenames: List[str] # Expect filenames like image_1.jpg, video_1.mp4
 ) -> str:
     """Generate markdown content for a tweet with correct image references."""
     formatted_tweet_text = format_links_in_text(tweet_text)
@@ -39,15 +39,30 @@ def generate_tweet_markdown_content(
         ""
     ]
 
-    # Use provided filenames or default to image_{i+1}.jpg
-    if not image_filenames:
-        image_filenames = [f"image_{i+1}.jpg" for i in range(len(image_descriptions))]
+    # Iterate through the actual filenames that were copied.
+    if image_filenames:
+        logging.info(f"Generating markdown for {len(image_filenames)} media files: {image_filenames}")
+        for i, filename in enumerate(image_filenames):
+            # Safely get the corresponding description, providing a default if index is out of bounds
+            desc = image_descriptions[i] if i < len(image_descriptions) else "No description available"
+            if not desc: # Handle empty string descriptions
+                desc = "No description available"
 
-    for i, (desc, filename) in enumerate(zip(image_descriptions, image_filenames)):
-        lines.append(f"**Image {i+1} Description:** {desc}")
-        lines.append(f"![Image {i+1}](./{filename})")
-        lines.append("")
-    return "\n".join(lines)
+            # Add description header
+            file_type = "Image" if filename.startswith("image_") else "Video" if filename.startswith("video_") else "Media"
+            lines.append(f"**{file_type} {i+1} Description:** {desc}")
+
+            # Generate the relative markdown link
+            # Ensure filename does not contain problematic characters (should be handled by copy logic, but double-check)
+            clean_filename = filename.replace("(", "%28").replace(")", "%29") # Basic URL encoding for parens
+            image_link = f"![{file_type} {i+1}](./{clean_filename})"
+            logging.debug(f"Adding markdown media link: {image_link}")
+            lines.append(image_link)
+            lines.append("")
+    else:
+        logging.info("No image filenames provided, skipping media embedding in markdown.")
+
+    return "\\n".join(lines)
 
 class MarkdownWriter:
     """Handles writing content to markdown files in the knowledge base."""
@@ -56,34 +71,44 @@ class MarkdownWriter:
         self.config = config
         self.path_normalizer = PathNormalizer()
         self.dir_manager = DirectoryManager()
-        self.valid_image_extensions = ('.jpg', '.jpeg', '.png', '.webp')  # Could move to Config
+        # Define allowed extensions (lowercase)
+        self.allowed_media_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.mov', '.avi', '.mkv', '.webm') # Added video
 
     async def _validate_and_copy_media(self, media_files: List[Path], target_dir: Path) -> AsyncGenerator[tuple, None]:
         """Validate and copy media files, yielding valid files copied and their new names."""
-        valid_files = [img for img in media_files if img.suffix.lower() in self.valid_image_extensions]
-        if len(valid_files) != len(media_files):
-            invalid_files = [img.name for img in media_files if img not in valid_files]
-            logging.warning(f"Invalid media types skipped: {invalid_files}")
-
-        for i, img_path in enumerate(valid_files):
-            if img_path.exists():
-                # Extract the original index from the filename if it follows media_X pattern
-                original_idx = None
-                if img_path.stem.startswith('media_'):
-                    try:
-                        original_idx = int(img_path.stem.split('_')[1])
-                    except (IndexError, ValueError):
-                        pass
-                
-                # Use consistent naming: image_{i+1}{suffix}
-                img_name = f"image_{i+1}{img_path.suffix.lower()}"
-                new_path = target_dir / img_name
-                await self.dir_manager.copy_file(img_path, new_path)
-                
-                # Yield both the original path and the new name for tracking
-                yield (img_path, img_name)
+        valid_files = []
+        invalid_files = []
+        for img in media_files:
+            # Check extension against allowed list (case-insensitive)
+            if img.suffix.lower() in self.allowed_media_extensions:
+                valid_files.append(img)
             else:
-                logging.warning(f"Media file not found, skipping: {img_path}")
+                invalid_files.append(img.name)
+
+        if invalid_files:
+            logging.warning(f"Invalid or unsupported media types skipped: {invalid_files}")
+
+        for i, media_path in enumerate(valid_files):
+            if media_path.exists():
+                # Determine the new name based on type for clarity, using a consistent index
+                file_suffix = media_path.suffix.lower()
+                if file_suffix in ('.mp4', '.mov', '.avi', '.mkv', '.webm'):
+                    media_name = f"video_{i+1}{file_suffix}"
+                else: # Assume image
+                    media_name = f"image_{i+1}{file_suffix}"
+
+                new_path = target_dir / media_name
+                try:
+                    await self.dir_manager.copy_file(media_path, new_path)
+                    # Add explicit log after successful copy
+                    logging.info(f"Successfully copied {media_path} to {new_path}")
+                    yield (media_path, media_name)
+
+                except Exception as e:
+                     # Ensure errors are logged clearly
+                     logging.error(f"Failed to copy media file {media_path} to {new_path}: {e}", exc_info=True)
+            else:
+                logging.warning(f"Media file not found, skipping: {media_path}")
 
     async def write_tweet_markdown(
         self,
@@ -97,8 +122,8 @@ class MarkdownWriter:
         item_name: str = None,
         tweet_text: str = None,
         tweet_url: str = None
-    ) -> str:
-        """Write tweet markdown using cached tweet data, returning the content file path."""
+    ) -> tuple[str, List[str]]:
+        """Write tweet markdown using cached tweet data, returning the content file path and copied media paths."""
         categories = tweet_data.get('categories')
         if not categories:
             raise MarkdownGenerationError(f"No category data found for tweet {tweet_id}")
@@ -118,39 +143,80 @@ class MarkdownWriter:
                 tweet_folder = root_dir / main_category / sub_category / safe_item_name
 
         temp_folder = tweet_folder.with_suffix('.temp')
-        temp_folder.mkdir(parents=True, exist_ok=True)
+        # Ensure target directory exists before copying
+        await self.dir_manager.ensure_dir_exists(temp_folder)
 
         try:
             if not tweet_text.strip():
                 logging.warning(f"Empty tweet text for tweet {tweet_id}")
 
             # Copy valid media files and track new filenames
-            cleanup_files = []
-            image_filenames = []
-            
+            copied_media_info = [] # Store tuples of (original_path, new_filename)
             async for img_path, new_filename in self._validate_and_copy_media(image_files, temp_folder):
-                cleanup_files.append(img_path)
-                image_filenames.append(new_filename)
+                # Log the details being collected
+                logging.info(f"Collected media for markdown: Original={img_path}, New={new_filename}")
+                copied_media_info.append((img_path, new_filename))
+
+            # Extract just the filenames for markdown generation
+            image_filenames = [info[1] for info in copied_media_info]
+            copied_media_paths = [str(temp_folder / fname) for fname in image_filenames] # Use temp_folder path initially
+
+            # Log before generating content
+            logging.info(f"Generating markdown with image filenames: {image_filenames}")
+            logging.info(f"Corresponding descriptions count: {len(image_descriptions)}")
+            if len(image_filenames) != len(image_descriptions):
+                logging.warning("Mismatch between number of copied images and descriptions!")
+                # Adjust descriptions list to match filenames to avoid errors, though this might lose data
+                image_descriptions = image_descriptions[:len(image_filenames)]
 
             # Generate content with correct filenames
             content_md = generate_tweet_markdown_content(
-                item_name, 
-                tweet_url, 
-                tweet_text, 
+                item_name,
+                tweet_url,
+                tweet_text,
                 image_descriptions,
-                image_filenames
+                image_filenames=image_filenames
             )
+            logging.debug(f"Generated markdown content for tweet {tweet_id}: {content_md[:500]}...")  # Log first 500 chars for debugging
             
-            content_md_path = temp_folder / "README.md"  # Use README.md instead of content.md
+            content_md_path = temp_folder / "README.md"
+            logging.info(f"Writing markdown content to {content_md_path}")
             async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
                 await f.write(content_md)
+            logging.info(f"Successfully wrote markdown content to {content_md_path}")
 
-            # Cleanup original files
-            for img_path in image_files:
-                if img_path.exists() and img_path in cleanup_files:
-                    img_path.unlink()
+            # Rename the folder *after* all writes are complete
+            async with _folder_creation_lock:
+                if tweet_folder.exists():
+                    logging.warning(f"Destination folder {tweet_folder} exists, removing before rename.")
+                    # Use async removal if possible, or sync if needed
+                    shutil.rmtree(tweet_folder) # Consider adding async equivalent if needed
+                temp_folder.rename(tweet_folder)
+                logging.info(f"Renamed {temp_folder} to {tweet_folder}")
 
-            return str(tweet_folder / "README.md")
+            # Return the *final* correct path and the final copied media paths
+            final_readme_path = tweet_folder / "README.md"
+            final_copied_media_paths = [str(tweet_folder / fname) for fname in image_filenames]
+
+            # Validate media references in the final README
+            async with aiofiles.open(final_readme_path, 'r', encoding="utf-8") as f:
+                final_content = await f.read()
+            if not validate_media_references(final_content, tweet_folder):
+                logging.error(f"Media references validation failed for {final_readme_path}. Media links may be broken.")
+                # Force rewrite with correct content if validation fails
+                logging.info(f"Rewriting README for tweet {tweet_id} to ensure media links.")
+                content_md = generate_tweet_markdown_content(
+                    item_name,
+                    tweet_url,
+                    tweet_text,
+                    image_descriptions,
+                    image_filenames=image_filenames
+                )
+                async with aiofiles.open(final_readme_path, 'w', encoding="utf-8") as f:
+                    await f.write(content_md)
+                logging.info(f"Rewrote markdown content to {final_readme_path}")
+
+            return str(final_readme_path), final_copied_media_paths
 
         except Exception as e:
             logging.error(f"Failed to write tweet markdown for {tweet_id}: {str(e)}")
@@ -164,8 +230,8 @@ class MarkdownWriter:
         media_files: List[Path],
         media_descriptions: List[str],
         root_dir: Path
-    ) -> Path:
-        """Write knowledge base item to markdown with media, returning the README path."""
+    ) -> tuple[Path, List[str]]:
+        """Write knowledge base item to markdown with media, returning the README path and copied media paths."""
         try:
             kb_path = create_kb_path(
                 item.category_info.main_category,
@@ -182,26 +248,43 @@ class MarkdownWriter:
                 # Ensure tweet URL is included
                 content = f"{item.content}\n\n---\n**Source**: [Original Tweet]({item.source_tweet['url']})"
                 
+                # Append media links if media files are provided and not already in content
+                if media_files and not any(f"![Image" in content or f"![Video" in content for content in content.split('\n')):
+                    logging.info(f"Appending media links to content for KB item {item.title}")
+                    content += "\n\n## Media Content\n"
+                    for i, media_path in enumerate(media_files):
+                        file_suffix = media_path.suffix.lower()
+                        file_type = "Video" if file_suffix in ('.mp4', '.mov', '.avi', '.mkv', '.webm') else "Image"
+                        media_name = f"{file_type.lower()}_{i+1}{file_suffix}"
+                        desc = media_descriptions[i] if i < len(media_descriptions) else "No description available"
+                        content += f"**{file_type} {i+1} Description:** {desc}\n"
+                        content += f"![{file_type} {i+1}](./{media_name})\n\n"
+                
                 readme_path = temp_dir / "README.md"
                 async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
                     await f.write(content)
+                logging.info(f"Wrote content to {readme_path} with media links appended if necessary")
 
                 cleanup_files = []
+                copied_media_paths = []
                 if media_files:
                     async for img_path, img_name in self._validate_and_copy_media(media_files, temp_dir):
                         cleanup_files.append(img_path)
+                        copied_media_paths.append(str(temp_dir / img_name))
 
                 if kb_path.exists():
                     shutil.rmtree(kb_path)
                 temp_dir.rename(kb_path)
 
-                # Cleanup original files
+                # Cleanup original files (optional)
                 if media_files:
                     for img_path in media_files:
                         if img_path.exists() and img_path in cleanup_files:
-                            img_path.unlink()
+                            # Optionally uncomment to delete originals from cache
+                            # img_path.unlink()
+                            pass
 
-                return kb_path
+                return kb_path, copied_media_paths
 
             except Exception as e:
                 logging.error(f"Failed to write KB item content: {str(e)}")
@@ -212,33 +295,6 @@ class MarkdownWriter:
         except Exception as e:
             logging.error(f"Failed to create KB item directory: {str(e)}")
             raise MarkdownGenerationError(f"Failed to write KB item: {str(e)}")
-
-    def _generate_content(
-        self,
-        item: KnowledgeBaseItem,
-        media_files: List[Path] = None,
-        media_descriptions: List[str] = None
-    ) -> str:
-        """Generate markdown content with proper formatting."""
-        content = item.content
-        source_section = [
-            "\n## Source\n",
-            f"- Original Tweet: [{item.source_tweet['url']}]({item.source_tweet['url']})",
-            f"- Date: {item.source_tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-        ]
-        
-        media_section = []
-        if media_files and media_descriptions:
-            media_section.append("\n## Media\n")
-            for idx, (media, desc) in enumerate(zip(media_files, media_descriptions), 1):
-                media_section.extend([
-                    f"### Media {idx}",
-                    f"![{media.stem}](./{media.name})",
-                    f"**Description:** {desc}\n"
-                ])
-        
-        timestamp = f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
-        return content + '\n'.join(source_section + media_section) + timestamp
 
 def validate_media_references(content: str, directory: Path) -> bool:
     """Validate that all media references in the content exist in the directory."""

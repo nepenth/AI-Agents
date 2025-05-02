@@ -2,91 +2,142 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Knowledge Base Agent Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Base Agent</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        #console { 
-            background: #f5f5f5; 
-            border: 1px solid #ccc; 
-            padding: 10px; 
-            height: 300px; 
-            overflow-y: auto; 
-            white-space: pre-wrap; 
-        }
-        .log-info { color: #333; }
-        .log-warning { color: #ff9800; }
-        .log-error { color: #f44336; }
-    </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1>Knowledge Base Agent Dashboard</h1>
-        <div class="mb-3">
-            <h3>Configure Agent Preferences</h3>
-            <form id="preferencesForm">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="updateBookmarks" name="update_bookmarks">
-                    <label class="form-check-label" for="updateBookmarks">Fetch new bookmarks</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="reviewExisting" name="review_existing">
-                    <label class="form-check-label" for="reviewExisting">Re-review processed tweets</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="recreateCache" name="recreate_tweet_cache">
-                    <label class="form-check-label" for="recreateCache">Re-cache all tweet data</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="regenerateReadme" name="regenerate_readme" checked>
-                    <label class="form-check-label" for="regenerateReadme">Regenerate README</label>
-                </div>
-                <button type="button" class="btn btn-primary mt-2" onclick="startAgent()">Run Agent</button>
-                <button type="button" class="btn btn-danger mt-2" onclick="stopAgent()">Stop Agent</button>
-            </form>
-        </div>
-        <div class="progress mb-3">
-            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-        </div>
-        <h2>Console Output</h2>
-        <div id="console" class="rounded"></div>
+    <div class="header">
+        Knowledge Base Agent
+        <button id="darkModeToggle" class="btn btn-outline-light btn-sm float-end" onclick="toggleDarkMode()">
+            <i class="bi bi-moon"></i>/<i class="bi bi-sun"></i>
+        </button>
     </div>
 
-    <script>
-        const socket = io();
-        const consoleDiv = document.getElementById('console');
-        const progressBar = document.getElementById('progressBar');
+    <div class="container-custom">
+        <div class="sidebar">
+            <h5 class="px-3 mb-3">Navigation</h5>
+            <div class="list-group">
+                <!-- Agent Section -->
+                <a class="list-group-item list-group-item-action nav-link-item" data-bs-toggle="collapse" href="#collapseAgent" role="button" aria-expanded="true" aria-controls="collapseAgent">
+                    <i class="bi bi-gear me-2"></i> Agent
+                </a>
+                <div class="collapse show" id="collapseAgent">
+                    <a class="list-group-item list-group-item-action subcategory-item" href="/" onclick="loadAgentControls(event)">
+                        <i class="bi bi-play-circle me-2"></i> Run Agent & Live Logs
+                    </a>
+                    <a class="list-group-item list-group-item-action subcategory-item" href="/logs" onclick="loadLogsPage(event)">
+                        <i class="bi bi-archive me-2"></i> View Past Logs
+                    </a>
+                </div>
 
-        socket.on('log', function(data) {
-            const logLine = document.createElement('div');
-            logLine.textContent = data.message;
-            logLine.className = `log-${data.level.toLowerCase()}`;
-            consoleDiv.appendChild(logLine);
-            consoleDiv.scrollTop = consoleDiv.scrollHeight;
-        });
+                <!-- Knowledge Base Section -->
+                <a class="list-group-item list-group-item-action nav-link-item d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseKB" role="button" aria-expanded="true" aria-controls="collapseKB">
+                    <span><i class="bi bi-book me-2"></i> Knowledge Base</span>
+                    <span class="badge bg-secondary rounded-pill">{{ items|length }}</span>
+                </a>
+                <div class="collapse show" id="collapseKB">
+                    <div class="search-bar p-2">
+                        <input type="text" class="form-control form-control-sm" id="searchKB" placeholder="Search Knowledge Base...">
+                    </div>
+                    <ul class="list-unstyled ps-3"> {# Main category list #}
+                    {% if items %}
+                        {% set categories = items|groupby('main_category')|sort(attribute='grouper') %}
+                        {% for main_category, main_group in categories %}
+                            {# *** Capture outer loop index *** #}
+                            {% set main_cat_index = loop.index %}
+                            <li>
+                                <a href="#collapseCat{{ main_cat_index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseCat{{ main_cat_index }}" class="nav-link sidebar-link d-block">
+                                    {{ main_category|replace('_', ' ')|title }}
+                                </a>
+                                <div class="collapse" id="collapseCat{{ main_cat_index }}">
+                                    <ul class="list-unstyled ps-3"> {# Sub category list #}
+                                    {% set subcategories = main_group|groupby('sub_category')|sort(attribute='grouper') %}
+                                    {% for sub_category, sub_group in subcategories %}
+                                        {# *** Use captured outer index (main_cat_index) and inner index (loop.index) *** #}
+                                        {% set sub_cat_loop_index = loop.index %}
+                                        <li>
+                                            <a href="#collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}" class="nav-link sidebar-link d-block">
+                                                {{ sub_category|replace('_', ' ')|title }}
+                                            </a>
+                                            <div class="collapse" id="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}">
+                                                <ul class="list-unstyled ps-3"> {# Item list #}
+                                                {% for item in sub_group|sort(attribute='title') %}
+                                                    <li>
+                                                        <a href="{{ url_for('item_detail', id=item.id) }}" class="nav-link sidebar-link item-link">
+                                                            {{ item.title }}
+                                                        </a>
+                                                    </li>
+                                                {% endfor %}
+                                                </ul>
+                                            </div>
+                                        </li>
+                                    {% endfor %}
+                                    </ul>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="px-3 py-2 text-muted">No items found.</li>
+                    {% endif %}
+                    </ul>
+                </div>
+                <!-- End Knowledge Base Section -->
+            </div>
+        </div>
+        <div class="main-content">
+            <h2>Agent Control Panel</h2>
+            <div class="card control-card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Controls</h5>
+                </div>
+                <div class="card-body">
+                    <form id="controlForm" method="POST" action="/">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="fetchBookmarks" name="update_bookmarks" checked>
+                            <label class="form-check-label" for="fetchBookmarks">Fetch Bookmarks</label>
+                            <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="Retrieve bookmarks from the configured source."></i>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="processTweets" name="review_existing" checked>
+                            <label class="form-check-label" for="processTweets">Process Tweets</label>
+                            <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="Process tweets to generate knowledge base items."></i>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="gitPush" name="git_push" checked>
+                            <label class="form-check-label" for="gitPush">Git Push</label>
+                            <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="Push generated knowledge base items to the configured Git repository."></i>
+                        </div>
+                        <button type="submit" id="startButton" class="btn btn-custom"><i class="bi bi-play-circle"></i> Start Agent</button>
+                        <span id="agentStatus" class="ms-2 text-muted" style="display: none;"><i class="bi bi-gear-fill"></i> Agent Running...</span>
+                    </form>
+                    <div class="progress mt-3" id="progressBarContainer" style="display: none;">
+                        <div class="progress-bar" role="progressbar" style="width: 0%;" id="progressBar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="mt-2" id="progressInfo" style="display: none;">
+                        <small>Processed: <span id="processedCount">0</span> / Total: <span id="totalCount">0</span> | Errors: <span id="errorCount">0</span></small>
+                    </div>
+                </div>
+            </div>
+            <div class="card log-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Logs</h5>
+                </div>
+                <div class="card-body">
+                    <div class="log-area" id="logArea">
+                        <!-- Log messages will be appended here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        socket.on('progress', function(data) {
-            const total = data.total || 1;  // Avoid division by zero
-            const percentage = Math.min(100, Math.round((data.processed / total) * 100));
-            progressBar.style.width = `${percentage}%`;
-            progressBar.textContent = `${percentage}% (${data.processed}/${total})`;
-            progressBar.setAttribute('aria-valuenow', percentage);
-        });
-
-        function startAgent() {
-            const form = document.getElementById('preferencesForm');
-            const options = {
-                update_bookmarks: form.update_bookmarks.checked,
-                review_existing: form.review_existing.checked,
-                recreate_tweet_cache: form.recreate_tweet_cache.checked,
-                regenerate_readme: form.regenerate_readme.checked
-            };
-            socket.emit('start_agent', options);
-        }
-
-        function stopAgent() {
-            socket.emit('stop_agent');
-        }
-    </script>
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
 </html>
