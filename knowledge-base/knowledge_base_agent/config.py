@@ -92,6 +92,9 @@ class Config(BaseSettings):
         description="Whether to regenerate the root README.md"
     )
     
+    # New attribute for force_recache
+    force_recache: bool = Field(False, alias="FORCE_RECACHE_TWEETS")
+    
     @field_validator("*")
     def validate_paths(cls, v, field):
         if isinstance(v, Path):

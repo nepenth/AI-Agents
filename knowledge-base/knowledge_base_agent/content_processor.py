@@ -20,6 +20,10 @@ import re
 from mimetypes import guess_type
 import shutil
 from knowledge_base_agent.ai_categorization import categorize_and_name_content, AIError
+from flask import current_app
+from knowledge_base_agent.models import KnowledgeBaseItem as DBKnowledgeBaseItem
+from datetime import datetime, timezone
+from flask_socketio import SocketIO
 
 @dataclass
 class ProcessingStats:
@@ -30,13 +34,14 @@ class ProcessingStats:
     readme_generated: bool = False
 
 class ContentProcessor:
-    def __init__(self, config: Config, http_client: HTTPClient, state_manager: StateManager):
+    def __init__(self, config: Config, http_client: HTTPClient, state_manager: StateManager, socketio: SocketIO = None):
         self.config = config
         self.http_client = http_client
         self.category_manager = CategoryManager(config, http_client=http_client)
         self.state_manager = state_manager
         self.stats = ProcessingStats()
         self.text_model = self.http_client.config.text_model
+        self.socketio = socketio
         logging.info(f"Initialized ContentProcessor with model: {self.text_model}")
 
     async def process_all_tweets(
@@ -51,6 +56,8 @@ class ContentProcessor:
         try:
             # Phase 1: Tweet Cache Initialization (and validation via StateManager.initialize)
             logging.info("=== Phase 1: Tweet Cache Initialization & Validation ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 1: Tweet Cache Initialization & Validation started', 'level': 'INFO'})
             # StateManager.initialize() should have run before this, performing validation
             all_tweets = await self.state_manager.get_all_tweets()
             unprocessed = await self.state_manager.get_unprocessed_tweets() # Get fresh list after validation
@@ -61,43 +68,65 @@ class ContentProcessor:
                         f"- Unprocessed: {len(unprocessed)}\n"
                         f"- Processed: {len(processed)}\n"
                         f"- Incomplete Cache: {sum(1 for t in all_tweets.values() if not t.get('cache_complete'))}")
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Phase 1 completed. Total tweets: {len(all_tweets)}, Unprocessed: {len(unprocessed)}', 'level': 'INFO'})
 
             # Phase 1.5: Re-caching Incomplete Tweets ===
             logging.info("=== Phase 1.5: Re-caching Incomplete Tweets ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 1.5: Re-caching Incomplete Tweets started', 'level': 'INFO'})
             uncached_tweets = [tid for tid in unprocessed if not all_tweets.get(tid, {}).get('cache_complete', False)]
-            if uncached_tweets:
-                logging.info(f"Attempting to re-cache {len(uncached_tweets)} tweets with incomplete cache")
+            
+            # Check if force_recache is enabled via config, OR if there are genuinely uncached tweets
+            should_recache = self.config.force_recache or bool(uncached_tweets)
+            tweets_to_recache = list(set(unprocessed)) if self.config.force_recache else uncached_tweets # Recache ALL unprocessed if forced
+
+            if should_recache and tweets_to_recache:
+                logging.info(f"Attempting to re-cache {len(tweets_to_recache)} tweets (force_recache={self.config.force_recache})")
+                if not self.config.force_recache: # Only log details if not forcing all
+                    for tid in tweets_to_recache[:5]: # Log details for first few tweets for debugging
+                        tweet_data = all_tweets.get(tid, {})
+                        logging.debug(f"Tweet {tid} needs caching: cache_complete={tweet_data.get('cache_complete', False)}, data_present={bool(tweet_data)}, media_downloaded={len(tweet_data.get('downloaded_media', [])) if tweet_data else 0}")
+                
                 max_retries = 3
-                caching_errors = 0 # Track caching errors separately
+                caching_errors = 0  # Track caching errors separately
                 for attempt in range(max_retries):
                     try:
                         # Pass only the tweets needing caching for this attempt
-                        await cache_tweets(uncached_tweets, self.config, self.http_client, self.state_manager, force_recache=True)
-                        await asyncio.sleep(1) # Give some time for state to potentially update
-                        all_tweets = await self.state_manager.get_all_tweets() # Refresh after caching attempt
-                        remaining_uncached = [tid for tid in uncached_tweets if not all_tweets.get(tid, {}).get('cache_complete', False)]
+                        # Use self.config.force_recache directly
+                        await cache_tweets(tweets_to_recache, self.config, self.http_client, self.state_manager, force_recache=self.config.force_recache) 
+                        await asyncio.sleep(1)  # Give some time for state to potentially update
+                        all_tweets = await self.state_manager.get_all_tweets()  # Refresh after caching attempt
+                        
+                        # Re-evaluate remaining uncached based on the actual list we attempted to cache
+                        remaining_uncached_after_attempt = [tid for tid in tweets_to_recache if not all_tweets.get(tid, {}).get('cache_complete', False)]
 
-                        if not remaining_uncached:
-                            logging.info(f"Successfully cached remaining {len(uncached_tweets)} tweets.")
-                            uncached_tweets = [] # Clear the list
-                            break # Exit retry loop
+                        if not remaining_uncached_after_attempt:
+                            logging.info(f"Successfully cached remaining {len(tweets_to_recache)} tweets.")
+                            tweets_to_recache = [] # Clear the list for this phase
+                            break  # Exit retry loop
 
-                        logging.warning(f"Retry {attempt + 1}/{max_retries}: {len(remaining_uncached)} tweets still uncached.")
-                        uncached_tweets = remaining_uncached # Update list for next retry
+                        logging.warning(f"Retry {attempt + 1}/{max_retries}: {len(remaining_uncached_after_attempt)} tweets still uncached.")
+                        tweets_to_recache = remaining_uncached_after_attempt # Update list for next retry
 
                     except Exception as cache_exc:
                          # Log the error during the caching call itself
                          logging.error(f"Error during cache_tweets call (Attempt {attempt + 1}): {cache_exc}")
                          # Decide if we should wait/retry or just note the failure for this attempt
                          if attempt < max_retries - 1:
-                              await asyncio.sleep(2 ** attempt) # Basic backoff before next retry
+                              await asyncio.sleep(2 ** attempt)  # Basic backoff before next retry
                          # Don't break here, let the loop check remaining_uncached
 
-                if uncached_tweets:
-                    caching_errors = len(uncached_tweets)
+                if tweets_to_recache: # Check the potentially updated list
+                    caching_errors = len(tweets_to_recache)
                     logging.error(f"Failed to cache {caching_errors} tweets after {max_retries} attempts. These specific tweets will be skipped in subsequent phases.")
                     # Do NOT add to the main stats.error_count here
-                    # stats.cache_error_count = caching_errors # Optional: track separately
+                    # stats.cache_error_count = caching_errors  # Optional: track separately
+            elif not should_recache:
+                 logging.info("No tweets identified as needing re-caching (force_recache=False).")
+            
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Phase 1.5 completed. Failed to cache: {caching_errors if "caching_errors" in locals() else 0}', 'level': 'INFO'})
 
             # Get the latest list of tweets to process after potential caching failures
             unprocessed = await self.state_manager.get_unprocessed_tweets()
@@ -108,6 +137,8 @@ class ContentProcessor:
 
             # Phase 2: Media Processing with parallelism
             logging.info("=== Phase 2: Media Processing ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 2: Media Processing started', 'level': 'INFO'})
             # Filter for tweets that are in unprocessed list AND have cache_complete = True
             media_todo_ids = [
                 tid for tid in unprocessed
@@ -134,9 +165,13 @@ class ContentProcessor:
                 tasks = [process_media_task(tweet_id) for tweet_id in media_todo_ids]
                 await asyncio.gather(*tasks, return_exceptions=True)
                 all_tweets = await self.state_manager.get_all_tweets() # Refresh state again
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Phase 2 completed. Media processed: {stats.media_processed}', 'level': 'INFO'})
 
             # Phase 3: Category Processing with parallelism
             logging.info("=== Phase 3: Category Processing ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 3: Category Processing started', 'level': 'INFO'})
             cat_todo_ids = [
                 tid for tid in unprocessed
                 if all_tweets.get(tid, {}).get('cache_complete', False) # Ensure cache is complete
@@ -170,12 +205,16 @@ class ContentProcessor:
                 tasks = [process_categories_task(tweet_id) for tweet_id in cat_todo_ids]
                 await asyncio.gather(*tasks, return_exceptions=False) # Don't return exceptions, handle within task
                 all_tweets = await self.state_manager.get_all_tweets() # Refresh state
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Phase 3 completed. Categories processed: {stats.categories_processed}', 'level': 'INFO'})
 
             # Phase 4: Knowledge Base Creation
             logging.info("=== Phase 4: Knowledge Base Creation ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 4: Knowledge Base Creation started', 'level': 'INFO'})
             kb_todo_ids = [
                 tid for tid in unprocessed
-                if all_tweets.get(tid, {}).get('cache_complete', False) # Ensure cache is complete
+                if all_tweets.get(tid, {}).get('cache_complete', False)  # Ensure cache is complete
                 and all_tweets.get(tid, {}).get('media_processed', False)
                 and all_tweets.get(tid, {}).get('categories_processed', False)
                 and not all_tweets.get(tid, {}).get('kb_item_created', False)
@@ -183,12 +222,10 @@ class ContentProcessor:
             logging.info(f"KB Items Needed: {len(kb_todo_ids)} tweets")
             processed_in_phase = 0
             if kb_todo_ids:
-                # Process KB items sequentially for now to avoid FS race conditions? Or use locks?
-                # Let's try sequential for stability first.
                 for tweet_id in kb_todo_ids:
                     # Refresh data just before processing
                     tweet_data = await self.state_manager.get_tweet(tweet_id)
-                    if not tweet_data: continue # Should not happen if in unprocessed list
+                    if not tweet_data: continue  # Should not happen if in unprocessed list
 
                     # Check conditions again before expensive operation
                     if not (tweet_data.get('cache_complete', False) and
@@ -207,7 +244,7 @@ class ContentProcessor:
 
                         # Write the markdown file and copy media
                         markdown_writer = MarkdownWriter(self.config)
-                        kb_path_dir = await markdown_writer.write_kb_item(
+                        kb_path_dir, copied_media_paths = await markdown_writer.write_kb_item(
                             item=kb_item,
                             media_files=media_files,
                             media_descriptions=tweet_data.get('image_descriptions', []),
@@ -215,19 +252,53 @@ class ContentProcessor:
                         )
 
                         # Update state: mark KB created and store path (relative to project root preferably)
-                        # Convert absolute path returned by writer to relative for storage consistency
                         try:
                             relative_kb_path = kb_path_dir.relative_to(Path(self.config.knowledge_base_dir).parent)
                         except ValueError:
-                             logging.warning(f"Could not make KB path {kb_path_dir} relative to {Path(self.config.knowledge_base_dir).parent}. Storing absolute.")
-                             relative_kb_path = kb_path_dir # Store absolute path as fallback
+                            logging.warning(f"Could not make KB path {kb_path_dir} relative to {Path(self.config.knowledge_base_dir).parent}. Storing absolute.")
+                            relative_kb_path = kb_path_dir  # Store absolute path as fallback
 
+                        # Update tweet data with copied media paths
+                        tweet_data['kb_media_paths'] = copied_media_paths
+                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                         await self.state_manager.mark_kb_item_created(tweet_id, str(relative_kb_path))
-                        stats.processed_count += 1 # Increment only on successful KB item creation?
+                        stats.processed_count += 1
                         logging.debug(f"Created KB item for tweet {tweet_id} at {kb_path_dir}")
                         processed_in_phase += 1
 
-                        # Note: Copying media is handled within write_kb_item now
+                        # Ensure the item is added to the database with tweet_id
+                        from knowledge_base_agent.models import KnowledgeBaseItem
+                        with current_app.app_context():
+                            readme_path = kb_path_dir / "README.md"
+                            if readme_path.exists():
+                                async with aiofiles.open(readme_path, 'r', encoding='utf-8') as f:
+                                    content = await f.read()
+                                
+                                categories = tweet_data.get('categories', {})
+                                existing_item = current_app.extensions['sqlalchemy'].session.query(KnowledgeBaseItem).filter_by(tweet_id=tweet_id).first()
+                                if not existing_item:
+                                    new_item = KnowledgeBaseItem(
+                                        tweet_id=tweet_id,
+                                        title=categories.get('item_name', f"Tweet {tweet_id}"),
+                                        description=tweet_data.get('full_text', '')[:200] if tweet_data.get('full_text') else '',
+                                        content=content,
+                                        main_category=categories.get('main_category', 'Uncategorized'),
+                                        sub_category=categories.get('sub_category', 'Uncategorized'),
+                                        item_name=categories.get('item_name', f"tweet_{tweet_id}"),
+                                        source_url=f"https://twitter.com/i/web/status/{tweet_id}",
+                                        file_path=str(relative_kb_path / "README.md"),
+                                        created_at=datetime.now(timezone.utc),
+                                        last_updated=datetime.now(timezone.utc)
+                                    )
+                                    current_app.extensions['sqlalchemy'].session.add(new_item)
+                                    current_app.extensions['sqlalchemy'].session.commit()
+                                    logging.info(f"Added new KB item for tweet {tweet_id} to database during creation.")
+                                else:
+                                    logging.debug(f"KB item for tweet {tweet_id} already exists in database, updating content.")
+                                    existing_item.content = content
+                                    existing_item.file_path = str(relative_kb_path / "README.md")
+                                    existing_item.last_updated = datetime.now(timezone.utc)
+                                    current_app.extensions['sqlalchemy'].session.commit()
 
                     except Exception as e:
                         logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
@@ -236,9 +307,13 @@ class ContentProcessor:
 
             logging.info(f"Processed {processed_in_phase} tweets in Phase 4")
             all_tweets = await self.state_manager.get_all_tweets() # Refresh state
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Phase 4 completed. KB items processed: {processed_in_phase}', 'level': 'INFO'})
 
             # Phase 5: README Generation
             logging.info("=== Phase 5: README Generation ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 5: README Generation started', 'level': 'INFO'})
             # Regenerate if forced, file missing, or new KB items were created
             should_regenerate = (preferences.regenerate_readme or
                                 not (self.config.knowledge_base_dir / "README.md").exists() or
@@ -253,17 +328,27 @@ class ContentProcessor:
                     # Continue processing other tweets
             else:
                 logging.info("No README regeneration needed based on flags and KB item changes.")
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Phase 5 completed. README generated: {stats.readme_generated}', 'level': 'INFO'})
 
             # Phase 6: Final Validation (Using StateManager's finalization)
             logging.info("\n=== Phase 6: Final Validation and State Update ===")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 6: Final Validation started', 'level': 'INFO'})
             await self.state_manager.finalize_processing()
             # This moves fully validated items to processed list.
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Phase 6 completed. Processing finalized.', 'level': 'INFO'})
 
         except asyncio.CancelledError:
             logging.warning("Agent run cancelled by user")
+            if self.socketio:
+                self.socketio.emit('log', {'message': 'Agent run cancelled by user', 'level': 'WARNING'})
             raise
         except Exception as e:
-            logging.exception(f"Content processing failed unexpectedly: {str(e)}") # Log traceback
+            logging.exception(f"Content processing failed unexpectedly: {str(e)}")
+            if self.socketio:
+                self.socketio.emit('log', {'message': f'Content processing failed: {str(e)}', 'level': 'ERROR'})
             raise ContentProcessingError(f"Processing failed: {e}") from e
 
     async def _regenerate_readme(self) -> None:

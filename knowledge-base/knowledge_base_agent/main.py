@@ -103,19 +103,13 @@ async def main() -> None:
         fetch_bookmarks_input = input("Fetch new bookmarks? (y/n): ").strip().lower()
         fetch_bookmarks = fetch_bookmarks_input == 'y'
         
-        reprocess_tweets_input = input("Reprocess previously processed tweets? (y/n): ").strip().lower()
-        reprocess_tweets = reprocess_tweets_input == 'y'
-        
         preferences = UserPreferences(
             update_bookmarks=fetch_bookmarks,
-            recreate_tweet_cache=reprocess_tweets,
-            regenerate_readme=False  # or set via env var or additional prompt if needed
+            regenerate_readme=False 
         )
         
         logging.info("=== User Selected Preferences ===")
         logging.info(f"- Fetch new bookmarks: {fetch_bookmarks}")
-        logging.info(f"- Re-review processed tweets: {reprocess_tweets}")
-        logging.info(f"- Re-cache all tweet data: {preferences.recreate_tweet_cache}")
         logging.info(f"- Regenerate README: {preferences.regenerate_readme}")
         
         logging.info("Initializing agent...")

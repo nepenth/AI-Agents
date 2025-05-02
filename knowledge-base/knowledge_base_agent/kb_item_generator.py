@@ -224,11 +224,15 @@ async def create_knowledge_base_entry(
     try:
         logging.info(f"Starting knowledge base entry creation for tweet {tweet_id}")
         
+        # Log tweet data details relevant to KB creation
+        logging.info(f"Tweet {tweet_id} data: full_text='{tweet_data.get('full_text', '')[:100]}...', media_count={len(tweet_data.get('media', []))}, downloaded_media={tweet_data.get('downloaded_media', [])}")
+        logging.info(f"Tweet {tweet_id} status: cache_complete={tweet_data.get('cache_complete', False)}, media_processed={tweet_data.get('media_processed', False)}, categories_processed={tweet_data.get('categories_processed', False)}")
+        
         # Process media content first
         logging.info(f"Processing media content for tweet {tweet_id}")
         try:
             tweet_data = await process_media_content(tweet_data, http_client, config)
-            logging.info(f"Successfully processed media for tweet {tweet_id}")
+            logging.info(f"Successfully processed media for tweet {tweet_id}, downloaded_media={tweet_data.get('downloaded_media', [])}, image_descriptions={tweet_data.get('image_descriptions', [])}")
         except Exception as e:
             logging.error(f"Failed to process media content for tweet {tweet_id}: {str(e)}")
             raise
@@ -237,6 +241,7 @@ async def create_knowledge_base_entry(
         content_text = tweet_data.get('full_text', '')
         image_descriptions = tweet_data.get('image_descriptions', [])
         combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions) if image_descriptions else content_text
+        logging.info(f"Tweet {tweet_id} combined content length: {len(combined_text)} characters")
 
         if not combined_text:
             raise ContentProcessingError(f"No content found for tweet {tweet_id}")
@@ -267,6 +272,7 @@ async def create_knowledge_base_entry(
                 'categorized_at': datetime.now().isoformat()
             }
             tweet_data['categories'] = categories
+            logging.info(f"Generated categories for tweet {tweet_id}: {categories}")
             if state_manager:
                 await state_manager.update_tweet_data(tweet_id, tweet_data)
         else:
@@ -279,23 +285,22 @@ async def create_knowledge_base_entry(
         content_text = tweet_data.get('full_text', '')
         tweet_url = tweet_data.get('tweet_url', '')
         
-        # Filter out video files before passing to markdown writer
+        # Include all media files (images and videos) for markdown writer
         media_paths = tweet_data.get('downloaded_media', [])
-        image_files = []
+        media_files = []
         for media_path in media_paths:
             path_obj = Path(media_path)
-            mime_type, _ = guess_type(str(path_obj))
-            is_video = mime_type in VIDEO_MIME_TYPES or path_obj.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv'}
-            if not is_video and path_obj.exists():  # Only include non-video files that exist
-                image_files.append(path_obj)
+            if path_obj.exists():
+                media_files.append(path_obj)
+        logging.info(f"Tweet {tweet_id} filtered media files: {len(media_files)} files, paths={media_files}")
         
         image_descriptions = tweet_data.get('image_descriptions', [])
         
         logging.info(f"Preparing to write markdown for tweet {tweet_id}")
-        logging.info(f"Categories: {main_cat}/{sub_cat}/{item_name}")
-        logging.info(f"Content length: {len(content_text)}")
-        logging.info(f"Number of images: {len(image_files)}")
-        logging.info(f"Tweet data keys: {list(tweet_data.keys())}")
+        logging.info(f"Calling write_tweet_markdown for tweet {tweet_id}:")
+        logging.info(f"  - media_files count: {len(media_files)}")
+        logging.info(f"  - image_descriptions count: {len(image_descriptions)}")
+        logging.debug(f"  - image_descriptions content: {image_descriptions}")
         
         if not content_text:
             raise ContentProcessingError(f"No text content found for tweet {tweet_id}")
@@ -303,11 +308,11 @@ async def create_knowledge_base_entry(
         # Write markdown content
         try:
             markdown_writer = MarkdownWriter(config)
-            await markdown_writer.write_tweet_markdown(
+            readme_path_str, copied_media_paths_str = await markdown_writer.write_tweet_markdown(
                 config.knowledge_base_dir,
                 tweet_id=tweet_id,
                 tweet_data=tweet_data,
-                image_files=image_files,
+                image_files=media_files,  # Changed from image_files to media_files to include videos
                 image_descriptions=image_descriptions,
                 main_category=main_cat,
                 sub_category=sub_cat,
@@ -315,7 +320,22 @@ async def create_knowledge_base_entry(
                 tweet_text=content_text,
                 tweet_url=tweet_url
             )
-            logging.info(f"Successfully wrote markdown for tweet {tweet_id}")
+            logging.info(f"Successfully wrote markdown for tweet {tweet_id} at {readme_path_str}")
+            logging.info(f"Copied media paths for tweet {tweet_id}: {copied_media_paths_str}")
+            
+            # Update kb_media_paths to final paths without .temp
+            final_media_paths = [path.replace('.temp', '') for path in copied_media_paths_str]
+            tweet_data['kb_media_paths'] = final_media_paths
+            logging.info(f"Updated kb_media_paths to final paths for tweet {tweet_id}: {final_media_paths}")
+            
+            # Update kb_item_path to final path without .temp
+            final_kb_item_path = readme_path_str.rsplit('/', 1)[0].replace('.temp', '')
+            tweet_data['kb_item_path'] = final_kb_item_path
+            logging.info(f"Updated kb_item_path to final path for tweet {tweet_id}: {final_kb_item_path}")
+            
+            if state_manager:
+                await state_manager.update_tweet_data(tweet_id, tweet_data)
+                logging.info(f"Updated tweet data with final paths for tweet {tweet_id}")
         except Exception as e:
             logging.error(f"Failed to write markdown for tweet {tweet_id}: {str(e)}")
             raise
@@ -325,6 +345,7 @@ async def create_knowledge_base_entry(
         # Only update state AFTER successful completion
         if state_manager:
             await state_manager.mark_tweet_processed(tweet_id)
+            logging.info(f"Marked tweet {tweet_id} as processed in state manager")
             
     except Exception as e:
         logging.error(f"Failed to create knowledge base entry for {tweet_id}: {str(e)}")
@@ -332,6 +353,7 @@ async def create_knowledge_base_entry(
         if state_manager:
             await state_manager.update_tweet_data(tweet_id, original_state)
             await state_manager.add_unprocessed_tweet(tweet_id)  # Requeue
+            logging.info(f"Restored original state and requeued tweet {tweet_id} due to failure")
         raise StorageError(f"Failed to create knowledge base entry: {e}")
 
 def infer_basic_category(text: str) -> Tuple[str, str]:

@@ -13,7 +13,7 @@ import aiofiles
 from pathlib import Path
 from typing import Set, Dict, Any, List, Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import tempfile
 import os
 import shutil
@@ -92,13 +92,7 @@ class StateManager:
     async def initialize(self) -> None:
         """
         Initialize the state manager by loading existing state and reconciling inconsistencies.
-
-        This method loads state from files, ensures directory structures exist, and performs a thorough
-        reconciliation of tweet states across processed, unprocessed, and cached data. It also validates
-        the knowledge base items to ensure consistency.
-
-        Raises:
-            None: Exceptions are logged but not raised to allow partial initialization.
+        Also synchronizes existing knowledge base items to the local database.
         """
         if self._initialized:
             return
@@ -221,7 +215,7 @@ class StateManager:
             if is_fully_processed_and_valid:
                 if tweet_id not in self._processed_tweets:
                     tweets_to_mark_processed.add(tweet_id)
-                    self._processed_tweets[tweet_id] = datetime.now().isoformat()
+                    self._processed_tweets[tweet_id] = datetime.now(timezone.utc).isoformat()
                     logging.info(f"Tweet {tweet_id} validated as fully processed, adding to processed list")
                 if tweet_id in self._unprocessed_tweets:
                     self._unprocessed_tweets.remove(tweet_id)
@@ -279,7 +273,7 @@ class StateManager:
 
         quarantine_dir = kb_dir / "quarantine"
         quarantine_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         for tweet_id, paths in duplicates.items():
             old_path = [p for p in paths if p != tweet_to_path[tweet_id]][0]
@@ -305,6 +299,12 @@ class StateManager:
             logging.info(f"Reconciliation results: {len(tweets_to_mark_processed)} added/confirmed processed, {len(tweets_to_process)} added/confirmed unprocessed.")
 
         await self.cleanup_unprocessed_tweets()
+
+        # Synchronize existing KB items to database
+        try:
+            await self.sync_knowledge_base_to_db()
+        except Exception as e:
+            logging.error(f"Failed to synchronize KB items to database during initialization: {e}")
 
         self._initialized = True
         logging.info(f"StateManager initialization complete. Final state: {len(self._unprocessed_tweets)} unprocessed, {len(self._processed_tweets)} processed.")
@@ -376,7 +376,7 @@ class StateManager:
                     logging.warning(f"Tweet {tweet_id} not fully processed. Missing steps: {', '.join(filter(None, missing_steps))}")
                     return
 
-                self._processed_tweets[tweet_id] = datetime.now().isoformat()
+                self._processed_tweets[tweet_id] = datetime.now(timezone.utc).isoformat()
                 if tweet_id in self._unprocessed_tweets:
                     self._unprocessed_tweets.remove(tweet_id)
                     logging.debug(f"Removed tweet {tweet_id} from unprocessed list")
@@ -639,11 +639,12 @@ class StateManager:
     async def mark_kb_item_created(self, tweet_id: str, kb_item_path: str) -> None:
         """
         Mark a tweet as having a knowledge base item created and update the cache.
-
+        Also adds the item to the local database.
+        
         Args:
             tweet_id (str): The ID of the tweet to update.
             kb_item_path (str): The path to the created knowledge base item.
-
+            
         Raises:
             StateError: If the tweet is not found in cache or if updating fails.
         """
@@ -657,6 +658,49 @@ class StateManager:
         })
         await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         logging.debug(f"Marked KB item created for tweet {tweet_id} at {kb_item_path}")
+        
+        # Add to database
+        try:
+            from flask import current_app
+            from knowledge_base_agent.models import KnowledgeBaseItem
+            
+            with current_app.app_context():  # Ensure DB operation is in context
+                db_session = current_app.extensions['sqlalchemy'].session
+                readme_path = Path(kb_item_path) / "README.md"
+                
+                if readme_path.exists():
+                    async with aiofiles.open(readme_path, 'r', encoding='utf-8') as f:
+                        content = await f.read()
+                    
+                    lines = content.splitlines()
+                    title = lines[0].strip('# ').strip() if lines else "Untitled Item"
+                    description = " ".join(line.strip() for line in lines[1:4] if line.strip()) or "No description available."
+                    tweet_data = self._tweet_cache[tweet_id]
+                    main_category = tweet_data.get('category', 'Uncategorized')
+                    sub_category = tweet_data.get('subcategory', 'General')
+                    
+                    existing_item = db_session.query(KnowledgeBaseItem).filter_by(tweet_id=tweet_id).first()
+                    if not existing_item:
+                        new_item = KnowledgeBaseItem(
+                            tweet_id=tweet_id,
+                            title=title,
+                            description=description,
+                            content=content,
+                            main_category=main_category,
+                            sub_category=sub_category,
+                            file_path=kb_item_path,
+                            created_at=datetime.now(timezone.utc),
+                            last_updated=datetime.now(timezone.utc)
+                        )
+                        db_session.add(new_item)
+                        db_session.commit()
+                        logging.info(f"Added new KB item for tweet {tweet_id} to database.")
+                    else:
+                        logging.debug(f"KB item for tweet {tweet_id} already exists in database, skipping addition.")
+                else:
+                    logging.warning(f"README.md not found at {readme_path}, skipping DB addition for tweet {tweet_id}.")
+        except Exception as e:
+            logging.error(f"Failed to add KB item for tweet {tweet_id} to database: {e}")
 
     async def mark_media_processed(self, tweet_id: str) -> None:
         """
@@ -766,156 +810,210 @@ class StateManager:
             ("software_engineering", "best_practices"),
             # Add any other known fallback/default category pairs here
         ]
+        kb_base = Path(self.config.knowledge_base_dir)
+
 
         # Ensure recategorization_attempts exists
         if 'recategorization_attempts' not in tweet_data:
             updates_needed['recategorization_attempts'] = 0
-            tweet_data['recategorization_attempts'] = 0 # Update local copy for subsequent checks
+            tweet_data['recategorization_attempts'] = 0  # Update local copy for subsequent checks
 
-        # Check cache completion
-        if not tweet_data.get('cache_complete', False):
-            # Cache is considered incomplete if any previous step is not done
-            all_valid = False
-
-        # Validate media processing
-        has_media = bool(tweet_data.get('media', []))
-        media_paths = tweet_data.get('downloaded_media', [])
-        media_processed = tweet_data.get('media_processed', False)
+        # --- Cache and Media File Validation ---
+        cache_complete = tweet_data.get('cache_complete', False)
+        media_list = tweet_data.get('media', [])
+        has_media = bool(media_list)
+        downloaded_media_paths = tweet_data.get('downloaded_media', [])
+        media_files_exist = True
 
         if has_media:
-            if not media_processed:
-                all_valid = False
-            elif not media_paths or not all(Path(p).exists() for p in media_paths):
-                logging.warning(f"Tweet {tweet_id} marked media_processed but has missing files: {media_paths}")
-                updates_needed['media_processed'] = False
-                updates_needed['cache_complete'] = False # Invalidate cache if media files missing
-                all_valid = False
-        elif not media_processed:
-            # No media, mark as processed if not already
-            updates_needed['media_processed'] = True
+            if not downloaded_media_paths:
+                logging.debug(f"Tweet {tweet_id} has media listed but no downloaded_media paths.")
+                media_files_exist = False
+            else:
+                for media_path_str in downloaded_media_paths:
+                    # Assume paths are relative to workspace root (data/media_cache/...)
+                    media_path = Path(media_path_str)
+                    if not media_path.exists():
+                        logging.warning(f"Tweet {tweet_id} cache references missing media file: {media_path_str}")
+                        media_files_exist = False
+                        break # One missing file is enough to invalidate
 
-        # Validate categories
+        if not media_files_exist:
+            # If media files are missing, cache is definitely incomplete.
+            cache_complete = False
+            updates_needed['cache_complete'] = False
+            # Also ensure media processing is marked false if files are gone
+            if tweet_data.get('media_processed', False):
+                 updates_needed['media_processed'] = False
+            all_valid = False
+        elif not cache_complete:
+             # Media files exist, but cache wasn't marked complete initially.
+             # This might indicate an interrupted cache download, keep it incomplete.
+             all_valid = False
+        # ELSE: Media files exist AND cache_complete was True initially - proceed with other checks.
+
+
+        # --- Media Processing Validation (Descriptions and Status) ---
+        media_processed = tweet_data.get('media_processed', False)
+        image_descriptions = tweet_data.get('image_descriptions', [])
+        # Check specifically if descriptions list is not empty AND not just ['']
+        descriptions_exist = bool(image_descriptions and any(desc for desc in image_descriptions))
+        has_images = any(item.get('type') == 'image' for item in media_list)
+        media_files_verified = media_files_exist # Use the result from the earlier file check
+
+        if has_media:
+            # Condition 1: Media files exist AND (if images) descriptions exist, BUT media_processed is False
+            # This means processing completed previously but the flag wasn't set, or was reset. Correct it.
+            if media_files_verified and (not has_images or descriptions_exist) and not media_processed:
+                 logging.info(f"Tweet {tweet_id}: Found existing media files and descriptions (if applicable), correcting media_processed to True.")
+                 updates_needed['media_processed'] = True
+                 media_processed = True # Update local variable for subsequent checks
+
+            # Condition 2: Media files exist, it has images, BUT descriptions are missing.
+            # This means processing is genuinely needed (or needs retry). Mark invalid.
+            elif media_files_verified and has_images and not descriptions_exist:
+                 if media_processed: # If it was marked processed but descriptions are gone
+                     logging.warning(f"Tweet {tweet_id}: Marked media_processed but missing image_descriptions.")
+                     updates_needed['media_processed'] = False
+                 all_valid = False # Mark overall state invalid as it needs image interpretation
+
+            # Condition 3: Media files are MISSING (handled earlier by setting cache_complete=False)
+            # Ensure media_processed is also False if files are gone.
+            elif not media_files_verified and media_processed:
+                 logging.warning(f"Tweet {tweet_id}: Media files missing, ensuring media_processed is False.")
+                 updates_needed['media_processed'] = False
+                 all_valid = False # Mark overall state invalid
+
+            # Condition 4: Media files exist, marked processed, descriptions exist (if needed)
+            # This is the ideal state, do nothing specific here.
+
+        elif not media_processed:
+            # No media in the tweet, ensure flag is True if it wasn't already.
+            logging.debug(f"Tweet {tweet_id}: No media, ensuring media_processed is True.")
+            updates_needed['media_processed'] = True
+            media_processed = True # Update local flag
+
+
+        # --- Category Validation ---
         categories_processed = tweet_data.get('categories_processed', False)
-        categories = tweet_data.get('categories', {})
+        categories = tweet_data.get('categories', {}) # Use 'categories' dict as per cache example
         recategorization_attempts = tweet_data.get('recategorization_attempts', 0)
 
         if not categories_processed:
             all_valid = False
         else:
+            # Check categories structure based on tweet_cache.json example
             required_fields = ['main_category', 'sub_category', 'item_name']
             if not categories or not all(categories.get(f) for f in required_fields):
-                logging.warning(f"Tweet {tweet_id} categories_processed but missing category fields: {required_fields}")
+                logging.warning(f"Tweet {tweet_id} categories_processed but missing category fields in 'categories' dict: {required_fields}")
                 updates_needed['categories_processed'] = False
-                updates_needed['cache_complete'] = False # Invalidate cache
+                # Reset categories dict if structure is invalid
+                updates_needed['categories'] = {}
                 all_valid = False
             else:
-                # Check if category is EXACTLY one of the default pairs
+                # Check for default/generic categories needing retry
                 current_main_cat = categories.get('main_category', '')
                 current_sub_cat = categories.get('sub_category', '')
-                current_item_name = categories.get('item_name', '') # Get item name
+                current_item_name = categories.get('item_name', '')
 
-                # *** FIX: Check item_name specificity along with default pair ***
                 is_default_pair = (current_main_cat, current_sub_cat) in default_category_tuples
-                # Consider item name generic if it starts with 'Tweet-' or is very short (e.g., < 5 chars)
                 is_generic_item_name = current_item_name.startswith('Tweet-') or len(current_item_name) < 5
 
-                # Only trigger re-categorization if it's a default pair AND the item name looks generic
                 if is_default_pair and is_generic_item_name and recategorization_attempts < max_recategorization_attempts:
                     logging.info(f"Tweet {tweet_id} has default category pair ({current_main_cat}, {current_sub_cat}) AND generic item name '{current_item_name}', marking for re-categorization (attempt {recategorization_attempts + 1}/{max_recategorization_attempts})")
                     updates_needed['categories_processed'] = False
-                    updates_needed['categories'] = {}
+                    updates_needed['categories'] = {} # Clear potentially bad categories
                     updates_needed['recategorization_attempts'] = recategorization_attempts + 1
-                    updates_needed['cache_complete'] = False
                     all_valid = False
                 elif is_default_pair and not is_generic_item_name:
-                     logging.debug(f"Tweet {tweet_id} has default category pair ({current_main_cat}, {current_sub_cat}) but specific item name '{current_item_name}', accepting as valid.")
+                    logging.debug(f"Tweet {tweet_id} has default category pair ({current_main_cat}, {current_sub_cat}) but specific item name '{current_item_name}', accepting as valid.")
                 elif is_default_pair and is_generic_item_name and recategorization_attempts >= max_recategorization_attempts:
-                     logging.warning(f"Tweet {tweet_id} reached max re-categorization attempts ({max_recategorization_attempts}) with default category pair ({current_main_cat}, {current_sub_cat}) and generic item name '{current_item_name}'")
+                    logging.warning(f"Tweet {tweet_id} reached max re-categorization attempts ({max_recategorization_attempts}) with default category pair ({current_main_cat}, {current_sub_cat}) and generic item name '{current_item_name}'")
 
-        # Validate KB item
+
+        # --- KB Item Validation ---
         kb_item_created = tweet_data.get('kb_item_created', False)
         kb_path_str = tweet_data.get('kb_item_path', '')
 
         if not kb_item_created:
-            # Check if KB item exists but isn't marked as created
-            found_path = await self._find_and_update_kb_item_path(tweet_id, tweet_data)
-            if found_path:
-                updates_needed['kb_item_path'] = found_path
+            # Try to find existing KB item if not marked created
+            found_path_str = await self._find_and_update_kb_item_path(tweet_id, tweet_data)
+            if found_path_str:
+                updates_needed['kb_item_path'] = found_path_str
                 updates_needed['kb_item_created'] = True
-                logging.info(f"Found existing KB item for tweet {tweet_id} at {found_path}, marking created.")
+                kb_item_created = True # Update local var for subsequent checks
+                kb_path_str = found_path_str # Update local var
+                logging.info(f"Found existing KB item for tweet {tweet_id} at {found_path_str}, marking created.")
             else:
-                all_valid = False # Still needs creation
-        else:
-            # kb_item_created is True, validate the path
+                all_valid = False  # Still needs creation
+
+        # If marked (or just found) as created, validate the path and README existence
+        if kb_item_created:
             if not kb_path_str:
                 logging.warning(f"Tweet {tweet_id} kb_item_created but path is empty")
                 updates_needed['kb_item_created'] = False
-                updates_needed['cache_complete'] = False # Invalidate cache
+                updates_needed.pop('kb_item_path', None) # Remove empty path if present
                 all_valid = False
             else:
                 # Validate existence of the README.md within the path
                 try:
-                    kb_base = Path(self.config.knowledge_base_dir)
-                    # Handle potentially different path formats (relative/absolute) robustly
-                    if kb_path_str.startswith('kb-generated/'):
-                         # Assuming 'kb-generated' is sibling to the base dir parent? Adjust if needed.
-                        relative_kb_path = Path(kb_path_str)
-                        # This assumes kb_base.parent is the project root where kb-generated lives
-                        kb_path = kb_base.parent / relative_kb_path
+                    # Resolve path based on common patterns ('kb-generated/...')
+                    if kb_path_str.startswith(kb_base.name + '/'):
+                         # Relative to parent, starting with base name (e.g., "kb-generated/...")
+                         kb_path = kb_base.parent / kb_path_str
                     elif Path(kb_path_str).is_absolute():
-                         # If it's absolute, check if it's within the expected KB structure
                         kb_path = Path(kb_path_str)
-                        if not kb_path.is_relative_to(kb_base):
-                             logging.warning(f"Tweet {tweet_id} KB path {kb_path_str} is absolute but outside base {kb_base}")
-                             # Decide how to handle this - maybe try to find relative path? For now, invalidate.
+                        if not kb_path.is_relative_to(kb_base.parent): # Check relative to parent which contains kb-generated
+                             logging.warning(f"Tweet {tweet_id} KB path {kb_path_str} is absolute but outside base parent {kb_base.parent}")
                              updates_needed['kb_item_created'] = False
-                             updates_needed['cache_complete'] = False
                              all_valid = False
+                             kb_path = None # Mark path invalid
+                    elif kb_path_str.startswith('kb-generated/'):
+                         # Standard relative path from project root assumed
+                         kb_path = kb_base.parent / kb_path_str
                     else:
-                         # Assume relative to knowledge_base_dir
+                        # Assume relative to kb_base itself (might be less common)
                         kb_path = kb_base / kb_path_str
 
-                    # Now check for README.md, ensuring kb_path was determined
-                    if 'kb_item_created' not in updates_needed or updates_needed['kb_item_created']:
+                    # Check README existence if path is valid
+                    if kb_path and ('kb_item_created' not in updates_needed or updates_needed['kb_item_created']):
                         readme_path = kb_path / "README.md"
                         if not readme_path.exists():
                             logging.warning(f"Tweet {tweet_id} KB item README not found at {readme_path} (derived from {kb_path_str})")
                             updates_needed['kb_item_created'] = False
-                            updates_needed['kb_item_path'] = '' # Clear invalid path
-                            updates_needed['cache_complete'] = False # Invalidate cache
+                            updates_needed['kb_item_path'] = ''  # Clear invalid path
                             all_valid = False
 
                 except Exception as e:
                     logging.error(f"Error validating KB item path '{kb_path_str}' for tweet {tweet_id}: {e}")
                     updates_needed['kb_item_created'] = False
                     updates_needed['kb_item_path'] = ''
-                    updates_needed['cache_complete'] = False
                     all_valid = False
-
-        # If any check failed, ensure cache_complete is false
-        if not all_valid:
-             updates_needed['cache_complete'] = False
-
 
         # Apply updates if any were identified
         if updates_needed:
-            # Preserve existing data and update only the necessary fields
-            current_data = self._tweet_cache.get(tweet_id, {})
+            current_data = self._tweet_cache.get(tweet_id, {}).copy() # Get a copy
             current_data.update(updates_needed)
-            await self.update_tweet_data(tweet_id, current_data) # Use update_tweet_data to save atomically
+            await self.update_tweet_data(tweet_id, current_data)
             logging.debug(f"Updated tweet {tweet_id} state due to validation: {updates_needed}")
             self.validation_fixes += 1
 
-        # Final decision based on potentially updated data
-        final_data = self._tweet_cache.get(tweet_id, {})
+        # --- Final decision based on potentially updated data ---
+        final_data = self._tweet_cache.get(tweet_id, {}) # Re-fetch after potential update
+        # Re-evaluate media_processed based on the final state in the cache
+        final_media_processed = final_data.get('media_processed', False)
+
         is_complete_and_valid = (
             final_data.get('cache_complete', False) and
-            final_data.get('media_processed', False) and
+            final_media_processed and # Use the potentially corrected flag
             final_data.get('categories_processed', False) and
             final_data.get('kb_item_created', False) and
-            bool(final_data.get('kb_item_path')) # Ensure path is not empty
+            bool(final_data.get('kb_item_path')) and # Ensure path exists
+            Path(final_data.get('kb_item_path', 'dummy')).name != 'dummy' # Check not empty string
         )
 
+        # Log final decision
+        logging.debug(f"Tweet {tweet_id} final validation result: {'Valid and Complete' if is_complete_and_valid else 'Incomplete or Invalid'} (cache_complete={final_data.get('cache_complete', False)}, media_processed={final_media_processed}, categories_processed={final_data.get('categories_processed', False)}, kb_item_created={final_data.get('kb_item_created', False)})")
         return is_complete_and_valid
 
     async def _find_and_update_kb_item_path(self, tweet_id: str, tweet_data: Dict[str, Any]) -> Optional[str]:
@@ -1058,7 +1156,7 @@ class StateManager:
             
             is_fully_processed = await self._validate_tweet_state_comprehensive(tweet_id, tweet_data)
             if is_fully_processed:
-                self._processed_tweets[tweet_id] = datetime.now().isoformat()
+                self._processed_tweets[tweet_id] = datetime.now(timezone.utc).isoformat()
                 self._unprocessed_tweets.remove(tweet_id)
                 moved_to_processed += 1
                 logging.info(f"Finalized tweet {tweet_id} and moved to processed")
@@ -1105,7 +1203,7 @@ class StateManager:
             
             if is_fully_processed:
                 # Move to processed list
-                self._processed_tweets[tweet_id] = datetime.now().isoformat()
+                self._processed_tweets[tweet_id] = datetime.now(timezone.utc).isoformat()
                 to_remove.append(tweet_id)
                 logging.info(f"Tweet {tweet_id} is fully processed, moving to processed list")
         
@@ -1134,3 +1232,175 @@ class StateManager:
         if not self._initialized:
             await self.initialize()
         return tweet_id in self._processed_tweets
+
+    async def sync_knowledge_base_to_db(self, db_session=None):
+        """
+        Synchronize existing knowledge base items from tweet cache to the local database.
+        
+        This method iterates through all tweets in the cache, checks for items marked as created,
+        and ensures they are stored in the database for the web interface.
+        
+        Args:
+            db_session: The database session to use for operations. If None, will attempt to use
+                       the session from the Flask app context if available.
+                       
+        Raises:
+            StateManagerError: If database operations fail.
+        """
+        try:
+            logging.info("Starting synchronization of knowledge base items to local database... [DEBUG MODE - STARTUP SYNC]")
+            from flask import current_app
+            from knowledge_base_agent.models import db, KnowledgeBaseItem
+
+            with current_app.app_context():  # Ensure DB operations are in context
+                # Use provided session or get from app context
+                if db_session is None:
+                    try:
+                        db_session = db.session
+                        logging.info("Successfully obtained database session from Flask app context.")
+                    except Exception as e:
+                        logging.error(f"Failed to get db session from Flask app context: {e}")
+                        raise StateManagerError(f"Cannot access database session: {e}")
+
+                added_count = 0
+                updated_count = 0
+                skipped_count = 0
+                readme_found_count = 0
+                readme_read_error_count = 0
+                db_op_error_count = 0
+                total_eligible = 0 # Count items with kb_item_created and kb_item_path
+
+                # Use a consistent timestamp for this sync operation
+                sync_timestamp = datetime.now(timezone.utc)
+
+                for tweet_id, tweet_data in self._tweet_cache.items():
+                    # Only process items marked as created with a valid path
+                    if tweet_data and tweet_data.get('kb_item_created', False) and tweet_data.get('kb_item_path'):
+                        total_eligible += 1
+                        kb_path_str = tweet_data['kb_item_path']
+                        kb_base = Path(self.config.knowledge_base_dir)
+
+                        # Resolve KB path (ensure this logic correctly finds the README)
+                        if kb_path_str.startswith('kb-generated/'):
+                            # Assumes kb-generated is sibling to parent of kb_base (e.g., project root)
+                            kb_path = kb_base.parent / kb_path_str
+                        elif kb_path_str.startswith(str(kb_base.name) + '/'):
+                             # Relative to parent, starting with base name (e.g., "kb-generated/...")
+                             kb_path = kb_base.parent / kb_path_str
+                        elif Path(kb_path_str).is_absolute():
+                            kb_path = Path(kb_path_str)
+                        else:
+                            # Assume relative to kb_base itself
+                            kb_path = kb_base / kb_path_str
+
+                        readme_path = kb_path / "README.md"
+
+                        if not readme_path.exists():
+                            logging.warning(f"README.md missing for tweet {tweet_id} at expected path {readme_path}. Skipping.")
+                            skipped_count += 1
+                            continue
+
+                        readme_found_count += 1
+                        content = None
+                        try:
+                            async with aiofiles.open(readme_path, 'r', encoding='utf-8') as f:
+                                content = await f.read()
+                        except Exception as e:
+                            logging.error(f"Failed to read README.md for tweet {tweet_id} at {readme_path}: {e}")
+                            readme_read_error_count += 1
+                            skipped_count += 1
+                            continue
+
+                        # --- Data Mapping ---
+                        # Title: Use item_name from categories, fallback to first line of README, fallback to tweet ID
+                        categories = tweet_data.get('categories', {})
+                        title = categories.get('item_name')
+                        if not title:
+                             lines = content.splitlines()
+                             title = lines[0].strip('# ').strip() if lines else f"Tweet {tweet_id}"
+
+                        # Description: Use first few lines of README (after title), fallback to full_text
+                        lines = content.splitlines()
+                        readme_desc_lines = [line.strip() for line in lines[1:4] if line.strip()] # Take up to 3 non-empty lines after title
+                        description = " ".join(readme_desc_lines) if readme_desc_lines else tweet_data.get('full_text', 'No description available.')[:250] # Limit length
+
+                        # Categories
+                        main_category = categories.get('main_category', 'Uncategorized')
+                        sub_category = categories.get('sub_category', 'General')
+
+                        # File Path (store relative or absolute path as decided)
+                        # Storing the relative path used to find it seems robust
+                        file_path_to_store = str(kb_path_str) # Store the original path from cache
+
+                        # URL
+                        source_url = f"https://twitter.com/i/web/status/{tweet_id}"
+
+                        # --- Database Operation ---
+                        try:
+                            existing_item = db_session.query(KnowledgeBaseItem).filter_by(tweet_id=tweet_id).first()
+
+                            if existing_item:
+                                # Update existing item
+                                existing_item.title = title
+                                existing_item.description = description
+                                existing_item.content = content # Update content from README
+                                existing_item.main_category = main_category
+                                existing_item.sub_category = sub_category
+                                existing_item.file_path = file_path_to_store
+                                existing_item.source_url = source_url
+                                existing_item.last_updated = sync_timestamp # Use consistent timestamp
+                                logging.debug(f"Updating existing KB item for tweet {tweet_id}")
+                                updated_count += 1
+                            else:
+                                # Add new item
+                                new_item = KnowledgeBaseItem(
+                                    tweet_id=tweet_id,
+                                    title=title,
+                                    description=description,
+                                    content=content,
+                                    main_category=main_category,
+                                    sub_category=sub_category,
+                                    file_path=file_path_to_store,
+                                    source_url=source_url,
+                                    created_at=sync_timestamp, # Use sync time for created_at if new
+                                    last_updated=sync_timestamp
+                                )
+                                db_session.add(new_item)
+                                logging.debug(f"Adding new KB item for tweet {tweet_id}")
+                                added_count += 1
+                        except Exception as e:
+                            logging.error(f"Database operation (add/update) failed for tweet {tweet_id}: {e}")
+                            db_op_error_count += 1
+                            skipped_count += 1
+                            continue
+                # else: # Tweet not eligible (no kb_item_created or kb_item_path)
+                #    pass # Just skip non-eligible tweets silently unless debugging needed
+
+                # --- Commit Changes ---
+                try:
+                    if added_count > 0 or updated_count > 0:
+                        db_session.commit()
+                        logging.info(f"Database commit successful. Added: {added_count}, Updated: {updated_count}.")
+                    else:
+                        logging.info("No changes detected, skipping database commit.")
+                    # Final summary log
+                    logging.info(f"Sync Summary: Eligible tweets: {total_eligible}, READMEs found: {readme_found_count}, "
+                                 f"Added: {added_count}, Updated: {updated_count}, Skipped (total): {skipped_count} "
+                                 f"(README read errors: {readme_read_error_count}, DB errors: {db_op_error_count})")
+
+                except Exception as e:
+                    logging.error(f"Failed to commit changes to database: {e}")
+                    db_session.rollback()
+                    logging.error(f"Rolled back database changes due to commit failure.")
+                    raise StateManagerError(f"Failed to commit KB items to DB: {e}")
+
+        except Exception as e:
+            logging.error(f"General failure during database synchronization: {e}")
+            # Attempt rollback if session exists
+            if 'db_session' in locals() and db_session:
+                 try:
+                     db_session.rollback()
+                     logging.error(f"Rolled back database session due to general error.")
+                 except Exception as rb_e:
+                     logging.error(f"Failed to rollback session: {rb_e}")
+            raise StateManagerError(f"Failed to sync KB items to DB: {e}")
