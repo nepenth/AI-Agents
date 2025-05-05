@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Base - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Knowledge Base Items</h1>
+</div>
+
+<p>This page can provide an alternative view or search functionality for the knowledge base.</p>
+<p>Items are listed in the sidebar.</p>
+
+<!-- Optionally, render the kb_tree_data here again in a different format -->
+{% if kb_tree_data %}
+    <p>Total Main Categories: {{ kb_tree_data|length }}</p>
+{% else %}
+    <p>No items found.</p>
+{% endif %}
+
+{% endblock %}

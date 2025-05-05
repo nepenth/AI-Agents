@@ -20,12 +20,40 @@ import re
 import multiprocessing
 from .content_processor import ContentProcessor
 from concurrent.futures import ThreadPoolExecutor
+from .api.logs import list_logs
+from .api.log_content import get_log_content
+import queue
+from collections import deque
+
+# Server-side state storage
+agent_running = False  # Track if agent is running
+recent_logs = deque(maxlen=500)  # Store recent logs to send to new connections
 
 # Configure logging to file per run
-log_dir = Path('logs')
-log_dir.mkdir(exist_ok=True)
-run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-log_file = log_dir / f'agent_run_{run_timestamp}.log'
+try:
+    # Load configuration to get the correct log directory
+    config = asyncio.run(load_config())
+    
+    # Get and create log directory from config
+    log_dir = Path(config.log_dir).expanduser().resolve()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Set up log file
+    run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = log_dir / f'agent_run_{run_timestamp}.log'
+    
+    # Debug log the paths
+    print(f"Web.py - Log directory: {log_dir}")
+    print(f"Web.py - Log file: {log_file}")
+    
+except Exception as e:
+    print(f"Error loading config for log directory: {e}")
+    # Fallback to default
+    log_dir = Path('logs')
+    log_dir.mkdir(exist_ok=True)
+    run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = log_dir / f'agent_run_{run_timestamp}.log'
+    print(f"Web.py - Using fallback log directory: {log_dir}")
 
 # Setup file handler for detailed logging
 file_handler = logging.FileHandler(log_file)
@@ -63,7 +91,11 @@ class WebSocketHandler(logging.Handler):
             if "Sending packet MESSAGE" in record.getMessage() or "emitting event" in record.getMessage():
                 return
             msg = self.format(record)
-            # Remove broadcast=True as it's not supported in all Flask-SocketIO versions
+            
+            # Store in recent_logs for new connections
+            recent_logs.append({'message': msg, 'level': record.levelname})
+            
+            # Emit to connected clients
             socketio.emit('log', {'message': msg, 'level': record.levelname}, namespace='/')
         except Exception as e:
             print(f"ERROR: Failed to emit log to WebSocket: {e}", file=sys.stderr)
@@ -84,9 +116,14 @@ def setup_web_logging(config: Config):
     logging.debug("WebSocket logging initialized")
 
 async def run_agent_async(preferences: UserPreferences):
-    global agent, running
-    config = None  # Initialize config as None to avoid UnboundLocalError
+    global agent, running, agent_running
+    config = None
     try:
+        # Set the agent_running flag at the beginning
+        agent_running = True
+        running = True
+        socketio.emit('agent_status', {'running': True})
+        
         config = await load_config()
         setup_web_logging(config)
         agent = KnowledgeBaseAgent(config)
@@ -105,9 +142,11 @@ async def run_agent_async(preferences: UserPreferences):
         logging.error(f"Agent execution failed: {str(e)}")
         raise
     finally:
+        # Clear the flags when done
         running = False
-        # Emit agent_complete event to notify the front-end
+        agent_running = False
         socketio.emit('agent_complete', {'status': 'completed'}, namespace='/')
+        socketio.emit('agent_status', {'running': False})
         if agent is not None:
             await agent.http_client.close()
         if config is not None:  # Check if config was initialized before calling cleanup
@@ -160,7 +199,7 @@ def run_agent_thread(preferences: UserPreferences):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global running
+    global running, agent_running
     all_items = []
     try:
         all_items = KnowledgeBaseItem.query.all()
@@ -186,6 +225,8 @@ def index():
         if running:
             return render_template('index.html', message="Agent is already running", running=running, items=all_items, checkbox_states=session.get('checkbox_states', {}))
         running = True
+        agent_running = True
+        socketio.emit('agent_status', {'running': True})
         from .agent import stop_flag
         stop_flag = False
         agent_thread = Thread(target=run_agent_thread, args=(preferences,))
@@ -331,105 +372,101 @@ def item_detail(id):
             state_manager = StateManager(config)
             asyncio.run(state_manager.initialize())
             tweet_data = asyncio.run(state_manager.get_tweet(item.tweet_id))
+            
+            # --- Logic using kb_media_paths ---
             if tweet_data and 'kb_media_paths' in tweet_data:
                 logging.info(f"Item {id}: Using kb_media_paths from tweet_cache for media items.")
-                for media_path in tweet_data.get('kb_media_paths', []):
-                    media_file = Path(media_path)
+                for media_path_str in tweet_data.get('kb_media_paths', []):
+                    media_file = Path(media_path_str.replace('.temp', '')) # Use final path for existence check
                     if media_file.exists():
                         file_name = media_file.name
                         try:
-                            file_url = url_for('serve_media', tweet_id=item.tweet_id, filename=file_name)
+                            # Strip "kb-generated/" prefix for the URL path
+                            relative_path_in_kb = media_path_str
+                            if relative_path_in_kb.startswith('kb-generated/'):
+                                relative_path_in_kb = relative_path_in_kb[len('kb-generated/'):]
+                            
+                            # Construct the correct URL using the relative path within kb-generated
+                            file_url = url_for('serve_kb_media', path=relative_path_in_kb.replace('.temp', ''))
                             file_type = 'video' if file_name.startswith('video_') else 'image'
                             media_items.append({'type': file_type, 'url': file_url, 'name': file_name})
                             logging.debug(f"Item {id}: Added media item from kb_media_paths: type='{file_type}', name='{file_name}', url='{file_url}'")
                         except Exception as url_e:
-                            logging.error(f"Item {id}: Failed to generate URL for media file '{file_name}': {url_e}")
+                            logging.error(f"Item {id}: Failed to generate URL for media file '{file_name}' using path '{media_path_str}': {url_e}")
                 media_items.sort(key=lambda x: (x['type'] == 'video', x['url']))
-            else:
+            
+            # --- Fallback logic using directory scan (if kb_media_paths missing) ---
+            elif item.file_path: # Check if fallback is necessary
                 logging.warning(f"Item {id}: No kb_media_paths found in tweet_cache, falling back to directory scan.")
-                if item.file_path:
-                    kb_item_dir = Path(item.file_path).parent
-                    resolved_kb_item_dir = kb_item_dir
-                    if not kb_item_dir.is_absolute():
-                        resolved_kb_item_dir = (Path(os.getcwd()) / kb_item_dir).resolve()
-                    if resolved_kb_item_dir.is_dir():
-                        logging.info(f"Item {id}: Scanning directory '{resolved_kb_item_dir}' for media files...")
-                        try:
-                            found_files = list(resolved_kb_item_dir.glob('image_*.*')) + list(resolved_kb_item_dir.glob('video_*.*'))
-                            logging.info(f"Item {id}: Found {len(found_files)} potential media files via glob: {[f.name for f in found_files]}")
-                            for media_file in found_files:
-                                file_name = media_file.name
-                                try:
-                                    file_url = url_for('serve_media', tweet_id=item.tweet_id, filename=file_name)
-                                    file_type = 'video' if file_name.startswith('video_') else 'image'
-                                    media_items.append({'type': file_type, 'url': file_url, 'name': file_name})
-                                    logging.debug(f"Item {id}: Added media item: type='{file_type}', name='{file_name}', url='{file_url}'")
-                                except Exception as url_e:
-                                    logging.error(f"Item {id}: Failed to generate URL for media file '{file_name}': {url_e}")
-                            media_items.sort(key=lambda x: (x['type'] == 'video', x['url']))
-                        except Exception as e:
-                            logging.error(f"Item {id}: Error during media file glob/processing in '{resolved_kb_item_dir}': {e}", exc_info=True)
-                    else:
-                        logging.warning(f"Item {id}: Determined KB item directory '{resolved_kb_item_dir}' does not exist or is not a directory.")
-                else:
-                    logging.warning(f"Item {id}: Cannot scan for media because item.file_path is missing.")
-        except Exception as e:
-            logging.error(f"Item {id}: Error accessing tweet_cache for kb_media_paths: {e}", exc_info=True)
-            # Fallback to directory scan if tweet_cache access fails
-            if item.file_path:
                 kb_item_dir = Path(item.file_path).parent
                 resolved_kb_item_dir = kb_item_dir
                 if not kb_item_dir.is_absolute():
                     resolved_kb_item_dir = (Path(os.getcwd()) / kb_item_dir).resolve()
+                
                 if resolved_kb_item_dir.is_dir():
-                    logging.info(f"Item {id}: Scanning directory '{resolved_kb_item_dir}' for media files (fallback)...")
+                    logging.info(f"Item {id}: Scanning directory '{resolved_kb_item_dir}' for media files...")
                     try:
+                        kb_generated_base = Path('kb-generated').resolve() # Get absolute path for comparison
                         found_files = list(resolved_kb_item_dir.glob('image_*.*')) + list(resolved_kb_item_dir.glob('video_*.*'))
-                        logging.info(f"Item {id}: Found {len(found_files)} potential media files via glob (fallback): {[f.name for f in found_files]}")
+                        logging.info(f"Item {id}: Found {len(found_files)} potential media files via glob: {[f.name for f in found_files]}")
                         for media_file in found_files:
                             file_name = media_file.name
                             try:
-                                file_url = url_for('serve_media', tweet_id=item.tweet_id, filename=file_name)
+                                # Get path relative to kb-generated base
+                                relative_path_in_kb = media_file.resolve().relative_to(kb_generated_base)
+                                file_url = url_for('serve_kb_media', path=str(relative_path_in_kb))
                                 file_type = 'video' if file_name.startswith('video_') else 'image'
                                 media_items.append({'type': file_type, 'url': file_url, 'name': file_name})
-                                logging.debug(f"Item {id}: Added media item (fallback): type='{file_type}', name='{file_name}', url='{file_url}'")
+                                logging.debug(f"Item {id}: Added media item (scan fallback): type='{file_type}', name='{file_name}', url='{file_url}'")
+                            except ValueError:
+                                logging.error(f"Item {id}: Could not determine relative path for media file '{media_file}' within '{kb_generated_base}'")
                             except Exception as url_e:
-                                logging.error(f"Item {id}: Failed to generate URL for media file '{file_name}' (fallback): {url_e}")
+                                logging.error(f"Item {id}: Failed to generate URL for media file '{file_name}' (scan fallback): {url_e}")
                         media_items.sort(key=lambda x: (x['type'] == 'video', x['url']))
                     except Exception as e:
-                        logging.error(f"Item {id}: Error during media file glob/processing in '{resolved_kb_item_dir}' (fallback): {e}", exc_info=True)
+                        logging.error(f"Item {id}: Error during media file glob/processing in '{resolved_kb_item_dir}': {e}", exc_info=True)
                 else:
-                    logging.warning(f"Item {id}: Determined KB item directory '{resolved_kb_item_dir}' does not exist or is not a directory (fallback).")
+                    logging.warning(f"Item {id}: Determined KB item directory '{resolved_kb_item_dir}' does not exist or is not a directory.")
             else:
-                logging.warning(f"Item {id}: Cannot scan for media because item.file_path is missing (fallback).")
+                logging.warning(f"Item {id}: Cannot scan for media because item.file_path is missing and no kb_media_paths.")
+                
+        except Exception as e:
+             logging.error(f"Item {id}: Error during media retrieval logic: {e}", exc_info=True)
     else:
-        logging.warning(f"Item {id}: No tweet_id available, cannot load media items from tweet_cache.")
+        # --- Handle items without a tweet_id (scan directory if file_path exists) ---
+        logging.warning(f"Item {id}: No tweet_id available, cannot load media items from tweet_cache. Scanning directory based on file_path.")
         if item.file_path:
             kb_item_dir = Path(item.file_path).parent
             resolved_kb_item_dir = kb_item_dir
             if not kb_item_dir.is_absolute():
                 resolved_kb_item_dir = (Path(os.getcwd()) / kb_item_dir).resolve()
+
             if resolved_kb_item_dir.is_dir():
                 logging.info(f"Item {id}: Scanning directory '{resolved_kb_item_dir}' for media files (no tweet_id fallback)...")
                 try:
+                    kb_generated_base = Path('kb-generated').resolve()
                     found_files = list(resolved_kb_item_dir.glob('image_*.*')) + list(resolved_kb_item_dir.glob('video_*.*'))
                     logging.info(f"Item {id}: Found {len(found_files)} potential media files via glob (no tweet_id fallback): {[f.name for f in found_files]}")
                     for media_file in found_files:
                         file_name = media_file.name
                         try:
-                            file_url = url_for('serve_media', tweet_id=item.tweet_id if item.tweet_id else "unknown", filename=file_name)
+                            relative_path_in_kb = media_file.resolve().relative_to(kb_generated_base)
+                            file_url = url_for('serve_kb_media', path=str(relative_path_in_kb))
                             file_type = 'video' if file_name.startswith('video_') else 'image'
                             media_items.append({'type': file_type, 'url': file_url, 'name': file_name})
                             logging.debug(f"Item {id}: Added media item (no tweet_id fallback): type='{file_type}', name='{file_name}', url='{file_url}'")
+                        except ValueError:
+                            logging.error(f"Item {id}: Could not determine relative path for media file '{media_file}' within '{kb_generated_base}' (no tweet_id fallback)")
                         except Exception as url_e:
                             logging.error(f"Item {id}: Failed to generate URL for media file '{file_name}' (no tweet_id fallback): {url_e}")
                     media_items.sort(key=lambda x: (x['type'] == 'video', x['url']))
                 except Exception as e:
                     logging.error(f"Item {id}: Error during media file glob/processing in '{resolved_kb_item_dir}' (no tweet_id fallback): {e}", exc_info=True)
             else:
-                logging.warning(f"Item {id}: Determined KB item directory '{resolved_kb_item_dir}' does not exist or is not a directory (no tweet_id fallback).")
+                 logging.warning(f"Item {id}: Determined KB item directory '{resolved_kb_item_dir}' does not exist or is not a directory (no tweet_id fallback).")
         else:
             logging.warning(f"Item {id}: Cannot scan for media because item.file_path is missing (no tweet_id fallback).")
+            
     logging.info(f"Item {id}: Final media_items list count for template: {len(media_items)}")
     # --- End Media Item Logic ---
 
@@ -525,7 +562,15 @@ def serve_media(tweet_id, filename):
 
 @socketio.on('connect')
 def handle_connect():
+    global agent_running, recent_logs
     emit('log', {'message': 'Connected to server', 'level': 'INFO'})
+    emit('agent_status', {'running': agent_running})
+    
+    # Send recent logs to newly connected client
+    logging.debug(f"Sending {len(recent_logs)} recent logs to new client connection")
+    for log_entry in recent_logs:
+        emit('log', log_entry)
+    
     logging.debug("Client connected to WebSocket")
 
 @socketio.on('disconnect')
@@ -652,7 +697,7 @@ def get_log_file(log_path):
 @app.route('/logs')
 def logs_page():
     """Render the dedicated log viewer page."""
-    all_items = [] # For sidebar consistency
+    all_items = []  # For sidebar consistency
     try:
         all_items = KnowledgeBaseItem.query.all()
     except Exception as e:
@@ -661,75 +706,21 @@ def logs_page():
     return render_template('logs.html', items=all_items)
 
 @app.route('/api/logs', methods=['GET'])
-def list_logs():
-    """API endpoint to list available log files."""
+def api_logs():
+    """Route to list available log files using the API module."""
     try:
-        # Load config to get the correct log directory
-        try:
-            # Use asyncio.run since this is a sync route calling an async function
-            config = asyncio.run(load_config())
-            configured_log_dir = config.log_dir
-        except Exception as config_e:
-            logging.error(f"Failed to load config in /api/logs: {config_e}", exc_info=True)
-            return jsonify({"error": "Failed to load configuration"}), 500
-
-        if not configured_log_dir.is_dir():
-            logging.error(f"Configured log directory not found: {configured_log_dir.resolve()}")
-            return jsonify({"error": "Log directory not found"}), 500
-
-        # List files from the configured directory, sort by modification time (newest first)
-        log_files = sorted(
-            [f for f in configured_log_dir.iterdir() if f.is_file() and f.suffix == '.log'],
-            key=lambda p: p.stat().st_mtime,
-            reverse=True
-        )
-        log_filenames = [f.name for f in log_files]
-        logging.debug(f"Found log files in {configured_log_dir}: {log_filenames}")
-        return jsonify(log_filenames)
+        logging.info("Attempting to list log files via /api/logs endpoint.")
+        result = list_logs()
+        logging.info("Successfully retrieved log files list.")
+        return result
     except Exception as e:
-        logging.error(f"Error listing log files: {e}", exc_info=True)
-        return jsonify({"error": "Failed to list log files"}), 500
+        logging.error(f"Error in /api/logs endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to list log files due to server error"}), 500
 
 @app.route('/api/logs/<path:filename>', methods=['GET'])
-def get_log_content(filename):
-    """API endpoint to get the content of a specific log file."""
-    # Load config to get the correct log directory
-    try:
-        config = asyncio.run(load_config())
-        configured_log_dir = config.log_dir
-    except Exception as config_e:
-        logging.error(f"Failed to load config in /api/logs/<filename>: {config_e}", exc_info=True)
-        return jsonify({"error": "Failed to load configuration"}), 500
-
-    # Basic security check: ensure filename doesn't contain path separators
-    # and ends with .log
-    if '/' in filename or '\\' in filename or '..' in filename or not filename.endswith('.log'):
-        logging.warning(f"Invalid log filename requested: {filename}")
-        return jsonify({"error": "Invalid log filename"}), 400
-
-    log_file_path = (configured_log_dir / filename).resolve() # Resolve to absolute path
-
-    # Security check: Ensure the resolved path is within the intended log_dir
-    if not log_file_path.is_relative_to(configured_log_dir.resolve()):
-         logging.warning(f"Potential path traversal blocked for log file: {filename}")
-         return jsonify({"error": "Access denied"}), 403
-
-    if not log_file_path.is_file():
-        logging.error(f"Log file not found: {log_file_path}")
-        return jsonify({"error": "Log file not found"}), 404
-
-    try:
-        # Use send_from_directory for safer file serving. Needs the directory path.
-        logging.debug(f"Serving log file: {filename} from directory {configured_log_dir.resolve()}")
-        return send_from_directory(
-            configured_log_dir.resolve(), # Serve from absolute path
-            filename,
-            mimetype='text/plain',
-            as_attachment=False # Display in browser
-        )
-    except Exception as e:
-        logging.error(f"Error reading log file {filename}: {e}", exc_info=True)
-        return jsonify({"error": "Failed to read log file"}), 500
+def api_log_content(filename):
+    """Route to get the content of a specific log file using the API module."""
+    return get_log_content(filename)
 
 # --- End Log Viewer Routes ---
 

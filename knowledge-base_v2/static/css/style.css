@@ -1,0 +1,39 @@
+/* Ensure sidebar doesn't shrink too much and enables scrolling */
+.sidebar {
+    width: 280px;
+    min-width: 280px;
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Ensure main content scrolls, not the whole page */
+.main-content {
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Basic styling for the log output area */
+.log-output {
+    height: 400px; /* Adjust as needed */
+    overflow-y: scroll;
+    white-space: pre-wrap; /* Wrap long log lines */
+    word-wrap: break-word;
+}
+
+.log-output pre {
+    margin-bottom: 0;
+}
+
+/* Improve visibility of disabled text in sidebar */
+.sidebar .nav-link.disabled {
+    color: #6c757d !important; /* Bootstrap's default disabled color */
+    opacity: 0.7;
+}
+
+/* Ensure KB tree links look consistent */
+#kb-tree-placeholder a {
+    text-decoration: none;
+}
+#kb-tree-placeholder a:hover {
+    text-decoration: underline;
+}

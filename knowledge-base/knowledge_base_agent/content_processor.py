@@ -70,6 +70,7 @@ class ContentProcessor:
                         f"- Incomplete Cache: {sum(1 for t in all_tweets.values() if not t.get('cache_complete'))}")
             if self.socketio:
                 self.socketio.emit('log', {'message': f'Phase 1 completed. Total tweets: {len(all_tweets)}, Unprocessed: {len(unprocessed)}', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(processed), 'total': len(all_tweets), 'errors': stats.error_count})
 
             # Phase 1.5: Re-caching Incomplete Tweets ===
             logging.info("=== Phase 1.5: Re-caching Incomplete Tweets ===")
@@ -127,6 +128,7 @@ class ContentProcessor:
             
             if self.socketio:
                 self.socketio.emit('log', {'message': f'Phase 1.5 completed. Failed to cache: {caching_errors if "caching_errors" in locals() else 0}', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(processed), 'total': len(all_tweets), 'errors': stats.error_count})
 
             # Get the latest list of tweets to process after potential caching failures
             unprocessed = await self.state_manager.get_unprocessed_tweets()
@@ -145,20 +147,32 @@ class ContentProcessor:
                 if all_tweets.get(tid, {}).get('cache_complete', False) # Ensure cache is complete
                 and not all_tweets.get(tid, {}).get('media_processed', False)
             ]
-            logging.info(f"Media Processing Needed: {len(media_todo_ids)} tweets")
+            total_media_todo = len(media_todo_ids)
+            logging.info(f"Media Processing Needed: {total_media_todo} tweets")
+            processed_media = 0
+            media_processing_times = []
+            import time
             if media_todo_ids:
                 async def process_media_task(tweet_id):
+                    nonlocal processed_media, media_processing_times
                     tweet_data = all_tweets.get(tweet_id, {}) # Use latest state
                     # Double check conditions inside task
                     if tweet_data.get('cache_complete', False) and not tweet_data.get('media_processed', False):
-                        logging.debug(f"Processing media for tweet {tweet_id}")
+                        logging.debug(f"Processing media for tweet {tweet_id} ({processed_media + 1}/{total_media_todo})")
+                        start_time = time.time()
                         try:
                             updated_data = await process_media(tweet_data, self.http_client, self.config)
                             # Use StateManager method to update and save atomically
                             await self.state_manager.update_tweet_data(tweet_id, updated_data)
                             await self.state_manager.mark_media_processed(tweet_id) # Updates flag and saves
                             stats.media_processed += len(updated_data.get('downloaded_media', []))
-                            logging.debug(f"Completed media processing for tweet {tweet_id}")
+                            processed_media += 1
+                            elapsed_time = time.time() - start_time
+                            media_processing_times.append(elapsed_time)
+                            avg_time = sum(media_processing_times) / len(media_processing_times) if media_processing_times else 0
+                            remaining_items = total_media_todo - processed_media
+                            estimated_time_left = avg_time * remaining_items
+                            logging.info(f"Completed media processing for tweet {tweet_id} ({processed_media}/{total_media_todo}) - Time taken: {elapsed_time:.2f}s - Avg: {avg_time:.2f}s/item - Est. time left: {estimated_time_left/60:.2f} minutes")
                         except Exception as e:
                             logging.error(f"Failed to process media for tweet {tweet_id}: {e}")
                             stats.error_count += 1
@@ -167,6 +181,7 @@ class ContentProcessor:
                 all_tweets = await self.state_manager.get_all_tweets() # Refresh state again
             if self.socketio:
                 self.socketio.emit('log', {'message': f'Phase 2 completed. Media processed: {stats.media_processed}', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(processed) + processed_media, 'total': len(all_tweets), 'errors': stats.error_count})
 
             # Phase 3: Category Processing with parallelism
             logging.info("=== Phase 3: Category Processing ===")
@@ -178,14 +193,19 @@ class ContentProcessor:
                 and all_tweets.get(tid, {}).get('media_processed', False)
                 and not all_tweets.get(tid, {}).get('categories_processed', False)
             ]
-            logging.info(f"Category Processing Needed: {len(cat_todo_ids)} tweets")
+            total_cat_todo = len(cat_todo_ids)
+            logging.info(f"Category Processing Needed: {total_cat_todo} tweets")
+            processed_cat = 0
+            cat_processing_times = []
             if cat_todo_ids:
                 async def process_categories_task(tweet_id):
+                    nonlocal processed_cat, cat_processing_times
                     tweet_data = all_tweets.get(tweet_id, {})
                     if (tweet_data.get('cache_complete', False) and
                         tweet_data.get('media_processed', False) and
                         not tweet_data.get('categories_processed', False)):
-                        logging.debug(f"Processing categories for tweet {tweet_id}")
+                        logging.debug(f"Processing categories for tweet {tweet_id} ({processed_cat + 1}/{total_cat_todo})")
+                        start_time = time.time()
                         try:
                             # category_manager.process_categories calls categorize_and_name_content
                             updated_data = await category_manager.process_categories(tweet_id, tweet_data)
@@ -193,7 +213,13 @@ class ContentProcessor:
                             await self.state_manager.update_tweet_data(tweet_id, updated_data) # Save successful categorization
                             await self.state_manager.mark_categories_processed(tweet_id) # Mark success
                             stats.categories_processed += 1
-                            logging.debug(f"Completed category processing for tweet {tweet_id}")
+                            processed_cat += 1
+                            elapsed_time = time.time() - start_time
+                            cat_processing_times.append(elapsed_time)
+                            avg_time = sum(cat_processing_times) / len(cat_processing_times) if cat_processing_times else 0
+                            remaining_items = total_cat_todo - processed_cat
+                            estimated_time_left = avg_time * remaining_items
+                            logging.info(f"Completed category processing for tweet {tweet_id} ({processed_cat}/{total_cat_todo}) - Time taken: {elapsed_time:.2f}s - Avg: {avg_time:.2f}s/item - Est. time left: {estimated_time_left/60:.2f} minutes")
                         except AIError as ai_err: # Catch the specific error from categorization failing
                             logging.error(f"Categorization failed permanently for tweet {tweet_id} after retries: {ai_err}")
                             stats.error_count += 1
@@ -207,6 +233,7 @@ class ContentProcessor:
                 all_tweets = await self.state_manager.get_all_tweets() # Refresh state
             if self.socketio:
                 self.socketio.emit('log', {'message': f'Phase 3 completed. Categories processed: {stats.categories_processed}', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(processed) + processed_media + processed_cat, 'total': len(all_tweets), 'errors': stats.error_count})
 
             # Phase 4: Knowledge Base Creation
             logging.info("=== Phase 4: Knowledge Base Creation ===")
@@ -219,10 +246,12 @@ class ContentProcessor:
                 and all_tweets.get(tid, {}).get('categories_processed', False)
                 and not all_tweets.get(tid, {}).get('kb_item_created', False)
             ]
-            logging.info(f"KB Items Needed: {len(kb_todo_ids)} tweets")
+            total_kb_todo = len(kb_todo_ids)
+            logging.info(f"KB Items Needed: {total_kb_todo} tweets")
             processed_in_phase = 0
+            kb_processing_times = []
             if kb_todo_ids:
-                for tweet_id in kb_todo_ids:
+                for index, tweet_id in enumerate(kb_todo_ids, 1):
                     # Refresh data just before processing
                     tweet_data = await self.state_manager.get_tweet(tweet_id)
                     if not tweet_data: continue  # Should not happen if in unprocessed list
@@ -236,7 +265,8 @@ class ContentProcessor:
                         continue
 
                     try:
-                        logging.debug(f"Creating KB item for tweet {tweet_id}")
+                        logging.info(f"Creating KB item for tweet {tweet_id} ({index}/{total_kb_todo})")
+                        start_time = time.time()
                         media_files = [Path(p) for p in tweet_data.get('downloaded_media', []) if Path(p).exists()]
 
                         # Generate the KB item structure
@@ -263,8 +293,15 @@ class ContentProcessor:
                         await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                         await self.state_manager.mark_kb_item_created(tweet_id, str(relative_kb_path))
                         stats.processed_count += 1
-                        logging.debug(f"Created KB item for tweet {tweet_id} at {kb_path_dir}")
                         processed_in_phase += 1
+                        elapsed_time = time.time() - start_time
+                        kb_processing_times.append(elapsed_time)
+                        avg_time = sum(kb_processing_times) / len(kb_processing_times) if kb_processing_times else 0
+                        remaining_items = total_kb_todo - processed_in_phase
+                        estimated_time_left = avg_time * remaining_items
+                        logging.info(f"Completed KB item creation for tweet {tweet_id} ({processed_in_phase}/{total_kb_todo}) - Time taken: {elapsed_time:.2f}s - Avg: {avg_time:.2f}s/item - Est. time left: {estimated_time_left/60:.2f} minutes")
+                        if self.socketio:
+                            self.socketio.emit('progress', {'processed': len(processed) + processed_media + processed_cat + processed_in_phase, 'total': len(all_tweets), 'errors': stats.error_count})
 
                         # Ensure the item is added to the database with tweet_id
                         from knowledge_base_agent.models import KnowledgeBaseItem
@@ -303,12 +340,15 @@ class ContentProcessor:
                     except Exception as e:
                         logging.error(f"Failed to create KB item for tweet {tweet_id}: {e}")
                         stats.error_count += 1
+                        if self.socketio:
+                            self.socketio.emit('progress', {'processed': len(processed) + processed_media + processed_cat + processed_in_phase, 'total': len(all_tweets), 'errors': stats.error_count})
                         # Do not mark as processed, leave in unprocessed
 
             logging.info(f"Processed {processed_in_phase} tweets in Phase 4")
             all_tweets = await self.state_manager.get_all_tweets() # Refresh state
             if self.socketio:
                 self.socketio.emit('log', {'message': f'Phase 4 completed. KB items processed: {processed_in_phase}', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(processed) + processed_media + processed_cat + processed_in_phase, 'total': len(all_tweets), 'errors': stats.error_count})
 
             # Phase 5: README Generation
             logging.info("=== Phase 5: README Generation ===")
@@ -330,6 +370,7 @@ class ContentProcessor:
                 logging.info("No README regeneration needed based on flags and KB item changes.")
             if self.socketio:
                 self.socketio.emit('log', {'message': f'Phase 5 completed. README generated: {stats.readme_generated}', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(processed) + processed_media + processed_cat + processed_in_phase, 'total': len(all_tweets), 'errors': stats.error_count})
 
             # Phase 6: Final Validation (Using StateManager's finalization)
             logging.info("\n=== Phase 6: Final Validation and State Update ===")
@@ -337,8 +378,11 @@ class ContentProcessor:
                 self.socketio.emit('log', {'message': 'Phase 6: Final Validation started', 'level': 'INFO'})
             await self.state_manager.finalize_processing()
             # This moves fully validated items to processed list.
+            final_processed = list(self.state_manager.processed_tweets.keys())
             if self.socketio:
                 self.socketio.emit('log', {'message': 'Phase 6 completed. Processing finalized.', 'level': 'INFO'})
+                self.socketio.emit('progress', {'processed': len(final_processed), 'total': len(all_tweets), 'errors': stats.error_count})
+                logging.info(f"Final Progress Update: Processed {len(final_processed)}/{len(all_tweets)} tweets, Errors: {stats.error_count}")
 
         except asyncio.CancelledError:
             logging.warning("Agent run cancelled by user")

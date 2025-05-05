@@ -24,9 +24,11 @@ function connectToSocketIO() {
     socket.on('progress', function(data) {
         updateProgress(data);
     });
+    socket.on('agent_status', function(data) {
+        updateAgentStatus(data.running);
+    });
     socket.on('agent_complete', function(data) {
-        localStorage.setItem('agentRunning', 'false');
-        updateAgentStatus();
+        updateAgentStatus(false);
     });
 }
 
@@ -77,10 +79,9 @@ function loadCheckboxStates() {
     });
 }
 
-function updateAgentStatus() {
+function updateAgentStatus(isRunning) {
     const startButton = document.getElementById('startButton');
     const agentStatus = document.getElementById('agentStatus');
-    const isRunning = localStorage.getItem('agentRunning') === 'true';
     if (isRunning) {
         startButton.disabled = true;
         startButton.classList.add('disabled');
@@ -93,6 +94,5 @@ function updateAgentStatus() {
 }
 
 document.getElementById('controlForm').addEventListener('submit', function(e) {
-    localStorage.setItem('agentRunning', 'true');
-    updateAgentStatus();
+    updateAgentStatus(true);
 }); 
