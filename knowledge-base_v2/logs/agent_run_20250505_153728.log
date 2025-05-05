@@ -1,0 +1,10 @@
+2025-05-05 15:37:28 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250505_153728.log
+2025-05-05 15:37:28 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250505_153728.log
+2025-05-05 15:37:28 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-05 15:37:28 - engineio.server - INFO - Server initialized for threading.
+2025-05-05 15:37:28 - __main__ - INFO - Initializing database tables...
+2025-05-05 15:37:28 - __main__ - INFO - Database tables checked/created.
+2025-05-05 15:37:28 - __main__ - INFO - Registered Flask blueprints.
+2025-05-05 15:37:28 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent namespace.
+2025-05-05 15:37:28 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-05 15:37:28 - __main__ - INFO - Attempting to start the web server...

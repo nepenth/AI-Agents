@@ -123,12 +123,29 @@
                 logSelect.disabled = true;
                 loadLogButton.disabled = true;
                 try {
+                    console.log("Fetching log files from /api/logs...");
                     const response = await fetch('/api/logs');
+                    console.log("Response status:", response.status);
+                    
+                    // Display more debug info in the log content area
+                    logContentArea.textContent = `Log API request status: ${response.status}\n`;
+                    
                     if (!response.ok) {
-                         const errorData = await response.json();
-                         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                        const errorData = await response.json();
+                        const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+                        throw new Error(errorMessage);
                     }
+                    
                     const logFiles = await response.json();
+                    console.log("Received log files:", logFiles);
+                    
+                    // Add more debug info
+                    logContentArea.textContent += `Received ${logFiles ? logFiles.length : 0} log files\n`;
+                    if (logFiles && logFiles.length > 0) {
+                        logContentArea.textContent += `First 5 logs: ${logFiles.slice(0, 5).join(", ")}\n`;
+                    } else {
+                        logContentArea.textContent += "No log files found. Please check server configuration.\n";
+                    }
 
                     logSelect.innerHTML = '<option value="">Select a log file...</option>';
                     if (logFiles && logFiles.length > 0) {
@@ -139,12 +156,12 @@
                             logSelect.appendChild(option);
                         });
                     } else {
-                         logSelect.innerHTML = '<option value="">No log files found</option>';
+                        logSelect.innerHTML = '<option value="">No log files found</option>';
                     }
                 } catch (error) {
                     console.error("Error fetching log list:", error);
                     logSelect.innerHTML = '<option value="">Error loading list</option>';
-                    logContentArea.textContent = `Error loading log list: ${error.message}`;
+                    logContentArea.textContent = `Error loading log list: ${error.message}\n\nPlease check the server logs for more information.`;
                 } finally {
                     logSelect.disabled = false;
                     loadLogButton.disabled = false;

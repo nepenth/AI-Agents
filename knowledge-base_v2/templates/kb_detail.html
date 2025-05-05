@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.item_name if item else 'Item Detail' }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">KB Item: {{ item.item_name if item else 'Not Found' }}</h1>
+     <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.list_kb_items') }}">Knowledge Base</a></li>
+        {% if item %}
+        <li class="breadcrumb-item">{{ item.main_category }}</li>
+        <li class="breadcrumb-item">{{ item.sub_category }}</li>
+        <li class="breadcrumb-item active" aria-current="page">{{ item.item_name }}</li>
+        {% endif %}
+      </ol>
+    </nav>
+</div>
+
+{% if item %}
+    <div class="card mb-3">
+        <div class="card-header">Details</div>
+        <div class="card-body">
+             <p><strong>ID:</strong> {{ item.id }}</p>
+             <p><strong>Source URL:</strong> {% if item.source_url %}<a href="{{ item.source_url }}" target="_blank">{{ item.source_url }}</a>{% else %}N/A{% endif %}</p>
+             <p><strong>Created:</strong> {{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else 'N/A' }}</p>
+             <p><strong>KB Path:</strong> {{ item.kb_item_path }}</p>
+        </div>
+    </div>
+
+    <div class="card">
+         <div class="card-header">Content (README.md)</div>
+         <div class="card-body markdown-content"> {# Add class for potential styling #}
+             {{ readme_html | safe }} {# Render the pre-processed HTML #}
+         </div>
+     </div>
+
+{% else %}
+    <div class="alert alert-warning" role="alert">
+      Knowledge base item not found or could not be loaded.
+    </div>
+{% endif %}
+
+{% endblock %}

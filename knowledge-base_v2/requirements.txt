@@ -1,0 +1,45 @@
+# Core Web Framework & Real-time Communication
+flask
+flask-socketio
+gevent-websocket # Or another async adapter for SocketIO if needed
+python-dotenv    # For loading .env configuration
+
+# Database ORM
+flask-sqlalchemy
+sqlalchemy
+
+# HTTP Client (Async)
+httpx[http2]     # For async HTTP requests (Ollama, potentially others)
+aiofiles         # For async file operations
+
+# Data Validation & Typing
+pydantic         # For config validation and potentially types
+pydantic[email] # For email validation
+pydantic-settings # For pydantic settings
+
+# Web Scraping / Automation (for Bookmarks)
+playwright       # Browser automation library
+# Note: Playwright requires browser binaries: `playwright install`
+
+# Markdown Processing
+markdown         # For rendering markdown in web UI
+python-markdown-math # Example extension for math rendering
+Pygments         # For code highlighting in markdown
+bleach           # For sanitizing markdown
+
+# Git Interaction (Optional)
+GitPython        # If GIT_ENABLED=true
+
+# Ollama
+ollama
+
+# Twitter Scarping
+twscrape
+
+# Logging & Utilities
+# (Standard library logging is often sufficient initially)
+
+# Note: An Ollama Python client library might exist or could be developed.
+# If not, direct interaction via `httpx` within `interfaces/ollama.py` is needed.
+
+# Note: Add testing libraries like pytest, pytest-asyncio later.

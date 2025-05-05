@@ -1,0 +1,18 @@
+2025-05-05 15:28:40 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250505_152840.log
+2025-05-05 15:28:40 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250505_152840.log
+2025-05-05 15:28:40 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-05 15:28:40 - engineio.server - INFO - Server initialized for threading.
+2025-05-05 15:28:40 - __main__ - INFO - Initializing database tables...
+2025-05-05 15:28:40 - __main__ - INFO - Database tables checked/created.
+2025-05-05 15:28:40 - __main__ - INFO - Registered Flask blueprints.
+2025-05-05 15:28:40 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent namespace.
+2025-05-05 15:28:40 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-05 15:28:40 - __main__ - INFO - Attempting to start the web server...
+2025-05-05 15:28:40 - __main__ - ERROR - Failed to start the web server.
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/main_web.py", line 325, in <module>
+    debug=cfg.log_level == "DEBUG", # Use cfg here
+          ^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/pydantic/main.py", line 989, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'Config' object has no attribute 'log_level'

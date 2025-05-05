@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Log History - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Log History</h1>
+</div>
+
+<div class="mb-3">
+  <label for="logFileSelect" class="form-label">Select Log File:</label>
+  <select class="form-select" id="logFileSelect">
+    <option selected>Loading log files...</option>
+    <!-- Options will be populated by JavaScript -->
+  </select>
+</div>
+
+<div class="log-output bg-dark text-light p-3 rounded font-monospace small">
+    <pre><code id="log-content">Select a log file to view its contents.</code></pre>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/log_viewer.js') }}"></script> {# We need to create this JS file #}
+{% endblock %}

@@ -12,6 +12,7 @@ import copy
 from mimetypes import guess_type
 from knowledge_base_agent.media_processor import VIDEO_MIME_TYPES
 import asyncio
+import shutil
 
 async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str, fallback_model: str = "") -> str:
     """Generate knowledge base content from tweet data with enhanced validation and fallback."""
@@ -305,14 +306,15 @@ async def create_knowledge_base_entry(
         if not content_text:
             raise ContentProcessingError(f"No text content found for tweet {tweet_id}")
             
-        # Write markdown content
+        # Write markdown content using MarkdownWriter which handles atomic writes
         try:
             markdown_writer = MarkdownWriter(config)
-            readme_path_str, copied_media_paths_str = await markdown_writer.write_tweet_markdown(
+            # write_tweet_markdown now returns the FINAL readme path and copied media paths (after rename)
+            final_readme_path_str, final_copied_media_paths_str = await markdown_writer.write_tweet_markdown(
                 config.knowledge_base_dir,
                 tweet_id=tweet_id,
                 tweet_data=tweet_data,
-                image_files=media_files,  # Changed from image_files to media_files to include videos
+                image_files=media_files, # Use media_files to include videos
                 image_descriptions=image_descriptions,
                 main_category=main_cat,
                 sub_category=sub_cat,
@@ -320,41 +322,55 @@ async def create_knowledge_base_entry(
                 tweet_text=content_text,
                 tweet_url=tweet_url
             )
-            logging.info(f"Successfully wrote markdown for tweet {tweet_id} at {readme_path_str}")
-            logging.info(f"Copied media paths for tweet {tweet_id}: {copied_media_paths_str}")
+            logging.info(f"Successfully wrote final markdown for tweet {tweet_id} at {final_readme_path_str}")
+            logging.info(f"Final copied media paths for tweet {tweet_id}: {final_copied_media_paths_str}")
             
-            # Update kb_media_paths to final paths without .temp
-            final_media_paths = [path.replace('.temp', '') for path in copied_media_paths_str]
-            tweet_data['kb_media_paths'] = final_media_paths
-            logging.info(f"Updated kb_media_paths to final paths for tweet {tweet_id}: {final_media_paths}")
+            # Assign the final paths directly to tweet_data
+            # No .temp removal needed here IF write_tweet_markdown returns final paths
+            tweet_data['kb_media_paths'] = final_copied_media_paths_str
+            tweet_data['kb_item_path'] = final_readme_path_str.rsplit('/', 1)[0] # Get the directory path
             
-            # Update kb_item_path to final path without .temp
-            final_kb_item_path = readme_path_str.rsplit('/', 1)[0].replace('.temp', '')
-            tweet_data['kb_item_path'] = final_kb_item_path
-            logging.info(f"Updated kb_item_path to final path for tweet {tweet_id}: {final_kb_item_path}")
+            logging.info(f"Assigned final kb_media_paths: {tweet_data['kb_media_paths']}")
+            logging.info(f"Assigned final kb_item_path: {tweet_data['kb_item_path']}")
             
+            # Update the state manager with the final paths
             if state_manager:
                 await state_manager.update_tweet_data(tweet_id, tweet_data)
-                logging.info(f"Updated tweet data with final paths for tweet {tweet_id}")
+                logging.info(f"Updated tweet data in state manager with final paths for tweet {tweet_id}")
+                
         except Exception as e:
-            logging.error(f"Failed to write markdown for tweet {tweet_id}: {str(e)}")
-            raise
-        
+            logging.error(f"Failed during markdown writing/atomic rename for tweet {tweet_id}: {str(e)}")
+            # Attempt to clean up potential .temp directory if write failed mid-operation
+            temp_kb_item_path = Path(config.knowledge_base_dir) / main_cat / sub_cat / f"{item_name}.temp"
+            if temp_kb_item_path.exists():
+                try:
+                    shutil.rmtree(temp_kb_item_path)
+                    logging.info(f"Cleaned up temporary directory after write failure: {temp_kb_item_path}")
+                except Exception as cleanup_e:
+                    logging.error(f"Failed to clean up temporary directory {temp_kb_item_path}: {cleanup_e}")
+            raise # Re-raise the original error
+
         logging.info(f"Successfully created knowledge base entry for tweet {tweet_id}")
         
-        # Only update state AFTER successful completion
+        # Only mark tweet as processed AFTER successful completion including state update
         if state_manager:
-            await state_manager.mark_tweet_processed(tweet_id)
-            logging.info(f"Marked tweet {tweet_id} as processed in state manager")
-            
+            # Validate the state before marking processed
+            current_data = await state_manager.get_tweet(tweet_id)
+            if current_data and current_data.get('kb_item_path') and not current_data['kb_item_path'].endswith('.temp'):
+                 await state_manager.mark_tweet_processed(tweet_id, current_data) # Pass current_data for validation
+                 logging.info(f"Marked tweet {tweet_id} as processed in state manager.")
+            else:
+                 logging.warning(f"Skipping marking tweet {tweet_id} as processed due to missing or invalid final path in cache.")
+
     except Exception as e:
         logging.error(f"Failed to create knowledge base entry for {tweet_id}: {str(e)}")
         # Restore original state on failure
         if state_manager:
-            await state_manager.update_tweet_data(tweet_id, original_state)
-            await state_manager.add_unprocessed_tweet(tweet_id)  # Requeue
+            await state_manager.update_tweet_data(tweet_id, original_state) # Restore before requeueing
+            await state_manager.add_unprocessed_tweet(tweet_id) # Requeue
             logging.info(f"Restored original state and requeued tweet {tweet_id} due to failure")
-        raise StorageError(f"Failed to create knowledge base entry: {e}")
+        # Ensure error is raised to be caught by higher levels if necessary
+        raise KnowledgeBaseItemCreationError(f"Failed to create KB entry: {e}") from e
 
 def infer_basic_category(text: str) -> Tuple[str, str]:
     """

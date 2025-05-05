@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Agent Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button type="button" class="btn btn-sm btn-success me-2" id="start-agent-btn">
+            <i class="bi bi-play-fill"></i> Start Agent Run
+        </button>
+        <button type="button" class="btn btn-sm btn-danger" id="stop-agent-btn" disabled>
+            <i class="bi bi-stop-fill"></i> Stop Agent Run
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <h5>Status</h5>
+        <div class="card mb-3">
+            <div class="card-body">
+                <p class="card-text mb-1">
+                    <strong>Status:</strong>
+                    <span id="agent-status" class="badge bg-secondary ms-1">Idle</span>
+                </p>
+                <p class="card-text mb-1 small">
+                    <strong>Progress:</strong>
+                    <span id="progress-count">0</span> / <span id="progress-total">0</span>
+                    (<span id="current-phase">Idle</span> <span id="current-item-id"></span>)
+                </p>
+                 <p class="card-text mb-1 small">
+                    <strong>Est. Time Left:</strong>
+                    <span id="eta">--:--:--</span>
+                 </p>
+                <p class="card-text small text-muted" id="status-message">Waiting for commands...</p>
+            </div>
+        </div>
+        <h5 class="mt-3">Run Preferences</h5>
+         <div class="card">
+             <div class="card-body">
+                 <p class="text-muted small mb-2">Select options for the *next* agent run:</p>
+                 <h6>General</h6>
+                 <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" value="" id="skipFetchCheck">
+                  <label class="form-check-label" for="skipFetchCheck">
+                    <i class="bi bi-bookmarks-fill text-secondary me-1"></i> Skip Bookmark Fetch Phase
+                  </label>
+                </div>
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" value="" id="skipGitCheck">
+                  <label class="form-check-label" for="skipGitCheck">
+                    <i class="bi bi-github text-secondary me-1"></i> Skip Git Sync Phase
+                  </label>
+                </div>
+
+                 <h6 class="mt-2">Force Re-processing</h6>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" value="" id="forceRecacheCheck">
+                  <label class="form-check-label" for="forceRecacheCheck">
+                    <i class="bi bi-cloud-download text-danger me-1"></i> Force Re-cache Tweets & Media
+                  </label>
+                </div>
+                 <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" value="" id="forceReinterpretCheck">
+                  <label class="form-check-label" for="forceReinterpretCheck">
+                    <i class="bi bi-image text-danger me-1"></i> Force Re-interpret Media
+                  </label>
+                  <small class="d-block text-muted">(Requires media to be cached)</small>
+                </div>
+                 <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" value="" id="forceRecategorizeCheck">
+                  <label class="form-check-label" for="forceRecategorizeCheck">
+                    <i class="bi bi-tags text-danger me-1"></i> Force Re-categorize Content
+                  </label>
+                  <small class="d-block text-muted">(Requires media interpretation)</small>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="" id="forceRegenerateCheck">
+                  <label class="form-check-label" for="forceRegenerateCheck">
+                    <i class="bi bi-file-earmark-text text-danger me-1"></i> Force Re-generate KB Items
+                  </label>
+                   <small class="d-block text-muted">(Requires categorization)</small>
+                </div>
+             </div>
+         </div>
+    </div>
+    <div class="col-md-8">
+        <h5>Live Logs</h5>
+        <div class="log-output bg-dark text-light p-3 rounded font-monospace small">
+            <pre><code id="live-log-content">Connecting to agent logs...</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <!-- Specific JS for this page if needed -->
+{% endblock %}
+
