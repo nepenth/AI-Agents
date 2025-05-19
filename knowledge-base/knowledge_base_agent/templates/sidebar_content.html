@@ -1,0 +1,33 @@
+<!-- knowledge_base_agent/templates/sidebar_content.html -->
+<h5 class="px-3 mb-3">Knowledge Base</h5>
+<div class="list-group list-group-flush">
+    {% if items %}
+        {% for item_obj in items %}
+            <a href="{{ url_for('item_detail', item_id=item_obj.id) }}" class="list-group-item list-group-item-action {% if item_obj.id == current_item_id %}active{% endif %}">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">{{ item_obj.display_title or item_obj.title }}</h6>
+                </div>
+                {% if item_obj.main_category or item_obj.sub_category %}
+                <small class="text-muted">
+                    {% if item_obj.main_category %}{{ item_obj.main_category.replace('_', ' ') | title }}{% endif %}
+                    {% if item_obj.main_category and item_obj.sub_category %} / {% endif %}
+                    {% if item_obj.sub_category %}{{ item_obj.sub_category.replace('_', ' ') | title }}{% endif %}
+                </small>
+                {% endif %}
+                 <small class="d-block text-muted">Updated: {{ item_obj.last_updated.strftime('%Y-%m-%d') }}</small>
+            </a>
+        {% endfor %}
+    {% else %}
+        <p class="px-3">No items in the knowledge base yet.</p>
+    {% endif %}
+</div>
+
+<h5 class="px-3 mt-4 mb-3">Agent & Logs</h5>
+<div class="list-group list-group-flush">
+    <a class="list-group-item list-group-item-action" href="{{ url_for('index') }}">
+        <i class="bi bi-play-circle me-2"></i> Run Agent
+    </a>
+    <a class="list-group-item list-group-item-action" href="{{ url_for('logs_page') }}">
+        <i class="bi bi-archive me-2"></i> View Logs
+    </a>
+</div> 

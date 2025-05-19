@@ -1,21 +1,16 @@
 function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
-    const header = document.querySelector('.header');
-    if (header) {
-        header.classList.toggle('dark-mode');
-    }
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-bs-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (localStorage.getItem('darkMode') === 'enabled') {
-        document.body.classList.add('dark-mode');
-        const header = document.querySelector('.header');
-        if (header) {
-            header.classList.add('dark-mode');
-        }
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme) {
+        document.documentElement.setAttribute('data-bs-theme', storedTheme);
     }
+    // The button event listener will be in index.js as it contains the button
 });
 
 // Function to load content into the main area via AJAX

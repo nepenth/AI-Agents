@@ -104,6 +104,17 @@ class ProcessingStats:
         self.processing_times.append(duration)
 
 @dataclass
+class PhaseDetail:
+    name: str
+    total_eligible: int = 0
+    attempted: int = 0 # Number of items for which processing was attempted in this phase
+    succeeded: int = 0 # Number of items successfully processed in this phase (completed this phase without error)
+    newly_created_or_updated: int = 0 # e.g. items newly cached, media newly analyzed, KB items newly generated
+    skipped_already_done: int = 0 # Items skipped because the phase was already complete and not forced
+    failed: int = 0
+    details: str = "" # e.g. "X newly cached, Y skipped, Z failed"
+
+@dataclass
 class ProcessingResult:
     """Results of a knowledge base agent run."""
     stats: ProcessingStats

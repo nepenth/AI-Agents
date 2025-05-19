@@ -18,9 +18,9 @@ The agent processes tweets (primarily from bookmarks) through a series of phases
 3.  **State Loading:** `StateManager` loads existing tweet data, including status flags (`cache_complete`, `media_processed`, `categories_processed`, `kb_item_created`, `db_synced`, `error_message`). `AgentPipeline` retrieves the list of all known tweet IDs.
 4.  **Phase 1: Caching & Validation:**
     *   Executed concurrently for tweets where `cache_complete` is false or `force_recache` runtime preference is set.
-    *   Fetches core tweet data (text, author, media URLs, creation date) using `twscrape`.
+    *   Fetches core tweet data (text, author, author_id, media URLs, creation date, thread_tweets) using `twscrape`, populates `raw_tweet_details`, and generates `combined_text` from the main tweet and its thread.
     *   Expands shortened URLs.
-    *   Verifies/Downloads associated media (images, videos) to `media_cache`.
+    *   Verifies/Downloads associated media (images, videos) to `media_cache/<tweet_id>/`.
     *   Updates `cache_complete` flag and saves state via `StateManager`.
 5.  **Phase 2: Media Interpretation:**
     *   Executed concurrently for tweets where `cache_complete` is true and (`media_processed` is false or `force_reinterpret` runtime preference is set).
@@ -115,7 +115,7 @@ knowledge-base_v2/
 │   └── .gitkeep
 │
 ├── data/                        # Data files (runtime generated)
-│   ├── state.json               # Combined cache/state file managed by StateManager
+│   ├── processing_state.json    # Combined cache/state file managed by StateManager
 │   └── media_cache/             # Cached media files
 │       └── .gitkeep
 │
@@ -150,10 +150,10 @@ knowledge-base_v2/
 *   **`utils/*`**: Contains pure utility functions.
 *   **`interfaces/*`**: Classes encapsulating interactions with external services. Handles API calls, authentication, service-specific errors.
 *   **`processing/state.py`**:
-    *   `TweetData` (Pydantic `BaseModel`): Holds all data and status flags for a single tweet (`cache_complete`, `media_processed`, etc., `error_message`, `failed_phase`, `db_synced`). Includes `needs_processing(phase)` method.
+    *   `TweetData` (Pydantic `BaseModel`): Holds all data and status flags for a single tweet (e.g., `tweet_id`, `author_id`, `text`, `thread_tweets`, `combined_text`, `raw_tweet_details`, `media_items`, processing flags like `cache_complete`, `media_processed`, `categories_processed`, `kb_item_created`, `db_synced`, and error tracking fields like `error_message`, `failed_phase`). Includes `needs_processing(phase)` method and logic to mark failures.
     *   `StateManager` class:
         *   Manages the dictionary of `TweetData` objects.
-        *   `load_state()`, `save_state()`: Handles atomic loading/saving of the combined state/cache to `state.json`.
+        *   `load_state()`, `save_state()`: Handles atomic loading/saving of the combined state/cache to `processing_state.json` (located in the `data` directory).
         *   `get_tweet_data(tweet_id)`, `get_or_create_tweet_data(tweet_id)`, `update_tweet_data(tweet_id, data)`.
         *   `get_all_known_ids()`, `get_unprocessed_ids()`, `is_processed(tweet_id)`, `mark_processed(tweet_id)`.
 *   **`processing/pipeline.py`**:
@@ -298,7 +298,7 @@ FLASK_RUN_PORT=5001 # Default port if KBA_PORT env var not set at runtime
 *   **Configuration:** Centralize settings in `config.py` (Pydantic `Config`), loaded via `.env`.
 *   **Logging:** Implement robust logging via `log_setup.py` for CLI, web UI (via sockets), and file output.
 *   **Error Handling:** Use custom exceptions (`exceptions.py`). Implement retries where appropriate (interfaces). Ensure pipeline/phases handle errors gracefully, record them (`ProcessingStats`, `TweetData.error_message`), and update state correctly.
-*   **State Management:** `processing/state.py` (`StateManager` + `TweetData`) is the source of truth. Phases **must** update the `TweetData` object they receive and call `StateManager.update_tweet_data()` to persist changes atomicity. `state.json` holds the combined cache/state.
+*   **State Management:** `processing/state.py` (`StateManager` + `TweetData`) is the source of truth. Phases **must** update the `TweetData` object they receive and call `StateManager.update_tweet_data()` to persist changes. `StateManager` handles atomic saving to `processing_state.json` (in the `data` directory), which holds the combined cache/state.
 *   **Database Interaction:** Centralize DB model in `database.py`. `AgentPipeline` uses `database.sync_kb_item_async`. Ensure DB sessions/connections are handled correctly (Flask handles context for web routes; CLI/Pipeline needs explicit engine/session management if interacting directly outside Flask context).
 *   **Async Operations:** Use `asyncio`, `httpx`, `aiofiles`. Employ `asyncio.Semaphore` within `AgentPipeline` to manage concurrency for different phase types (LLM, Cache, DB) preventing resource exhaustion.
 *   **Testing:** Modular structure facilitates unit testing (mocks for interfaces/state) and integration testing. `pytest-asyncio` is recommended.

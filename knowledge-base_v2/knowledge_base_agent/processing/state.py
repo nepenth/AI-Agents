@@ -28,42 +28,53 @@ class StateManager:
         self._lock = asyncio.Lock() # Lock for atomic saving/modification access
         logger.info(f"StateManager initialized. State file: {self.state_file_path}")
 
-    async def load_state(self, perform_reconciliation: bool = True):
-        """
-        Loads the processing state from the JSON file.
-
-        Args:
-            perform_reconciliation: If True, performs basic checks after loading.
-        """
-        async with self._lock: # Ensure loading doesn't conflict with saving
-            logger.info(f"Attempting to load state from {self.state_file_path}...")
-            if not await asyncio.to_thread(self.state_file_path.exists): # Use thread for sync exists check
-                logger.warning(f"State file {self.state_file_path} not found. Initializing empty state.")
-                self._state = ProcessingState()
-                # Save initial empty state? Optional, but good practice.
-                await self._save_state_internal()
-                return
-
-            try:
+    async def load_state(self):
+        """Loads the state from the file if it exists, otherwise initializes a new state."""
+        logger.info(f"Attempting to load state from {self.state_file_path}...")
+        try:
+            if await asyncio.to_thread(self.state_file_path.exists):
                 raw_state_data = await read_json_async(self.state_file_path)
-                # Validate data against the Pydantic model
-                self._state = ProcessingState.model_validate(raw_state_data)
+                
+                # Correctly populate self._state
+                loaded_unprocessed_ids = set(raw_state_data.get("unprocessed_tweet_ids", []))
+                loaded_processed_ids = set(raw_state_data.get("processed_tweet_ids", []))
+                loaded_tweet_cache_raw = raw_state_data.get("tweet_cache", {})
+                
+                loaded_tweet_cache: Dict[str, TweetData] = {}
+                for tweet_id, tweet_data_dict in loaded_tweet_cache_raw.items():
+                    try:
+                        # Use model_validate for robust parsing and default application
+                        # This ensures that new fields in TweetData with defaults (like Optional[datetime]=None)
+                        # are correctly initialized if missing from the stored JSON.
+                        validated_data = TweetData.model_validate(tweet_data_dict)
+                        loaded_tweet_cache[tweet_id] = validated_data
+                    except Exception as e: # Catch PydanticValidationError specifically if preferred
+                        logger.error(f"Error validating/deserializing TweetData for ID {tweet_id} from cache: {e}. Skipping this item. Data: {tweet_data_dict}")
+                        continue # Skip problematic items
+
+                self._state = ProcessingState(
+                    unprocessed_tweet_ids=loaded_unprocessed_ids,
+                    processed_tweet_ids=loaded_processed_ids,
+                    tweet_cache=loaded_tweet_cache,
+                    last_run_timestamp=raw_state_data.get("last_run_timestamp") # Keep existing timestamp
+                )
+                
+                # Log based on the actual self._state contents
                 logger.info(f"Successfully loaded state. "
                             f"{len(self._state.unprocessed_tweet_ids)} unprocessed, "
                             f"{len(self._state.processed_tweet_ids)} processed, "
-                            f"{len(self._state.tweet_cache)} cached tweets.")
-                if perform_reconciliation:
-                     await self.reconcile_state()
-
-            except FileOperationError as e:
-                logger.error(f"File operation error loading state: {e}")
-                raise StateManagementError(f"Failed to read state file {self.state_file_path}", original_exception=e) from e
-            except Exception as e: # Catch Pydantic validation errors or other issues
-                logger.exception(f"Error loading or validating state file {self.state_file_path}. Resetting to empty state.", exc_info=True)
-                # Decide recovery strategy: raise error or reset state? Resetting might lose data.
-                # For now, let's raise to make the issue explicit.
-                raise StateManagementError(f"Failed to load/validate state: {e}. Check state file format.", original_exception=e) from e
-
+                            f"{len(self._state.tweet_cache)} items in cache.")
+            else:
+                logger.warning(f"State file {self.state_file_path} does not exist. Initializing new empty state.")
+                await self._initialize_empty_state() # This already sets self._state correctly
+        except FileOperationError as e:
+            logger.error(f"File operation error loading state: {e}")
+            logger.info("Initializing new empty state due to file operation error.")
+            await self._initialize_empty_state()
+        except Exception as e:
+            logger.error(f"Unexpected error loading state: {e}", exc_info=True)
+            logger.info("Initializing new empty state due to unexpected error.")
+            await self._initialize_empty_state()
 
     async def save_state(self):
         """Atomically saves the current state to the JSON file."""
@@ -102,14 +113,17 @@ class StateManager:
         # Return a copy to prevent external modification of the internal set
         return self._state.unprocessed_tweet_ids.copy()
 
-    def add_unprocessed_ids(self, tweet_ids: Set[str]):
-        """Adds new tweet IDs to the unprocessed set, avoiding duplicates."""
-        new_ids = tweet_ids - self._state.processed_tweet_ids - self._state.unprocessed_tweet_ids
-        if new_ids:
+    def add_unprocessed_ids(self, tweet_ids: Set[str]) -> int: # Return the count added
+        """Adds new tweet IDs to the unprocessed set, avoiding duplicates. Returns count of new IDs added."""
+        processed_or_already_unprocessed = self._state.processed_tweet_ids.union(self._state.unprocessed_tweet_ids)
+        new_ids = tweet_ids - processed_or_already_unprocessed
+        count_added = len(new_ids)
+        if count_added > 0:
              self._state.unprocessed_tweet_ids.update(new_ids)
-             logger.info(f"Added {len(new_ids)} new tweet IDs to the unprocessed set.")
+             logger.info(f"Added {count_added} new tweet IDs to the unprocessed set.")
         else:
              logger.debug("No new unique tweet IDs provided to add to unprocessed set.")
+        return count_added # Return count
 
 
     def get_tweet_data(self, tweet_id: str) -> Optional[TweetData]:
@@ -126,11 +140,14 @@ class StateManager:
         self._state.tweet_cache[tweet_id] = data
         logger.debug(f"Updated/added TweetData for ID: {tweet_id}")
 
-    def get_or_create_tweet_data(self, tweet_id: str) -> TweetData:
-         """Gets existing TweetData or creates a new empty one if not found."""
+    def get_or_create_tweet_data(self, tweet_id: str, tweet_url: Optional[str] = None) -> TweetData:
+         """Gets existing TweetData or creates a new empty one if not found. Optionally sets the source URL."""
          if tweet_id not in self._state.tweet_cache:
              logger.debug(f"No cache entry found for tweet ID {tweet_id}, creating new TweetData.")
-             self._state.tweet_cache[tweet_id] = TweetData(tweet_id=tweet_id)
+             self._state.tweet_cache[tweet_id] = TweetData(tweet_id=tweet_id, source_url=tweet_url)
+         elif tweet_url and not self._state.tweet_cache[tweet_id].source_url:
+             self._state.tweet_cache[tweet_id].source_url = tweet_url
+             logger.debug(f"Updated source_url for tweet ID {tweet_id}.")
          return self._state.tweet_cache[tweet_id]
 
 
@@ -155,6 +172,10 @@ class StateManager:
     def get_all_tweet_data(self) -> Dict[str, TweetData]:
          """Returns the entire tweet cache."""
          return self._state.tweet_cache.copy() # Return a copy
+
+    def get_all_known_ids(self) -> Set[str]:
+        """Returns a set of all tweet IDs known to the state (i.e., all keys in the cache)."""
+        return set(self._state.tweet_cache.keys())
 
     async def reconcile_state(self):
         """
@@ -197,3 +218,72 @@ class StateManager:
              # await self._save_state_internal() # Be careful about lock contention if called externally
         else:
              logger.info("State reconciliation completed. No major inconsistencies found.")
+
+    def should_process_phase(self, tweet_id: str, phase_name: str, force_flag: bool = False) -> bool:
+        """
+        Determines if a specific phase should be processed for a tweet based on its current state and force flag.
+        """
+        tweet_data = self.get_tweet_data(tweet_id)
+        if not tweet_data:
+            return True  # If no data exists, it needs processing
+
+        if force_flag:
+            logger.info(f"Tweet {tweet_id}: Force flag enabled for phase '{phase_name}'.")
+            return True
+
+        if phase_name == "Caching" and not tweet_data.cache_complete:
+            return True
+        elif phase_name == "Interpretation" and not tweet_data.media_processed:
+            return True
+        elif phase_name == "Categorization" and not tweet_data.categories_processed:
+            return True
+        elif phase_name == "Generation" and not tweet_data.kb_item_created:
+            return True
+        elif phase_name == "DBSync" and not tweet_data.db_synced:
+            return True
+        elif tweet_data.failed_phase == phase_name or (tweet_data.error_message and phase_name.lower() in tweet_data.error_message.lower()):
+            logger.info(f"Tweet {tweet_id}: Has previous error for phase '{phase_name}': '{tweet_data.error_message}'. Re-processing.")
+            return True
+        else:
+            logger.info(f"Tweet {tweet_id}: Phase '{phase_name}' already processed and no error. Skipping unless forced.")
+            return False
+
+    def reset_phase_flags(self, tweet_id: str, phase_name: str):
+        """
+        Resets the relevant flags and clears errors for a specific phase when forced.
+        """
+        tweet_data = self.get_tweet_data(tweet_id)
+        if not tweet_data:
+            return
+
+        if tweet_data.failed_phase == phase_name:
+            tweet_data.error_message = None
+            tweet_data.failed_phase = None
+
+        if phase_name == "Caching":
+            tweet_data.cache_complete = False
+        elif phase_name == "Interpretation":
+            tweet_data.media_processed = False
+        elif phase_name == "Categorization":
+            tweet_data.categories_processed = False
+            tweet_data.main_category = None
+            tweet_data.sub_category = None
+            tweet_data.item_name = None
+        elif phase_name == "Generation":
+            tweet_data.kb_item_created = False
+            tweet_data.kb_item_path = None
+            tweet_data.kb_media_paths = []
+            tweet_data.generated_content = None
+        elif phase_name == "DBSync":
+            tweet_data.db_synced = False
+
+        self.update_tweet_data(tweet_id, tweet_data)
+        logger.info(f"Tweet {tweet_id}: Flags reset for phase '{phase_name}'.")
+
+    async def _initialize_empty_state(self):
+        self._state = ProcessingState()
+        self._state.unprocessed_tweet_ids = set()
+        self._state.processed_tweet_ids = set()
+        self._state.tweet_cache = {}
+        self._state.last_run_timestamp = datetime.utcnow()
+        await self._save_state_internal()

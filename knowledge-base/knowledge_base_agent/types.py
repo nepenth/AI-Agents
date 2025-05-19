@@ -55,13 +55,16 @@ class CategoryInfo:
 
 @dataclass
 class KnowledgeBaseItem:
-    title: str
+    display_title: str
     description: str
-    content: str
+    markdown_content: str
+    raw_json_content: str
     category_info: CategoryInfo
     source_tweet: Dict[str, Any]
-    media_urls: List[str]  # Store downloaded_media paths
-    image_descriptions: List[str]  # Store image descriptions
+    source_media_cache_paths: List[str]
+    kb_media_paths_rel_item_dir: str
+    kb_item_path_rel_project_root: str
+    image_descriptions: List[str]
     created_at: datetime
     last_updated: datetime
 

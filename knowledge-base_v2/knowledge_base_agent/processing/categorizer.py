@@ -79,38 +79,33 @@ async def categorize_content(
 ):
     """
     Uses an LLM to determine main_category, sub_category, and item_name.
-
     Updates the TweetData object and saves state via StateManager.
     """
     tweet_id = tweet_data.tweet_id
     logger.info(f"Categorizing content for tweet {tweet_id}...")
 
-    # Ensure there's content to categorize (using combined_text)
     if not tweet_data.combined_text and not any(
         item.description and item.description != "[Error generating description]"
         for item in tweet_data.media_items if item.type == 'image'
     ):
         logger.warning(f"Skipping categorization for tweet {tweet_id}: No text/thread or valid image descriptions available.")
-        tweet_data.categories_processed = False # Mark as not done
-        # Avoid marking as failed if it just lacks content for this optional step
-        # tweet_data.mark_failed("Categorizer", "No content to categorize.")
-        state_manager.update_tweet_data(tweet_id, tweet_data)
+        tweet_data.categories_processed = False
+        tweet_data.mark_failed("Categorizer", "No content to categorize.")
         return
 
     prompt = _build_categorization_prompt(tweet_data)
 
     try:
-        # Call Ollama API with format="json" enabled
         response = await ollama_client.generate(
             prompt=prompt,
             system_prompt=CATEGORIZATION_SYSTEM_PROMPT,
             model=state_manager.config.text_model,
             stream=False,
-            format="json", # <--- Enable JSON Mode
+            format="json",
         )
 
         if not isinstance(response, dict) or 'response' not in response:
-             raise CategorizationError(tweet_id, f"Unexpected response structure from Ollama: {response}")
+            raise CategorizationError(tweet_id, f"Unexpected response structure from Ollama: {response}")
 
         llm_output = response['response'].strip()
         logger.debug(f"LLM JSON output for categorization '{tweet_id}':\n{llm_output}")
@@ -152,21 +147,45 @@ async def categorize_content(
 
         # --- Mark Success ---
         tweet_data.categories_processed = True
-        if tweet_data.failed_phase == "Categorizer": # Clear previous error on success
+        if tweet_data.failed_phase == "Categorizer":
             tweet_data.error_message = None
             tweet_data.failed_phase = None
         logger.info(f"Categorization successful for tweet {tweet_id}: "
                     f"{tweet_data.main_category}/{tweet_data.sub_category}/{tweet_data.item_name}")
-
     except Exception as e:
         logger.error(f"Error during categorization phase for tweet {tweet_id}: {e}", exc_info=True)
         tweet_data.categories_processed = False
-        if not isinstance(e, CategorizationError):
-             tweet_data.mark_failed("Categorizer", e)
-        else:
-             tweet_data.mark_failed("Categorizer", str(e))
-        # Don't re-raise, error marked on tweet_data
-
+        tweet_data.mark_failed("Categorizer", str(e))
     finally:
-        # Always update state
         state_manager.update_tweet_data(tweet_id, tweet_data)
+
+async def run_categorize_phase(
+    tweet_id: str,
+    tweet_data: TweetData,
+    config: Config,
+    ollama_client: OllamaClient,
+    state_manager: StateManager, # Now used for should_process check
+    force_recategorize: bool = False,
+    **kwargs
+):
+    """
+    Phase function for categorizing content of a single tweet.
+    Called by the AgentPipeline.
+    """
+    logger.debug(f"Running categorize phase for tweet ID: {tweet_id}. Force recategorize: {force_recategorize}")
+
+    if not tweet_data.cache_complete or not tweet_data.media_processed:
+        logger.warning(f"Tweet {tweet_id}: Skipping categorization, prerequisite phases (cache/interpret) not complete.")
+        return
+
+    should_process = state_manager.should_process_phase(tweet_id, "Categorization", force_recategorize)
+    if not should_process:
+        logger.info(f"Tweet {tweet_id}: Skipping categorization phase based on state and preferences.")
+        return
+
+    await categorize_content(
+        tweet_data=tweet_data,
+        ollama_client=ollama_client,
+        state_manager=state_manager
+    )
+    # Pipeline saves state

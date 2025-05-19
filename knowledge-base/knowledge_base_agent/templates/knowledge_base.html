@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knowledge Base</title>
+    <!-- Ensure item.display_title or item.title is available for the page title -->
+    <title>{% if kb_json_data %}{{ kb_json_data.suggested_title }}{% elif item %}{{ item.display_title or item.title }}{% else %}Knowledge Base{% endif %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Add a stylesheet for a syntax highlighter, e.g., Prism.js -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -27,26 +30,27 @@
                     <i class="bi bi-gear me-2"></i> Agent
                 </a>
                 <div class="collapse" id="collapseAgent">
-                    <a class="list-group-item list-group-item-action subcategory-item" href="/" onclick="loadAgentControls(event)">
+                    <a class="list-group-item list-group-item-action subcategory-item" href="/">
                         <i class="bi bi-play-circle me-2"></i> Run Agent & Logs
                     </a>
-                    <a class="list-group-item list-group-item-action subcategory-item" href="/logs" onclick="loadLogsPage(event)">
+                    <a class="list-group-item list-group-item-action subcategory-item" href="/logs">
                         <i class="bi bi-archive me-2"></i> View Past Logs
                     </a>
                 </div>
 
                 <!-- Knowledge Base Section -->
-                <a class="list-group-item list-group-item-action nav-link-item d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseKB" role="button" aria-expanded="true" aria-controls="collapseKB">
+                <a class="list-group-item list-group-item-action nav-link-item d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseKB" role="button" aria-expanded="{% if item or kb_json_data %}true{% else %}false{% endif %}" aria-controls="collapseKB">
                     <span><i class="bi bi-book me-2"></i> Knowledge Base</span>
-                    <span class="badge bg-secondary rounded-pill">{{ items|length }}</span>
+                    <span class="badge bg-secondary rounded-pill">{{ all_items|length if all_items else items|length }}</span>
                 </a>
-                <div class="collapse show" id="collapseKB">
+                <div class="collapse {% if item or kb_json_data %}show{% endif %}" id="collapseKB">
                     <div class="search-bar p-2">
                         <input type="text" class="form-control form-control-sm" id="searchKB" placeholder="Search Knowledge Base...">
                     </div>
                     <ul class="list-unstyled ps-3"> {# Main category list #}
-                    {% if items %}
-                        {% set categories = items|groupby('main_category')|sort(attribute='grouper') %}
+                    {% set current_items = all_items if all_items else items %}
+                    {% if current_items %}
+                        {% set categories = current_items|groupby('main_category')|sort(attribute='grouper') %}
                         {% for main_category, main_group in categories %}
                             <li>
                                 <a href="#collapseCat{{ loop.index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseCat{{ loop.index }}" class="nav-link sidebar-link d-block">
@@ -62,11 +66,10 @@
                                             </a>
                                             <div class="collapse" id="collapseSub{{ loop.parent.loop.index }}_{{ loop.index }}">
                                                 <ul class="list-unstyled ps-3"> {# Item list #}
-                                                {% for item in sub_group|sort(attribute='title') %}
+                                                {% for kb_item_nav in sub_group|sort(attribute='display_title') %}
                                                     <li>
-                                                        <!-- Use item.title for display -->
-                                                        <a href="{{ url_for('item_detail', id=item.id) }}" class="nav-link sidebar-link item-link">
-                                                            {{ item.title }}
+                                                        <a href="{{ url_for('item_detail', item_id=kb_item_nav.id) }}" class="nav-link sidebar-link item-link {% if item and item.id == kb_item_nav.id %}active{% endif %}">
+                                                            {{ kb_item_nav.display_title or kb_item_nav.title }}
                                                         </a>
                                                     </li>
                                                 {% endfor %}
@@ -86,18 +89,182 @@
                 <!-- End Knowledge Base Section -->
             </div>
         </div>
-        <div class="main-content">
-            <h2>Welcome to the Knowledge Base</h2>
-            <div class="card welcome-card">
-                <div class="card-body">
-                    <h5 class="card-title">Browse Knowledge Base Items</h5>
-                    <p class="card-text">Use the navigation pane on the left to explore categories and items. Click on any item to view its detailed content here.</p>
-                    <p class="card-text">Currently, there are <strong>{{ items|length }}</strong> items in the knowledge base.</p>
+        <div class="main-content p-4">
+            {% if kb_json_data %}
+                {# RENDER FROM JSON DATA #}
+                <article>
+                    <header class="mb-4">
+                        <h1 class="fw-bold">{{ kb_json_data.suggested_title }}</h1>
+                        {% if kb_json_data.meta_description %}
+                            <p class="lead text-muted">{{ kb_json_data.meta_description }}</p>
+                        {% endif %}
+                        {% if item %}
+                        <small class="text-muted">
+                            Category: {{ item.main_category|replace('_',' ')|title }} / {{ item.sub_category|replace('_',' ')|title }} <br>
+                            Last Updated: {{ item.last_updated.strftime('%Y-%m-%d %H:%M') if item.last_updated else 'N/A' }}
+                            {% if item.source_url %}
+                                | <a href="{{ item.source_url }}" target="_blank">Original Source</a>
+                            {% endif %}
+                        </small>
+                        {% endif %}
+                        <hr>
+                    </header>
+
+                    {% if kb_json_data.introduction %}
+                        <section class="mb-4">
+                            <h3>Introduction</h3>
+                            <p>{{ kb_json_data.introduction|safe }}</p>
+                        </section>
+                    {% endif %}
+
+                    {% if kb_json_data.sections %}
+                        {% for section in kb_json_data.sections %}
+                            <section class="mb-4">
+                                <h4>{{ section.heading }}</h4>
+                                {% if section.content_paragraphs %}
+                                    {% for paragraph in section.content_paragraphs %}
+                                        <p>{{ paragraph|safe }}</p>
+                                    {% endfor %}
+                                {% endif %}
+                                {% if section.code_blocks %}
+                                    {% for cb in section.code_blocks %}
+                                        {% if cb.explanation %}<p><em>{{ cb.explanation|safe }}</em></p>{% endif %}
+                                        <pre><code class="language-{{ cb.language or 'plaintext' }}">{{ cb.code }}</code></pre>
+                                    {% endfor %}
+                                {% endif %}
+                                {% if section.lists %}
+                                    {% for list_item in section.lists %}
+                                        {% if list_item.type == 'numbered' %}
+                                            <ol>
+                                            {% for li in list_item.items %}<li>{{ li|safe }}</li>{% endfor %}
+                                            </ol>
+                                        {% else %}
+                                            <ul>
+                                            {% for li in list_item.items %}<li>{{ li|safe }}</li>{% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                                {% if section.notes_or_tips %}
+                                    {% for note in section.notes_or_tips %}
+                                        <blockquote class="blockquote">
+                                            <p><small>{{ note|safe }}</small></p>
+                                        </blockquote>
+                                    {% endfor %}
+                                {% endif %}
+                            </section>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if kb_json_data.key_takeaways %}
+                        <section class="mb-4">
+                            <h3>Key Takeaways</h3>
+                            <ul>
+                                {% for takeaway in kb_json_data.key_takeaways %}
+                                    <li>{{ takeaway|safe }}</li>
+                                {% endfor %}
+                            </ul>
+                        </section>
+                    {% endif %}
+
+                    {% if kb_json_data.conclusion %}
+                        <section class="mb-4">
+                            <h3>Conclusion</h3>
+                            <p>{{ kb_json_data.conclusion|safe }}</p>
+                        </section>
+                    {% endif %}
+
+                    {% if kb_json_data.external_references %}
+                         <section class="mb-4">
+                            <h3>External References</h3>
+                            <ul>
+                                {% for ref in kb_json_data.external_references %}
+                                    <li><a href="{{ ref.url }}" target="_blank">{{ ref.text }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </section>
+                    {% endif %}
+                </article>
+
+            {% elif item and processed_markdown_content %}
+                {# FALLBACK TO RENDERED MARKDOWN #}
+                <header class="mb-4">
+                    <h1 class="fw-bold">{{ item.display_title or item.title }}</h1>
+                     <small class="text-muted">
+                        Category: {{ item.main_category|replace('_',' ')|title }} / {{ item.sub_category|replace('_',' ')|title }} <br>
+                        Last Updated: {{ item.last_updated.strftime('%Y-%m-%d %H:%M') if item.last_updated else 'N/A' }}
+                        {% if item.source_url %}
+                            | <a href="{{ item.source_url }}" target="_blank">Original Source</a>
+                        {% endif %}
+                    </small>
+                    <hr>
+                </header>
+                <div>
+                    {{ processed_markdown_content|safe }}
+                </div>
+            
+            {% elif item %} {# Item exists but no kb_json_data and no processed_markdown_content #}
+                <h1 class="fw-bold">{{ item.display_title or item.title }}</h1>
+                <p class="text-danger">Error: Knowledge base content is available but could not be displayed. The JSON data might be missing or corrupted, and no pre-rendered Markdown is available.</p>
+                <p>Raw item description: {{ item.description }}</p>
+
+            {% else %}
+                {# DEFAULT WELCOME MESSAGE #}
+                <h2>Welcome to the Knowledge Base</h2>
+                <div class="card welcome-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Browse Knowledge Base Items</h5>
+                        <p class="card-text">Use the navigation pane on the left to explore categories and items. Click on any item to view its detailed content here.</p>
+                        <p class="card-text">Currently, there are <strong>{{ all_items|length if all_items else items|length }}</strong> items in the knowledge base.</p>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Associated Media Section (remains the same, assuming media_files is populated correctly by web.py) -->
+            {% if media_files %}
+            <div class="mt-5">
+                <h4>Associated Media</h4>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    {% for media in media_files %}
+                    <div class="col">
+                        <div class="card h-100">
+                            {% if media.type == 'image' %}
+                                <img src="{{ media.url }}" class="card-img-top" alt="{{ media.name }}" style="max-height: 200px; object-fit: cover;">
+                            {% elif media.type == 'video' %}
+                                <video controls class="card-img-top" style="max-height: 200px;">
+                                    <source src="{{ media.url }}" type="video/mp4"> <!-- Adjust type if needed -->
+                                    Your browser does not support the video tag.
+                                </video>
+                            {% endif %}
+                            <div class="card-body">
+                                <p class="card-text"><small>{{ media.name }}</small></p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Add Prism.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/kb_display.js') }}"></script>
+    <script>
+        // If Prism is loaded, highlight all code blocks when the page is ready
+        // or when content is dynamically loaded by kb_display.js.
+        // kb_display.js will call Prism.highlightAll() internally after AJAX loads.
+        // This one is for initial server-side render.
+        document.addEventListener('DOMContentLoaded', (event) => {
+            if (window.Prism) {
+                 Prism.highlightAll();
+            }
+        });
+    </script>
 </body>
 </html> 

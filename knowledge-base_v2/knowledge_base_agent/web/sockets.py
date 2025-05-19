@@ -24,7 +24,11 @@ def register_handlers(socketio_instance: SocketIO, start_func, stop_func, status
     sio.on('start_agent', namespace='/agent')(handle_start_agent)
     sio.on('stop_agent', namespace='/agent')(handle_stop_agent)
 
-    logger.info("SocketIO handlers registered for /agent namespace.")
+    # Add handlers for the /logs namespace
+    sio.on('connect', namespace='/logs')(handle_logs_connect)
+    sio.on('disconnect', namespace='/logs')(handle_logs_disconnect)
+
+    logger.info("SocketIO handlers registered for /agent and /logs namespaces.")
 
 
 # --- Event Handlers ---
@@ -59,7 +63,7 @@ def handle_start_agent(data=None):
 
     logger.info(f"Received start_agent request. Data: {data}")
     # Extract preferences from data if needed
-    run_preferences = data.get('preferences', {}) if isinstance(data, dict) else {}
+    run_preferences = data if isinstance(data, dict) else {}
     success = start_pipeline_func(run_preferences)
     # Status update will be emitted by start_pipeline_func itself
 
@@ -73,3 +77,14 @@ def handle_stop_agent():
     logger.info("Received stop_agent request.")
     success = stop_pipeline_func()
     # Status update will be emitted by stop_pipeline_func itself
+
+# --- /logs Namespace Handlers ---
+def handle_logs_connect(auth=None):
+    """Handles new client connections to the /logs namespace."""
+    logger.info(f"Client connected to /logs namespace. Auth: {auth}")
+    # You could emit a welcome message or initial state if needed, e.g.:
+    # emit('log_history_status', {'message': 'Connected to log stream.'})
+
+def handle_logs_disconnect():
+    """Handles client disconnections from the /logs namespace."""
+    logger.info("Client disconnected from /logs namespace.")

@@ -18,6 +18,7 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
     logging.info(f"Generating root README for knowledge base at {kb_dir}...")
     try:
         kb_items = []
+        tweet_cache = {}
         
         if config.tweet_cache_file.exists():
             async with aiofiles.open(config.tweet_cache_file, 'r', encoding='utf-8') as f:
@@ -114,7 +115,7 @@ async def generate_root_readme(kb_dir: Path, category_manager: CategoryManager, 
                     logging.error(f"Error processing KB item {kb_path_str} for tweet {tweet_id}: {e}")
                     continue
 
-        logging.info(f"Validated {len(kb_items)} KB items (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)])})")
+        logging.info(f"Validated {len(kb_items)} KB items (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)]) if tweet_cache else 0})")
         
         # Log item names for debugging
         logging.debug("KB item names for validation:")

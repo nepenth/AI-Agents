@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import aiofiles
-from flask import Blueprint, jsonify, request, current_app, abort, render_template
+from flask import Blueprint, jsonify, request, current_app, abort, render_template, make_response
 
 from ..config import Config
 from .. import log_setup # Import log_setup to potentially get current filename
@@ -44,30 +44,47 @@ async def read_log_file_lines(log_file_path: Path, max_lines: Optional[int] = No
 
 # --- API Endpoints (Note: URL prefix is now /logs) ---
 
-@logs_bp.route('/api/list', methods=['GET']) # Full path: /logs/api/list
+@logs_bp.route('/api/list', methods=['GET'])
 async def list_log_files():
     """API endpoint to list available log files."""
-    if not hasattr(current_app, 'agent_config'): abort(500, "Server configuration error")
+    logger.info("Request received for /logs/api/list") # Log entry
+    if not hasattr(current_app, 'agent_config'):
+        logger.error("Agent configuration not found on current_app.")
+        return make_response(jsonify({"error": "Server configuration error"}), 500)
+
     config: Config = current_app.agent_config
     log_dir = config.log_dir.resolve()
+    logger.debug(f"Attempting to list logs in directory: {log_dir}")
 
     try:
+        # Check if log directory exists
+        if not await asyncio.to_thread(log_dir.is_dir):
+            logger.error(f"Log directory not found or is not a directory: {log_dir}")
+            # Return empty list, but maybe log an error status on the client?
+            # Or return a specific error message. Let's return empty for now.
+            return jsonify({"log_files": [], "message": "Log directory not found."})
+
         # List files synchronously within a thread
         def list_sync():
-             if not log_dir.is_dir(): return []
              # Filter for expected pattern and sort reverse chronologically
              log_files = [
                  f.name for f in log_dir.iterdir()
                  if f.is_file() and f.name.startswith("agent_run_") and f.name.endswith(".log")
              ]
              log_files.sort(reverse=True) # Newest first
+             logger.debug(f"Found {len(log_files)} log files: {log_files[:5]}...") # Log first few found
              return log_files
 
         filenames = await asyncio.to_thread(list_sync)
+        logger.info(f"Successfully listed {len(filenames)} log files.")
         return jsonify({"log_files": filenames})
+
+    except PermissionError as e:
+        logger.error(f"Permission error listing log files in {log_dir}: {e}", exc_info=True)
+        return make_response(jsonify({"error": f"Permission denied accessing log directory: {log_dir}"}), 500)
     except Exception as e:
-         logger.error(f"Error listing log files in {log_dir}: {e}", exc_info=True)
-         return jsonify({"error": "Failed to list log files"}), 500
+         logger.error(f"Generic error listing log files in {log_dir}: {e}", exc_info=True)
+         return make_response(jsonify({"error": "An unexpected error occurred while listing log files"}), 500)
 
 
 @logs_bp.route('/api/view/<string:filename>', methods=['GET']) # Full path: /logs/api/view/<filename>

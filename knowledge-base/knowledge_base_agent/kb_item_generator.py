@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 import logging
 from datetime import datetime
 from knowledge_base_agent.exceptions import StorageError, ContentProcessingError, ContentGenerationError, KnowledgeBaseItemCreationError
@@ -13,383 +13,451 @@ from mimetypes import guess_type
 from knowledge_base_agent.media_processor import VIDEO_MIME_TYPES
 import asyncio
 import shutil
+import json
+from knowledge_base_agent.naming_utils import normalize_name_for_filesystem
+from knowledge_base_agent.exceptions import AIError
 
-async def generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str, fallback_model: str = "") -> str:
-    """Generate knowledge base content from tweet data with enhanced validation and fallback."""
-    try:
-        # Prepare context including tweet text, URLs, and media descriptions
-        context = f"Tweet: {tweet_data.get('full_text', '')}\n\n"
-        
-        # Add URLs if present
-        if tweet_data.get('urls'):
-            context += "Related Links:\n"
-            for url in tweet_data['urls']:
-                context += f"- {url}\n"
-            context += "\n"
-        
-        # Add media descriptions if present
-        if tweet_data.get('media'):
-            context += "Media:\n"
-            for i, media in enumerate(tweet_data['media'], 1):
-                if isinstance(media, dict) and media.get('alt_text'):
-                    context += f"{i}. {media['alt_text']}\n"
+def create_kb_content_generation_prompt(context_data: Dict[str, Any]) -> str:
+    tweet_segments = context_data.get('tweet_segments', [])
+    single_tweet_text = context_data.get('tweet_text', '')
 
-        # Dynamically adjust prompt based on content
-        is_technical = any(keyword in context.lower() for keyword in ['code', 'programming', 'api', 'framework', 'library'])
-        prompt_focus = "technical concepts with code examples" if is_technical else "key ideas and practical insights"
-        prompt = (
-            f"Based on this content:\n\n{context}\n\n"
-            f"Generate a detailed knowledge base entry that focuses on {prompt_focus}:\n"
-            "1. Explains the main concepts or ideas\n"
-            "2. Provides relevant examples if applicable\n"
-            "3. Lists key points and takeaways\n"
-            "4. Includes relevant details and references\n"
-            "\nFormat in Markdown with proper headers and sections."
+    main_category = context_data.get('main_category', 'N/A')
+    sub_category = context_data.get('sub_category', 'N/A')
+    item_name_hint = context_data.get('item_name', 'N/A')
+    
+    all_urls = context_data.get('all_urls', [])
+    all_media_descriptions = context_data.get('all_media_descriptions', [])
+
+    source_content_md = ""
+    if tweet_segments:
+        source_content_md += "**Source Information (Tweet Thread):**\\n"
+        for i, segment_text in enumerate(tweet_segments):
+            source_content_md += f"- Segment {i+1}: \"{segment_text}\"\\n"
+        source_content_md += "\\n"
+    elif single_tweet_text:
+        source_content_md += "**Source Information (Single Tweet):**\\n"
+        source_content_md += f"- Tweet Text: \"{single_tweet_text}\"\\n\\n"
+
+    media_context_md = ""
+    if all_media_descriptions:
+        media_context_md += "Associated Media Insights (derived from all images/videos in the thread/tweet):\\n"
+        for i, desc in enumerate(all_media_descriptions):
+            media_context_md += f"- Media {i+1}: {desc}\\n"
+        media_context_md += "\\n"
+
+    urls_context_md = ""
+    if all_urls:
+        urls_context_md += "Mentioned URLs (from all segments in the thread/tweet, for context, not necessarily for inclusion as external_references unless very specific and high-value):\\n"
+        for url in all_urls:
+            urls_context_md += f"- {url}\\n"
+        urls_context_md += "\\n"
+
+    prompt = f"""
+You are an expert technical writer tasked with creating a structured knowledge base article.
+The source content is from a tweet (or a thread of tweets) and associated media/links.
+The target audience is technical (software engineers, data scientists, IT professionals).
+
+{source_content_md}
+- Initial Topic/Keyword (for title inspiration): "{item_name_hint}"
+- Category: {main_category} / {sub_category}
+{media_context_md}{urls_context_md}
+**Your Task:**
+Generate a comprehensive, well-structured knowledge base article in JSON format.
+The JSON object MUST conform to the following schema. Ensure all string values are plain text without any markdown.
+
+```json
+{{
+  "suggested_title": "string (A polished, human-readable title for the article, inspired by '{item_name_hint}' but can be more descriptive. e.g., 'Understanding Asynchronous Execution in Python')",
+  "meta_description": "string (1-2 sentence summary of the article, suitable for SEO or a brief preview. Max 160 characters.)",
+  "introduction": "string (1-2 engaging paragraphs introducing the topic, its importance, and what the article will cover.)",
+  "sections": [
+    {{
+      "heading": "string (Clear, concise heading for this section, e.g., 'Core Concepts of X', 'Setting up Y', 'Common Pitfalls')",
+      "content_paragraphs": [
+        "string (Detailed paragraph. Explain concepts clearly. Use technical terms accurately.)",
+        "string (Another paragraph if needed for this section.)"
+      ],
+      "code_blocks": [
+        {{
+          "language": "string (e.g., python, javascript, bash, json, yaml, Dockerfile, plain_text)",
+          "code": "string (The actual code snippet. Ensure it is correct and well-formatted.)",
+          "explanation": "string (Optional: Brief explanation of what this code does or demonstrates.)"
+        }}
+      ],
+      "lists": [
+        {{
+          "type": "bulleted | numbered",
+          "items": [
+            "string (List item 1)",
+            "string (List item 2)"
+          ]
+        }}
+      ],
+      "notes_or_tips": [
+        "string (A key note, tip, best practice, or warning related to this section.)"
+      ]
+    }}
+  ],
+  "key_takeaways": [
+    "string (A concise key learning point or summary statement. Aim for 3-5 takeaways.)"
+  ],
+  "conclusion": "string (Concluding paragraph, summarizing the main points and perhaps suggesting further reading or next steps.)",
+  "external_references": [
+    {{"text": "string (Descriptive text for the link, e.g., 'Official Python Asyncio Docs')", "url": "string (The URL)"}}
+  ]
+}}
+```
+
+**Guidelines for Content Generation:**
+- **Accuracy:** Ensure all technical information, code examples, and explanations are correct.
+- **Clarity:** Write in clear, concise language. Define jargon if used.
+- **Depth:** Go beyond surface-level explanations. Provide meaningful insights. Aim for 2-4 detailed sections.
+- **Structure:** Organize content logically. Each section should have a clear purpose.
+- **Completeness:** Populate all fields. Use empty lists `[]` for optional sub-fields if not applicable (e.g., `code_blocks: []`).
+- **Title:** `suggested_title` must be a refined, descriptive title for the article.
+- **Paragraphs:** `content_paragraphs` must be an array of strings.
+- **Code:** If including code, specify the language. `plain_text` can be used for generic text blocks.
+- **No Markdown in JSON Values:** All string values within the JSON MUST be plain text. Markdown formatting will be applied later.
+
+Respond ONLY with a single, valid JSON object that strictly adheres to the schema. Do not include any other text, explanations, or apologies before or after the JSON.
+"""
+    return prompt.strip()
+
+
+async def _generate_kb_content_json(
+    tweet_id: str, # For logging (original bookmarked tweet ID)
+    context_data: Dict[str, Any], 
+    http_client: HTTPClient, 
+    config: Config
+) -> Dict[str, Any]:
+    """Generates knowledge base content as a structured JSON object from tweet data."""
+    prompt = create_kb_content_generation_prompt(context_data)
+    
+    current_model = config.text_model
+    last_exception = None
+
+    # Total attempts for primary model + fallback model
+    total_attempts = config.content_retries * 2 
+
+    for attempt in range(total_attempts):
+        model_to_use = current_model
+        is_primary_model_attempt = (model_to_use == config.text_model)
+        attempt_num_for_model = (attempt % config.content_retries) + 1
+
+        if not is_primary_model_attempt and attempt < config.content_retries: 
+             pass # Should be on primary, logic error in original, corrected below
+        elif is_primary_model_attempt and attempt >= config.content_retries and config.fallback_model and config.fallback_model != config.text_model:
+            logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
+            current_model = config.fallback_model
+            model_to_use = current_model # Ensure model_to_use is updated
+            attempt_num_for_model = (attempt - config.content_retries) + 1
+        # Corrected logic for model switching:
+        # if attempt >= config.content_retries: # Time to switch to fallback if primary failed enough
+        #     if config.fallback_model and config.fallback_model != config.text_model and current_model == config.text_model:
+        #         logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
+        #         current_model = config.fallback_model
+        #     model_to_use = current_model
+        #     attempt_num_for_model = (attempt % config.content_retries) + 1 # Reset attempt count for this model
+        # else:
+        #     model_to_use = config.text_model
+        #     attempt_num_for_model = attempt + 1
+
+
+        logging.info(f"Tweet {tweet_id}: Attempt {attempt_num_for_model}/{config.content_retries} to generate KB content JSON using model {model_to_use}.")
+        
+        try:
+            raw_response = await http_client.ollama_generate(
+                model=model_to_use,
+                prompt=prompt,
+                temperature=0.2, 
+                options={"json_mode": True} 
+            )
+
+            if not raw_response:
+                logging.warning(f"Tweet {tweet_id}: Empty raw response from {model_to_use} (attempt {attempt_num_for_model}).")
+                last_exception = ContentGenerationError("Generated content JSON is empty")
+            else:
+                try:
+                    if raw_response.startswith("```json"):
+                        raw_response = raw_response.split("```json")[1].split("```")[0].strip()
+                    elif raw_response.startswith("```"):
+                         raw_response = raw_response.split("```")[1].strip()
+                    
+                    content_json = json.loads(raw_response)
+                    
+                    if not isinstance(content_json, dict) or "suggested_title" not in content_json or "sections" not in content_json:
+                        logging.warning(f"Tweet {tweet_id}: Invalid JSON structure from {model_to_use} (attempt {attempt_num_for_model}). Missing key fields. Response: {raw_response[:500]}")
+                        last_exception = ContentGenerationError("Generated content JSON lacks required structure (e.g., missing title or sections).")
+                    else:
+                        logging.info(f"Tweet {tweet_id}: Successfully generated and parsed KB content JSON from {model_to_use} (attempt {attempt_num_for_model}).")
+                        return content_json 
+                        
+                except json.JSONDecodeError as e:
+                    logging.warning(f"Tweet {tweet_id}: Failed to decode JSON from {model_to_use} (attempt {attempt_num_for_model}): {e}. Response: {raw_response[:500]}")
+                    last_exception = ContentGenerationError(f"Failed to decode JSON: {e}")
+        
+        except AIError as e: 
+            logging.warning(f"Tweet {tweet_id}: AIError from {model_to_use} (attempt {attempt_num_for_model}): {e}")
+            last_exception = e
+        except Exception as e: 
+            logging.error(f"Tweet {tweet_id}: Unexpected error during KB content JSON generation with {model_to_use} (attempt {attempt_num_for_model}): {e}", exc_info=True)
+            last_exception = e
+
+        is_last_overall_attempt = (attempt == total_attempts - 1)
+        is_last_primary_no_effective_fallback = (
+            is_primary_model_attempt and
+            (attempt_num_for_model == config.content_retries) and
+            (not config.fallback_model or config.fallback_model == config.text_model)
         )
-
-        logging.debug(f"Sending content generation prompt: {prompt[:200]}...")
         
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                content = await http_client.ollama_generate(
-                    model=text_model,
-                    prompt=prompt,
-                    temperature=0.3  # Moderate temperature for content generation
-                )
-                
-                if not content:
-                    raise ContentGenerationError("Generated content is empty")
-                
-                if len(content.strip()) < 50:
-                    raise ContentGenerationError("Generated content is too short")
-                
-                # Enhanced validation for content structure
-                if not content.startswith('#') or '##' not in content or '-' not in content:
-                    logging.warning("Generated content lacks proper structure, adding basic formatting")
-                    content = f"# Knowledge Base Entry\n\n## Overview\n\n{content}\n\n## Key Takeaways\n\n- To be updated."
+        if is_last_overall_attempt or is_last_primary_no_effective_fallback:
+            break 
 
-                logging.info(f"Successfully generated content of length: {len(content)}")
-                return content.strip()
-            except Exception as e:
-                logging.error(f"Attempt {attempt + 1} with {text_model} for content generation failed: {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)
-                    continue
-                
-                # Try fallback model if available and this is the last attempt
-                if fallback_model and fallback_model != text_model:
-                    logging.info(f"Switching to fallback model {fallback_model} for content generation")
-                    for fallback_attempt in range(max_retries):
-                        try:
-                            content = await http_client.ollama_generate(
-                                model=fallback_model,
-                                prompt=prompt,
-                                temperature=0.3
-                            )
-                            
-                            if not content:
-                                raise ContentGenerationError("Generated content is empty from fallback model")
-                            
-                            if len(content.strip()) < 50:
-                                raise ContentGenerationError("Generated content is too short from fallback model")
-                            
-                            # Enhanced validation for content structure
-                            if not content.startswith('#') or '##' not in content or '-' not in content:
-                                logging.warning("Generated content lacks proper structure from fallback, adding basic formatting")
-                                content = f"# Knowledge Base Entry\n\n## Overview\n\n{content}\n\n## Key Takeaways\n\n- To be updated."
+        await asyncio.sleep(1.5 ** attempt_num_for_model) 
 
-                            logging.info(f"Successfully generated content with fallback model, length: {len(content)}")
-                            return content.strip()
-                        except Exception as fe:
-                            logging.error(f"Fallback attempt {fallback_attempt + 1} with {fallback_model} failed: {fe}")
-                            if fallback_attempt < max_retries - 1:
-                                await asyncio.sleep(2 ** fallback_attempt)
-                                continue
+    err_msg = f"Tweet {tweet_id}: All {config.content_retries} attempts per model failed to generate valid KB content JSON."
+    if last_exception:
+        logging.error(f"{err_msg} Last error: {last_exception}")
+        raise ContentGenerationError(err_msg) from last_exception
+    else: 
+        logging.error(err_msg + " No specific last exception recorded.")
+        raise ContentGenerationError(err_msg)
 
-        # If all retries and fallback fail, use fallback content
-        logging.error("All attempts failed, using fallback content")
-        fallback_content = f"# Tweet Summary\n\n## Content\n\n{tweet_data.get('full_text', 'No content available')}\n\n## Key Takeaways\n\n- Tweet content preserved as-is due to generation failure."
-        logging.info(f"Using fallback content for tweet due to generation failure")
-        return fallback_content
+
+def _convert_kb_json_to_markdown(kb_json: Dict[str, Any]) -> str:
+    """Converts the structured JSON KB content to a Markdown string."""
+    lines = []
+
+    title = kb_json.get("suggested_title", "Knowledge Base Item")
+    lines.append(f"# {title.strip()}")
+    lines.append("")
+
+    introduction = kb_json.get("introduction", "")
+    if introduction:
+        lines.append(f"## Introduction")
+        lines.append(introduction.strip())
+        lines.append("")
+
+    for section in kb_json.get("sections", []):
+        heading = section.get("heading", "Section")
+        lines.append(f"## {heading.strip()}")
+        lines.append("")
+
+        for paragraph in section.get("content_paragraphs", []):
+            lines.append(paragraph.strip())
+            lines.append("")
+
+        for code_block in section.get("code_blocks", []):
+            lang = code_block.get("language", "plain_text")
+            code = code_block.get("code", "")
+            explanation = code_block.get("explanation", "")
+            if explanation:
+                lines.append(f"_{explanation.strip()}_") 
+                lines.append("")
+            lines.append(f"```{lang}\n{code.strip()}\n```")
+            lines.append("")
+
+        for list_data in section.get("lists", []):
+            list_type = list_data.get("type", "bulleted")
+            prefix = "-" if list_type == "bulleted" else "1."
+            for item_text in list_data.get("items", []):
+                lines.append(f"{prefix} {item_text.strip()}")
+            lines.append("")
         
-    except Exception as e:
-        logging.error(f"Content generation failed: {str(e)}")
-        # Fallback to a basic template using raw tweet data
-        fallback_content = f"# Tweet Summary\n\n## Content\n\n{tweet_data.get('full_text', 'No content available')}\n\n## Key Takeaways\n\n- Tweet content preserved as-is due to generation failure."
-        logging.info(f"Using fallback content for tweet due to generation failure")
-        return fallback_content
+        for note in section.get("notes_or_tips", []):
+            lines.append(f"> **Note/Tip:** {note.strip()}") 
+            lines.append("")
 
-async def create_knowledge_base_item(tweet_id: str, tweet_data: Dict[str, Any], config: Config, http_client: HTTPClient, state_manager: Optional[StateManager] = None) -> KnowledgeBaseItem:
-    """Create a knowledge base item from a tweet. Requires categories to be processed."""
+    takeaways = kb_json.get("key_takeaways", [])
+    if takeaways:
+        lines.append("## Key Takeaways")
+        lines.append("")
+        for takeaway in takeaways:
+            lines.append(f"- {takeaway.strip()}")
+        lines.append("")
+
+    conclusion = kb_json.get("conclusion", "")
+    if conclusion:
+        lines.append("## Conclusion")
+        lines.append(conclusion.strip())
+        lines.append("")
+
+    references = kb_json.get("external_references", [])
+    if references:
+        lines.append("## External References")
+        lines.append("")
+        for ref in references:
+            text = ref.get("text", ref.get("url", "Link"))
+            url = ref.get("url", "#")
+            lines.append(f"- [{text.strip()}]({url.strip()})")
+        lines.append("")
+        
+    return "\n".join(lines)
+
+
+async def create_knowledge_base_item(
+    tweet_id: str, # This is the original bookmarked tweet_id, serves as the ID for the KB item
+    tweet_data: Dict[str, Any], 
+    config: Config, 
+    http_client: HTTPClient, 
+    state_manager: Optional[StateManager] = None 
+) -> KnowledgeBaseItem:
+    """Creates a KnowledgeBaseItem from tweet_data (which may represent a thread) using JSON-based content generation."""
     try:
-        # Categories MUST exist and be processed before this step
+        logging.debug(f"KB_ITEM_GEN: Entered for tweet_id: {tweet_id}")
+        
+        categories_processed = tweet_data.get('categories_processed', False)
         categories = tweet_data.get('categories', {})
-        if not categories or not all(categories.get(key) for key in ['main_category', 'sub_category', 'item_name']) or not tweet_data.get('categories_processed'):
-            logging.error(f"Cannot create KB item for tweet {tweet_id}: Categories are missing or incomplete. Tweet data: {tweet_data.get('categories')}, Processed Flag: {tweet_data.get('categories_processed')}")
-            raise KnowledgeBaseItemCreationError(f"Categories not processed or incomplete for tweet {tweet_id}")
 
-        # Prepare context for LLM (using guaranteed categories)
-        context = {
-            'tweet_text': tweet_data.get('full_text', ''),
-            'urls': tweet_data.get('urls', []),
-            'media_descriptions': tweet_data.get('image_descriptions', []),
-            'main_category': categories['main_category'], # Use directly
+        logging.debug(f"KB_ITEM_GEN ({tweet_id}): categories_processed='{categories_processed}', categories_data='{categories}'")
+
+        if not categories_processed:
+            error_msg = f"Categories not processed for tweet {tweet_id}. 'categories_processed' flag is '{categories_processed}'."
+            logging.error(f"KB_ITEM_GEN ({tweet_id}): Validation failed (flag check). {error_msg}")
+            raise KnowledgeBaseItemCreationError(error_msg)
+
+        # Now, categories_processed is True. Check the 'categories' dictionary.
+        required_keys = ['main_category', 'sub_category', 'item_name']
+        # Check if all required keys exist AND have non-empty string values
+        missing_or_empty_keys = [key for key in required_keys if not categories.get(key)]
+
+        if not categories or missing_or_empty_keys: # Check if categories dict itself is empty, or if keys are missing/empty
+            error_msg = (f"Categories data is incomplete or missing for tweet {tweet_id}. "
+                         f"Processed: {categories_processed}, Categories Dict: {categories}, Missing/Empty Values for Keys: {missing_or_empty_keys}")
+            logging.error(f"KB_ITEM_GEN ({tweet_id}): Validation failed (data check). {error_msg}")
+            raise KnowledgeBaseItemCreationError(error_msg)
+        
+        # If we reach here, categories_processed is True and categories dict has the required keys with non-empty values.
+        ai_generated_item_name = str(categories['item_name'])
+
+        # --- Assemble context for LLM, handling single tweets vs. threads ---
+        all_texts_for_llm = []
+        all_media_for_llm_item_object = [] # For the final KBItem object
+        all_media_descriptions_for_llm_prompt = []
+        all_urls_for_llm_prompt = []
+        
+        # The `tweet_data` top-level `full_text`, `media`, `image_descriptions`, `urls` should now be lists if it's a thread,
+        # or direct values if not. PlaywrightFetcher and TweetCacher were updated to reflect this.
+        # For kb_item_generator, we expect tweet_data to contain `thread_data` if it's a thread.
+
+        if tweet_data.get("is_thread", False) and "thread_data" in tweet_data:
+            logging.info(f"Tweet {tweet_id} is a thread. Assembling content from {len(tweet_data['thread_data'])} segments.")
+            for segment in tweet_data["thread_data"]:
+                all_texts_for_llm.append(segment.get("full_text", ""))
+                segment_media = segment.get("media", []) # This media list contains dicts with 'downloaded_path' and 'description'
+                for media_item in segment_media:
+                    if media_item.get("downloaded_path"):
+                        all_media_for_llm_item_object.append(media_item["downloaded_path"])
+                    if media_item.get("description"):
+                        all_media_descriptions_for_llm_prompt.append(media_item["description"])
+                all_urls_for_llm_prompt.extend(segment.get("urls", []))
+        else: # Single tweet
+            logging.info(f"Tweet {tweet_id} is a single tweet. Using top-level data.")
+            all_texts_for_llm.append(tweet_data.get('full_text', ''))
+            # For single tweet, try 'downloaded_media', then fallback to 'all_downloaded_media_for_thread'
+            media_paths_to_use = tweet_data.get('downloaded_media')
+            if not media_paths_to_use: # If downloaded_media is None or empty list
+                media_paths_to_use = tweet_data.get('all_downloaded_media_for_thread', [])
+            all_media_for_llm_item_object.extend(media_paths_to_use)
+            
+            all_media_descriptions_for_llm_prompt.extend(tweet_data.get('image_descriptions', []))
+            all_urls_for_llm_prompt.extend(tweet_data.get('urls', []))
+
+        # Deduplicate URLs and descriptions (order might change but not critical for prompt)
+        all_urls_for_llm_prompt = sorted(list(set(all_urls_for_llm_prompt)))
+        all_media_descriptions_for_llm_prompt = list(dict.fromkeys(all_media_descriptions_for_llm_prompt)) # Preserve order, unique
+
+        context_for_llm = {
+            'tweet_segments': all_texts_for_llm, # Use this new key for the prompt
+            'all_urls': all_urls_for_llm_prompt,
+            'all_media_descriptions': all_media_descriptions_for_llm_prompt,
+            'main_category': categories['main_category'],
             'sub_category': categories['sub_category'],
-            'item_name': categories['item_name']
+            'item_name': ai_generated_item_name 
         }
-        
-        # Generate comprehensive content using LLM
-        prompt = (
-            "As a technical knowledge base writer, create a comprehensive entry using this information:\n\n"
-            f"Tweet: {context['tweet_text']}\n"
-            f"Category: {context['main_category']}/{context['sub_category']}\n"
-            f"Topic: {context['item_name']}\n\n"
-            "Additional Context:\n"
-            f"URLs: {', '.join(context['urls'])}\n"
-            "Media Descriptions:\n" + 
-            '\n'.join([f"- {desc}" for desc in context['media_descriptions']]) + "\n\n"
-            "Generate a detailed technical knowledge base entry that includes:\n"
-            "1. A clear title\n"
-            "2. A concise description\n"
-            "3. Detailed technical content with examples if applicable\n"
-            "4. Key takeaways and best practices\n"
-            "5. References to any tools or technologies mentioned\n"
-            "\nFormat the response in markdown with appropriate sections."
-        )
-        
-        # Generate content using LLM
-        generated_content = await generate_content(tweet_data, http_client, config.text_model, config.fallback_model) # Pass fallback model from config
+        if not tweet_data.get("is_thread", False): # For single tweet, pass original tweet_text for prompt simplicity if preferred
+             context_for_llm['tweet_text'] = tweet_data.get('full_text', '')
 
-        if not generated_content:
-            # generate_content now returns a fallback template if it truly fails,
-            # but we might still want stricter checking here if needed.
-            logging.warning(f"Content generation returned potentially empty or minimal content for tweet {tweet_id}")
-            # Let's proceed but rely on the fallback content from generate_content
 
-        # Parse generated content to extract title and description
-        content_parts = generated_content.split('\n', 2)
-        title = content_parts[0].lstrip('#').strip() if content_parts else context['item_name']
-        description = content_parts[1].strip() if len(content_parts) > 1 else context['tweet_text'][:200]
-        main_content = content_parts[2] if len(content_parts) > 2 else generated_content
+        kb_content_json = await _generate_kb_content_json(tweet_id, context_for_llm, http_client, config)
+        markdown_content = _convert_kb_json_to_markdown(kb_content_json)
+        display_title = kb_content_json.get("suggested_title", ai_generated_item_name).strip()
+        if not display_title: display_title = ai_generated_item_name
+
+        meta_description = kb_content_json.get("meta_description", "").strip()
+        # Fallback for meta_description using the first text segment if it's a thread, or full_text if single
+        primary_text_for_fallback_desc = all_texts_for_llm[0] if all_texts_for_llm else ""
+        if not meta_description and primary_text_for_fallback_desc:
+            meta_description = primary_text_for_fallback_desc[:160].strip() + "..." if len(primary_text_for_fallback_desc) > 160 else primary_text_for_fallback_desc.strip()
         
-        # Create CategoryInfo object
         category_info = CategoryInfo(
             main_category=str(categories['main_category']),
             sub_category=str(categories['sub_category']),
-            item_name=str(categories['item_name']),
-            description=description # Use parsed description
+            item_name=ai_generated_item_name, 
+            description=meta_description 
         )
         
-        # Get current timestamp
         current_time = datetime.now()
         
-        # Create KnowledgeBaseItem with generated content
+        # Determine author and creation time from the first segment of the thread or the tweet itself
+        source_author = tweet_data.get('author', '')
+        source_created_at = tweet_data.get('created_at', current_time.isoformat())
+        if tweet_data.get("is_thread", False) and tweet_data.get("thread_data"):
+            first_segment = tweet_data["thread_data"][0]
+            source_author = first_segment.get('author', source_author)
+            source_created_at = first_segment.get('created_at', source_created_at)
+
+        # Construct necessary paths before creating KnowledgeBaseItem
+        # ai_generated_item_name is already filesystem-safe from categorization phase.
+        # Categories main/sub should also be filesystem safe or normalized by CategoryManager if needed.
+        # For this construction, we assume they are.
+        relative_item_dir_path = Path("kb-generated") / str(categories['main_category']) / str(categories['sub_category']) / ai_generated_item_name
+        kb_item_readme_path = relative_item_dir_path / "README.md"
+        kb_item_path_rel_project_root_str = str(kb_item_readme_path)
+
+        target_media_paths_relative_to_item_dir = []
+        if all_media_for_llm_item_object: # This list contains full paths to cached media
+            for i, cache_path_str in enumerate(all_media_for_llm_item_object):
+                cache_path = Path(cache_path_str)
+                # Use the original filename from the cache path for the target item's media directory.
+                # markdown_writer.py will handle copying this file to "media/<target_filename>"
+                target_filename = cache_path.name 
+                target_media_paths_relative_to_item_dir.append(f"media/{target_filename}")
+        
+        kb_media_paths_rel_item_dir_json_str = json.dumps(target_media_paths_relative_to_item_dir)
+
         kb_item = KnowledgeBaseItem(
-            title=title, # Use parsed title
-            description=description,
-            content=main_content,
+            display_title=display_title, 
+            description=meta_description, 
+            markdown_content=markdown_content,
+            raw_json_content=json.dumps(kb_content_json, indent=2),
             category_info=category_info,
-            source_tweet={
+            source_tweet={ 
                 'url': f"https://twitter.com/i/web/status/{tweet_id}",
-                'author': tweet_data.get('author', ''),
-                'created_at': tweet_data.get('created_at') or current_time.isoformat() # Use original creation time if available
+                'author': source_author,
+                'created_at': source_created_at
             },
-            media_urls=tweet_data.get('downloaded_media', []),
-            image_descriptions=tweet_data.get('image_descriptions', []),
+            source_media_cache_paths=all_media_for_llm_item_object,
+            kb_media_paths_rel_item_dir=kb_media_paths_rel_item_dir_json_str,
+            kb_item_path_rel_project_root=kb_item_path_rel_project_root_str,
+            image_descriptions=all_media_descriptions_for_llm_prompt,
             created_at=current_time,
             last_updated=current_time
         )
         
+        logging.info(f"Successfully created KnowledgeBaseItem structure for tweet/thread {tweet_id} with title '{display_title}' (fs_name: '{ai_generated_item_name}')")
         return kb_item
 
-    except KnowledgeBaseItemCreationError: # Re-raise specific error
+    except KnowledgeBaseItemCreationError:
         raise
     except Exception as e:
-        logging.exception(f"Unexpected error creating knowledge base item for tweet {tweet_id}: {e}") # Log traceback
-        raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item: {str(e)}") from e
+        logging.error(f"Unexpected error creating knowledge base item for tweet {tweet_id}: {e}", exc_info=True)
+        raise KnowledgeBaseItemCreationError(f"Failed to create knowledge base item for {tweet_id}: {str(e)}") from e
 
-async def create_knowledge_base_entry(
-    tweet_id: str,
-    tweet_data: Dict[str, Any],
-    config: Config,
-    http_client: HTTPClient,
-    state_manager: Optional[StateManager] = None
-) -> None:
-    """Create a knowledge base entry for a tweet."""
-    from .text_processor import categorize_and_name_content
-    from .media_processor import process_media_content
-    from .markdown_writer import MarkdownWriter
-    
-    original_state = copy.deepcopy(tweet_data)
-    try:
-        logging.info(f"Starting knowledge base entry creation for tweet {tweet_id}")
-        
-        # Log tweet data details relevant to KB creation
-        logging.info(f"Tweet {tweet_id} data: full_text='{tweet_data.get('full_text', '')[:100]}...', media_count={len(tweet_data.get('media', []))}, downloaded_media={tweet_data.get('downloaded_media', [])}")
-        logging.info(f"Tweet {tweet_id} status: cache_complete={tweet_data.get('cache_complete', False)}, media_processed={tweet_data.get('media_processed', False)}, categories_processed={tweet_data.get('categories_processed', False)}")
-        
-        # Process media content first
-        logging.info(f"Processing media content for tweet {tweet_id}")
-        try:
-            tweet_data = await process_media_content(tweet_data, http_client, config)
-            logging.info(f"Successfully processed media for tweet {tweet_id}, downloaded_media={tweet_data.get('downloaded_media', [])}, image_descriptions={tweet_data.get('image_descriptions', [])}")
-        except Exception as e:
-            logging.error(f"Failed to process media content for tweet {tweet_id}: {str(e)}")
-            raise
-
-        # Combine tweet text and image descriptions
-        content_text = tweet_data.get('full_text', '')
-        image_descriptions = tweet_data.get('image_descriptions', [])
-        combined_text = f"{content_text}\n\n" + "\n".join(image_descriptions) if image_descriptions else content_text
-        logging.info(f"Tweet {tweet_id} combined content length: {len(combined_text)} characters")
-
-        if not combined_text:
-            raise ContentProcessingError(f"No content found for tweet {tweet_id}")
-
-        # Use cached or generate categories
-        categories = tweet_data.get('categories')
-        if not categories:
-            try:
-                category_manager = CategoryManager(config, http_client=http_client)
-            except Exception as e:
-                logging.error(f"Failed to initialize CategoryManager: {e}")
-                raise ContentProcessingError(f"Category manager initialization failed: {e}")
-            
-            main_cat, sub_cat, item_name = await categorize_and_name_content(
-                ollama_url=config.ollama_url,
-                text=combined_text,
-                text_model=config.text_model,
-                tweet_id=tweet_id,
-                category_manager=category_manager,
-                http_client=http_client
-            )
-            
-            categories = {
-                'main_category': main_cat,
-                'sub_category': sub_cat,
-                'item_name': item_name,
-                'model_used': config.text_model,
-                'categorized_at': datetime.now().isoformat()
-            }
-            tweet_data['categories'] = categories
-            logging.info(f"Generated categories for tweet {tweet_id}: {categories}")
-            if state_manager:
-                await state_manager.update_tweet_data(tweet_id, tweet_data)
-        else:
-            logging.info(f"Using cached categories for tweet {tweet_id}: {categories}")
-            main_cat = categories['main_category']
-            sub_cat = categories['sub_category']
-            item_name = categories['item_name']
-        
-        # Extract necessary data
-        content_text = tweet_data.get('full_text', '')
-        tweet_url = tweet_data.get('tweet_url', '')
-        
-        # Include all media files (images and videos) for markdown writer
-        media_paths = tweet_data.get('downloaded_media', [])
-        media_files = []
-        for media_path in media_paths:
-            path_obj = Path(media_path)
-            if path_obj.exists():
-                media_files.append(path_obj)
-        logging.info(f"Tweet {tweet_id} filtered media files: {len(media_files)} files, paths={media_files}")
-        
-        image_descriptions = tweet_data.get('image_descriptions', [])
-        
-        logging.info(f"Preparing to write markdown for tweet {tweet_id}")
-        logging.info(f"Calling write_tweet_markdown for tweet {tweet_id}:")
-        logging.info(f"  - media_files count: {len(media_files)}")
-        logging.info(f"  - image_descriptions count: {len(image_descriptions)}")
-        logging.debug(f"  - image_descriptions content: {image_descriptions}")
-        
-        if not content_text:
-            raise ContentProcessingError(f"No text content found for tweet {tweet_id}")
-            
-        # Write markdown content using MarkdownWriter which handles atomic writes
-        try:
-            markdown_writer = MarkdownWriter(config)
-            # write_tweet_markdown now returns the FINAL readme path and copied media paths (after rename)
-            final_readme_path_str, final_copied_media_paths_str = await markdown_writer.write_tweet_markdown(
-                config.knowledge_base_dir,
-                tweet_id=tweet_id,
-                tweet_data=tweet_data,
-                image_files=media_files, # Use media_files to include videos
-                image_descriptions=image_descriptions,
-                main_category=main_cat,
-                sub_category=sub_cat,
-                item_name=item_name,
-                tweet_text=content_text,
-                tweet_url=tweet_url
-            )
-            logging.info(f"Successfully wrote final markdown for tweet {tweet_id} at {final_readme_path_str}")
-            logging.info(f"Final copied media paths for tweet {tweet_id}: {final_copied_media_paths_str}")
-            
-            # Assign the final paths directly to tweet_data
-            # No .temp removal needed here IF write_tweet_markdown returns final paths
-            tweet_data['kb_media_paths'] = final_copied_media_paths_str
-            tweet_data['kb_item_path'] = final_readme_path_str.rsplit('/', 1)[0] # Get the directory path
-            
-            logging.info(f"Assigned final kb_media_paths: {tweet_data['kb_media_paths']}")
-            logging.info(f"Assigned final kb_item_path: {tweet_data['kb_item_path']}")
-            
-            # Update the state manager with the final paths
-            if state_manager:
-                await state_manager.update_tweet_data(tweet_id, tweet_data)
-                logging.info(f"Updated tweet data in state manager with final paths for tweet {tweet_id}")
-                
-        except Exception as e:
-            logging.error(f"Failed during markdown writing/atomic rename for tweet {tweet_id}: {str(e)}")
-            # Attempt to clean up potential .temp directory if write failed mid-operation
-            temp_kb_item_path = Path(config.knowledge_base_dir) / main_cat / sub_cat / f"{item_name}.temp"
-            if temp_kb_item_path.exists():
-                try:
-                    shutil.rmtree(temp_kb_item_path)
-                    logging.info(f"Cleaned up temporary directory after write failure: {temp_kb_item_path}")
-                except Exception as cleanup_e:
-                    logging.error(f"Failed to clean up temporary directory {temp_kb_item_path}: {cleanup_e}")
-            raise # Re-raise the original error
-
-        logging.info(f"Successfully created knowledge base entry for tweet {tweet_id}")
-        
-        # Only mark tweet as processed AFTER successful completion including state update
-        if state_manager:
-            # Validate the state before marking processed
-            current_data = await state_manager.get_tweet(tweet_id)
-            if current_data and current_data.get('kb_item_path') and not current_data['kb_item_path'].endswith('.temp'):
-                 await state_manager.mark_tweet_processed(tweet_id, current_data) # Pass current_data for validation
-                 logging.info(f"Marked tweet {tweet_id} as processed in state manager.")
-            else:
-                 logging.warning(f"Skipping marking tweet {tweet_id} as processed due to missing or invalid final path in cache.")
-
-    except Exception as e:
-        logging.error(f"Failed to create knowledge base entry for {tweet_id}: {str(e)}")
-        # Restore original state on failure
-        if state_manager:
-            await state_manager.update_tweet_data(tweet_id, original_state) # Restore before requeueing
-            await state_manager.add_unprocessed_tweet(tweet_id) # Requeue
-            logging.info(f"Restored original state and requeued tweet {tweet_id} due to failure")
-        # Ensure error is raised to be caught by higher levels if necessary
-        raise KnowledgeBaseItemCreationError(f"Failed to create KB entry: {e}") from e
-
-def infer_basic_category(text: str) -> Tuple[str, str]:
-    """
-    Infer a basic category and subcategory based on content keywords.
-    
-    Args:
-        text: The content text to analyze
-        
-    Returns:
-        Tuple of (main_category, sub_category)
-    """
-    text = text.lower()
-    if "machine learning" in text or "neural" in text or "model" in text:
-        return ("machine_learning", "models")
-    elif "devops" in text or "ci/cd" in text or "pipeline" in text:
-        return ("devops", "ci_cd")
-    elif "database" in text or "sql" in text or "query" in text:
-        return ("databases", "query_processing")
-    elif "python" in text or "javascript" in text or "code" in text:
-        return ("software_engineering", "programming")
-    else:
-        return ("software_engineering", "best_practices")
+# Removed old functions
+"""
+Removed old functions:
+- generate_content(tweet_data: Dict[str, Any], http_client: HTTPClient, text_model: str, fallback_model: str = "") -> str:
+- async def create_knowledge_base_entry(...) -> None:
+- def infer_basic_category(text: str) -> Tuple[str, str]:
+"""

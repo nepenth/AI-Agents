@@ -2,6 +2,8 @@ import logging
 import json
 from typing import Optional, Dict, Any, AsyncGenerator
 
+import httpx # Import httpx here to use httpx.Timeout
+
 from ..config import Config
 from ..exceptions import OllamaError
 from .http_client import HttpClientManager
@@ -18,13 +20,23 @@ class OllamaClient:
 
         Args:
             config: Application configuration object.
-            http_manager: Optional shared HttpClientManager. If None, creates its own.
+            http_manager: Optional shared HttpClientManager. 
+                        For OllamaClient internal requests, it will now always create its own dedicated manager.
+                        This parameter might be deprecated or repurposed in the future if broader HTTP sharing patterns evolve.
         """
         self.config = config
-        self._http_manager = http_manager or HttpClientManager(base_url=str(config.ollama_url))
-        # Flag to track if we created the manager internally (and thus should close it)
-        self._owns_http_manager = http_manager is None
-        logger.info(f"OllamaClient initialized for URL: {config.ollama_url}")
+        # OllamaClient now always creates and uses its own HttpClientManager for Ollama API calls.
+        # This ensures its HTTP client is always configured with the correct Ollama base URL and timeout.
+        ollama_timeout_config = httpx.Timeout(
+            float(config.ollama_request_timeout_seconds), 
+            connect=float(config.ollama_request_timeout_seconds / 2) # Example: connect timeout as half of total
+        )
+        self._internal_http_manager = HttpClientManager(
+            base_url=str(config.ollama_url),
+            timeout=ollama_timeout_config
+        )
+        self._owns_http_manager = True # Since we are creating it internally
+        logger.info(f"OllamaClient initialized. Dedicated HttpClientManager created for URL: {config.ollama_url} with read/write timeout {ollama_timeout_config.read}s")
 
     async def _request(
         self,
@@ -49,7 +61,7 @@ class OllamaClient:
         """
         logger.debug(f"Requesting Ollama endpoint '{endpoint}'. Stream: {stream}")
         try:
-            client = await self._http_manager.get_client() # Use the managed client
+            client = await self._internal_http_manager.get_client() # Use the dedicated internal manager
 
             async with client.stream("POST", endpoint, json=payload) as response:
                 # Always check status even for stream
@@ -63,7 +75,8 @@ class OllamaClient:
                     # Read the entire response if not streaming
                     response_data = await response.aread()
                     logger.debug(f"Ollama endpoint '{endpoint}' non-stream response received.")
-                    return response_data.json()
+                    # Decode bytes to string, then parse JSON
+                    return json.loads(response_data.decode('utf-8'))
                 else:
                     # Return the async generator directly
                     logger.debug(f"Ollama endpoint '{endpoint}' stream response initiated.")
@@ -153,13 +166,24 @@ class OllamaClient:
 
 
     async def close(self):
-        """Closes the underlying HTTP client if owned by this instance."""
-        if self._owns_http_manager and self._http_manager:
-            await self._http_manager.close()
+        """
+        Closes the underlying HTTP client if owned by this instance.
+        (Now always true as it creates its own internal manager)
+        """
+        if self._owns_http_manager and self._internal_http_manager:
+            logger.debug("OllamaClient closing its dedicated HttpClientManager.")
+            await self._internal_http_manager.close()
+            self._internal_http_manager = None # Clear reference
 
     async def __aenter__(self):
         # Ensure HTTP manager is initialized if needed
-        await self._http_manager.get_client()
+        # This should be handled by get_client() if called for the first time
+        if not self._internal_http_manager:
+             # This case should ideally not be hit if constructor always creates it.
+             logger.warning("OllamaClient's internal HTTP manager was None in __aenter__, re-initializing.")
+             self._internal_http_manager = HttpClientManager(base_url=str(self.config.ollama_url))
+             self._owns_http_manager = True
+        # await self._internal_http_manager.get_client() # get_client() will be called in _request
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

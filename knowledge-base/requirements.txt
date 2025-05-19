@@ -21,3 +21,4 @@ eventlet>=0.36.0
 flask_sqlalchemy>=3.0.0
 markdown>=3.4.1
 gevent>=22.10.0
+flask-migrate>=4.0.4
