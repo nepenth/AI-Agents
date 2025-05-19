@@ -61,7 +61,8 @@ class HTTPClient:
         temperature: float = 0.7,
         max_tokens: int = 50000,
         top_p: float = 0.9,
-        timeout: Optional[int] = None
+        timeout: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate text using Ollama API with consistent parameters.
@@ -73,6 +74,7 @@ class HTTPClient:
             max_tokens: Maximum tokens to generate
             top_p: Nucleus sampling parameter
             timeout: Request timeout in seconds (defaults to config.request_timeout)
+            options: Additional options, e.g., {"json_mode": True}
         
         Returns:
             str: Generated text response
@@ -81,9 +83,8 @@ class HTTPClient:
             AIError: If the API request fails or returns invalid response
             TimeoutError: If the request exceeds the timeout period
         """
-        timeout = timeout or self.timeout
+        request_timeout = timeout or self.timeout
         
-        # Use semaphore to limit concurrent requests
         async with self._semaphore:
             await self.ensure_session()
             
@@ -92,25 +93,32 @@ class HTTPClient:
                 logging.debug(f"Sending Ollama request to {api_endpoint}")
                 logging.debug(f"Using model: {model}")
                 logging.debug(f"Prompt preview: {prompt[:200]}...")
+
+                payload = {
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                }
+
+                if options and options.get("json_mode") is True:
+                    if hasattr(self.config, 'ollama_supports_json_mode') and self.config.ollama_supports_json_mode:
+                        payload["format"] = "json"
+                        logging.info(f"Ollama JSON mode enabled for model {model} due to options and config.")
+                    else:
+                        logging.warning(f"JSON mode requested for Ollama model {model}, but not enabled in config (ollama_supports_json_mode=False). Sending as plain text.")
                 
                 start_time = time.time()
                 async with self.session.post(
                     api_endpoint,
-                    json={
-                        "model": model,
-                        "prompt": prompt,
-                        "stream": False,
-                        "temperature": temperature,
-                        "max_tokens": max_tokens,
-                        "top_p": top_p
-                    },
-                    timeout=timeout
+                    json=payload,
+                    timeout=request_timeout
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         logging.error(f"Ollama API error: {response.status} - {error_text}")
-                        logging.error(f"Request URL: {api_endpoint}")
-                        logging.error(f"Request model: {model}")
+                        logging.error(f"Request URL: {api_endpoint}, Payload: {payload}")
                         raise AIError(f"Ollama API returned status {response.status}")
                     
                     result = await response.json()
@@ -118,29 +126,27 @@ class HTTPClient:
                     
                     response_text = result.get("response", "").strip()
                     if not response_text:
-                        raise AIError("Empty response from Ollama API")
+                        if payload.get("format") == "json":
+                             logging.error(f"Ollama API returned empty 'response' field in JSON mode. Full result: {result}")
+                             raise AIError("Empty 'response' field from Ollama API in JSON mode.")
+                        else:
+                             raise AIError("Empty response from Ollama API")
                     
-                    logging.debug(f"Received response of length: {len(response_text)} in {elapsed:.2f}s")
+                    logging.debug(f"Received response of length: {len(response_text)} in {elapsed:.2f}s. Model: {model}. JSON mode: {payload.get('format') == 'json'}")
                     
-                    # Add delay between requests based on batch size
                     if self.batch_size > 1:
-                        await asyncio.sleep(1.0)  # Basic rate limiting
+                        await asyncio.sleep(0.1)
                         
                     return response_text
                     
             except asyncio.TimeoutError:
-                logging.error(f"Ollama request timed out after {timeout} seconds")
-                logging.error(f"Model: {model}")
-                logging.error(f"Endpoint: {api_endpoint}")
-                raise AIError(f"Request timed out after {timeout} seconds")
-                
+                logging.error(f"Ollama request timed out after {request_timeout} seconds for model {model}")
+                raise AIError(f"Request timed out after {request_timeout} seconds")
             except aiohttp.ClientError as e:
-                logging.error(f"HTTP client error: {str(e)}")
-                logging.error(f"Request URL: {api_endpoint}")
+                logging.error(f"HTTP client error with Ollama: {str(e)} for model {model}")
                 raise AIError(f"HTTP client error: {str(e)}")
-                
             except Exception as e:
-                logging.error(f"Unexpected error in ollama_generate: {str(e)}")
+                logging.error(f"Unexpected error in ollama_generate with model {model}: {str(e)}", exc_info=True)
                 raise AIError(f"Failed to generate text with Ollama: {str(e)}")
             
     async def __aenter__(self):

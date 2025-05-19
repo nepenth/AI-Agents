@@ -4,310 +4,253 @@ import shutil
 import uuid
 import logging
 from pathlib import Path
-from .naming_utils import safe_directory_name
+# from .naming_utils import safe_directory_name # safe_directory_name is used in create_kb_path
 import asyncio
 import aiofiles
-from typing import Dict, List, Optional, Any, AsyncGenerator
+from typing import Dict, List, Optional, Any, AsyncGenerator, Tuple # Added Tuple
 
 from knowledge_base_agent.exceptions import MarkdownGenerationError
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager, create_kb_path
+from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager, create_kb_path # create_kb_path uses safe_directory_name
 from knowledge_base_agent.types import KnowledgeBaseItem
 
 _folder_creation_lock = asyncio.Lock()
 
+# format_links_in_text can be kept if item.content doesn't already have this
 def format_links_in_text(text: str) -> str:
     """Format URLs in text as markdown links."""
     url_pattern = re.compile(r'(https?://\S+)')
-    return url_pattern.sub(r'[\1](\1)', text)
+    # Avoid double-linking if already in markdown format [text](url)
+    # This regex looks for URLs not already part of a markdown link
+    def replace_if_not_linked(match):
+        url = match.group(1)
+        # Check if the URL is preceded by '](' or followed by ')' which are parts of a markdown link
+        # This is a simplified check; a full parser would be more robust.
+        if text[max(0, match.start()-2):match.start()] == '](' or (match.end() < len(text) and text[match.end()] == ')'):
+            return url # Already linked or part of a link structure
+        return f'[{url}]({url})'
+    return url_pattern.sub(replace_if_not_linked, text)
 
-def generate_tweet_markdown_content(
-    item_name: str,
-    tweet_url: str,
-    tweet_text: str,
-    image_descriptions: List[str],
-    image_filenames: List[str] # Expect filenames like image_1.jpg, video_1.mp4
-) -> str:
-    """Generate markdown content for a tweet with correct image references."""
-    formatted_tweet_text = format_links_in_text(tweet_text)
-    lines = [
-        f"# {item_name}",
-        "",
-        f"**Tweet URL:** [{tweet_url}]({tweet_url})",
-        "",
-        f"**Tweet Text:** {formatted_tweet_text}",
-        ""
-    ]
-
-    # Iterate through the actual filenames that were copied.
-    if image_filenames:
-        logging.info(f"Generating markdown for {len(image_filenames)} media files: {image_filenames}")
-        for i, filename in enumerate(image_filenames):
-            # Safely get the corresponding description, providing a default if index is out of bounds
-            desc = image_descriptions[i] if i < len(image_descriptions) else "No description available"
-            if not desc: # Handle empty string descriptions
-                desc = "No description available"
-
-            # Add description header
-            file_type = "Image" if filename.startswith("image_") else "Video" if filename.startswith("video_") else "Media"
-            lines.append(f"**{file_type} {i+1} Description:** {desc}")
-
-            # Generate the relative markdown link
-            # Ensure filename does not contain problematic characters (should be handled by copy logic, but double-check)
-            clean_filename = filename.replace("(", "%28").replace(")", "%29") # Basic URL encoding for parens
-            image_link = f"![{file_type} {i+1}](./{clean_filename})"
-            logging.debug(f"Adding markdown media link: {image_link}")
-            lines.append(image_link)
-            lines.append("")
-    else:
-        logging.info("No image filenames provided, skipping media embedding in markdown.")
-
-    return "\\n".join(lines)
 
 class MarkdownWriter:
     """Handles writing content to markdown files in the knowledge base."""
 
     def __init__(self, config: Config):
         self.config = config
-        self.path_normalizer = PathNormalizer()
+        self.path_normalizer = PathNormalizer() # Potentially used by create_kb_path
         self.dir_manager = DirectoryManager()
-        # Define allowed extensions (lowercase)
-        self.allowed_media_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.mov', '.avi', '.mkv', '.webm') # Added video
+        self.allowed_media_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.mov', '.avi', '.mkv', '.webm')
 
-    async def _validate_and_copy_media(self, media_files: List[Path], target_dir: Path) -> AsyncGenerator[tuple, None]:
-        """Validate and copy media files, yielding valid files copied and their new names."""
-        valid_files = []
-        invalid_files = []
-        for img in media_files:
-            # Check extension against allowed list (case-insensitive)
-            if img.suffix.lower() in self.allowed_media_extensions:
-                valid_files.append(img)
-            else:
-                invalid_files.append(img.name)
-
-        if invalid_files:
-            logging.warning(f"Invalid or unsupported media types skipped: {invalid_files}")
-
-        for i, media_path in enumerate(valid_files):
-            if media_path.exists():
-                # Determine the new name based on type for clarity, using a consistent index
-                file_suffix = media_path.suffix.lower()
-                if file_suffix in ('.mp4', '.mov', '.avi', '.mkv', '.webm'):
-                    media_name = f"video_{i+1}{file_suffix}"
-                else: # Assume image
-                    media_name = f"image_{i+1}{file_suffix}"
-
-                new_path = target_dir / media_name
-                try:
-                    await self.dir_manager.copy_file(media_path, new_path)
-                    # Add explicit log after successful copy
-                    logging.info(f"Successfully copied {media_path} to {new_path}")
-                    yield (media_path, media_name)
-
-                except Exception as e:
-                     # Ensure errors are logged clearly
-                     logging.error(f"Failed to copy media file {media_path} to {new_path}: {e}", exc_info=True)
-            else:
-                logging.warning(f"Media file not found, skipping: {media_path}")
-
-    async def write_tweet_markdown(
+    async def _copy_media_to_kb_item_dir(
         self,
-        root_dir: Path,
-        tweet_id: str,
-        tweet_data: Dict[str, Any],
-        image_files: List[Path],
-        image_descriptions: List[str],
-        main_category: str = None,
-        sub_category: str = None,
-        item_name: str = None,
-        tweet_text: str = None,
-        tweet_url: str = None
-    ) -> tuple[str, List[str]]:
-        """Write tweet markdown using cached tweet data, returning the content file path and copied media paths."""
-        categories = tweet_data.get('categories')
-        if not categories:
-            raise MarkdownGenerationError(f"No category data found for tweet {tweet_id}")
+        source_media_paths_relative: List[str], # List of paths to cached media, relative to project_root
+        kb_item_temp_dir: Path # Absolute path to KB item's temporary directory
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Copies media from cache to the KB item's temporary directory's 'media' subfolder.
+        Renames media to a consistent format (e.g., image_1.jpg, video_1.mp4).
+
+        Args:
+            source_media_paths_relative: List of paths to cached media, relative to project_root.
+            kb_item_temp_dir: The temporary directory (absolute path) for the new KB item.
+
+        Returns:
+            A tuple containing:
+            - List of new media filenames (e.g., ["image_1.jpg", "video_1.mp4"]) created in kb_item_temp_dir.
+            - List of full paths to the copied media in kb_item_temp_dir.
+        """
+        new_media_filenames = []
+        copied_media_full_paths = []
+        image_count = 0
+        video_count = 0
+
+        media_subdir_abs = kb_item_temp_dir / "media"
+        await self.dir_manager.ensure_directory(media_subdir_abs)
+
+        for i, media_path_rel_str in enumerate(source_media_paths_relative):
+            # Resolve relative path from project root to absolute path
+            media_file_abs = self.config.resolve_path_from_project_root(media_path_rel_str)
             
-        main_category = main_category or categories['main_category']
-        sub_category = sub_category or categories['sub_category']
-        item_name = item_name or categories['item_name']
-        tweet_text = tweet_text or tweet_data.get('full_text', '')
-        tweet_url = tweet_url or tweet_data.get('tweet_url', '')
-        safe_item_name = safe_directory_name(item_name)
-        tweet_folder = root_dir / main_category / sub_category / safe_item_name
+            if not media_file_abs.exists():
+                logging.warning(f"Source media file not found (after resolving {media_path_rel_str} to {media_file_abs}), skipping: {media_path_rel_str}")
+                continue
 
-        async with _folder_creation_lock:
-            if tweet_folder.exists():
-                unique_suffix = uuid.uuid4().hex[:6]
-                safe_item_name = f"{safe_item_name}_{unique_suffix}"
-                tweet_folder = root_dir / main_category / sub_category / safe_item_name
+            if media_file_abs.suffix.lower() not in self.allowed_media_extensions:
+                logging.warning(f"Unsupported media type skipped: {media_file_abs}")
+                continue
 
-        temp_folder = tweet_folder.with_suffix('.temp')
-        # Ensure target directory exists before copying
-        await self.dir_manager.ensure_dir_exists(temp_folder)
+            file_suffix = media_file_abs.suffix.lower()
+            new_filename = ""
+            if file_suffix in ('.mp4', '.mov', '.avi', '.mkv', '.webm'):
+                video_count += 1
+                new_filename = f"video_{video_count}{file_suffix}"
+            else: # Assume image
+                image_count += 1
+                new_filename = f"image_{image_count}{file_suffix}"
 
-        try:
-            if not tweet_text.strip():
-                logging.warning(f"Empty tweet text for tweet {tweet_id}")
-
-            # Copy valid media files and track new filenames
-            copied_media_info = [] # Store tuples of (original_path, new_filename)
-            async for img_path, new_filename in self._validate_and_copy_media(image_files, temp_folder):
-                # Log the details being collected
-                logging.info(f"Collected media for markdown: Original={img_path}, New={new_filename}")
-                copied_media_info.append((img_path, new_filename))
-
-            # Extract just the filenames for markdown generation
-            image_filenames = [info[1] for info in copied_media_info]
-            copied_media_paths = [str(temp_folder / fname) for fname in image_filenames] # Use temp_folder path initially
-
-            # Log before generating content
-            logging.info(f"Generating markdown with image filenames: {image_filenames}")
-            logging.info(f"Corresponding descriptions count: {len(image_descriptions)}")
-            if len(image_filenames) != len(image_descriptions):
-                logging.warning("Mismatch between number of copied images and descriptions!")
-                # Adjust descriptions list to match filenames to avoid errors, though this might lose data
-                image_descriptions = image_descriptions[:len(image_filenames)]
-
-            # Generate content with correct filenames
-            content_md = generate_tweet_markdown_content(
-                item_name,
-                tweet_url,
-                tweet_text,
-                image_descriptions,
-                image_filenames=image_filenames
-            )
-            logging.debug(f"Generated markdown content for tweet {tweet_id}: {content_md[:500]}...")  # Log first 500 chars for debugging
-            
-            content_md_path = temp_folder / "README.md"
-            logging.info(f"Writing markdown content to {content_md_path}")
-            async with aiofiles.open(content_md_path, 'w', encoding="utf-8") as f:
-                await f.write(content_md)
-            logging.info(f"Successfully wrote markdown content to {content_md_path}")
-
-            # Rename the folder *after* all writes are complete
-            async with _folder_creation_lock:
-                if tweet_folder.exists():
-                    logging.warning(f"Destination folder {tweet_folder} exists, removing before rename.")
-                    # Use async removal if possible, or sync if needed
-                    shutil.rmtree(tweet_folder) # Consider adding async equivalent if needed
-                temp_folder.rename(tweet_folder)
-                logging.info(f"Renamed {temp_folder} to {tweet_folder}")
-
-            # Return the *final* correct path and the final copied media paths
-            final_readme_path = tweet_folder / "README.md"
-            final_copied_media_paths = [str(tweet_folder / fname) for fname in image_filenames]
-
-            # Validate media references in the final README
-            async with aiofiles.open(final_readme_path, 'r', encoding="utf-8") as f:
-                final_content = await f.read()
-            if not validate_media_references(final_content, tweet_folder):
-                logging.error(f"Media references validation failed for {final_readme_path}. Media links may be broken.")
-                # Force rewrite with correct content if validation fails
-                logging.info(f"Rewriting README for tweet {tweet_id} to ensure media links.")
-                content_md = generate_tweet_markdown_content(
-                    item_name,
-                    tweet_url,
-                    tweet_text,
-                    image_descriptions,
-                    image_filenames=image_filenames
-                )
-                async with aiofiles.open(final_readme_path, 'w', encoding="utf-8") as f:
-                    await f.write(content_md)
-                logging.info(f"Rewrote markdown content to {final_readme_path}")
-
-            return str(final_readme_path), final_copied_media_paths
-
-        except Exception as e:
-            logging.error(f"Failed to write tweet markdown for {tweet_id}: {str(e)}")
-            if temp_folder.exists():
-                shutil.rmtree(temp_folder)
-            raise MarkdownGenerationError(f"Failed to write tweet markdown: {str(e)}")
+            destination_path = media_subdir_abs / new_filename
+            try:
+                await self.dir_manager.copy_file(media_file_abs, destination_path)
+                logging.info(f"Successfully copied {media_file_abs} to {destination_path}")
+                new_media_filenames.append(new_filename)
+                copied_media_full_paths.append(str(destination_path))
+            except Exception as e:
+                logging.error(f"Failed to copy media file {media_file_abs} to {destination_path}: {e}", exc_info=True)
+        
+        return new_media_filenames, copied_media_full_paths
 
     async def write_kb_item(
         self,
-        item: KnowledgeBaseItem,
-        media_files: List[Path],
-        media_descriptions: List[str],
-        root_dir: Path
-    ) -> tuple[Path, List[str]]:
-        """Write knowledge base item to markdown with media, returning the README path and copied media paths."""
+        item: KnowledgeBaseItem, 
+        # root_dir: Path # This is self.config.knowledge_base_dir (absolute)
+        # root_dir is no longer needed as an argument, self.config.knowledge_base_dir is used
+    ) -> Tuple[Path, List[str]]:
+        """
+        Writes a KnowledgeBaseItem to markdown, copies associated media,
+        and returns the path to the item's directory (relative to project_root)
+        and a list of copied media paths (relative to the knowledge_base_dir, e.g. kb-generated).
+
+        Args:
+            item: The KnowledgeBaseItem object containing content and metadata.
+
+        Returns:
+            A tuple containing:
+            - Path to the KB item's directory (relative to project_root, e.g., "kb-generated/main_cat/sub_cat/item_title").
+            - List of relative paths of copied media (relative to knowledge_base_dir, e.g. "main_cat/sub_cat/item_title/image_1.jpg").
+        """
+        # self.config.knowledge_base_dir is the absolute path to the KB root (e.g., /path/to/project/kb-generated)
+        kb_root_abs = self.config.knowledge_base_dir
         try:
-            kb_path = create_kb_path(
+            # 1. Determine KB item path (directory)
+            # create_kb_path returns a path relative to the KB root (e.g., main_cat/sub_cat/item_title)
+            kb_item_rel_to_kb_root_path = create_kb_path(
                 item.category_info.main_category,
                 item.category_info.sub_category,
-                item.title
+                item.display_title # Changed from item.title
             )
-            if root_dir:
-                kb_path = root_dir / kb_path
+            # Full absolute path to the KB item directory
+            kb_item_full_dir_path_abs = kb_root_abs / kb_item_rel_to_kb_root_path
 
-            temp_dir = kb_path.with_suffix('.temp')
-            temp_dir.mkdir(parents=True, exist_ok=True)
+            unique_temp_suffix = uuid.uuid4().hex[:8]
+            temp_kb_item_dir_abs = kb_item_full_dir_path_abs.parent / f"{kb_item_full_dir_path_abs.name}_{unique_temp_suffix}.temp"
+            
+            await self.dir_manager.ensure_directory(temp_kb_item_dir_abs)
+            logging.debug(f"Using temporary directory: {temp_kb_item_dir_abs}")
 
-            try:
-                # Ensure tweet URL is included
-                content = f"{item.content}\n\n---\n**Source**: [Original Tweet]({item.source_tweet['url']})"
-                
-                # Append media links if media files are provided and not already in content
-                if media_files and not any(f"![Image" in content or f"![Video" in content for content in content.split('\n')):
-                    logging.info(f"Appending media links to content for KB item {item.title}")
-                    content += "\n\n## Media Content\n"
-                    for i, media_path in enumerate(media_files):
-                        file_suffix = media_path.suffix.lower()
-                        file_type = "Video" if file_suffix in ('.mp4', '.mov', '.avi', '.mkv', '.webm') else "Image"
-                        media_name = f"{file_type.lower()}_{i+1}{file_suffix}"
-                        desc = media_descriptions[i] if i < len(media_descriptions) else "No description available"
-                        content += f"**{file_type} {i+1} Description:** {desc}\n"
-                        content += f"![{file_type} {i+1}](./{media_name})\n\n"
-                
-                readme_path = temp_dir / "README.md"
-                async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
-                    await f.write(content)
-                logging.info(f"Wrote content to {readme_path} with media links appended if necessary")
+            # 2. Copy media files 
+            # item.source_media_cache_paths are paths to cached media, relative to project_root
+            new_media_filenames_in_item_dir, _ = await self._copy_media_to_kb_item_dir(
+                item.source_media_cache_paths, # Changed from item.media_urls
+                temp_kb_item_dir_abs # Absolute path to temp dir for copying
+            )
 
-                cleanup_files = []
-                copied_media_paths = []
-                if media_files:
-                    async for img_path, img_name in self._validate_and_copy_media(media_files, temp_dir):
-                        cleanup_files.append(img_path)
-                        copied_media_paths.append(str(temp_dir / img_name))
+            # 3. Prepare Markdown content
+            markdown_lines = []
+            markdown_lines.append(f"# {item.display_title}") # Changed from item.title
+            markdown_lines.append("")
+            if item.description:
+                markdown_lines.append(f"**Description:** {format_links_in_text(item.description)}")
+                markdown_lines.append("")
+            
+            markdown_lines.append(f"**Source:** [{item.source_tweet.get('url', 'N/A')}]({item.source_tweet.get('url', '#')})")
+            if item.source_tweet.get('author'):
+                markdown_lines.append(f"**Author:** {item.source_tweet.get('author')}")
+            if item.source_tweet.get('created_at'):
+                 try:
+                    dt_obj = datetime.fromisoformat(item.source_tweet['created_at']) if isinstance(item.source_tweet['created_at'], str) else item.source_tweet['created_at']
+                    markdown_lines.append(f"**Original Post Date:** {dt_obj.strftime('%Y-%m-%d %H:%M:%S')}")
+                 except ValueError:
+                    markdown_lines.append(f"**Original Post Date:** {item.source_tweet.get('created_at')}")
 
-                if kb_path.exists():
-                    shutil.rmtree(kb_path)
-                temp_dir.rename(kb_path)
+            markdown_lines.append("")
+            
+            current_media_idx = 0
+            # Iterate over the source media paths to ensure descriptions match original media items
+            for i, original_media_path_str in enumerate(item.source_media_cache_paths): # Changed from item.media_urls
+                if current_media_idx < len(new_media_filenames_in_item_dir):
+                    media_filename_in_item_dir = new_media_filenames_in_item_dir[current_media_idx]
+                    description = item.image_descriptions[i] if i < len(item.image_descriptions) else "Media"
+                    
+                    file_type = "Image" if media_filename_in_item_dir.startswith("image_") else "Video" if media_filename_in_item_dir.startswith("video_") else "Media"
+                    
+                    markdown_lines.append(f"**{file_type} Description:** {format_links_in_text(description if description else 'N/A')}")
+                    # Link to media inside the 'media' subdirectory
+                    markdown_lines.append(f"![{description if description else file_type}]({Path('./media', media_filename_in_item_dir)})" ) 
+                    markdown_lines.append("")
+                    current_media_idx +=1
+                else:
+                    logging.warning(f"Media file {original_media_path_str} was in item.source_media_cache_paths but not found in copied media list for Markdown generation.")
 
-                # Cleanup original files (optional)
-                if media_files:
-                    for img_path in media_files:
-                        if img_path.exists() and img_path in cleanup_files:
-                            # Optionally uncomment to delete originals from cache
-                            # img_path.unlink()
-                            pass
 
-                return kb_path, copied_media_paths
+            markdown_lines.append("## Content")
+            markdown_lines.append("")
+            markdown_lines.append(format_links_in_text(item.markdown_content)) # Changed from item.content
 
-            except Exception as e:
-                logging.error(f"Failed to write KB item content: {str(e)}")
-                if temp_dir.exists():
-                    shutil.rmtree(temp_dir)
-                raise
+            final_markdown_content = "\n".join(markdown_lines)
+
+            # 4. Write README.md
+            readme_path_in_temp_abs = temp_kb_item_dir_abs / "README.md"
+            async with aiofiles.open(readme_path_in_temp_abs, 'w', encoding="utf-8") as f:
+                await f.write(final_markdown_content)
+            logging.info(f"Successfully wrote KB item to temporary file: {readme_path_in_temp_abs}")
+
+            # 5. Atomically move temp directory to final location
+            async with _folder_creation_lock:
+                if kb_item_full_dir_path_abs.exists():
+                    logging.warning(f"Destination folder {kb_item_full_dir_path_abs} exists. Removing before rename.")
+                    try:
+                        shutil.rmtree(kb_item_full_dir_path_abs) 
+                    except OSError as e:
+                        logging.error(f"Error removing existing directory {kb_item_full_dir_path_abs}: {e}")
+                        fallback_temp_name = temp_kb_item_dir_abs.parent / f"{kb_item_full_dir_path_abs.name}_fallback_{uuid.uuid4().hex[:4]}"
+                        temp_kb_item_dir_abs.rename(fallback_temp_name)
+                        raise MarkdownGenerationError(f"Failed to remove existing directory {kb_item_full_dir_path_abs}, temp data saved to {fallback_temp_name}") from e
+
+                temp_kb_item_dir_abs.rename(kb_item_full_dir_path_abs)
+                logging.info(f"Atomically moved {temp_kb_item_dir_abs} to {kb_item_full_dir_path_abs}")
+
+            # 6. Prepare list of copied media paths *relative to kb_root_abs (e.g. kb-generated)*
+            # kb_item_rel_to_kb_root_path is like "main_cat/sub_cat/item_title"
+            # new_media_filenames_in_item_dir is like ["image_1.jpg", "video_1.mp4"]
+            final_copied_media_rel_to_kb_root_paths = [
+                str(kb_item_rel_to_kb_root_path / "media" / fname) for fname in new_media_filenames_in_item_dir
+            ]
+            
+            # Return path to KB item's directory, relative to project_root
+            kb_item_dir_rel_to_project_root = self.config.get_relative_path(kb_item_full_dir_path_abs)
+            
+            return kb_item_dir_rel_to_project_root, final_copied_media_rel_to_kb_root_paths
 
         except Exception as e:
-            logging.error(f"Failed to create KB item directory: {str(e)}")
-            raise MarkdownGenerationError(f"Failed to write KB item: {str(e)}")
+            logging.error(f"Failed to write knowledge base item for '{item.display_title}': {e}", exc_info=True) # Changed from item.title
+            if 'temp_kb_item_dir_abs' in locals() and temp_kb_item_dir_abs.exists():
+                try:
+                    shutil.rmtree(temp_kb_item_dir_abs)
+                    logging.info(f"Cleaned up temporary directory {temp_kb_item_dir_abs} after error.")
+                except Exception as cleanup_e:
+                    logging.error(f"Failed to cleanup temporary directory {temp_kb_item_dir_abs}: {cleanup_e}")
+            raise MarkdownGenerationError(f"Failed to write KB item '{item.display_title}': {str(e)}") from e # Changed from item.title
 
-def validate_media_references(content: str, directory: Path) -> bool:
-    """Validate that all media references in the content exist in the directory."""
-    # Extract all image references
-    image_pattern = r'!\[.*?\]\(\./(.*?)\)'
-    referenced_images = re.findall(image_pattern, content)
+
+# Keep validate_media_references if it's still valuable for debugging or a final check,
+# though the new relative linking should be more robust.
+# For now, assuming it might be useful.
+def validate_media_references(content: str, directory: Path) -> bool: # directory is absolute
+    """Validate that media references in markdown content exist in the directory."""
+    media_link_pattern = re.compile(r"!\[.*?\]\(\.?/([^)]+)\)")
+    found_links = media_link_pattern.findall(content)
     
-    missing_images = []
-    for img in referenced_images:
-        if not (directory / img).exists():
-            missing_images.append(img)
-    
-    if missing_images:
-        logging.warning(f"Missing referenced images: {missing_images}")
-        return False
-    return True
+    if not found_links:
+        logging.debug(f"No relative media links found (like './media.ext') in content for validation in {directory}")
+        return True 
+
+    all_found = True
+    for media_filename in found_links:
+        media_file_path = directory / media_filename # directory is absolute, media_filename is relative to it
+        if not media_file_path.exists():
+            logging.warning(f"Validation failed: Media file '{media_filename}' referenced in markdown not found in directory '{directory}'. Full path checked: {media_file_path}")
+            all_found = False
+        else:
+            logging.debug(f"Validation success: Media file '{media_filename}' found at '{media_file_path}'.")
+            
+    return all_found

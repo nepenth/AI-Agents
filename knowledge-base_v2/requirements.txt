@@ -11,6 +11,7 @@ sqlalchemy
 # HTTP Client (Async)
 httpx[http2]     # For async HTTP requests (Ollama, potentially others)
 aiofiles         # For async file operations
+aiohttp          # For async HTTP requests (Ollama, potentially others)
 
 # Data Validation & Typing
 pydantic         # For config validation and potentially types

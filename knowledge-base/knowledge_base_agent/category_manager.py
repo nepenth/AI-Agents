@@ -536,6 +536,40 @@ class CategoryManager:
         """Save categories asynchronously."""
         await async_json_dump(categories, self.categories_file)
 
+    async def ensure_category_exists(self, main_category: str, sub_category: str) -> None:
+        """
+        Ensure that a main category and a subcategory exist in the managed list.
+        If they don't, they are added and the categories file is saved.
+        """
+        # self.categories is loaded in __init__ and is a dict like {"main": ["sub1", "sub2"]}
+        # Ensure it's loaded if using async methods consistently (though __init__ loads it sync)
+        # await self.load_categories() # load_categories is not async and re-reads file, prefer using self.categories directly
+
+        normalized_main = self._normalize_name(main_category)
+        normalized_sub = self._normalize_name(sub_category)
+        
+        changed = False
+        if normalized_main not in self.categories:
+            self.categories[normalized_main] = []
+            logging.info(f"CategoryManager: Added new main category '{normalized_main}'")
+            changed = True
+        
+        # Ensure subcategory list is indeed a list (it should be by load_categories logic)
+        if not isinstance(self.categories.get(normalized_main), list):
+             self.categories[normalized_main] = [] # Correct if it was some other type
+             logging.warning(f"CategoryManager: Main category '{normalized_main}' was not a list, re-initialized.")
+             changed = True
+
+        if normalized_sub not in self.categories[normalized_main]:
+            self.categories[normalized_main].append(normalized_sub)
+            # Ensure no duplicates, though list.append should be fine if check is robust
+            self.categories[normalized_main] = sorted(list(set(self.categories[normalized_main])))
+            logging.info(f"CategoryManager: Added new subcategory '{normalized_sub}' to main category '{normalized_main}'")
+            changed = True
+        
+        if changed:
+            self._save_categories() # Synchronous save method
+
     async def get_category_path(self, category_info: CategoryInfo) -> str:
         """
         Get the filesystem path for a category.
@@ -751,8 +785,17 @@ Respond with just the name, no explanation."""
                 'sub_category': sub_cat,
                 'item_name': item_name
             }
+            
+            # Also store at top level for compatibility
+            tweet_data['main_category'] = main_cat
+            tweet_data['sub_category'] = sub_cat
+            tweet_data['item_name_suggestion'] = item_name
+            
             # Mark as processed ONLY on success
             tweet_data['categories_processed'] = True
+            
+            # Ensure the category is added to our categories list and saved
+            await self.ensure_category_exists(main_cat, sub_cat)
             logging.info(f"Successfully categorized tweet {tweet_id} as {main_cat}/{sub_cat}/{item_name}")
 
         except AIError as ai_err:
@@ -761,6 +804,9 @@ Respond with just the name, no explanation."""
             # Ensure flag remains false (or is set to false explicitly)
             tweet_data['categories_processed'] = False
             tweet_data['categories'] = {} # Clear any partial/old categories
+            tweet_data['main_category'] = '' # Clear top level too
+            tweet_data['sub_category'] = ''
+            tweet_data['item_name_suggestion'] = ''
             # Re-raise the error so the ContentProcessor can handle stats and prevent progression
             raise ai_err
         except Exception as e:
@@ -768,6 +814,9 @@ Respond with just the name, no explanation."""
             logging.exception(f"Unexpected error during category processing call for tweet {tweet_id}: {e}")
             tweet_data['categories_processed'] = False
             tweet_data['categories'] = {}
+            tweet_data['main_category'] = '' # Clear top level too
+            tweet_data['sub_category'] = ''
+            tweet_data['item_name_suggestion'] = ''
             # Wrap in AIError or raise a specific CategoryError
             raise CategoryError(f"Failed to process categories for tweet {tweet_id}: {e}") from e
 

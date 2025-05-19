@@ -28,10 +28,10 @@
                     <i class="bi bi-gear me-2"></i> Agent
                 </a>
                 <div class="collapse show" id="collapseAgent">
-                    <a class="list-group-item list-group-item-action subcategory-item" href="/" onclick="loadAgentControls(event)">
+                    <a class="list-group-item list-group-item-action subcategory-item" href="/">
                         <i class="bi bi-play-circle me-2"></i> Run Agent & Live Logs
                     </a>
-                    <a class="list-group-item list-group-item-action subcategory-item active" href="/logs" onclick="loadLogsPage(event)"> {# Add active class #}
+                    <a class="list-group-item list-group-item-action subcategory-item active" href="/logs"> {# Add active class #}
                         <i class="bi bi-archive me-2"></i> View Past Logs
                     </a>
                 </div>
@@ -62,7 +62,7 @@
                                             <div class="collapse" id="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}">
                                                 <ul class="list-unstyled ps-3">
                                                 {% for item_loop in sub_group|sort(attribute='title') %}
-                                                    <li><a href="{{ url_for('item_detail', id=item_loop.id) }}" class="nav-link sidebar-link item-link">{{ item_loop.title }}</a></li>
+                                                    <li><a href="{{ url_for('item_detail', item_id=item_loop.id) }}" class="nav-link sidebar-link item-link">{{ item_loop.title }}</a></li>
                                                 {% endfor %}
                                                 </ul>
                                             </div>

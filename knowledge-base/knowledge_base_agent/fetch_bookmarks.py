@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import asyncio
 import os
 import time
@@ -9,9 +9,9 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import FetchError, ConfigurationError, StorageError, BookmarksFetchError
 import aiofiles
-from knowledge_base_agent.http_client import HTTPClient
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from playwright.async_api import Error as PlaywrightError
+import json
+from datetime import datetime, timezone
+from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 
 # Load environment variables
 load_dotenv()
@@ -38,10 +38,14 @@ DATA_DIR = Path("data")  # This stays the same as it's for configuration
 BOOKMARKS_FILE = DATA_DIR / "bookmarks_links.txt"
 ARCHIVE_DIR = DATA_DIR / "archive_bookmarks"
 
+# Constants for new JSON structure (archive dir remains same conceptually)
+# BOOKMARKS_FILE is now managed by config.bookmarks_file
+ARCHIVE_DIR_NAME = "archive_tweet_bookmarks"
+
 class BookmarksFetcher:
     def __init__(self, config: Config):
         self.config = config
-        self.timeout = 30000
+        self.timeout = self.config.selenium_timeout * 1000 # Use config value
         self.playwright = None
         self.browser = None
         self.context = None
@@ -74,27 +78,47 @@ class BookmarksFetcher:
             
             # Navigate to login page
             logging.info("Navigating to login page...")
-            await self.page.goto('https://twitter.com/login', wait_until="networkidle")
+            await self.page.goto('https://twitter.com/login', wait_until="networkidle", timeout=self.timeout)
             
             # Login
-            await self.page.wait_for_selector('input[name="text"]', timeout=self.timeout)
-            await self.page.type('input[name="text"]', self.config.x_username, delay=100)
+            await self.page.wait_for_selector(USERNAME_SELECTOR, timeout=self.timeout)
+            await self.page.type(USERNAME_SELECTOR, self.config.x_username, delay=100)
             await self.page.keyboard.press('Enter')
             await self.page.wait_for_timeout(3000)
 
-            await self.page.wait_for_selector('input[name="password"]', timeout=self.timeout)
-            await self.page.type('input[name="password"]', self.config.x_password, delay=100)
+            await self.page.wait_for_selector(PASSWORD_SELECTOR, timeout=self.timeout)
+            await self.page.type(PASSWORD_SELECTOR, self.config.x_password, delay=100)
             await self.page.keyboard.press('Enter')
             
             logging.info("Login submitted")
             
+            # Add a wait for successful login, e.g., wait for timeline or specific element
+            await self.page.wait_for_url("**/home", timeout=self.timeout) # Wait for redirect to home feed
+            logging.info("Login successful, redirected to home.")
+            
         except Exception as e:
-            logging.error(f"Browser initialization failed: {str(e)}")
+            logging.error(f"Browser initialization or login failed: {str(e)}", exc_info=True)
             await self.cleanup()
-            raise BookmarksFetchError(f"Failed to initialize browser: {str(e)}") from e
+            raise BookmarksFetchError(f"Failed to initialize browser or login: {str(e)}") from e
 
     async def fetch_bookmarks(self) -> List[str]:
-        """Fetch bookmarks from Twitter."""
+        """Fetch bookmarks from Twitter, save to JSON, and return a list of tweet IDs."""
+        current_bookmarks_data: Dict[str, Dict[str, str]] = {}
+        bookmarks_file_path = self.config.bookmarks_file # Path from config (e.g., data/tweet_bookmarks.json)
+        
+        # Ensure parent directory for bookmarks file exists
+        bookmarks_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if bookmarks_file_path.exists():
+            try:
+                with open(bookmarks_file_path, 'r', encoding='utf-8') as f:
+                    current_bookmarks_data = json.load(f)
+                logging.info(f"Loaded {len(current_bookmarks_data)} existing bookmarks from {bookmarks_file_path}")
+            except json.JSONDecodeError:
+                logging.warning(f"Could not parse {bookmarks_file_path}, starting with empty bookmarks.")
+            except Exception as e:
+                logging.error(f"Error loading {bookmarks_file_path}: {e}, starting with empty bookmarks.")
+
         try:
             # Try to dismiss any modal dialog
             try:
@@ -102,15 +126,17 @@ class BookmarksFetcher:
                 buttons = await self.page.query_selector_all('div[role="dialog"] button')
                 for btn in buttons:
                     btn_text = await btn.inner_text()
-                    if "Not now" in btn_text:
+                    if "Not now" in btn_text or "Maybe later" in btn_text: # Added common alternative
                         await btn.click()
-                        logging.info("Dismissed 'Not now' dialog.")
+                        logging.info(f"Dismissed '{btn_text}' dialog.")
                         break
+            except PlaywrightTimeout:
+                logging.debug("No modal dialog to dismiss or timed out waiting.")
             except Exception as e:
-                logging.debug("No modal dialog to dismiss.")
+                logging.debug(f"Error dismissing dialog: {e}")
 
             # Navigate to bookmarks page
-            logging.info("Navigating to bookmarks page...")
+            logging.info(f"Navigating to bookmarks page: {self.config.x_bookmarks_url}")
             await self.page.goto(str(self.config.x_bookmarks_url), wait_until="domcontentloaded", timeout=60000)
             await self.page.wait_for_timeout(10000)  # wait for dynamic content
 
@@ -118,8 +144,8 @@ class BookmarksFetcher:
             current_url = self.page.url
             logging.debug(f"After navigating to bookmarks, URL is: {current_url}")
 
-            if "login" in current_url:
-                raise BookmarksFetchError("Navigation to bookmarks page failed")
+            if "login" in current_url.lower():
+                raise BookmarksFetchError("Navigation to bookmarks page failed, ended up on login page.")
 
             # Log page content for debugging
             content = await self.page.content()
@@ -129,29 +155,22 @@ class BookmarksFetcher:
             logging.info("Starting scroll to load bookmarks...")
             previous_height = await self.page.evaluate("() => document.body.scrollHeight")
             no_change_tries = 0
-            all_bookmarks = set()
+            # Using a set to store scraped hrefs to avoid immediate duplicates during scraping phase
+            scraped_tweet_hrefs_set: set[str] = set()
 
             for scroll_iterations in range(MAX_SCROLL_ITERATIONS):
-                # Collect links before scrolling
                 links = await self.page.query_selector_all(f'{TWEET_SELECTOR} a[href*="/status/"]')
-                current_links = []
-                for link in links:
-                    href = await link.get_attribute("href")
+                for link_element in links:
+                    href = await link_element.get_attribute("href")
                     if href:
-                        current_links.append(href)
-                for link in current_links:
-                    all_bookmarks.add(link)
+                        scraped_tweet_hrefs_set.add(href)
 
-                logging.info(f"Scroll iteration #{scroll_iterations}. Found so far: {len(all_bookmarks)} unique links.")
+                logging.info(f"Scroll iteration #{scroll_iterations + 1}. Found so far: {len(scraped_tweet_hrefs_set)} unique hrefs.")
 
-                # Scroll down
                 await self.page.evaluate(f"window.scrollBy(0, {SCROLL_PIXELS});")
                 await self.page.wait_for_timeout(SCROLL_PAUSE * 1000)
 
-                # Check if we've reached the bottom
                 current_height = await self.page.evaluate("() => document.body.scrollHeight")
-                logging.info(f"Previous height: {previous_height}, Current height: {current_height}")
-
                 if current_height == previous_height:
                     no_change_tries += 1
                     logging.info(f"No new content detected #{no_change_tries} time(s).")
@@ -160,68 +179,97 @@ class BookmarksFetcher:
                         break
                 else:
                     no_change_tries = 0
-                    previous_height = current_height
-
-            # Do one final collection of links
+                previous_height = current_height
+            
+            # One final collection after scrolling stops
             links = await self.page.query_selector_all(f'{TWEET_SELECTOR} a[href*="/status/"]')
-            for link in links:
-                href = await link.get_attribute("href")
+            for link_element in links:
+                href = await link_element.get_attribute("href")
                 if href:
-                    all_bookmarks.add(href)
+                    scraped_tweet_hrefs_set.add(href)
 
-            logging.info(f"Extracted {len(all_bookmarks)} unique bookmark links.")
+            logging.info(f"Extracted {len(scraped_tweet_hrefs_set)} unique bookmark hrefs after scrolling.")
             
-            logging.info(f"Pre-filtering total links: {len(all_bookmarks)}")
-            
-            # Filter and log each step
-            valid_links = [link for link in all_bookmarks if isinstance(link, str)]
-            logging.info(f"After string type filtering: {len(valid_links)}")
-            
-            no_analytics = [link for link in valid_links if "/analytics" not in link]
-            logging.info(f"After removing analytics links: {len(no_analytics)}")
-            
-            no_photos = [link for link in no_analytics if "/photo/" not in link]
-            logging.info(f"After removing photo links: {len(no_photos)}")
-            
-            # Additional filtering to ensure we only get main tweet links
-            clean_links = []
-            for link in no_photos:
-                # Remove any query parameters
-                base_link = link.split('?')[0]
-                # Only include links that match the basic tweet pattern
-                if '/status/' in base_link and not any(x in base_link for x in [
-                    '/media_tags',
-                    '/retweets',
-                    '/likes',
-                    '/quotes',
-                    '/replies'
-                ]):
-                    clean_links.append(base_link)
-            
-            logging.info(f"After cleaning and removing auxiliary tweet links: {len(clean_links)}")
-            
-            # Remove duplicates (in case any slipped through)
-            bookmarks = list(set(clean_links))
-            logging.info(f"Final unique bookmarks: {len(bookmarks)}")
-            
-            # Write to file
-            if Path(self.config.bookmarks_file).exists():
-                timestamp = time.strftime("%Y%m%d-%H%M%S")
-                archive_file = Path(self.config.data_processing_dir) / "archive_bookmarks" / f"bookmarks_links_{timestamp}.txt"
-                archive_file.parent.mkdir(parents=True, exist_ok=True)
-                Path(self.config.bookmarks_file).rename(archive_file)
-                logging.info(f"Existing bookmarks file archived as: {archive_file}")
+            # Filter and process the scraped hrefs
+            updated_count = 0
+            added_count = 0
+            fetch_timestamp = datetime.now(timezone.utc).isoformat()
 
-            # Write new bookmarks to file
-            with open(self.config.bookmarks_file, 'w', encoding='utf8') as f:
-                f.write("\n".join(bookmarks))
-            logging.info(f"Saved {len(bookmarks)} bookmarks to {self.config.bookmarks_file}")
+            for raw_href in scraped_tweet_hrefs_set:
+                if not isinstance(raw_href, str):
+                    continue
 
-            return bookmarks
+                # Clean the href: remove query parameters
+                url_path = raw_href.split('?')[0]
+
+                # Apply filters for analytics, photos, and auxiliary links
+                if "/analytics" in url_path or \
+                    "/photo/" in url_path or \
+                    any(aux_part in url_path for aux_part in ['/media_tags', '/retweets', '/likes', '/quotes', '/replies']):
+                    continue
+
+                if '/status/' not in url_path:
+                    continue # Not a status link
+
+                tweet_id = parse_tweet_id_from_url(url_path) # Use the helper from tweet_utils
+                if not tweet_id:
+                    logging.warning(f"Could not parse tweet ID from cleaned URL path: {url_path}")
+                    continue
+                
+                full_url = f"https://twitter.com{url_path}" # Construct full URL
+
+                if tweet_id in current_bookmarks_data:
+                    # Existing bookmark, update last_seen
+                    current_bookmarks_data[tweet_id]["last_seen_bookmarked_at"] = fetch_timestamp
+                    current_bookmarks_data[tweet_id]["url_path"] = url_path # Update path in case it changed (rare)
+                    current_bookmarks_data[tweet_id]["full_url"] = full_url
+                    updated_count += 1
+                else:
+                    # New bookmark
+                    current_bookmarks_data[tweet_id] = {
+                        "url_path": url_path,
+                        "full_url": full_url,
+                        "first_fetched_at": fetch_timestamp,
+                        "last_seen_bookmarked_at": fetch_timestamp
+                    }
+                    added_count += 1
+            
+            logging.info(f"Processed scraped bookmarks: Added {added_count} new, Updated {updated_count} existing.")
+
+            # Archive old bookmarks file (if it exists and is different type or for safety)
+            # This logic is simplified: if the target is JSON, old .txt is archived.
+            # More robust: check if old file exists and is NOT the same as bookmarks_file_path before archiving.
+            legacy_txt_bookmarks_file = bookmarks_file_path.with_suffix('.txt') # e.g. data/tweet_bookmarks.txt
+            if legacy_txt_bookmarks_file.exists() and legacy_txt_bookmarks_file != bookmarks_file_path:
+                archive_ts = time.strftime("%Y%m%d-%H%M%S")
+                archive_file_name = f"{bookmarks_file_path.stem}_{archive_ts}{legacy_txt_bookmarks_file.suffix}"
+                archive_path = self.config.data_processing_dir / ARCHIVE_DIR_NAME / archive_file_name
+                archive_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    legacy_txt_bookmarks_file.rename(archive_path)
+                    logging.info(f"Archived legacy bookmarks file {legacy_txt_bookmarks_file} to {archive_path}")
+                except Exception as e:
+                    logging.error(f"Could not archive legacy bookmarks file {legacy_txt_bookmarks_file}: {e}")
+            
+            # Write new/updated bookmarks to JSON file
+            try:
+                with open(bookmarks_file_path, 'w', encoding='utf-8') as f:
+                    json.dump(current_bookmarks_data, f, indent=2)
+                logging.info(f"Saved {len(current_bookmarks_data)} total bookmarks to {bookmarks_file_path}")
+            except Exception as e:
+                logging.error(f"Failed to save bookmarks to {bookmarks_file_path}: {e}", exc_info=True)
+                raise BookmarksFetchError(f"Failed to save bookmarks JSON: {e}") from e
+
+            # Return a list of all full tweet URLs for the agent to process
+            return [data["full_url"] for data in current_bookmarks_data.values() if "full_url" in data]
 
         except Exception as e:
-            logging.error(f"Error while fetching bookmarks: {str(e)}")
-            raise BookmarksFetchError(f"Failed to fetch bookmarks: {str(e)}")
+            logging.error(f"Error during fetching bookmarks: {str(e)}", exc_info=True)
+            # Return existing full URLs if any were loaded, to allow processing of older data if fetch fails mid-way
+            if current_bookmarks_data:
+                 logging.warning("Returning already known bookmark URLs due to fetch error.")
+                 return [data["full_url"] for data in current_bookmarks_data.values() if "full_url" in data]
+            raise BookmarksFetchError(f"Failed to fetch bookmarks: {str(e)}") from e
 
     async def cleanup(self) -> None:
         """Clean up browser resources."""
@@ -232,6 +280,8 @@ class BookmarksFetcher:
                 await self.context.close()
             if self.browser:
                 await self.browser.close()
+            if self.playwright:
+                await self.playwright.stop() # Gracefully stop playwright
         except Exception as e:
             logging.exception("Failed to cleanup browser resources")
 
@@ -240,24 +290,42 @@ class BookmarksFetcher:
         try:
             async with self:
                 return await self.fetch_bookmarks()
+        except BookmarksFetchError as e:
+            logging.error(f"Bookmark fetching run failed: {e}", exc_info=True)
+            raise # Re-raise to be caught by caller
         except Exception as e:
-            logging.exception("Bookmark fetching failed")
-            raise BookmarksFetchError("Failed to complete bookmark fetching process") from e
+            logging.error(f"Unexpected error in BookmarksFetcher run: {e}", exc_info=True)
+            raise BookmarksFetchError(f"Unexpected error in bookmark fetching process: {e}") from e
 
 async def fetch_all_bookmarks(config: Config) -> List[str]:
     """Main entry point for fetching bookmarks."""
     try:
         logging.info("Starting bookmarks fetch process...")
-        async with BookmarksFetcher(config) as fetcher:
-            return await fetcher.run()
+        fetcher = BookmarksFetcher(config) # Initialize outside async with if __aenter__ is complex
+        return await fetcher.run() # run() handles aenter/aexit
+    except BookmarksFetchError:
+        raise # Propagate specific error
     except Exception as e:
-        logging.error(f"Failed to fetch bookmarks: {str(e)}")
-        raise BookmarksFetchError("Bookmark fetch process failed") from e
+        logging.error(f"Top-level error fetching all bookmarks: {e}", exc_info=True)
+        raise BookmarksFetchError("Main bookmark fetch process failed catastrophically") from e
 
 if __name__ == "__main__":
-    config = Config.from_env()
+    # Basic logging for standalone script run
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     try:
-        bookmarks = fetch_all_bookmarks(config)
-        print("Bookmarks fetched successfully")
+        config = Config.from_env()
+        # Ensure directories for config paths before running
+        config.ensure_directories() 
+        logging.info(f"Running {__file__} as a standalone script.")
+        logging.info(f"Bookmarks will be saved to: {config.bookmarks_file}")
+        
+        tweet_ids_list = asyncio.run(fetch_all_bookmarks(config))
+        logging.info(f"Script completed. Fetched {len(tweet_ids_list)} tweet IDs.")
+        if tweet_ids_list:
+            logging.info(f"Sample Tweet IDs: {tweet_ids_list[:5]}")
     except BookmarksFetchError as e:
-        print(f"Error: {e}")
+        logging.error(f"Error in standalone script: {e}")
+    except ConfigurationError as e:
+        logging.error(f"Configuration error: {e}")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}", exc_info=True)

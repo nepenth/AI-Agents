@@ -1,0 +1,558 @@
+2025-05-06 11:29:28 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250506_112928.log
+2025-05-06 11:29:28 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250506_112928.log
+2025-05-06 11:29:28 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-06 11:29:28 - engineio.server - INFO - Server initialized for threading.
+2025-05-06 11:29:28 - __main__ - INFO - Initializing database tables...
+2025-05-06 11:29:28 - __main__ - INFO - Database tables checked/created.
+2025-05-06 11:29:28 - __main__ - INFO - Registered Flask blueprints.
+2025-05-06 11:29:28 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent and /logs namespaces.
+2025-05-06 11:29:28 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-06 11:29:28 - __main__ - INFO - WebSocket log handler configured with emitter.
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:28 - __main__ - INFO - Sending direct TEST message to /logs namespace...
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:28 - __main__ - INFO - Direct TEST message emitted.
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:28 - __main__ - INFO - Attempting to start the web server on port 5001...
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:28 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.10.4:5001
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:28 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-05-06 11:29:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 11:29:31] "GET / HTTP/1.1" 200 -
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 11:29:31] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 11:29:31] "GET /static/js/main.js HTTP/1.1" 200 -
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet OPEN data {'sid': 'H7ytww9DbmBb95AYAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-06 11:29:31 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 11:29:31] "GET /socket.io/?EIO=4&transport=polling&t=o0pn9cmy HTTP/1.1" 200 -
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet MESSAGE data 0/agent,
+2025-05-06 11:29:31 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received request to upgrade to websocket
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "status_update" to BPdyZ2NwXS5Bu7mBAAAB [/agent]
+2025-05-06 11:29:31 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 11:29:31] "GET /socket.io/?EIO=4&transport=polling&t=o0pnxpzv&sid=H7ytww9DbmBb95AYAAAA HTTP/1.1" 200 -
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 0/agent,{"sid":"BPdyZ2NwXS5Bu7mBAAAB"}
+2025-05-06 11:29:31 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 11:29:31] "POST /socket.io/?EIO=4&transport=polling&t=o0pnw3np&sid=H7ytww9DbmBb95AYAAAA HTTP/1.1" 200 -
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Upgrade to websocket successful
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet MESSAGE data 0/logs,
+2025-05-06 11:29:31 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client connected to /logs namespace. Auth: None"}]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 0/logs,{"sid":"U1WEeytngPORRIWkAAAC"}
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-06 11:29:31 - socketio.server - INFO - received event "get_status" from BPdyZ2NwXS5Bu7mBAAAB [/agent]
+2025-05-06 11:29:31 - socketio.server - INFO - emitting event "status_update" to BPdyZ2NwXS5Bu7mBAAAB [/agent]
+2025-05-06 11:29:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet MESSAGE data 2/agent,["start_agent",{"run_only_phase":"InputAcquisition","skip_fetch":false,"skip_git":false,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-06 11:29:43 - socketio.server - INFO - received event "start_agent" from BPdyZ2NwXS5Bu7mBAAAB [/agent]
+2025-05-06 11:29:43 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'run_only_phase': 'InputAcquisition', 'skip_fetch': False, 'skip_git': False, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-06 11:29:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Received start_agent request. Data: {'run_only_phase': 'InputAcquisition', 'skip_fetch': False, 'skip_git': False, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-06 11:29:43 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-06 11:29:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to start agent pipeline thread..."}]
+2025-05-06 11:29:43 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-06 11:29:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Setting up background thread for pipeline..."}]
+2025-05-06 11:29:43 - __main__ - INFO - Pipeline background thread started.
+2025-05-06 11:29:43 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-06 11:29:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started."}]
+2025-05-06 11:29:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:43 - __main__ - INFO - (Web Thread) Initializing twscrape account pool...
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started successfully."}]
+2025-05-06 11:29:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Initializing twscrape account pool..."}]
+2025-05-06 11:29:44 - httpx - INFO - HTTP Request: POST https://api.x.com/1.1/guest/activate.json "HTTP/1.1 200 OK"
+2025-05-06 11:29:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HTTP Request: POST https://api.x.com/1.1/guest/activate.json \"HTTP/1.1 200 OK\""}]
+2025-05-06 11:29:44 - httpx - INFO - HTTP Request: POST https://api.x.com/1.1/onboarding/task.json?flow_name=login "HTTP/1.1 200 OK"
+2025-05-06 11:29:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HTTP Request: POST https://api.x.com/1.1/onboarding/task.json?flow_name=login \"HTTP/1.1 200 OK\""}]
+2025-05-06 11:29:44 - httpx - INFO - HTTP Request: POST https://api.x.com/1.1/onboarding/task.json "HTTP/1.1 200 OK"
+2025-05-06 11:29:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HTTP Request: POST https://api.x.com/1.1/onboarding/task.json \"HTTP/1.1 200 OK\""}]
+2025-05-06 11:29:44 - httpx - INFO - HTTP Request: POST https://api.x.com/1.1/onboarding/task.json "HTTP/1.1 200 OK"
+2025-05-06 11:29:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HTTP Request: POST https://api.x.com/1.1/onboarding/task.json \"HTTP/1.1 200 OK\""}]
+2025-05-06 11:29:44 - __main__ - INFO - (Web Thread) twscrape pool initialized and logged in.
+2025-05-06 11:29:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) twscrape pool initialized and logged in."}]
+2025-05-06 11:29:44 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-06 11:29:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read"}]
+2025-05-06 11:29:45 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-06 11:29:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:45 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-06 11:29:45 - __main__ - INFO - (Web Thread) X credentials and bookmarks URL present, initializing Playwright client...
+2025-05-06 11:29:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:45 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) X credentials and bookmarks URL present, initializing Playwright client..."}]
+2025-05-06 11:29:45 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient (Sync API) initialized. Headless: True
+2025-05-06 11:29:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:45 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: PlaywrightClient (Sync API) initialized. Headless: True"}]
+2025-05-06 11:29:45 - __main__ - INFO - (Web Thread) Attempting initial Playwright login...
+2025-05-06 11:29:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:45 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Attempting initial Playwright login..."}]
+2025-05-06 11:29:45 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting X login via Playwright (sync in thread)...
+2025-05-06 11:29:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:45 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting X login via Playwright (sync in thread)..."}]
+2025-05-06 11:29:46 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Navigating to X login page: https://x.com/login
+2025-05-06 11:29:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:46 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Navigating to X login page: https://x.com/login"}]
+2025-05-06 11:29:50 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Entering username...
+2025-05-06 11:29:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:50 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Entering username..."}]
+2025-05-06 11:29:53 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Entering password...
+2025-05-06 11:29:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:53 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Entering password..."}]
+2025-05-06 11:29:53 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Waiting for login confirmation (e.g., navigation to home)...
+2025-05-06 11:29:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:53 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Waiting for login confirmation (e.g., navigation to home)..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) X Login successful.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) X Login successful."}]
+2025-05-06 11:29:55 - __main__ - INFO - (Web Thread) Playwright initial login appears successful.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Playwright initial login appears successful."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.state - INFO - StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.fetcher - INFO - Fetcher initialized.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Fetcher initialized."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - AgentPipeline initialized.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: AgentPipeline initialized."}]
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"running","message":"Agent starting..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - --- Agent Pipeline Run Invoked ---
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Agent Pipeline Run Invoked ---"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Run Preferences:
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run Preferences:"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Run Only Phase: Full
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Run Only Phase: Full"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Fetch Bookmarks: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Fetch Bookmarks: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Git Sync: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Git Sync: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Indexing: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Indexing: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-cache Tweets: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-cache Tweets: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-interpret Media: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-interpret Media: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-categorize Content: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-categorize Content: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-generate KB Items: False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-generate KB Items: False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Key Configuration Values:
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Key Configuration Values:"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Text Model: llama3.3:70b-instruct-q4_0
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Text Model: llama3.3:70b-instruct-q4_0"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Fallback Model: phi4-reasoning
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Fallback Model: phi4-reasoning"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Vision Model: mistral-small3.1
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Vision Model: mistral-small3.1"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Bookmark Fetching Possible (credentials present): True
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Bookmark Fetching Possible (credentials present): True"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - X Username: lockepacem
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Username: lockepacem"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - X Email: chris@whyland.net
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Email: chris@whyland.net"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Git Sync Enabled (config): False
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Git Sync Enabled (config): False"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO -   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - ------------------------------------
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: ------------------------------------"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Run mode: 'Full Pipeline'
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run mode: 'Full Pipeline'"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'GitSync' (Git Sync disabled in config).
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Skipping phase 'GitSync' (Git Sync disabled in config)."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Total phases planned for this run: 8. Phases: ['InputAcquisition', 'Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Total phases planned for this run: 8. Phases: ['InputAcquisition', 'Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']"}]
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Loading State","current_item_id":"","eta":"--:--:--","total_phases":8,"current_phase_num":0,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.state - INFO - Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.state - INFO - Successfully loaded state. Counts - Unprocessed: 44, Processed: 0, Cached: 51.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully loaded state. Counts - Unprocessed: 44, Processed: 0, Cached: 51."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.state - INFO - Performing state reconciliation...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Performing state reconciliation..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.state - WARNING - Reconciliation: 7 tweet IDs found in cache but not in processed/unprocessed sets: {'1909933401563349049', '1915054065945579669', '1909933356877295693', '1908332949251948808', '1903765078509551853', '1907963792778211568', '1912365333501079987'}. Adding to unprocessed set.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Reconciliation: 7 tweet IDs found in cache but not in processed/unprocessed sets: {'1909933401563349049', '1915054065945579669', '1909933356877295693', '1908332949251948808', '1903765078509551853', '1907963792778211568', '1912365333501079987'}. Adding to unprocessed set."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.state - WARNING - State reconciliation completed with 7 issues corrected/logged.
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: State reconciliation completed with 7 issues corrected/logged."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Loaded state. Total known items initially: 51. IDs: ['1866615462844383425', '1917883215878185255', '1915054065945579669', '1919039905381880181', '1919265816899620918', '1875950678922924142', '1903765078509551853', '1890715428307038441', '1897678611819458784', '1919335714036077033', '1909933267307868186', '1912204411725627688', '1869733233279279427', '1876960312282271771', '1918917910573322656', '1912085292326015095', '1918901182560714906', '1882465831441035492', '1918635461775368256', '1885379904188866994']...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Loaded state. Total known items initially: 51. IDs: ['1866615462844383425', '1917883215878185255', '1915054065945579669', '1919039905381880181', '1919265816899620918', '1875950678922924142', '1903765078509551853', '1890715428307038441', '1897678611819458784', '1919335714036077033', '1909933267307868186', '1912204411725627688', '1869733233279279427', '1876960312282271771', '1918917910573322656', '1912085292326015095', '1918901182560714906', '1882465831441035492', '1918635461775368256', '1885379904188866994']..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 1/8: InputAcquisition ---
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Starting Overall Phase 1/8: InputAcquisition ---"}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - Running InputAcquisition phase (1/8)...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Running InputAcquisition phase (1/8)..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.pipeline - INFO - [InputAcquisition] Calling fetcher.get_tweet_ids_to_process...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [InputAcquisition] Calling fetcher.get_tweet_ids_to_process..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Attempting to fetch new tweet IDs from X Bookmarks...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Attempting to fetch new tweet IDs from X Bookmarks..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Attempting to get bookmark URLs via Playwright client...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Attempting to get bookmark URLs via Playwright client..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting to get bookmark URLs via Playwright (sync in thread)...
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to get bookmark URLs via Playwright (sync in thread)..."}]
+2025-05-06 11:29:55 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Navigating to X Bookmarks page: https://x.com/i/bookmarks/1866967731179794749
+2025-05-06 11:29:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:55 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Navigating to X Bookmarks page: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-06 11:29:56 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:29:56 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:29:57 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Waiting for initial tweet content to load...
+2025-05-06 11:29:57 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:29:57 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Waiting for initial tweet content to load..."}]
+2025-05-06 11:30:04 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scrolling bookmarks page. Scroll step: half viewport. Wait after scroll: 3000ms. No new URLs streak limit: 10. Max scroll attempts: 250.
+2025-05-06 11:30:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:04 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scrolling bookmarks page. Scroll step: half viewport. Wait after scroll: 3000ms. No new URLs streak limit: 10. Max scroll attempts: 250."}]
+2025-05-06 11:30:04 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 1: Found 8 new unique URLs. Total unique: 8.
+2025-05-06 11:30:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:04 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 1: Found 8 new unique URLs. Total unique: 8."}]
+2025-05-06 11:30:08 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 2: Found 4 new unique URLs. Total unique: 12.
+2025-05-06 11:30:08 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:08 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 2: Found 4 new unique URLs. Total unique: 12."}]
+2025-05-06 11:30:11 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 3: Found 2 new unique URLs. Total unique: 14.
+2025-05-06 11:30:11 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:11 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 3: Found 2 new unique URLs. Total unique: 14."}]
+2025-05-06 11:30:14 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 4: Found 2 new unique URLs. Total unique: 16.
+2025-05-06 11:30:14 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:14 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 4: Found 2 new unique URLs. Total unique: 16."}]
+2025-05-06 11:30:17 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 5: Found 2 new unique URLs. Total unique: 18.
+2025-05-06 11:30:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:17 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 5: Found 2 new unique URLs. Total unique: 18."}]
+2025-05-06 11:30:21 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 6: Found 2 new unique URLs. Total unique: 20.
+2025-05-06 11:30:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:21 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 6: Found 2 new unique URLs. Total unique: 20."}]
+2025-05-06 11:30:21 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (8573) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:30:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:21 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (8573) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:30:21 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:30:21 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:30:24 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 7: Found 2 new unique URLs. Total unique: 22.
+2025-05-06 11:30:24 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:24 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 7: Found 2 new unique URLs. Total unique: 22."}]
+2025-05-06 11:30:27 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 8: Found 4 new unique URLs. Total unique: 26.
+2025-05-06 11:30:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:27 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 8: Found 4 new unique URLs. Total unique: 26."}]
+2025-05-06 11:30:30 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 9: Found 2 new unique URLs. Total unique: 28.
+2025-05-06 11:30:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:30 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 9: Found 2 new unique URLs. Total unique: 28."}]
+2025-05-06 11:30:33 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 10: Found 2 new unique URLs. Total unique: 30.
+2025-05-06 11:30:33 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:33 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 10: Found 2 new unique URLs. Total unique: 30."}]
+2025-05-06 11:30:37 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (9968) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:30:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:37 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (9968) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:30:40 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 12: Found 2 new unique URLs. Total unique: 32.
+2025-05-06 11:30:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:40 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 12: Found 2 new unique URLs. Total unique: 32."}]
+2025-05-06 11:30:43 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 13: Found 2 new unique URLs. Total unique: 34.
+2025-05-06 11:30:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 13: Found 2 new unique URLs. Total unique: 34."}]
+2025-05-06 11:30:43 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (10714) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:30:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:43 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (10714) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:30:46 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 14: Found 2 new unique URLs. Total unique: 36.
+2025-05-06 11:30:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:46 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 14: Found 2 new unique URLs. Total unique: 36."}]
+2025-05-06 11:30:46 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:30:46 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:30:49 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 15: Found 2 new unique URLs. Total unique: 38.
+2025-05-06 11:30:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:49 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 15: Found 2 new unique URLs. Total unique: 38."}]
+2025-05-06 11:30:49 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (11460) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:30:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:49 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (11460) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:30:52 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 16: Found 2 new unique URLs. Total unique: 40.
+2025-05-06 11:30:52 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:52 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 16: Found 2 new unique URLs. Total unique: 40."}]
+2025-05-06 11:30:59 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 18: Found 12 new unique URLs. Total unique: 52.
+2025-05-06 11:30:59 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:30:59 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 18: Found 12 new unique URLs. Total unique: 52."}]
+2025-05-06 11:31:02 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 19: Found 6 new unique URLs. Total unique: 58.
+2025-05-06 11:31:02 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:02 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 19: Found 6 new unique URLs. Total unique: 58."}]
+2025-05-06 11:31:05 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (41521) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:05 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:05 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (41521) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:31:09 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 21: Found 2 new unique URLs. Total unique: 60.
+2025-05-06 11:31:09 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:09 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 21: Found 2 new unique URLs. Total unique: 60."}]
+2025-05-06 11:31:09 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (41521) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:09 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:09 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (41521) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:31:11 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:31:11 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:31:12 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 22: Found 2 new unique URLs. Total unique: 62.
+2025-05-06 11:31:12 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:12 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 22: Found 2 new unique URLs. Total unique: 62."}]
+2025-05-06 11:31:15 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 23: Found 2 new unique URLs. Total unique: 64.
+2025-05-06 11:31:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:15 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 23: Found 2 new unique URLs. Total unique: 64."}]
+2025-05-06 11:31:18 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 24: Found 4 new unique URLs. Total unique: 68.
+2025-05-06 11:31:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:18 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 24: Found 4 new unique URLs. Total unique: 68."}]
+2025-05-06 11:31:21 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (42295) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:21 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (42295) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:31:24 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 26: Found 2 new unique URLs. Total unique: 70.
+2025-05-06 11:31:24 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:24 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 26: Found 2 new unique URLs. Total unique: 70."}]
+2025-05-06 11:31:24 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (42295) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:24 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:24 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (42295) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:31:28 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 27: Found 2 new unique URLs. Total unique: 72.
+2025-05-06 11:31:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:28 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 27: Found 2 new unique URLs. Total unique: 72."}]
+2025-05-06 11:31:31 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 28: Found 2 new unique URLs. Total unique: 74.
+2025-05-06 11:31:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 28: Found 2 new unique URLs. Total unique: 74."}]
+2025-05-06 11:31:34 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 29: Found 2 new unique URLs. Total unique: 76.
+2025-05-06 11:31:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:34 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 29: Found 2 new unique URLs. Total unique: 76."}]
+2025-05-06 11:31:34 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (43266) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:34 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (43266) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:31:36 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:31:36 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:31:37 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 30: Found 2 new unique URLs. Total unique: 78.
+2025-05-06 11:31:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:37 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 30: Found 2 new unique URLs. Total unique: 78."}]
+2025-05-06 11:31:40 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (43422) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:40 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (43422) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:31:44 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 32: Found 4 new unique URLs. Total unique: 82.
+2025-05-06 11:31:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 32: Found 4 new unique URLs. Total unique: 82."}]
+2025-05-06 11:31:47 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 33: Found 3 new unique URLs. Total unique: 85.
+2025-05-06 11:31:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 33: Found 3 new unique URLs. Total unique: 85."}]
+2025-05-06 11:31:53 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 35: Found 2 new unique URLs. Total unique: 87.
+2025-05-06 11:31:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:53 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 35: Found 2 new unique URLs. Total unique: 87."}]
+2025-05-06 11:31:57 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 36: Found 2 new unique URLs. Total unique: 89.
+2025-05-06 11:31:57 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:57 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 36: Found 2 new unique URLs. Total unique: 89."}]
+2025-05-06 11:31:57 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (112922) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:31:57 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:31:57 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (112922) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:00 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 37: Found 2 new unique URLs. Total unique: 91.
+2025-05-06 11:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:00 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 37: Found 2 new unique URLs. Total unique: 91."}]
+2025-05-06 11:32:00 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (112922) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:00 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (112922) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:01 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:32:01 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:32:03 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 38: Found 2 new unique URLs. Total unique: 93.
+2025-05-06 11:32:03 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:03 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 38: Found 2 new unique URLs. Total unique: 93."}]
+2025-05-06 11:32:06 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 39: Found 2 new unique URLs. Total unique: 95.
+2025-05-06 11:32:06 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:06 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 39: Found 2 new unique URLs. Total unique: 95."}]
+2025-05-06 11:32:06 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (113591) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:06 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:06 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (113591) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:09 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 40: Found 2 new unique URLs. Total unique: 97.
+2025-05-06 11:32:09 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:09 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 40: Found 2 new unique URLs. Total unique: 97."}]
+2025-05-06 11:32:12 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 41: Found 2 new unique URLs. Total unique: 99.
+2025-05-06 11:32:12 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:12 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 41: Found 2 new unique URLs. Total unique: 99."}]
+2025-05-06 11:32:12 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (114640) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:12 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:12 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (114640) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:16 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (114640) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:16 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (114640) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:19 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 43: Found 2 new unique URLs. Total unique: 101.
+2025-05-06 11:32:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:19 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 43: Found 2 new unique URLs. Total unique: 101."}]
+2025-05-06 11:32:22 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 44: Found 2 new unique URLs. Total unique: 103.
+2025-05-06 11:32:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:22 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 44: Found 2 new unique URLs. Total unique: 103."}]
+2025-05-06 11:32:22 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (115919) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:22 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (115919) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:25 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 45: Found 2 new unique URLs. Total unique: 105.
+2025-05-06 11:32:25 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:25 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 45: Found 2 new unique URLs. Total unique: 105."}]
+2025-05-06 11:32:25 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (115919) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:25 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:25 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (115919) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:26 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:32:26 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:32:28 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll attempt 46: Found 2 new unique URLs. Total unique: 107.
+2025-05-06 11:32:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:28 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll attempt 46: Found 2 new unique URLs. Total unique: 107."}]
+2025-05-06 11:32:31 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:35 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:35 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:35 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:38 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:38 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:38 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:41 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:41 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:41 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:44 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content.
+2025-05-06 11:32:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:44 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Scroll height (116086) did not change after scroll. Assuming bottom or no more content."}]
+2025-05-06 11:32:47 - knowledge_base_agent.interfaces.playwright_client - INFO - (Sync) Finished scrolling attempts. Found 107 unique potential bookmark URLs.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Sync) Finished scrolling attempts. Found 107 unique potential bookmark URLs."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Found 107 potential bookmark links from Playwright. Extracting tweet IDs...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Found 107 potential bookmark links from Playwright. Extracting tweet IDs..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Extracted 53 unique tweet IDs from 107 potential links.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Extracted 53 unique tweet IDs from 107 potential links."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Found 53 tweet IDs from X Bookmarks.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Found 53 tweet IDs from X Bookmarks."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Total new unique tweet IDs acquired for processing: 53
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Total new unique tweet IDs acquired for processing: 53"}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.pipeline - INFO - [InputAcquisition] Fetcher returned 53 IDs: ['1866615462844383425', '1917883215878185255', '1915054065945579669', '1890774044758147223', '1919039905381880181', '1919265816899620918', '1875950678922924142', '1903765078509551853', '1890715428307038441', '1897678611819458784', '1919335714036077033', '1909933267307868186', '1912204411725627688', '1869733233279279427', '1876960312282271771', '1914703256548454470', '1918917910573322656', '1912085292326015095', '1918901182560714906', '1882465831441035492']...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [InputAcquisition] Fetcher returned 53 IDs: ['1866615462844383425', '1917883215878185255', '1915054065945579669', '1890774044758147223', '1919039905381880181', '1919265816899620918', '1875950678922924142', '1903765078509551853', '1890715428307038441', '1897678611819458784', '1919335714036077033', '1909933267307868186', '1912204411725627688', '1869733233279279427', '1876960312282271771', '1914703256548454470', '1918917910573322656', '1912085292326015095', '1918901182560714906', '1882465831441035492']..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.pipeline - INFO - [InputAcquisition] Added 5 new unique tweet IDs to state.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [InputAcquisition] Added 5 new unique tweet IDs to state."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 51 unprocessed, 0 processed.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully saved state. 51 unprocessed, 0 processed."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.pipeline - INFO - After Input Acquisition. Total known items now: 56 (Added: 5). IDs: ['1866615462844383425', '1917883215878185255', '1915054065945579669', '1890774044758147223', '1919039905381880181', '1919265816899620918', '1875950678922924142', '1903765078509551853', '1890715428307038441', '1897678611819458784', '1919335714036077033', '1909933267307868186', '1912204411725627688', '1869733233279279427', '1876960312282271771', '1914703256548454470', '1918917910573322656', '1912085292326015095', '1918901182560714906', '1882465831441035492']...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: After Input Acquisition. Total known items now: 56 (Added: 5). IDs: ['1866615462844383425', '1917883215878185255', '1915054065945579669', '1890774044758147223', '1919039905381880181', '1919265816899620918', '1875950678922924142', '1903765078509551853', '1890715428307038441', '1897678611819458784', '1919335714036077033', '1909933267307868186', '1912204411725627688', '1869733233279279427', '1876960312282271771', '1914703256548454470', '1918917910573322656', '1912085292326015095', '1918901182560714906', '1882465831441035492']..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 1/8: InputAcquisition ---
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Finished Overall Phase 1/8: InputAcquisition ---"}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 2/8: Caching ---
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Starting Overall Phase 2/8: Caching ---"}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.pipeline - ERROR - Critical error during pipeline execution:
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py", line 308, in run
+    await phase_func( # This is _run_main_processing_loop_sub_phase
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py", line 455, in _run_main_processing_loop_sub_phase
+    elif sem_type == "cache": current_semaphore = asyncio.Semaphore(self.config.max_concurrent_caching_tasks)
+                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/pydantic/main.py", line 989, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'Config' object has no attribute 'max_concurrent_caching_tasks'
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: Critical error during pipeline execution:\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py\", line 308, in run\n    await phase_func( # This is _run_main_processing_loop_sub_phase\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py\", line 455, in _run_main_processing_loop_sub_phase\n    elif sem_type == \"cache\": current_semaphore = asyncio.Semaphore(self.config.max_concurrent_caching_tasks)\n                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/pydantic/main.py\", line 989, in __getattr__\n    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')\nAttributeError: 'Config' object has no attribute 'max_concurrent_caching_tasks'"}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 51 unprocessed, 0 processed.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully saved state. 51 unprocessed, 0 processed."}]
+2025-05-06 11:32:47 - knowledge_base_agent.interfaces.http_client - INFO - Closing shared httpx.AsyncClient.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Closing shared httpx.AsyncClient."}]
+2025-05-06 11:32:47 - __main__ - ERROR - Exception in pipeline execution helper: too many values to unpack (expected 2)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/main_web.py", line 212, in _run_pipeline_async
+    await pipeline_instance_local.run(run_preferences)
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py", line 348, in run
+    final_report = self.stats.get_report()
+                   ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/stats.py", line 176, in get_report
+    for i, (phase, msg) in enumerate(self.errors[:10]): # Show first 10 errors
+           ^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 2)
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: Exception in pipeline execution helper: too many values to unpack (expected 2)\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/main_web.py\", line 212, in _run_pipeline_async\n    await pipeline_instance_local.run(run_preferences)\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py\", line 348, in run\n    final_report = self.stats.get_report()\n                   ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/stats.py\", line 176, in get_report\n    for i, (phase, msg) in enumerate(self.errors[:10]): # Show first 10 errors\n           ^^^^^^^^^^^^\nValueError: too many values to unpack (expected 2)"}]
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"failed","message":"Agent helper thread failed: too many values to unpack (expected 2)"}]
+2025-05-06 11:32:47 - __main__ - INFO - (Web Thread) Ensuring Playwright client is closed...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Ensuring Playwright client is closed..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.interfaces.playwright_client - INFO - Closing PlaywrightClient resources (sync in thread)...
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Closing PlaywrightClient resources (sync in thread)..."}]
+2025-05-06 11:32:47 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient resources closed.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: PlaywrightClient resources closed."}]
+2025-05-06 11:32:47 - __main__ - INFO - Pipeline background thread event loop finished.
+2025-05-06 11:32:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-06 11:32:47 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread event loop finished."}]
+2025-05-06 11:32:51 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:32:51 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:33:16 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:33:16 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:33:41 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:33:41 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:34:06 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:34:06 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:34:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:34:31 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 
+2025-05-06 11:34:56 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Sending packet PING data None
+2025-05-06 11:34:56 - engineio.server - INFO - H7ytww9DbmBb95AYAAAA: Received packet PONG data 

@@ -19,6 +19,20 @@ except ImportError:
         # Add other fields if needed by static analysis, though log_dir is primary.
 
 
+# --- Custom Filter to Ignore Specific Loggers ---
+class IgnoreLoggersFilter(logging.Filter):
+    """
+    A logging filter that ignores records from specified logger names.
+    """
+    def __init__(self, loggers_to_ignore):
+        super().__init__()
+        self.loggers_to_ignore = set(loggers_to_ignore)
+
+    def filter(self, record):
+        # If the record's logger name starts with any of the names to ignore,
+        # return False (meaning don't process this record).
+        return not record.name.startswith(tuple(self.loggers_to_ignore))
+
 # --- WebSocket Handler Placeholder ---
 # This handler would need actual implementation depending on the web framework/library.
 # It should likely queue messages or directly emit them via SocketIO.
@@ -32,14 +46,14 @@ class WebSocketLogHandler(logging.Handler):
         self.emitter = emitter_func
 
     def emit(self, record):
-        """Emits the formatted log record."""
+        """Emits the formatted log record if the emitter is set."""
+        # Filtering should happen automatically if filter is attached
         if self.emitter:
             try:
                 log_entry = self.format(record)
-                # Define the event name and data structure expected by the frontend
-                self.emitter('log_message', {'level': record.levelname, 'message': log_entry})
+                self.emitter('new_log', {'log_line': log_entry}) # Match client event name and expected data structure
             except Exception:
-                self.handleError(record) # Default handler behavior on error
+                self.handleError(record)
 
 # Global instance of the WebSocket handler to be configured later
 websocket_handler: Optional[WebSocketLogHandler] = None
@@ -85,9 +99,16 @@ def setup_logging(config: Config, target: Literal["cli", "web", "worker"] = "cli
     logger = logging.getLogger() # Get root logger
     logger.setLevel(level) # Set minimum level for the logger itself
 
+    # --- Create Filter Instance ---
+    # Ignore logs from socketio and engineio libraries to prevent recursion
+    log_filter = IgnoreLoggersFilter(['socketio', 'engineio'])
+
     # Remove existing handlers to avoid duplication if called multiple times
     # (useful in development or testing)
     for handler in logger.handlers[:]:
+        # Check if it's our websocket handler and remove filter if already present (belt-and-suspenders)
+        if isinstance(handler, WebSocketLogHandler):
+            handler.removeFilter(log_filter) # Try removing first in case of re-runs
         logger.removeHandler(handler)
         handler.close()
 
@@ -111,8 +132,14 @@ def setup_logging(config: Config, target: Literal["cli", "web", "worker"] = "cli
         if websocket_handler is None:
             websocket_handler = WebSocketLogHandler()
             websocket_handler.setFormatter(websocket_formatter)
-            # Set a level for websockets - INFO might be appropriate to avoid flooding UI
-            websocket_handler.setLevel(logging.INFO)
+            websocket_handler.setLevel(logging.INFO) # Keep logging INFO level from app
+            # --- ADD THE FILTER ---
+            websocket_handler.addFilter(log_filter)
+            # ---------------------
+        else:
+            # Ensure filter is attached even if handler existed (e.g., from previous call)
+            websocket_handler.addFilter(log_filter)
+
         logger.addHandler(websocket_handler)
         # Note: The emitter function needs to be set separately, likely in main_web.py
         # after SocketIO is initialized, e.g.:
@@ -130,9 +157,15 @@ def setup_logging(config: Config, target: Literal["cli", "web", "worker"] = "cli
         # logger.addHandler(console_handler)
         pass # File handler is sufficient by default
 
-    # Silence overly verbose libraries if necessary
+    # --- Silence libraries (Optional - level setting can still be useful) ---
+    # Setting levels here is now less critical for the recursion loop,
+    # but still good practice for general noise reduction.
+    logging.getLogger('socketio').setLevel(logging.WARNING)
+    logging.getLogger('engineio').setLevel(logging.WARNING)
+    # You might add others here later if needed, e.g.:
     # logging.getLogger("urllib3").setLevel(logging.WARNING)
     # logging.getLogger("asyncio").setLevel(logging.WARNING)
+    # logging.getLogger("playwright").setLevel(logging.WARNING) # If playwright is too noisy
 
     logging.info(f"Logging configured for target '{target}' with level {logging.getLevelName(level)}. Log file: {log_file_path}")
 

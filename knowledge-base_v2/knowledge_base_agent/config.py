@@ -12,6 +12,8 @@ from pydantic import (
     ValidationError,
     field_validator,
     model_validator,
+    AnyHttpUrl,
+    validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +28,7 @@ class Config(BaseSettings):
     text_model: str = Field(..., description="Primary LLM for text generation")
     fallback_model: str = Field(..., description="Fallback LLM")
     vision_model: str = Field(..., description="Vision LLM for image descriptions")
+    ollama_request_timeout_seconds: int = Field(default=60, description="Timeout for Ollama API requests in seconds (connect, read, write).")
     # ollama_timeout: int = Field(300, description="Timeout for Ollama requests in seconds")
 
     # --- Filesystem Paths ---
@@ -37,9 +40,10 @@ class Config(BaseSettings):
     log_dir: Path = Field(default="./logs", description="Directory for storing log files")
 
     # --- Playwright / X Bookmarks ---
-    fetch_bookmarks_enabled: bool = Field(False, description="Enable bookmark fetching")
+    # fetch_bookmarks_enabled: bool = Field(False, description="Enable bookmark fetching") # REMOVED
     x_username: Optional[str] = Field(None, description="Twitter/X username")
     x_password: Optional[SecretStr] = Field(None, description="Twitter/X password")
+    x_email: Optional[EmailStr] = Field(None, description="X/Twitter login email (required by twscrape).") # ADDED x_email
     x_bookmarks_url: Optional[HttpUrl] = Field(None, description="Direct URL to X Bookmarks page")
 
     # --- Git Synchronization ---
@@ -58,6 +62,26 @@ class Config(BaseSettings):
     force_recache: bool = Field(False, description="Force re-caching of all tweets")
     # playwright_timeout: int = Field(120, description="Timeout for Playwright operations in seconds")
     # log_level: str = Field("INFO", description="Logging level") # Usually handled by log_setup
+
+    # --- Concurrency Settings ---
+    max_concurrent_llm_tasks: int = Field(default=2, description="Max concurrent LLM tasks")
+    max_concurrent_caching_tasks: int = Field(default=5, description="Max concurrent twscrape/caching tasks")
+    max_concurrent_db_sync_tasks: int = Field(default=3, description="Max concurrent database synchronization tasks")
+
+    # --- Playwright Client Configuration ---
+    playwright_login_timeout_ms: int = Field(default=90000, validation_alias='PLAYWRIGHT_LOGIN_TIMEOUT_MS')
+    playwright_nav_timeout_ms: int = Field(default=90000, validation_alias='PLAYWRIGHT_NAV_TIMEOUT_MS')
+    playwright_action_timeout_ms: int = Field(default=30000, validation_alias='PLAYWRIGHT_ACTION_TIMEOUT_MS')
+    playwright_scroll_delay_ms: int = Field(default=5000, validation_alias='PLAYWRIGHT_SCROLL_DELAY_MS')
+    playwright_max_scroll_attempts: int = Field(default=100, validation_alias='PLAYWRIGHT_MAX_SCROLL_ATTEMPTS')
+    playwright_max_no_change_scrolls: int = Field(default=3, validation_alias='PLAYWRIGHT_MAX_NO_CHANGE_SCROLLS')
+    playwright_use_auth_state: bool = Field(default=False, validation_alias='PLAYWRIGHT_USE_AUTH_STATE')
+    playwright_auth_state_filename: str = Field(default="playwright_auth_state.json", validation_alias='PLAYWRIGHT_AUTH_STATE_FILENAME')
+
+    # --- Media Download Retry Configuration ---
+    media_download_max_retries: int = Field(default=3, validation_alias='MEDIA_DOWNLOAD_MAX_RETRIES', description="Maximum number of retries for media downloads")
+    media_download_retry_delay_ms: int = Field(default=2000, validation_alias='MEDIA_DOWNLOAD_RETRY_DELAY_MS', description="Delay between media download retries in milliseconds")
+    media_max_size_bytes: int = Field(default=50 * 1024 * 1024, validation_alias='MEDIA_MAX_SIZE_BYTES', description="Maximum size for a single media file download in bytes (default: 50MB)")
 
     # --- Pydantic Settings Configuration ---
     model_config = SettingsConfigDict(
@@ -84,17 +108,45 @@ class Config(BaseSettings):
             return (project_root / path).resolve()
         return path.resolve()
 
+    @validator("data_dir", "log_dir", "knowledge_base_dir", pre=True, always=True)
+    def make_paths_absolute_and_resolve(cls, v: str | Path) -> Path:
+        """Ensure specified directory paths are absolute or resolved relative to project root."""
+        if isinstance(v, str):
+            path = Path(v)
+        else:
+            path = v # Already a Path object
+
+        if not path.is_absolute():
+            # Assuming .env is at project root, which is parent of knowledge_base_agent/
+            # This path resolution needs to be robust.
+            # If Config class is in knowledge_base_agent/config.py,
+            # then Path(__file__).parent is knowledge_base_agent/
+            # then Path(__file__).parent.parent is the project root.
+            project_root = Path(__file__).resolve().parent.parent
+            path = (project_root / path).resolve()
+        else:
+            path = path.resolve()
+        
+        # Ensure the directory exists, creating if necessary
+        # path.mkdir(parents=True, exist_ok=True) # Moved to main_cli and main_web for strategic creation
+        return path
 
     @model_validator(mode="after")
     def check_conditional_requirements(self) -> "Config":
         """Validate fields that are required based on the value of other fields."""
-        if self.fetch_bookmarks_enabled:
-            if not self.x_username:
-                raise ValueError("X_USERNAME must be set if FETCH_BOOKMARKS_ENABLED is true.")
-            if not self.x_password:
-                raise ValueError("X_PASSWORD must be set if FETCH_BOOKMARKS_ENABLED is true.")
-            if not self.x_bookmarks_url:
-                raise ValueError("X_BOOKMARKS_URL must be set if FETCH_BOOKMARKS_ENABLED is true.")
+        # Check X/Twitter credential completeness if any one of them is provided,
+        # as they are typically used together for bookmark fetching.
+        x_creds_provided = [self.x_username, self.x_password, self.x_email, self.x_bookmarks_url]
+        if any(x_creds_provided) and not all(x_creds_provided):
+            missing_x_fields = []
+            if not self.x_username: missing_x_fields.append("X_USERNAME")
+            if not self.x_password: missing_x_fields.append("X_PASSWORD")
+            if not self.x_email: missing_x_fields.append("X_EMAIL")
+            if not self.x_bookmarks_url: missing_x_fields.append("X_BOOKMARKS_URL")
+            raise ValueError(
+                f"If any X/Twitter credentials (username, password, email, bookmarks_url) are provided, all must be set. "
+                f"Missing: {', '.join(missing_x_fields)}"
+            )
 
         if self.git_enabled:
             if not self.github_token:
@@ -120,6 +172,7 @@ def load_config() -> Config:
     """Loads the application configuration from environment variables and .env file."""
     try:
         config = Config()
+        print("Config object being returned by load_config:", config.model_dump_json(indent=2))
         # You could add a log message here confirming successful load
         # print(f"Configuration loaded successfully from {config.model_config['env_file']}")
         return config

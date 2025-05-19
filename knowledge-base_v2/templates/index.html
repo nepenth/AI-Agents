@@ -40,6 +40,66 @@
          <div class="card">
              <div class="card-body">
                  <p class="text-muted small mb-2">Select options for the *next* agent run:</p>
+
+                 <h6 class="mb-2">Run Mode</h6>
+                 <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeFull" value="Full" checked>
+                        <label class="form-check-label" for="runModeFull">
+                            Full Pipeline
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeInputAcquisition" value="InputAcquisition">
+                        <label class="form-check-label" for="runModeInputAcquisition">
+                            Only Input Acquisition
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeCaching" value="Caching">
+                        <label class="form-check-label" for="runModeCaching">
+                            Only Caching
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeInterpretation" value="Interpretation">
+                        <label class="form-check-label" for="runModeInterpretation">
+                            Only Media Interpretation
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeCategorization" value="Categorization">
+                        <label class="form-check-label" for="runModeCategorization">
+                            Only Categorization
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeGeneration" value="Generation">
+                        <label class="form-check-label" for="runModeGeneration">
+                            Only KB Item Generation
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeDBSync" value="DBSync">
+                        <label class="form-check-label" for="runModeDBSync">
+                            Only Database Sync
+                        </label>
+                    </div>
+                     <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeIndexing" value="Indexing">
+                        <label class="form-check-label" for="runModeIndexing">
+                            Only Indexing (KB Readme)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="runMode" id="runModeGitSync" value="GitSync">
+                        <label class="form-check-label" for="runModeGitSync">
+                            Only Git Sync
+                        </label>
+                    </div>
+                 </div>
+
+
                  <h6>General</h6>
                  <div class="form-check mb-2">
                   <input class="form-check-input" type="checkbox" value="" id="skipFetchCheck">

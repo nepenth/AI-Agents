@@ -1,0 +1,459 @@
+2025-05-06 09:35:00 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250506_093500.log
+2025-05-06 09:35:00 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250506_093500.log
+2025-05-06 09:35:00 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-06 09:35:00 - engineio.server - INFO - Server initialized for threading.
+2025-05-06 09:35:00 - __main__ - INFO - Initializing database tables...
+2025-05-06 09:35:00 - __main__ - INFO - Database tables checked/created.
+2025-05-06 09:35:00 - __main__ - INFO - Registered Flask blueprints.
+2025-05-06 09:35:00 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent and /logs namespaces.
+2025-05-06 09:35:00 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-06 09:35:00 - __main__ - INFO - Attempting to start the web server on port 5001...
+2025-05-06 09:35:00 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.10.4:5001
+2025-05-06 09:35:00 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Sending packet OPEN data {'sid': 'hdTr29XagkpkgtSZAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-06 09:35:00 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:00] "GET /socket.io/?EIO=4&transport=polling&t=jxg7t22a HTTP/1.1" 200 -
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Received packet MESSAGE data 0/agent,
+2025-05-06 09:35:00 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Received request to upgrade to websocket
+2025-05-06 09:35:00 - socketio.server - INFO - emitting event "status_update" to M24YgrAZ-R2C-hdWAAAB [/agent]
+2025-05-06 09:35:00 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:00] "GET /socket.io/?EIO=4&transport=polling&t=jxg809tn&sid=hdTr29XagkpkgtSZAAAA HTTP/1.1" 200 -
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Sending packet MESSAGE data 0/agent,{"sid":"M24YgrAZ-R2C-hdWAAAB"}
+2025-05-06 09:35:00 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:00] "POST /socket.io/?EIO=4&transport=polling&t=jxg800zf&sid=hdTr29XagkpkgtSZAAAA HTTP/1.1" 200 -
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Upgrade to websocket successful
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Received packet MESSAGE data 0/logs,
+2025-05-06 09:35:00 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Sending packet MESSAGE data 0/logs,{"sid":"KjU-aLyiTUF2D2N5AAAC"}
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-06 09:35:00 - socketio.server - INFO - received event "get_status" from M24YgrAZ-R2C-hdWAAAB [/agent]
+2025-05-06 09:35:00 - socketio.server - INFO - emitting event "status_update" to M24YgrAZ-R2C-hdWAAAB [/agent]
+2025-05-06 09:35:00 - engineio.server - INFO - hdTr29XagkpkgtSZAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "GET / HTTP/1.1" 200 -
+2025-05-06 09:35:05 - knowledge_base_agent.web.sockets - INFO - Client disconnected from /agent namespace.
+2025-05-06 09:35:05 - knowledge_base_agent.web.sockets - INFO - Client disconnected from /logs namespace.
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "GET /socket.io/?EIO=4&transport=websocket&sid=hdTr29XagkpkgtSZAAAA HTTP/1.1" 200 -
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet OPEN data {'sid': 'QDdtuExTiC7kG5LwAAAD', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "GET /socket.io/?EIO=4&transport=polling&t=jxjjstex HTTP/1.1" 200 -
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Received packet MESSAGE data 0/agent,
+2025-05-06 09:35:05 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Received request to upgrade to websocket
+2025-05-06 09:35:05 - socketio.server - INFO - emitting event "status_update" to GmAAWhUqVjjFERq5AAAE [/agent]
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "GET /socket.io/?EIO=4&transport=polling&t=jxjk06fs&sid=QDdtuExTiC7kG5LwAAAD HTTP/1.1" 200 -
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 0/agent,{"sid":"GmAAWhUqVjjFERq5AAAE"}
+2025-05-06 09:35:05 - werkzeug - INFO - 10.0.11.66 - - [06/May/2025 09:35:05] "POST /socket.io/?EIO=4&transport=polling&t=jxjjzlfp&sid=QDdtuExTiC7kG5LwAAAD HTTP/1.1" 200 -
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Upgrade to websocket successful
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Received packet MESSAGE data 0/logs,
+2025-05-06 09:35:05 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 0/logs,{"sid":"JXFIG_cU829W4XujAAAF"}
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-06 09:35:05 - socketio.server - INFO - received event "get_status" from GmAAWhUqVjjFERq5AAAE [/agent]
+2025-05-06 09:35:05 - socketio.server - INFO - emitting event "status_update" to GmAAWhUqVjjFERq5AAAE [/agent]
+2025-05-06 09:35:05 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-06 09:35:10 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Received packet MESSAGE data 2/agent,["start_agent",{"skip_fetch":false,"skip_git":true,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-06 09:35:10 - socketio.server - INFO - received event "start_agent" from GmAAWhUqVjjFERq5AAAE [/agent]
+2025-05-06 09:35:10 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'skip_fetch': False, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-06 09:35:10 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-06 09:35:10 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-06 09:35:10 - __main__ - INFO - Pipeline background thread started.
+2025-05-06 09:35:10 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-06 09:35:10 - __main__ - INFO - (Web Thread) Initializing twscrape account pool...
+2025-05-06 09:35:10 - __main__ - ERROR - (Web Thread) Failed to initialize or login twscrape pool: AccountsPool.add_account() missing 1 required positional argument: 'email_password'. Twitter features may fail.
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/main_web.py", line 145, in _run_pipeline_async
+    await twscrape_pool_instance.add_account(cfg.x_username, cfg.x_password.get_secret_value(), cfg.x_username)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: AccountsPool.add_account() missing 1 required positional argument: 'email_password'
+2025-05-06 09:35:10 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-06 09:35:11 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-06 09:35:11 - __main__ - INFO - (Web Thread) Playwright fetching enabled, initializing client...
+2025-05-06 09:35:11 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient (Sync API) initialized. Headless: True
+2025-05-06 09:35:11 - __main__ - INFO - (Web Thread) PlaywrightClient initialized.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - AgentPipeline initialized.
+2025-05-06 09:35:11 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-06 09:35:11 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"running","message":"Agent starting..."}]
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Agent Pipeline Run Invoked ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Run Preferences:
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Fetch Bookmarks: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Git Sync: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Indexing: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-cache Tweets: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-interpret Media: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-categorize Content: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-generate KB Items: False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Key Configuration Values:
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Text Model: llama3.3:70b-instruct-q4_0
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Fallback Model: phi4-reasoning
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Vision Model: mistral-small3.1
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Fetch Bookmarks Enabled (config): True
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Git Sync Enabled (config): False
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO -   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - ------------------------------------
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'GitSync' (Git Sync disabled in config).
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Total phases planned for this run: 4
+2025-05-06 09:35:11 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-06 09:35:11 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Loading State","current_item_id":"","eta":"--:--:--","total_phases":4,"current_phase_num":0,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - Successfully loaded state. 0 unprocessed, 0 processed, 0 cached tweets.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - Performing state reconciliation...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - State reconciliation completed. No major inconsistencies found.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Loaded state. Total known items initially: 0
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 1/4: InputAcquisition ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Running InputAcquisition phase (1/4)...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.fetcher - INFO - Fetching bookmarks via Playwright...
+2025-05-06 09:35:11 - knowledge_base_agent.interfaces.playwright_client - INFO - Running sync fetch_bookmark_urls in thread...
+2025-05-06 09:35:11 - knowledge_base_agent.interfaces.playwright_client - ERROR - Sync Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+2025-05-06 09:35:11 - knowledge_base_agent.interfaces.playwright_client - ERROR - Error running sync bookmark fetch in thread: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 51, in _sync_context
+    pw = sync_playwright().start()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 84, in start
+    return self.__enter__()
+           ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 47, in __enter__
+    raise Error(
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 236, in fetch_bookmark_urls
+    with self._sync_context() as (pw, browser):
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 58, in _sync_context
+    raise PlaywrightError(f"Playwright startup failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+2025-05-06 09:35:11 - knowledge_base_agent.processing.fetcher - ERROR - Failed to fetch bookmarks or extract tweet IDs: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 51, in _sync_context
+    pw = sync_playwright().start()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 84, in start
+    return self.__enter__()
+           ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 47, in __enter__
+    raise Error(
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/fetcher.py", line 47, in fetch_bookmark_tweet_ids
+    bookmark_urls = await playwright_client.fetch_bookmark_urls(scroll_limit=10) # Use actual method
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 249, in fetch_bookmark_urls
+    raise e
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 236, in fetch_bookmark_urls
+    with self._sync_context() as (pw, browser):
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 58, in _sync_context
+    raise PlaywrightError(f"Playwright startup failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - ERROR - Error during Input Acquisition phase: Error during processing phase 'Fetcher' for tweet ID 'Bookmark fetching failed: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)' (Caused by: PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 51, in _sync_context
+    pw = sync_playwright().start()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 84, in start
+    return self.__enter__()
+           ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 47, in __enter__
+    raise Error(
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/fetcher.py", line 47, in fetch_bookmark_tweet_ids
+    bookmark_urls = await playwright_client.fetch_bookmark_urls(scroll_limit=10) # Use actual method
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 249, in fetch_bookmark_urls
+    raise e
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 236, in fetch_bookmark_urls
+    with self._sync_context() as (pw, browser):
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 58, in _sync_context
+    raise PlaywrightError(f"Playwright startup failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py", line 314, in _run_phase_input_acquisition
+    new_ids = await fetcher.fetch_bookmark_tweet_ids(self.config, self.playwright_client)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/fetcher.py", line 62, in fetch_bookmark_tweet_ids
+    raise FetcherError(f"Bookmark fetching failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.FetcherError: Error during processing phase 'Fetcher' for tweet ID 'Bookmark fetching failed: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)' (Caused by: PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.)
+2025-05-06 09:35:11 - knowledge_base_agent.processing.stats - WARNING - Stat error recording ignored (run not active): Fetch
+2025-05-06 09:35:11 - knowledge_base_agent.processing.stats - WARNING - Stat timing add ignored (run not active): Fetch
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 1/4: InputAcquisition ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 2/4: ProcessingLoop ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Entering main processing loop (2/4) for 0 items...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - WARNING - No items to process in the main loop.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 2/4: ProcessingLoop ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 3/4: Indexing ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Running Indexing phase (3/4)...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.indexer - INFO - Generating root README.md for the knowledge base...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.indexer - WARNING - No generated KB items found to include in the index.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Indexing phase completed successfully.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.stats - WARNING - Stat timing add ignored (run not active): Index
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 3/4: Indexing ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 4/4: Finalizing ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Running Finalizing phase (4/4)...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Finalizing state: Checking for fully processed items...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - No additional items were marked as fully processed in this run.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 4/4: Finalizing ---
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Agent pipeline run finished successfully.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 09:35:11 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 0 unprocessed, 0 processed.
+2025-05-06 09:35:11 - knowledge_base_agent.processing.pipeline - INFO - Run Statistics:
+--- Processing Stats Report ---
+Total Run Time: 0.02 seconds
+
+Phase Summary:
+  - Finalizing: Entered=1, Success=1, Failed=0
+  - Indexing: Entered=1, Success=1, Failed=0
+  - Inputacquisition: Entered=1, Success=0, Failed=1
+
+Average LLM Durations (last 20):
+  - Interpret: No data
+  - Categorize: No data
+  - Generate: No data
+  Overall Items Processed (Distinct): 0 / 0
+--- End Report ---
+2025-05-06 09:35:11 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-06 09:35:11 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle","message":"Agent run finished."}]
+2025-05-06 09:35:11 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-06 09:35:11 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Finished","current_item_id":"","eta":"00:00:00","total_phases":4,"current_phase_num":4,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-06 09:35:11 - knowledge_base_agent.interfaces.http_client - INFO - Closing shared httpx.AsyncClient.
+2025-05-06 09:35:11 - __main__ - INFO - Pipeline background thread event loop finished.
+2025-05-06 09:35:22 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Received packet MESSAGE data 2/agent,["start_agent",{"skip_fetch":false,"skip_git":true,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-06 09:35:22 - socketio.server - INFO - received event "start_agent" from GmAAWhUqVjjFERq5AAAE [/agent]
+2025-05-06 09:35:22 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'skip_fetch': False, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-06 09:35:22 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-06 09:35:22 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-06 09:35:22 - __main__ - INFO - Pipeline background thread started.
+2025-05-06 09:35:22 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-06 09:35:22 - __main__ - INFO - (Web Thread) Initializing twscrape account pool...
+2025-05-06 09:35:22 - __main__ - ERROR - (Web Thread) Failed to initialize or login twscrape pool: AccountsPool.add_account() missing 1 required positional argument: 'email_password'. Twitter features may fail.
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/main_web.py", line 145, in _run_pipeline_async
+    await twscrape_pool_instance.add_account(cfg.x_username, cfg.x_password.get_secret_value(), cfg.x_username)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: AccountsPool.add_account() missing 1 required positional argument: 'email_password'
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-06 09:35:22 - __main__ - INFO - (Web Thread) Playwright fetching enabled, initializing client...
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient (Sync API) initialized. Headless: True
+2025-05-06 09:35:22 - __main__ - INFO - (Web Thread) PlaywrightClient initialized.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - AgentPipeline initialized.
+2025-05-06 09:35:22 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-06 09:35:22 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"running","message":"Agent starting..."}]
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Agent Pipeline Run Invoked ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Run Preferences:
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Fetch Bookmarks: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Git Sync: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Indexing: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-cache Tweets: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-interpret Media: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-categorize Content: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-generate KB Items: False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Key Configuration Values:
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Text Model: llama3.3:70b-instruct-q4_0
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Fallback Model: phi4-reasoning
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Vision Model: mistral-small3.1
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Fetch Bookmarks Enabled (config): True
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Git Sync Enabled (config): False
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO -   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - ------------------------------------
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'GitSync' (Git Sync disabled in config).
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Total phases planned for this run: 4
+2025-05-06 09:35:22 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-06 09:35:22 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Loading State","current_item_id":"","eta":"--:--:--","total_phases":4,"current_phase_num":0,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - Successfully loaded state. 0 unprocessed, 0 processed, 0 cached tweets.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - Performing state reconciliation...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - State reconciliation completed. No major inconsistencies found.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Loaded state. Total known items initially: 0
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 1/4: InputAcquisition ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Running InputAcquisition phase (1/4)...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.fetcher - INFO - Fetching bookmarks via Playwright...
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.playwright_client - INFO - Running sync fetch_bookmark_urls in thread...
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.playwright_client - ERROR - Sync Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.playwright_client - ERROR - Error running sync bookmark fetch in thread: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 51, in _sync_context
+    pw = sync_playwright().start()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 84, in start
+    return self.__enter__()
+           ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 47, in __enter__
+    raise Error(
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 236, in fetch_bookmark_urls
+    with self._sync_context() as (pw, browser):
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 58, in _sync_context
+    raise PlaywrightError(f"Playwright startup failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+2025-05-06 09:35:22 - knowledge_base_agent.processing.fetcher - ERROR - Failed to fetch bookmarks or extract tweet IDs: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 51, in _sync_context
+    pw = sync_playwright().start()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 84, in start
+    return self.__enter__()
+           ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 47, in __enter__
+    raise Error(
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/fetcher.py", line 47, in fetch_bookmark_tweet_ids
+    bookmark_urls = await playwright_client.fetch_bookmark_urls(scroll_limit=10) # Use actual method
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 249, in fetch_bookmark_urls
+    raise e
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 236, in fetch_bookmark_urls
+    with self._sync_context() as (pw, browser):
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 58, in _sync_context
+    raise PlaywrightError(f"Playwright startup failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - ERROR - Error during Input Acquisition phase: Error during processing phase 'Fetcher' for tweet ID 'Bookmark fetching failed: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)' (Caused by: PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.)
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 51, in _sync_context
+    pw = sync_playwright().start()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 84, in start
+    return self.__enter__()
+           ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 47, in __enter__
+    raise Error(
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/fetcher.py", line 47, in fetch_bookmark_tweet_ids
+    bookmark_urls = await playwright_client.fetch_bookmark_urls(scroll_limit=10) # Use actual method
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 249, in fetch_bookmark_urls
+    raise e
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 236, in fetch_bookmark_urls
+    with self._sync_context() as (pw, browser):
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 58, in _sync_context
+    raise PlaywrightError(f"Playwright startup failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/pipeline.py", line 314, in _run_phase_input_acquisition
+    new_ids = await fetcher.fetch_bookmark_tweet_ids(self.config, self.playwright_client)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/fetcher.py", line 62, in fetch_bookmark_tweet_ids
+    raise FetcherError(f"Bookmark fetching failed: {e}", original_exception=e) from e
+knowledge_base_agent.exceptions.FetcherError: Error during processing phase 'Fetcher' for tweet ID 'Bookmark fetching failed: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.
+Please use the Async API instead. (Caused by: Error: It looks like you are using Playwright Sync API inside the asyncio loop.)' (Caused by: PlaywrightError: Error interacting with Playwright: Playwright startup failed: It looks like you are using Playwright Sync API inside the asyncio loop.)
+2025-05-06 09:35:22 - knowledge_base_agent.processing.stats - WARNING - Stat error recording ignored (run not active): Fetch
+2025-05-06 09:35:22 - knowledge_base_agent.processing.stats - WARNING - Stat timing add ignored (run not active): Fetch
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 1/4: InputAcquisition ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 2/4: ProcessingLoop ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Entering main processing loop (2/4) for 0 items...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - WARNING - No items to process in the main loop.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 2/4: ProcessingLoop ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 3/4: Indexing ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Running Indexing phase (3/4)...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.indexer - INFO - Generating root README.md for the knowledge base...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.indexer - WARNING - No generated KB items found to include in the index.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Indexing phase completed successfully.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.stats - WARNING - Stat timing add ignored (run not active): Index
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 3/4: Indexing ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 4/4: Finalizing ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Running Finalizing phase (4/4)...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Finalizing state: Checking for fully processed items...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - No additional items were marked as fully processed in this run.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 4/4: Finalizing ---
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Agent pipeline run finished successfully.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-06 09:35:22 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 0 unprocessed, 0 processed.
+2025-05-06 09:35:22 - knowledge_base_agent.processing.pipeline - INFO - Run Statistics:
+--- Processing Stats Report ---
+Total Run Time: 0.01 seconds
+
+Phase Summary:
+  - Finalizing: Entered=1, Success=1, Failed=0
+  - Indexing: Entered=1, Success=1, Failed=0
+  - Inputacquisition: Entered=1, Success=0, Failed=1
+
+Average LLM Durations (last 20):
+  - Interpret: No data
+  - Categorize: No data
+  - Generate: No data
+  Overall Items Processed (Distinct): 0 / 0
+--- End Report ---
+2025-05-06 09:35:22 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-06 09:35:22 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle","message":"Agent run finished."}]
+2025-05-06 09:35:22 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-06 09:35:22 - engineio.server - INFO - QDdtuExTiC7kG5LwAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Finished","current_item_id":"","eta":"00:00:00","total_phases":4,"current_phase_num":4,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-06 09:35:22 - knowledge_base_agent.interfaces.http_client - INFO - Closing shared httpx.AsyncClient.
+2025-05-06 09:35:22 - __main__ - INFO - Pipeline background thread event loop finished.

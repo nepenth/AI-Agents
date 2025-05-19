@@ -1,0 +1,1095 @@
+2025-05-13 16:40:17 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250513_164017.log
+2025-05-13 16:40:17 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250513_164017.log
+2025-05-13 16:40:17 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-13 16:40:17 - engineio.server - INFO - Server initialized for threading.
+2025-05-13 16:40:17 - __main__ - INFO - Initializing database tables...
+2025-05-13 16:40:17 - __main__ - INFO - Database tables checked/created.
+2025-05-13 16:40:17 - __main__ - INFO - Registered Flask blueprints.
+2025-05-13 16:40:17 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent and /logs namespaces.
+2025-05-13 16:40:17 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-13 16:40:17 - __main__ - INFO - WebSocket log handler configured with emitter.
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:17 - __main__ - INFO - Sending direct TEST message to /logs namespace...
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:17 - __main__ - INFO - Direct TEST message emitted.
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:17 - __main__ - INFO - Attempting to start the web server on port 5001...
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:17 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.10.4:5001
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:17 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-05-13 16:40:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet OPEN data {'sid': 'ExdszVlzc1el7BKzAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-13 16:40:18 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:18] "GET /socket.io/?EIO=4&transport=polling&t=z7c70ipc HTTP/1.1" 200 -
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Received packet MESSAGE data 0/agent,
+2025-05-13 16:40:18 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Received request to upgrade to websocket
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "status_update" to dh36q90FJvFjG0KPAAAB [/agent]
+2025-05-13 16:40:18 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:18] "GET /socket.io/?EIO=4&transport=polling&t=z7c7kkh0&sid=ExdszVlzc1el7BKzAAAA HTTP/1.1" 200 -
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 0/agent,{"sid":"dh36q90FJvFjG0KPAAAB"}
+2025-05-13 16:40:18 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:18] "POST /socket.io/?EIO=4&transport=polling&t=z7c7k19q&sid=ExdszVlzc1el7BKzAAAA HTTP/1.1" 200 -
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Upgrade to websocket successful
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Received packet MESSAGE data 0/logs,
+2025-05-13 16:40:18 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client connected to /logs namespace. Auth: None"}]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 0/logs,{"sid":"wE9YhwX4C_6DYSHnAAAC"}
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-13 16:40:18 - socketio.server - INFO - received event "get_status" from dh36q90FJvFjG0KPAAAB [/agent]
+2025-05-13 16:40:18 - socketio.server - INFO - emitting event "status_update" to dh36q90FJvFjG0KPAAAB [/agent]
+2025-05-13 16:40:18 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "GET / HTTP/1.1" 200 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: 10.0.11.66 - - [13/May/2025 16:40:19] \"GET / HTTP/1.1\" 200 -"}]
+2025-05-13 16:40:19 - knowledge_base_agent.web.sockets - INFO - Client disconnected from /agent namespace.
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client disconnected from /agent namespace."}]
+2025-05-13 16:40:19 - knowledge_base_agent.web.sockets - INFO - Client disconnected from /logs namespace.
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - ExdszVlzc1el7BKzAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client disconnected from /logs namespace."}]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "GET /socket.io/?EIO=4&transport=websocket&sid=ExdszVlzc1el7BKzAAAA HTTP/1.1" 200 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet OPEN data {'sid': 'yE0bgEFXhDUCo_HAAAAD', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "GET /socket.io/?EIO=4&transport=polling&t=z7czu28i HTTP/1.1" 200 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet MESSAGE data 0/agent,
+2025-05-13 16:40:19 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "status_update" to F-u_thdVNBDXQBBVAAAE [/agent]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "GET /socket.io/?EIO=4&transport=polling&t=z7d0391a&sid=yE0bgEFXhDUCo_HAAAAD HTTP/1.1" 200 -
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received request to upgrade to websocket
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 0/agent,{"sid":"F-u_thdVNBDXQBBVAAAE"}
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "POST /socket.io/?EIO=4&transport=polling&t=z7d02ynd&sid=yE0bgEFXhDUCo_HAAAAD HTTP/1.1" 200 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - werkzeug - INFO - 10.0.11.66 - - [13/May/2025 16:40:19] "GET /socket.io/?EIO=4&transport=polling&t=z7d0bk8y&sid=yE0bgEFXhDUCo_HAAAAD HTTP/1.1" 200 -
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Upgrade to websocket successful
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet MESSAGE data 0/logs,
+2025-05-13 16:40:19 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client connected to /logs namespace. Auth: None"}]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 0/logs,{"sid":"MOl45DwlbIlV9fISAAAF"}
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-13 16:40:19 - socketio.server - INFO - received event "get_status" from F-u_thdVNBDXQBBVAAAE [/agent]
+2025-05-13 16:40:19 - socketio.server - INFO - emitting event "status_update" to F-u_thdVNBDXQBBVAAAE [/agent]
+2025-05-13 16:40:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet MESSAGE data 2/agent,["start_agent",{"run_only_phase":"Full","skip_fetch":false,"skip_git":true,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-13 16:40:21 - socketio.server - INFO - received event "start_agent" from F-u_thdVNBDXQBBVAAAE [/agent]
+2025-05-13 16:40:21 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'run_only_phase': 'Full', 'skip_fetch': False, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Received start_agent request. Data: {'run_only_phase': 'Full', 'skip_fetch': False, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-13 16:40:21 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to start agent pipeline thread..."}]
+2025-05-13 16:40:21 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Setting up background thread for pipeline..."}]
+2025-05-13 16:40:21 - __main__ - INFO - Pipeline background thread started.
+2025-05-13 16:40:21 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started."}]
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - __main__ - INFO - (Web Thread) Initializing twscrape API and account pool...
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started successfully."}]
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Initializing twscrape API and account pool..."}]
+2025-05-13 16:40:21 - __main__ - INFO - (Web Thread) twscrape API and pool initialized, accounts logged in.
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) twscrape API and pool initialized, accounts logged in."}]
+2025-05-13 16:40:21 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-13 16:40:21 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:21 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read"}]
+2025-05-13 16:40:22 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-13 16:40:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:22 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-13 16:40:22 - __main__ - INFO - (Web Thread) X credentials and bookmarks URL present, initializing Playwright client...
+2025-05-13 16:40:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:22 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) X credentials and bookmarks URL present, initializing Playwright client..."}]
+2025-05-13 16:40:22 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient (Async API) initialized. Headless: True
+2025-05-13 16:40:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:22 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: PlaywrightClient (Async API) initialized. Headless: True"}]
+2025-05-13 16:40:22 - __main__ - INFO - (Web Thread) Attempting initial Playwright login...
+2025-05-13 16:40:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:22 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Attempting initial Playwright login..."}]
+2025-05-13 16:40:23 - knowledge_base_agent.interfaces.playwright_client - INFO - Playwright async instance and browser initialized.
+2025-05-13 16:40:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Playwright async instance and browser initialized."}]
+2025-05-13 16:40:23 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting X login via Playwright (async)...
+2025-05-13 16:40:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting X login via Playwright (async)..."}]
+2025-05-13 16:40:25 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Navigating to X login page: https://x.com/login
+2025-05-13 16:40:25 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:25 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Navigating to X login page: https://x.com/login"}]
+2025-05-13 16:40:28 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Entering username...
+2025-05-13 16:40:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:28 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Entering username..."}]
+2025-05-13 16:40:31 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Entering password...
+2025-05-13 16:40:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:31 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Entering password..."}]
+2025-05-13 16:40:31 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Waiting for login confirmation (e.g., navigation to home)...
+2025-05-13 16:40:31 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:31 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Waiting for login confirmation (e.g., navigation to home)..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) X Login successful.
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) X Login successful."}]
+2025-05-13 16:40:34 - __main__ - INFO - (Web Thread) Playwright initial login appears successful.
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Playwright initial login appears successful."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.state - INFO - StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.fetcher - INFO - Fetcher initialized.
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Fetcher initialized."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - AgentPipeline initialized.
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: AgentPipeline initialized."}]
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"running","message":"Agent starting..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - --- Agent Pipeline Run Invoked ---
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Agent Pipeline Run Invoked ---"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Run Preferences:
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run Preferences:"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Run Only Phase: Full
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Run Only Phase: Full"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Fetch Bookmarks: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Fetch Bookmarks: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Git Sync: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Git Sync: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Indexing: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Indexing: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-cache Tweets: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-cache Tweets: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-interpret Media: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-interpret Media: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-categorize Content: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-categorize Content: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-generate KB Items: False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-generate KB Items: False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Key Configuration Values:
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Key Configuration Values:"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Text Model: llama3.3:70b-instruct-q4_0
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Text Model: llama3.3:70b-instruct-q4_0"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Fallback Model: phi4-reasoning
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Fallback Model: phi4-reasoning"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Vision Model: mistral-small3.1
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Vision Model: mistral-small3.1"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Bookmark Fetching Possible (credentials present): True
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Bookmark Fetching Possible (credentials present): True"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - X Username: lockepacem
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Username: lockepacem"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - X Email: chris@whyland.net
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Email: chris@whyland.net"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Git Sync Enabled (config): False
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Git Sync Enabled (config): False"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO -   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - ------------------------------------
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: ------------------------------------"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Run mode: 'Full Pipeline'
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run mode: 'Full Pipeline'"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'GitSync' (Git Sync disabled in config).
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Skipping phase 'GitSync' (Git Sync disabled in config)."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Total phases planned for this run: 8. Phases: ['InputAcquisition', 'Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Total phases planned for this run: 8. Phases: ['InputAcquisition', 'Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']"}]
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Loading State","current_item_id":"","eta":"--:--:--","total_phases":8,"current_phase_num":0,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.state - INFO - Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.utils.file_io - ERROR - JSON decode error in file /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json: Expecting value: line 1 column 1 (char 0)
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: JSON decode error in file /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json: Expecting value: line 1 column 1 (char 0)"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.state - ERROR - File operation error loading state: File operation 'read/parse JSON' failed for path '/home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json': Invalid JSON format: Expecting value: line 1 column 1 (char 0) (Caused by: JSONDecodeError: Expecting value: line 1 column 1 (char 0))
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: File operation error loading state: File operation 'read/parse JSON' failed for path '/home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json': Invalid JSON format: Expecting value: line 1 column 1 (char 0) (Caused by: JSONDecodeError: Expecting value: line 1 column 1 (char 0))"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.state - INFO - Initializing new empty state due to file operation error.
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Initializing new empty state due to file operation error."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 0 unprocessed, 0 processed.
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully saved state. 0 unprocessed, 0 processed."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Loaded state. Total known items initially: 0. IDs: []
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Loaded state. Total known items initially: 0. IDs: []"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 1/8: InputAcquisition ---
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Starting Overall Phase 1/8: InputAcquisition ---"}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.pipeline - INFO - Running Input Acquisition Phase...
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Running Input Acquisition Phase..."}]
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"InputAcquisition","current_item_id":"N/A","eta":"--:--:--","total_phases":8,"current_phase_num":1,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Attempting to fetch new tweet sources from X Bookmarks...
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Attempting to fetch new tweet sources from X Bookmarks..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Attempting to get bookmark URLs via Playwright client...
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Attempting to get bookmark URLs via Playwright client..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting to get bookmark URLs via Playwright (async)...
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to get bookmark URLs via Playwright (async)..."}]
+2025-05-13 16:40:34 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Navigating to X Bookmarks page: https://x.com/i/bookmarks/1866967731179794749
+2025-05-13 16:40:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Navigating to X Bookmarks page: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-13 16:40:35 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Waiting for initial tweet content to load...
+2025-05-13 16:40:35 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:35 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Waiting for initial tweet content to load..."}]
+2025-05-13 16:40:41 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scrolling bookmarks page. Scroll pixels: 1000. Wait after scroll: 5000ms. No change tries: 3. Max scroll attempts: 100.
+2025-05-13 16:40:41 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:41 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scrolling bookmarks page. Scroll pixels: 1000. Wait after scroll: 5000ms. No change tries: 3. Max scroll attempts: 100."}]
+2025-05-13 16:40:41 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 1/100. Found 12 new links this pass. Total unique raw: 12.
+2025-05-13 16:40:41 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:41 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 1/100. Found 12 new links this pass. Total unique raw: 12."}]
+2025-05-13 16:40:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:40:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:40:46 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (7815px). No change streak: 1/3.
+2025-05-13 16:40:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (7815px). No change streak: 1/3."}]
+2025-05-13 16:40:46 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 2/100. Found 3 new links this pass. Total unique raw: 15.
+2025-05-13 16:40:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 2/100. Found 3 new links this pass. Total unique raw: 15."}]
+2025-05-13 16:40:52 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 3/100. Found 6 new links this pass. Total unique raw: 21.
+2025-05-13 16:40:52 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:52 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 3/100. Found 6 new links this pass. Total unique raw: 21."}]
+2025-05-13 16:40:57 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (8990px). No change streak: 1/3.
+2025-05-13 16:40:57 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:57 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (8990px). No change streak: 1/3."}]
+2025-05-13 16:40:57 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 4/100. Found 2 new links this pass. Total unique raw: 23.
+2025-05-13 16:40:57 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:40:57 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 4/100. Found 2 new links this pass. Total unique raw: 23."}]
+2025-05-13 16:41:02 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 5/100. Found 6 new links this pass. Total unique raw: 29.
+2025-05-13 16:41:02 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:02 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 5/100. Found 6 new links this pass. Total unique raw: 29."}]
+2025-05-13 16:41:07 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (10144px). No change streak: 1/3.
+2025-05-13 16:41:07 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:07 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (10144px). No change streak: 1/3."}]
+2025-05-13 16:41:08 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 6/100. Found 7 new links this pass. Total unique raw: 36.
+2025-05-13 16:41:08 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:08 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 6/100. Found 7 new links this pass. Total unique raw: 36."}]
+2025-05-13 16:41:09 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:41:09 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:41:13 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 7/100. Found 6 new links this pass. Total unique raw: 42.
+2025-05-13 16:41:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:13 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 7/100. Found 6 new links this pass. Total unique raw: 42."}]
+2025-05-13 16:41:19 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 8/100. Found 5 new links this pass. Total unique raw: 47.
+2025-05-13 16:41:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:19 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 8/100. Found 5 new links this pass. Total unique raw: 47."}]
+2025-05-13 16:41:24 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 9/100. Found 3 new links this pass. Total unique raw: 50.
+2025-05-13 16:41:24 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:24 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 9/100. Found 3 new links this pass. Total unique raw: 50."}]
+2025-05-13 16:41:29 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 10/100. Found 8 new links this pass. Total unique raw: 58.
+2025-05-13 16:41:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 10/100. Found 8 new links this pass. Total unique raw: 58."}]
+2025-05-13 16:41:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:41:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:41:35 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 11/100. Found 0 new links this pass. Total unique raw: 58.
+2025-05-13 16:41:35 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:35 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 11/100. Found 0 new links this pass. Total unique raw: 58."}]
+2025-05-13 16:41:40 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 12/100. Found 17 new links this pass. Total unique raw: 75.
+2025-05-13 16:41:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 12/100. Found 17 new links this pass. Total unique raw: 75."}]
+2025-05-13 16:41:46 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 13/100. Found 6 new links this pass. Total unique raw: 81.
+2025-05-13 16:41:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 13/100. Found 6 new links this pass. Total unique raw: 81."}]
+2025-05-13 16:41:51 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (42287px). No change streak: 1/3.
+2025-05-13 16:41:51 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:51 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (42287px). No change streak: 1/3."}]
+2025-05-13 16:41:51 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 14/100. Found 3 new links this pass. Total unique raw: 84.
+2025-05-13 16:41:51 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:51 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 14/100. Found 3 new links this pass. Total unique raw: 84."}]
+2025-05-13 16:41:57 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 15/100. Found 6 new links this pass. Total unique raw: 90.
+2025-05-13 16:41:57 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:41:57 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 15/100. Found 6 new links this pass. Total unique raw: 90."}]
+2025-05-13 16:41:59 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:41:59 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:42:02 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (43464px). No change streak: 1/3.
+2025-05-13 16:42:02 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:02 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (43464px). No change streak: 1/3."}]
+2025-05-13 16:42:02 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 16/100. Found 3 new links this pass. Total unique raw: 93.
+2025-05-13 16:42:02 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:02 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 16/100. Found 3 new links this pass. Total unique raw: 93."}]
+2025-05-13 16:42:07 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (43464px). No change streak: 2/3.
+2025-05-13 16:42:07 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:07 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (43464px). No change streak: 2/3."}]
+2025-05-13 16:42:07 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 17/100. Found 3 new links this pass. Total unique raw: 96.
+2025-05-13 16:42:07 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:07 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 17/100. Found 3 new links this pass. Total unique raw: 96."}]
+2025-05-13 16:42:13 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 18/100. Found 5 new links this pass. Total unique raw: 101.
+2025-05-13 16:42:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:13 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 18/100. Found 5 new links this pass. Total unique raw: 101."}]
+2025-05-13 16:42:18 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (44692px). No change streak: 1/3.
+2025-05-13 16:42:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:18 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (44692px). No change streak: 1/3."}]
+2025-05-13 16:42:18 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 19/100. Found 3 new links this pass. Total unique raw: 104.
+2025-05-13 16:42:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:18 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 19/100. Found 3 new links this pass. Total unique raw: 104."}]
+2025-05-13 16:42:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (44692px). No change streak: 2/3.
+2025-05-13 16:42:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (44692px). No change streak: 2/3."}]
+2025-05-13 16:42:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 20/100. Found 3 new links this pass. Total unique raw: 107.
+2025-05-13 16:42:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 20/100. Found 3 new links this pass. Total unique raw: 107."}]
+2025-05-13 16:42:24 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:42:24 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:42:29 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 21/100. Found 8 new links this pass. Total unique raw: 115.
+2025-05-13 16:42:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 21/100. Found 8 new links this pass. Total unique raw: 115."}]
+2025-05-13 16:42:35 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 22/100. Found 7 new links this pass. Total unique raw: 122.
+2025-05-13 16:42:35 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:35 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 22/100. Found 7 new links this pass. Total unique raw: 122."}]
+2025-05-13 16:42:40 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 23/100. Found 6 new links this pass. Total unique raw: 128.
+2025-05-13 16:42:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 23/100. Found 6 new links this pass. Total unique raw: 128."}]
+2025-05-13 16:42:46 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 24/100. Found 3 new links this pass. Total unique raw: 131.
+2025-05-13 16:42:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 24/100. Found 3 new links this pass. Total unique raw: 131."}]
+2025-05-13 16:42:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:42:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:42:51 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 25/100. Found 6 new links this pass. Total unique raw: 137.
+2025-05-13 16:42:51 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:51 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 25/100. Found 6 new links this pass. Total unique raw: 137."}]
+2025-05-13 16:42:56 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 26/100. Found 3 new links this pass. Total unique raw: 140.
+2025-05-13 16:42:56 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:42:56 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 26/100. Found 3 new links this pass. Total unique raw: 140."}]
+2025-05-13 16:43:01 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (117953px). No change streak: 1/3.
+2025-05-13 16:43:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:01 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (117953px). No change streak: 1/3."}]
+2025-05-13 16:43:02 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 27/100. Found 2 new links this pass. Total unique raw: 142.
+2025-05-13 16:43:02 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:02 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 27/100. Found 2 new links this pass. Total unique raw: 142."}]
+2025-05-13 16:43:07 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 28/100. Found 7 new links this pass. Total unique raw: 149.
+2025-05-13 16:43:07 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:07 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 28/100. Found 7 new links this pass. Total unique raw: 149."}]
+2025-05-13 16:43:12 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (118513px). No change streak: 1/3.
+2025-05-13 16:43:12 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:12 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (118513px). No change streak: 1/3."}]
+2025-05-13 16:43:12 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 29/100. Found 0 new links this pass. Total unique raw: 149.
+2025-05-13 16:43:12 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:12 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 29/100. Found 0 new links this pass. Total unique raw: 149."}]
+2025-05-13 16:43:14 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:43:14 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:43:17 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (118513px). No change streak: 2/3.
+2025-05-13 16:43:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:17 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (118513px). No change streak: 2/3."}]
+2025-05-13 16:43:17 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 30/100. Found 0 new links this pass. Total unique raw: 149.
+2025-05-13 16:43:17 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:17 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 30/100. Found 0 new links this pass. Total unique raw: 149."}]
+2025-05-13 16:43:22 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll height unchanged (118513px). No change streak: 3/3.
+2025-05-13 16:43:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:22 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll height unchanged (118513px). No change streak: 3/3."}]
+2025-05-13 16:43:22 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) No new content after multiple scroll attempts with no height change. Assuming end of dynamic content.
+2025-05-13 16:43:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:22 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) No new content after multiple scroll attempts with no height change. Assuming end of dynamic content."}]
+2025-05-13 16:43:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) --- STARTING FILTERING --- Raw links collected: 149
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) --- STARTING FILTERING --- Raw links collected: 149"}]
+2025-05-13 16:43:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Filtering: After string type check: 149 links remain.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Filtering: After string type check: 149 links remain."}]
+2025-05-13 16:43:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Filtering: After removing '/analytics': 98 links remain.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Filtering: After removing '/analytics': 98 links remain."}]
+2025-05-13 16:43:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Filtering: After removing auxiliary links (e.g. /replies, /likes) and ensuring it's a status link: 97 links remain.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Filtering: After removing auxiliary links (e.g. /replies, /likes) and ensuring it's a status link: 97 links remain."}]
+2025-05-13 16:43:23 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) --- FILTERING COMPLETE --- Final unique bookmark URLs: 97.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) --- FILTERING COMPLETE --- Final unique bookmark URLs: 97."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Found 97 potential bookmark links from Playwright. Extracting tweet IDs and URLs...
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Found 97 potential bookmark links from Playwright. Extracting tweet IDs and URLs..."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Extracted 53 unique tweet_id-URL pairs from 97 potential links.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Extracted 53 unique tweet_id-URL pairs from 97 potential links."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Found 53 tweet_id-URL pairs from X Bookmarks.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Found 53 tweet_id-URL pairs from X Bookmarks."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Total new unique tweet_id-URL pairs acquired for processing: 53
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Total new unique tweet_id-URL pairs acquired for processing: 53"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - Fetcher provided 53 new tweet_id-URL pairs.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Fetcher provided 53 new tweet_id-URL pairs."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.state - INFO - Added 53 new tweet IDs to the unprocessed set.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Added 53 new tweet IDs to the unprocessed set."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - 53 IDs were newly added to the unprocessed set by StateManager.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: 53 IDs were newly added to the unprocessed set by StateManager."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 53 unprocessed, 0 processed.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully saved state. 53 unprocessed, 0 processed."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - Input Acquisition Phase completed.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Input Acquisition Phase completed."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - After Input Acquisition. Total known items now: 53 (Added: 53). IDs: ['1918901182560714906', '1911343729694175647', '1921943565602902111', '1919039905381880181', '1909942573923197054', '1919335714036077033', '1909859367773483332', '1919362218749042844', '1915262328209367334', '1912891173829493173', '1869027339696214251', '1918645768606335054', '1921781985569345995', '1870120582857245173', '1920069397277774228', '1867918614302458014', '1878628030614290897', '1874753711656009963', '1891716788620230815', '1877734236003742011']...
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: After Input Acquisition. Total known items now: 53 (Added: 53). IDs: ['1918901182560714906', '1911343729694175647', '1921943565602902111', '1919039905381880181', '1909942573923197054', '1919335714036077033', '1909859367773483332', '1919362218749042844', '1915262328209367334', '1912891173829493173', '1869027339696214251', '1918645768606335054', '1921781985569345995', '1870120582857245173', '1920069397277774228', '1867918614302458014', '1878628030614290897', '1874753711656009963', '1891716788620230815', '1877734236003742011']..."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 1/8: InputAcquisition ---
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Finished Overall Phase 1/8: InputAcquisition ---"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 2/8: Caching ---
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Starting Overall Phase 2/8: Caching ---"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Phase: Caching --- (Overall Pipeline Step 2/8)
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Starting Phase: Caching --- (Overall Pipeline Step 2/8)"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - [Caching] Identified 53 items for processing in this batch.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Caching] Identified 53 items for processing in this batch."}]
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":53,"current_phase":"Caching (1/1)","current_item_id":"","eta":"--:--:--","total_phases":8,"current_phase_num":2,"overall_items_processed":0,"overall_total_items":53}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.pipeline - INFO - [Caching] Awaiting 53 tasks...
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Caching] Awaiting 53 tasks..."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Tweet 1918901182560714906 is not cache-complete. Processing.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1918901182560714906 is not cache-complete. Processing."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1918901182560714906. Current cache_complete: False
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1918901182560714906. Current cache_complete: False"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Tweet 1911343729694175647 is not cache-complete. Processing.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1911343729694175647 is not cache-complete. Processing."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1911343729694175647. Current cache_complete: False
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1911343729694175647. Current cache_complete: False"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Tweet 1921943565602902111 is not cache-complete. Processing.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1921943565602902111 is not cache-complete. Processing."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1921943565602902111. Current cache_complete: False
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1921943565602902111. Current cache_complete: False"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Tweet 1919039905381880181 is not cache-complete. Processing.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1919039905381880181 is not cache-complete. Processing."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1919039905381880181. Current cache_complete: False
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1919039905381880181. Current cache_complete: False"}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Tweet 1909942573923197054 is not cache-complete. Processing.
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1909942573923197054 is not cache-complete. Processing."}]
+2025-05-13 16:43:23 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1909942573923197054. Current cache_complete: False
+2025-05-13 16:43:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:23 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1909942573923197054. Current cache_complete: False"}]
+2025-05-13 16:43:27 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/govardhana_mk/status/1921943565602902111: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/govardhana_mk/status/1921943565602902111: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:27 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1921943565602902111_20250513_164327.png due to error.
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1921943565602902111_20250513_164327.png due to error."}]
+2025-05-13 16:43:27 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/godofprompt/status/1919039905381880181: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/godofprompt/status/1919039905381880181: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:27 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1921943565602902111 (URL: https://x.com/govardhana_mk/status/1921943565602902111) via Playwright (no details or no text).
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1921943565602902111 (URL: https://x.com/govardhana_mk/status/1921943565602902111) via Playwright (no details or no text)."}]
+2025-05-13 16:43:27 - knowledge_base_agent.processing.pipeline - WARNING - Item 1921943565602902111: Phase 'Caching' completed with error: Failed to fetch tweet details for 1921943565602902111 (URL: https://x.com/govardhana_mk/status/1921943565602902111) via Playwright.
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1921943565602902111: Phase 'Caching' completed with error: Failed to fetch tweet details for 1921943565602902111 (URL: https://x.com/govardhana_mk/status/1921943565602902111) via Playwright."}]
+2025-05-13 16:43:27 - knowledge_base_agent.processing.cacher - INFO - Tweet 1919335714036077033 is not cache-complete. Processing.
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1919335714036077033 is not cache-complete. Processing."}]
+2025-05-13 16:43:27 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1919335714036077033. Current cache_complete: False
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1919335714036077033. Current cache_complete: False"}]
+2025-05-13 16:43:27 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/bibryam/status/1911343729694175647: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/bibryam/status/1911343729694175647: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:28 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/theskilledcoder/status/1909942573923197054: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:28 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:28 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/theskilledcoder/status/1909942573923197054: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:29 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/techyoutbe/status/1918901182560714906: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/techyoutbe/status/1918901182560714906: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:29 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1919039905381880181_20250513_164327.png due to error.
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1919039905381880181_20250513_164327.png due to error."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1919039905381880181 (URL: https://x.com/godofprompt/status/1919039905381880181) via Playwright (no details or no text).
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1919039905381880181 (URL: https://x.com/godofprompt/status/1919039905381880181) via Playwright (no details or no text)."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.pipeline - WARNING - Item 1919039905381880181: Phase 'Caching' completed with error: Failed to fetch tweet details for 1919039905381880181 (URL: https://x.com/godofprompt/status/1919039905381880181) via Playwright.
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1919039905381880181: Phase 'Caching' completed with error: Failed to fetch tweet details for 1919039905381880181 (URL: https://x.com/godofprompt/status/1919039905381880181) via Playwright."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.cacher - INFO - Tweet 1909859367773483332 is not cache-complete. Processing.
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1909859367773483332 is not cache-complete. Processing."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1909859367773483332. Current cache_complete: False
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1909859367773483332. Current cache_complete: False"}]
+2025-05-13 16:43:29 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1911343729694175647_20250513_164327.png due to error.
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1911343729694175647_20250513_164327.png due to error."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1911343729694175647 (URL: https://x.com/bibryam/status/1911343729694175647) via Playwright (no details or no text).
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1911343729694175647 (URL: https://x.com/bibryam/status/1911343729694175647) via Playwright (no details or no text)."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.pipeline - WARNING - Item 1911343729694175647: Phase 'Caching' completed with error: Failed to fetch tweet details for 1911343729694175647 (URL: https://x.com/bibryam/status/1911343729694175647) via Playwright.
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1911343729694175647: Phase 'Caching' completed with error: Failed to fetch tweet details for 1911343729694175647 (URL: https://x.com/bibryam/status/1911343729694175647) via Playwright."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.cacher - INFO - Tweet 1919362218749042844 is not cache-complete. Processing.
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1919362218749042844 is not cache-complete. Processing."}]
+2025-05-13 16:43:29 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1919362218749042844. Current cache_complete: False
+2025-05-13 16:43:29 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:29 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1919362218749042844. Current cache_complete: False"}]
+2025-05-13 16:43:30 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1918901182560714906_20250513_164329.png due to error.
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1918901182560714906_20250513_164329.png due to error."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1918901182560714906 (URL: https://x.com/techyoutbe/status/1918901182560714906) via Playwright (no details or no text).
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1918901182560714906 (URL: https://x.com/techyoutbe/status/1918901182560714906) via Playwright (no details or no text)."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.pipeline - WARNING - Item 1918901182560714906: Phase 'Caching' completed with error: Failed to fetch tweet details for 1918901182560714906 (URL: https://x.com/techyoutbe/status/1918901182560714906) via Playwright.
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1918901182560714906: Phase 'Caching' completed with error: Failed to fetch tweet details for 1918901182560714906 (URL: https://x.com/techyoutbe/status/1918901182560714906) via Playwright."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.cacher - INFO - Tweet 1915262328209367334 is not cache-complete. Processing.
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1915262328209367334 is not cache-complete. Processing."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1915262328209367334. Current cache_complete: False
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1915262328209367334. Current cache_complete: False"}]
+2025-05-13 16:43:30 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1909942573923197054_20250513_164328.png due to error.
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1909942573923197054_20250513_164328.png due to error."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1909942573923197054 (URL: https://x.com/theskilledcoder/status/1909942573923197054) via Playwright (no details or no text).
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1909942573923197054 (URL: https://x.com/theskilledcoder/status/1909942573923197054) via Playwright (no details or no text)."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.pipeline - WARNING - Item 1909942573923197054: Phase 'Caching' completed with error: Failed to fetch tweet details for 1909942573923197054 (URL: https://x.com/theskilledcoder/status/1909942573923197054) via Playwright.
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1909942573923197054: Phase 'Caching' completed with error: Failed to fetch tweet details for 1909942573923197054 (URL: https://x.com/theskilledcoder/status/1909942573923197054) via Playwright."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.cacher - INFO - Tweet 1912891173829493173 is not cache-complete. Processing.
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1912891173829493173 is not cache-complete. Processing."}]
+2025-05-13 16:43:30 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1912891173829493173. Current cache_complete: False
+2025-05-13 16:43:30 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:30 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1912891173829493173. Current cache_complete: False"}]
+2025-05-13 16:43:33 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/ezekiel_aleke/status/1919335714036077033: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:33 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:33 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/ezekiel_aleke/status/1919335714036077033: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:34 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/NikkiSiapno/status/1919362218749042844: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/NikkiSiapno/status/1919362218749042844: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:34 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1919335714036077033_20250513_164333.png due to error.
+2025-05-13 16:43:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1919335714036077033_20250513_164333.png due to error."}]
+2025-05-13 16:43:34 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1919335714036077033 (URL: https://x.com/ezekiel_aleke/status/1919335714036077033) via Playwright (no details or no text).
+2025-05-13 16:43:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1919335714036077033 (URL: https://x.com/ezekiel_aleke/status/1919335714036077033) via Playwright (no details or no text)."}]
+2025-05-13 16:43:34 - knowledge_base_agent.processing.pipeline - WARNING - Item 1919335714036077033: Phase 'Caching' completed with error: Failed to fetch tweet details for 1919335714036077033 (URL: https://x.com/ezekiel_aleke/status/1919335714036077033) via Playwright.
+2025-05-13 16:43:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1919335714036077033: Phase 'Caching' completed with error: Failed to fetch tweet details for 1919335714036077033 (URL: https://x.com/ezekiel_aleke/status/1919335714036077033) via Playwright."}]
+2025-05-13 16:43:34 - knowledge_base_agent.processing.cacher - INFO - Tweet 1869027339696214251 is not cache-complete. Processing.
+2025-05-13 16:43:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1869027339696214251 is not cache-complete. Processing."}]
+2025-05-13 16:43:34 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1869027339696214251. Current cache_complete: False
+2025-05-13 16:43:34 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:34 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1869027339696214251. Current cache_complete: False"}]
+2025-05-13 16:43:35 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/devops_tech/status/1909859367773483332/photo/1: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:35 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:35 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/devops_tech/status/1909859367773483332/photo/1: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:36 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/techopsexamples/status/1915262328209367334: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:36 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:36 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/techopsexamples/status/1915262328209367334: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:36 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1919362218749042844_20250513_164334.png due to error.
+2025-05-13 16:43:36 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:36 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1919362218749042844_20250513_164334.png due to error."}]
+2025-05-13 16:43:36 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1919362218749042844 (URL: https://x.com/NikkiSiapno/status/1919362218749042844) via Playwright (no details or no text).
+2025-05-13 16:43:36 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:36 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1919362218749042844 (URL: https://x.com/NikkiSiapno/status/1919362218749042844) via Playwright (no details or no text)."}]
+2025-05-13 16:43:36 - knowledge_base_agent.processing.pipeline - WARNING - Item 1919362218749042844: Phase 'Caching' completed with error: Failed to fetch tweet details for 1919362218749042844 (URL: https://x.com/NikkiSiapno/status/1919362218749042844) via Playwright.
+2025-05-13 16:43:36 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:36 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1919362218749042844: Phase 'Caching' completed with error: Failed to fetch tweet details for 1919362218749042844 (URL: https://x.com/NikkiSiapno/status/1919362218749042844) via Playwright."}]
+2025-05-13 16:43:36 - knowledge_base_agent.processing.cacher - INFO - Tweet 1918645768606335054 is not cache-complete. Processing.
+2025-05-13 16:43:36 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:36 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1918645768606335054 is not cache-complete. Processing."}]
+2025-05-13 16:43:36 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1918645768606335054. Current cache_complete: False
+2025-05-13 16:43:36 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:36 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1918645768606335054. Current cache_complete: False"}]
+2025-05-13 16:43:37 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/mdancho84/status/1912891173829493173: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/mdancho84/status/1912891173829493173: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:37 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1915262328209367334_20250513_164336.png due to error.
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1915262328209367334_20250513_164336.png due to error."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1915262328209367334 (URL: https://x.com/techopsexamples/status/1915262328209367334) via Playwright (no details or no text).
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1915262328209367334 (URL: https://x.com/techopsexamples/status/1915262328209367334) via Playwright (no details or no text)."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.pipeline - WARNING - Item 1915262328209367334: Phase 'Caching' completed with error: Failed to fetch tweet details for 1915262328209367334 (URL: https://x.com/techopsexamples/status/1915262328209367334) via Playwright.
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1915262328209367334: Phase 'Caching' completed with error: Failed to fetch tweet details for 1915262328209367334 (URL: https://x.com/techopsexamples/status/1915262328209367334) via Playwright."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.cacher - INFO - Tweet 1921781985569345995 is not cache-complete. Processing.
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1921781985569345995 is not cache-complete. Processing."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1921781985569345995. Current cache_complete: False
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1921781985569345995. Current cache_complete: False"}]
+2025-05-13 16:43:37 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1_20250513_164335.png due to error.
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1_20250513_164335.png due to error."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1909859367773483332 (URL: https://x.com/devops_tech/status/1909859367773483332/photo/1) via Playwright (no details or no text).
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1909859367773483332 (URL: https://x.com/devops_tech/status/1909859367773483332/photo/1) via Playwright (no details or no text)."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.pipeline - WARNING - Item 1909859367773483332: Phase 'Caching' completed with error: Failed to fetch tweet details for 1909859367773483332 (URL: https://x.com/devops_tech/status/1909859367773483332/photo/1) via Playwright.
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1909859367773483332: Phase 'Caching' completed with error: Failed to fetch tweet details for 1909859367773483332 (URL: https://x.com/devops_tech/status/1909859367773483332/photo/1) via Playwright."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.cacher - INFO - Tweet 1870120582857245173 is not cache-complete. Processing.
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1870120582857245173 is not cache-complete. Processing."}]
+2025-05-13 16:43:37 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1870120582857245173. Current cache_complete: False
+2025-05-13 16:43:37 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:37 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1870120582857245173. Current cache_complete: False"}]
+2025-05-13 16:43:38 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1912891173829493173_20250513_164337.png due to error.
+2025-05-13 16:43:38 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:38 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1912891173829493173_20250513_164337.png due to error."}]
+2025-05-13 16:43:38 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1912891173829493173 (URL: https://x.com/mdancho84/status/1912891173829493173) via Playwright (no details or no text).
+2025-05-13 16:43:38 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:38 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1912891173829493173 (URL: https://x.com/mdancho84/status/1912891173829493173) via Playwright (no details or no text)."}]
+2025-05-13 16:43:38 - knowledge_base_agent.processing.pipeline - WARNING - Item 1912891173829493173: Phase 'Caching' completed with error: Failed to fetch tweet details for 1912891173829493173 (URL: https://x.com/mdancho84/status/1912891173829493173) via Playwright.
+2025-05-13 16:43:38 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:38 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1912891173829493173: Phase 'Caching' completed with error: Failed to fetch tweet details for 1912891173829493173 (URL: https://x.com/mdancho84/status/1912891173829493173) via Playwright."}]
+2025-05-13 16:43:38 - knowledge_base_agent.processing.cacher - INFO - Tweet 1920069397277774228 is not cache-complete. Processing.
+2025-05-13 16:43:38 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:38 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1920069397277774228 is not cache-complete. Processing."}]
+2025-05-13 16:43:38 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1920069397277774228. Current cache_complete: False
+2025-05-13 16:43:38 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:38 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1920069397277774228. Current cache_complete: False"}]
+2025-05-13 16:43:39 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/NathanHirsch99/status/1869027339696214251: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:39 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:39 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/NathanHirsch99/status/1869027339696214251: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:39 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:43:39 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:43:40 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1869027339696214251_20250513_164339.png due to error.
+2025-05-13 16:43:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1869027339696214251_20250513_164339.png due to error."}]
+2025-05-13 16:43:40 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1869027339696214251 (URL: https://x.com/NathanHirsch99/status/1869027339696214251) via Playwright (no details or no text).
+2025-05-13 16:43:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1869027339696214251 (URL: https://x.com/NathanHirsch99/status/1869027339696214251) via Playwright (no details or no text)."}]
+2025-05-13 16:43:40 - knowledge_base_agent.processing.pipeline - WARNING - Item 1869027339696214251: Phase 'Caching' completed with error: Failed to fetch tweet details for 1869027339696214251 (URL: https://x.com/NathanHirsch99/status/1869027339696214251) via Playwright.
+2025-05-13 16:43:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1869027339696214251: Phase 'Caching' completed with error: Failed to fetch tweet details for 1869027339696214251 (URL: https://x.com/NathanHirsch99/status/1869027339696214251) via Playwright."}]
+2025-05-13 16:43:40 - knowledge_base_agent.processing.cacher - INFO - Tweet 1867918614302458014 is not cache-complete. Processing.
+2025-05-13 16:43:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1867918614302458014 is not cache-complete. Processing."}]
+2025-05-13 16:43:40 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1867918614302458014. Current cache_complete: False
+2025-05-13 16:43:40 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:40 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1867918614302458014. Current cache_complete: False"}]
+2025-05-13 16:43:41 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/ezekiel_aleke/status/1918645768606335054: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:41 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:41 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/ezekiel_aleke/status/1918645768606335054: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:42 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/ashishps_1/status/1921781985569345995: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:42 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:42 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/ashishps_1/status/1921781985569345995: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:42 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1918645768606335054_20250513_164341.png due to error.
+2025-05-13 16:43:42 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:42 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1918645768606335054_20250513_164341.png due to error."}]
+2025-05-13 16:43:42 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1918645768606335054 (URL: https://x.com/ezekiel_aleke/status/1918645768606335054) via Playwright (no details or no text).
+2025-05-13 16:43:42 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:42 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1918645768606335054 (URL: https://x.com/ezekiel_aleke/status/1918645768606335054) via Playwright (no details or no text)."}]
+2025-05-13 16:43:42 - knowledge_base_agent.processing.pipeline - WARNING - Item 1918645768606335054: Phase 'Caching' completed with error: Failed to fetch tweet details for 1918645768606335054 (URL: https://x.com/ezekiel_aleke/status/1918645768606335054) via Playwright.
+2025-05-13 16:43:42 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:42 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1918645768606335054: Phase 'Caching' completed with error: Failed to fetch tweet details for 1918645768606335054 (URL: https://x.com/ezekiel_aleke/status/1918645768606335054) via Playwright."}]
+2025-05-13 16:43:42 - knowledge_base_agent.processing.cacher - INFO - Tweet 1878628030614290897 is not cache-complete. Processing.
+2025-05-13 16:43:42 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:42 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1878628030614290897 is not cache-complete. Processing."}]
+2025-05-13 16:43:42 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1878628030614290897. Current cache_complete: False
+2025-05-13 16:43:42 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:42 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1878628030614290897. Current cache_complete: False"}]
+2025-05-13 16:43:43 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1921781985569345995_20250513_164342.png due to error.
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1921781985569345995_20250513_164342.png due to error."}]
+2025-05-13 16:43:43 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1921781985569345995 (URL: https://x.com/ashishps_1/status/1921781985569345995) via Playwright (no details or no text).
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1921781985569345995 (URL: https://x.com/ashishps_1/status/1921781985569345995) via Playwright (no details or no text)."}]
+2025-05-13 16:43:43 - knowledge_base_agent.processing.pipeline - WARNING - Item 1921781985569345995: Phase 'Caching' completed with error: Failed to fetch tweet details for 1921781985569345995 (URL: https://x.com/ashishps_1/status/1921781985569345995) via Playwright.
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1921781985569345995: Phase 'Caching' completed with error: Failed to fetch tweet details for 1921781985569345995 (URL: https://x.com/ashishps_1/status/1921781985569345995) via Playwright."}]
+2025-05-13 16:43:43 - knowledge_base_agent.processing.cacher - INFO - Tweet 1874753711656009963 is not cache-complete. Processing.
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1874753711656009963 is not cache-complete. Processing."}]
+2025-05-13 16:43:43 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1874753711656009963. Current cache_complete: False
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1874753711656009963. Current cache_complete: False"}]
+2025-05-13 16:43:43 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/MatthewBerman/status/1870120582857245173: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/MatthewBerman/status/1870120582857245173: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:43 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/rohanpaul_ai/status/1920069397277774228: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:43 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:43 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/rohanpaul_ai/status/1920069397277774228: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:44 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1870120582857245173_20250513_164343.png due to error.
+2025-05-13 16:43:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1870120582857245173_20250513_164343.png due to error."}]
+2025-05-13 16:43:44 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1870120582857245173 (URL: https://x.com/MatthewBerman/status/1870120582857245173) via Playwright (no details or no text).
+2025-05-13 16:43:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1870120582857245173 (URL: https://x.com/MatthewBerman/status/1870120582857245173) via Playwright (no details or no text)."}]
+2025-05-13 16:43:44 - knowledge_base_agent.processing.pipeline - WARNING - Item 1870120582857245173: Phase 'Caching' completed with error: Failed to fetch tweet details for 1870120582857245173 (URL: https://x.com/MatthewBerman/status/1870120582857245173) via Playwright.
+2025-05-13 16:43:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1870120582857245173: Phase 'Caching' completed with error: Failed to fetch tweet details for 1870120582857245173 (URL: https://x.com/MatthewBerman/status/1870120582857245173) via Playwright."}]
+2025-05-13 16:43:44 - knowledge_base_agent.processing.cacher - INFO - Tweet 1891716788620230815 is not cache-complete. Processing.
+2025-05-13 16:43:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1891716788620230815 is not cache-complete. Processing."}]
+2025-05-13 16:43:44 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1891716788620230815. Current cache_complete: False
+2025-05-13 16:43:44 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:44 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1891716788620230815. Current cache_complete: False"}]
+2025-05-13 16:43:45 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1920069397277774228_20250513_164343.png due to error.
+2025-05-13 16:43:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:45 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1920069397277774228_20250513_164343.png due to error."}]
+2025-05-13 16:43:45 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1920069397277774228 (URL: https://x.com/rohanpaul_ai/status/1920069397277774228) via Playwright (no details or no text).
+2025-05-13 16:43:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:45 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1920069397277774228 (URL: https://x.com/rohanpaul_ai/status/1920069397277774228) via Playwright (no details or no text)."}]
+2025-05-13 16:43:45 - knowledge_base_agent.processing.pipeline - WARNING - Item 1920069397277774228: Phase 'Caching' completed with error: Failed to fetch tweet details for 1920069397277774228 (URL: https://x.com/rohanpaul_ai/status/1920069397277774228) via Playwright.
+2025-05-13 16:43:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:45 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1920069397277774228: Phase 'Caching' completed with error: Failed to fetch tweet details for 1920069397277774228 (URL: https://x.com/rohanpaul_ai/status/1920069397277774228) via Playwright."}]
+2025-05-13 16:43:45 - knowledge_base_agent.processing.cacher - INFO - Tweet 1877734236003742011 is not cache-complete. Processing.
+2025-05-13 16:43:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:45 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1877734236003742011 is not cache-complete. Processing."}]
+2025-05-13 16:43:45 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1877734236003742011. Current cache_complete: False
+2025-05-13 16:43:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:45 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1877734236003742011. Current cache_complete: False"}]
+2025-05-13 16:43:45 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/techyoutbe/status/1867918614302458014: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:45 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:45 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/techyoutbe/status/1867918614302458014: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:46 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1867918614302458014_20250513_164345.png due to error.
+2025-05-13 16:43:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1867918614302458014_20250513_164345.png due to error."}]
+2025-05-13 16:43:46 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1867918614302458014 (URL: https://x.com/techyoutbe/status/1867918614302458014) via Playwright (no details or no text).
+2025-05-13 16:43:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1867918614302458014 (URL: https://x.com/techyoutbe/status/1867918614302458014) via Playwright (no details or no text)."}]
+2025-05-13 16:43:46 - knowledge_base_agent.processing.pipeline - WARNING - Item 1867918614302458014: Phase 'Caching' completed with error: Failed to fetch tweet details for 1867918614302458014 (URL: https://x.com/techyoutbe/status/1867918614302458014) via Playwright.
+2025-05-13 16:43:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1867918614302458014: Phase 'Caching' completed with error: Failed to fetch tweet details for 1867918614302458014 (URL: https://x.com/techyoutbe/status/1867918614302458014) via Playwright."}]
+2025-05-13 16:43:46 - knowledge_base_agent.processing.cacher - INFO - Tweet 1866615462844383425 is not cache-complete. Processing.
+2025-05-13 16:43:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1866615462844383425 is not cache-complete. Processing."}]
+2025-05-13 16:43:46 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1866615462844383425. Current cache_complete: False
+2025-05-13 16:43:46 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:46 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1866615462844383425. Current cache_complete: False"}]
+2025-05-13 16:43:47 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/Python_Dv/status/1878628030614290897: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:47 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:47 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/Python_Dv/status/1878628030614290897: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:49 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/sahnlam/status/1891716788620230815: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/sahnlam/status/1891716788620230815: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:49 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/sysxplore/status/1874753711656009963: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/sysxplore/status/1874753711656009963: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:49 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1878628030614290897_20250513_164347.png due to error.
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1878628030614290897_20250513_164347.png due to error."}]
+2025-05-13 16:43:49 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1878628030614290897 (URL: https://x.com/Python_Dv/status/1878628030614290897) via Playwright (no details or no text).
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1878628030614290897 (URL: https://x.com/Python_Dv/status/1878628030614290897) via Playwright (no details or no text)."}]
+2025-05-13 16:43:49 - knowledge_base_agent.processing.pipeline - WARNING - Item 1878628030614290897: Phase 'Caching' completed with error: Failed to fetch tweet details for 1878628030614290897 (URL: https://x.com/Python_Dv/status/1878628030614290897) via Playwright.
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1878628030614290897: Phase 'Caching' completed with error: Failed to fetch tweet details for 1878628030614290897 (URL: https://x.com/Python_Dv/status/1878628030614290897) via Playwright."}]
+2025-05-13 16:43:49 - knowledge_base_agent.processing.cacher - INFO - Tweet 1886052013386944616 is not cache-complete. Processing.
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Tweet 1886052013386944616 is not cache-complete. Processing."}]
+2025-05-13 16:43:49 - knowledge_base_agent.processing.cacher - INFO - Caching tweet ID: 1886052013386944616. Current cache_complete: False
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Caching tweet ID: 1886052013386944616. Current cache_complete: False"}]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet MESSAGE data 2/agent,["stop_agent"]
+2025-05-13 16:43:49 - socketio.server - INFO - received event "stop_agent" from F-u_thdVNBDXQBBVAAAE [/agent]
+2025-05-13 16:43:49 - knowledge_base_agent.web.sockets - INFO - Received stop_agent request.
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Received stop_agent request."}]
+2025-05-13 16:43:49 - __main__ - INFO - Attempting to stop agent pipeline thread...
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to stop agent pipeline thread..."}]
+2025-05-13 16:43:49 - knowledge_base_agent.processing.pipeline - WARNING - Stop requested for the current pipeline run.
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Stop requested for the current pipeline run."}]
+2025-05-13 16:43:49 - __main__ - INFO - Stop request sent to pipeline instance.
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Stop request sent to pipeline instance."}]
+2025-05-13 16:43:49 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-13 16:43:49 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"stopping","message":"Stop requested..."}]
+2025-05-13 16:43:50 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1891716788620230815_20250513_164349.png due to error.
+2025-05-13 16:43:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:50 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1891716788620230815_20250513_164349.png due to error."}]
+2025-05-13 16:43:50 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1891716788620230815 (URL: https://x.com/sahnlam/status/1891716788620230815) via Playwright (no details or no text).
+2025-05-13 16:43:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:50 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1891716788620230815 (URL: https://x.com/sahnlam/status/1891716788620230815) via Playwright (no details or no text)."}]
+2025-05-13 16:43:50 - knowledge_base_agent.processing.pipeline - WARNING - Item 1891716788620230815: Phase 'Caching' completed with error: Failed to fetch tweet details for 1891716788620230815 (URL: https://x.com/sahnlam/status/1891716788620230815) via Playwright.
+2025-05-13 16:43:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:50 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1891716788620230815: Phase 'Caching' completed with error: Failed to fetch tweet details for 1891716788620230815 (URL: https://x.com/sahnlam/status/1891716788620230815) via Playwright."}]
+2025-05-13 16:43:50 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1874753711656009963_20250513_164349.png due to error.
+2025-05-13 16:43:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:50 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1874753711656009963_20250513_164349.png due to error."}]
+2025-05-13 16:43:50 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1874753711656009963 (URL: https://x.com/sysxplore/status/1874753711656009963) via Playwright (no details or no text).
+2025-05-13 16:43:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:50 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1874753711656009963 (URL: https://x.com/sysxplore/status/1874753711656009963) via Playwright (no details or no text)."}]
+2025-05-13 16:43:50 - knowledge_base_agent.processing.pipeline - WARNING - Item 1874753711656009963: Phase 'Caching' completed with error: Failed to fetch tweet details for 1874753711656009963 (URL: https://x.com/sysxplore/status/1874753711656009963) via Playwright.
+2025-05-13 16:43:50 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:50 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1874753711656009963: Phase 'Caching' completed with error: Failed to fetch tweet details for 1874753711656009963 (URL: https://x.com/sysxplore/status/1874753711656009963) via Playwright."}]
+2025-05-13 16:43:51 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/sysxplore/status/1877734236003742011: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:51 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:51 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/sysxplore/status/1877734236003742011: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:52 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/tom_doerr/status/1866615462844383425: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:52 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:52 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/tom_doerr/status/1866615462844383425: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:53 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1877734236003742011_20250513_164351.png due to error.
+2025-05-13 16:43:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:53 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1877734236003742011_20250513_164351.png due to error."}]
+2025-05-13 16:43:53 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1877734236003742011 (URL: https://x.com/sysxplore/status/1877734236003742011) via Playwright (no details or no text).
+2025-05-13 16:43:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:53 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1877734236003742011 (URL: https://x.com/sysxplore/status/1877734236003742011) via Playwright (no details or no text)."}]
+2025-05-13 16:43:53 - knowledge_base_agent.processing.pipeline - WARNING - Item 1877734236003742011: Phase 'Caching' completed with error: Failed to fetch tweet details for 1877734236003742011 (URL: https://x.com/sysxplore/status/1877734236003742011) via Playwright.
+2025-05-13 16:43:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:53 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1877734236003742011: Phase 'Caching' completed with error: Failed to fetch tweet details for 1877734236003742011 (URL: https://x.com/sysxplore/status/1877734236003742011) via Playwright."}]
+2025-05-13 16:43:53 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1866615462844383425_20250513_164352.png due to error.
+2025-05-13 16:43:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:53 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1866615462844383425_20250513_164352.png due to error."}]
+2025-05-13 16:43:53 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1866615462844383425 (URL: https://x.com/tom_doerr/status/1866615462844383425) via Playwright (no details or no text).
+2025-05-13 16:43:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:53 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1866615462844383425 (URL: https://x.com/tom_doerr/status/1866615462844383425) via Playwright (no details or no text)."}]
+2025-05-13 16:43:53 - knowledge_base_agent.processing.pipeline - WARNING - Item 1866615462844383425: Phase 'Caching' completed with error: Failed to fetch tweet details for 1866615462844383425 (URL: https://x.com/tom_doerr/status/1866615462844383425) via Playwright.
+2025-05-13 16:43:53 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:53 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1866615462844383425: Phase 'Caching' completed with error: Failed to fetch tweet details for 1866615462844383425 (URL: https://x.com/tom_doerr/status/1866615462844383425) via Playwright."}]
+2025-05-13 16:43:54 - knowledge_base_agent.interfaces.playwright_client - ERROR - (Async) Unexpected error scraping tweet page https://x.com/sysxplore/status/1886052013386944616: object Locator can't be used in 'await' expression
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py", line 326, in get_tweet_details_via_playwright
+    primary_tweet_element = await page.locator('article[data-testid="tweet"]')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object Locator can't be used in 'await' expression
+2025-05-13 16:43:54 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:54 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: (Async) Unexpected error scraping tweet page https://x.com/sysxplore/status/1886052013386944616: object Locator can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/playwright_client.py\", line 326, in get_tweet_details_via_playwright\n    primary_tweet_element = await page.locator('article[data-testid=\"tweet\"]')\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: object Locator can't be used in 'await' expression"}]
+2025-05-13 16:43:55 - knowledge_base_agent.interfaces.playwright_client - INFO - Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1886052013386944616_20250513_164354.png due to error.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Screenshot saved to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/debug_screenshots/tweet_scrape_unexpected_1886052013386944616_20250513_164354.png due to error."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.cacher - WARNING - Failed to fetch sufficient raw details for tweet 1886052013386944616 (URL: https://x.com/sysxplore/status/1886052013386944616) via Playwright (no details or no text).
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Failed to fetch sufficient raw details for tweet 1886052013386944616 (URL: https://x.com/sysxplore/status/1886052013386944616) via Playwright (no details or no text)."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.pipeline - WARNING - Item 1886052013386944616: Phase 'Caching' completed with error: Failed to fetch tweet details for 1886052013386944616 (URL: https://x.com/sysxplore/status/1886052013386944616) via Playwright.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Item 1886052013386944616: Phase 'Caching' completed with error: Failed to fetch tweet details for 1886052013386944616 (URL: https://x.com/sysxplore/status/1886052013386944616) via Playwright."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.pipeline - INFO - [Caching] Task batch finished gathering.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Caching] Task batch finished gathering."}]
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":53,"current_phase":"Caching (1/1)","current_item_id":"Batch Complete","eta":"00:00:00","total_phases":8,"current_phase_num":2,"overall_items_processed":0,"overall_total_items":53}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Phase: Caching --- (Overall Pipeline Step 2/8) --- (32.62s)
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Finished Phase: Caching --- (Overall Pipeline Step 2/8) --- (32.62s)"}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 53 unprocessed, 0 processed.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully saved state. 53 unprocessed, 0 processed."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 2/8: Caching ---
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Finished Overall Phase 2/8: Caching ---"}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.pipeline - WARNING - Pipeline run cancelled by stop request.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Pipeline run cancelled by stop request."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 53 unprocessed, 0 processed.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully saved state. 53 unprocessed, 0 processed."}]
+2025-05-13 16:43:55 - knowledge_base_agent.processing.pipeline - INFO - Run Statistics:
+--- Processing Stats Report ---
+Total Run Time: 201.50 seconds
+
+Phase Summary:
+  - Caching: Entered=1, Success=1, Failed=0
+  - Pipeline: Entered=0, Success=0, Failed=1
+
+Average LLM Durations (last 20):
+  - Interpret: No data
+  - Categorize: No data
+  - Generate: No data
+  Overall Items Processed (Distinct): 0 / 53
+
+Errors Encountered (1):
+  1. [Pipeline] Run cancelled
+--- End Report ---
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run Statistics:\n--- Processing Stats Report ---\nTotal Run Time: 201.50 seconds\n\nPhase Summary:\n  - Caching: Entered=1, Success=1, Failed=0\n  - Pipeline: Entered=0, Success=0, Failed=1\n\nAverage LLM Durations (last 20):\n  - Interpret: No data\n  - Categorize: No data\n  - Generate: No data\n  Overall Items Processed (Distinct): 0 / 53\n\nErrors Encountered (1):\n  1. [Pipeline] Run cancelled\n--- End Report ---"}]
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["status_update",{"status":"failed","message":"Agent run failed: Pipeline run cancelled by stop request."}]
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":53,"current_phase":"Failed","current_item_id":"","eta":"00:00:00","total_phases":8,"current_phase_num":8,"overall_items_processed":0,"overall_total_items":53}]
+2025-05-13 16:43:55 - knowledge_base_agent.interfaces.http_client - INFO - Closing shared httpx.AsyncClient.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Closing shared httpx.AsyncClient."}]
+2025-05-13 16:43:55 - __main__ - INFO - (Web Thread) Ensuring Playwright client is closed...
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Ensuring Playwright client is closed..."}]
+2025-05-13 16:43:55 - knowledge_base_agent.interfaces.playwright_client - INFO - Closing PlaywrightClient resources (async)...
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Closing PlaywrightClient resources (async)..."}]
+2025-05-13 16:43:55 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient resources closed.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: PlaywrightClient resources closed."}]
+2025-05-13 16:43:55 - __main__ - INFO - Pipeline background thread event loop finished.
+2025-05-13 16:43:55 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:43:55 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread event loop finished."}]
+2025-05-13 16:44:04 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet PING data None
+2025-05-13 16:44:04 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Received packet PONG data 
+2025-05-13 16:44:27 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Connection.run() running at /home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:281> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[ProtocolCallback.__init__.<locals>.cb() at /home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:198, <3 more>, ProtocolCallback.__init__.<locals>.cb() at /home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:198]>
+2025-05-13 16:44:27 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-13 16:44:27 - engineio.server - INFO - yE0bgEFXhDUCo_HAAAAD: Sending packet MESSAGE data 2/logs,["log_message",{"level":"ERROR","message":"ERROR: Task was destroyed but it is pending!\ntask: <Task pending name='Task-2' coro=<Connection.run() running at /home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:281> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[ProtocolCallback.__init__.<locals>.cb() at /home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:198, <3 more>, ProtocolCallback.__init__.<locals>.cb() at /home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:198]>"}]

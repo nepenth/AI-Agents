@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 import os
 
-from .config import Config  # Remove setup_logging import
+from .config import Config, PROJECT_ROOT as global_project_root_ref, get_project_root
 from .agent import KnowledgeBaseAgent
 from .exceptions import KnowledgeBaseError, ConfigurationError
 from .prompts import UserPreferences, prompt_for_preferences
@@ -14,36 +14,39 @@ from .state_manager import StateManager
 
 async def setup_directories(config: Config) -> None:
     """Ensure all required directories exist."""
+    # This function is now largely handled by Config.resolve_paths and Config.ensure_directories
+    # Kept for conceptual clarity if specific pre-config directory setup were ever needed.
+    # For now, we can rely on Config doing this.
     try:
-        directories = [config.knowledge_base_dir, config.data_processing_dir, config.media_cache_dir]
-        for directory in directories:
-            directory.mkdir(parents=True, exist_ok=True)
-            logging.debug(f"Ensured directory exists: {directory}")
+        config.ensure_directories() # Call the method on the config instance
+        logging.debug(f"Ensured directories exist via config.ensure_directories().")
     except Exception as e:
         logging.error(f"Failed to create directories: {e}")
         raise ConfigurationError(f"Failed to create directories: {e}")
 
 async def load_config() -> Config:
     """Load and initialize configuration."""
+    global global_project_root_ref # To modify the global PROJECT_ROOT in config.py
     try:
-        # Check for required environment variables
-        required_env_vars = [
-            "TEXT_MODEL",
-            "FALLBACK_MODEL",
-            "VISION_MODEL",
-            "OLLAMA_URL",
-            "KNOWLEDGE_BASE_DIR",
-            "DATA_PROCESSING_DIR",
-            "MEDIA_CACHE_DIR",
-            "GIT_ENABLED"
-        ]
-        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-        if missing_vars:
-            raise ConfigurationError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        # Determine Project Root (parent of the directory containing this main.py)
+        # This makes it robust to where the script is called from, as long as structure is maintained.
+        current_file_path = Path(__file__).resolve()
+        # knowledge_base_agent -> parent (project_root)
+        determined_project_root = current_file_path.parent.parent
+        
+        # Set the global PROJECT_ROOT in config.py before Config.from_env() is called
+        # if it relies on the get_project_root() default factory.
+        # Config.from_env will use this or the passed argument.
+        global_project_root_ref = determined_project_root
+        logging.info(f"Project root determined and set globally: {determined_project_root}")
 
         # Use the from_env() method to load configuration from environment variables
-        config = Config.from_env()
-        await setup_directories(config)
+        # Pass the determined project_root so Config uses it directly.
+        config = Config.from_env(project_root_path=determined_project_root)
+        
+        # config.resolve_paths() is called by Pydantic's model_validator
+        # config.ensure_directories() should be called after paths are resolved if needed beyond parent creation.
+        config.ensure_directories() 
         config.setup_logging()  # Call as method on Config instance
         logging.info("Configuration loaded successfully")
         
@@ -75,7 +78,6 @@ async def run_agent(agent: KnowledgeBaseAgent, preferences: UserPreferences) -> 
         logging.info("=== Processing Statistics ===")
         for metric, value in metrics.items():
             logging.info(f"{metric}: {value}")
-        agent.stats.save_report(agent.config.data_processing_dir / "processing_stats.json")
         logging.info("Agent run completed successfully")
     except Exception as e:
         logging.error(f"Agent run failed: {e}")

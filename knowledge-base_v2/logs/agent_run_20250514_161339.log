@@ -1,0 +1,587 @@
+2025-05-14 16:13:39 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250514_161339.log
+2025-05-14 16:13:39 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250514_161339.log
+2025-05-14 16:13:39 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-14 16:13:39 - engineio.server - INFO - Server initialized for threading.
+2025-05-14 16:13:39 - __main__ - INFO - Initializing database tables...
+2025-05-14 16:13:39 - __main__ - INFO - Database tables checked/created.
+2025-05-14 16:13:39 - __main__ - INFO - Registered Flask blueprints.
+2025-05-14 16:13:39 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent and /logs namespaces.
+2025-05-14 16:13:39 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-14 16:13:39 - __main__ - INFO - WebSocket log handler configured with emitter.
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - __main__ - INFO - Sending direct TEST message to /logs namespace as 'new_log'...
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - __main__ - INFO - Direct TEST message emitted using 'new_log'.
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - __main__ - INFO - Attempting to start the web server on port 5001...
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.10.4:5001
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 16:13:39] "GET / HTTP/1.1" 200 -
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 16:13:39] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 16:13:39] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet OPEN data {'sid': 'b5p3RqUvMT2d63rkAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-14 16:13:39 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 16:13:39] "GET /socket.io/?EIO=4&transport=polling&t=doxkwvc0 HTTP/1.1" 200 -
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Received packet MESSAGE data 0/agent,
+2025-05-14 16:13:39 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-14 16:13:39 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Received request to upgrade to websocket
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "status_update" to J1MaGpjKNVc6AFPeAAAB [/agent]
+2025-05-14 16:13:39 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 16:13:39] "GET /socket.io/?EIO=4&transport=polling&t=doxl46hn&sid=b5p3RqUvMT2d63rkAAAA HTTP/1.1" 200 -
+2025-05-14 16:13:39 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:39 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 0/agent,{"sid":"J1MaGpjKNVc6AFPeAAAB"}
+2025-05-14 16:13:39 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 16:13:39] "POST /socket.io/?EIO=4&transport=polling&t=doxl3h7e&sid=b5p3RqUvMT2d63rkAAAA HTTP/1.1" 200 -
+2025-05-14 16:13:39 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:40 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Upgrade to websocket successful
+2025-05-14 16:13:40 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Received packet MESSAGE data 0/logs,
+2025-05-14 16:13:40 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-14 16:13:40 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:40 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Client connected to /logs namespace. Auth: None"}]
+2025-05-14 16:13:40 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 0/logs,{"sid":"STn2xE_HsomMbw3fAAAC"}
+2025-05-14 16:13:40 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-14 16:13:40 - socketio.server - INFO - received event "get_status" from J1MaGpjKNVc6AFPeAAAB [/agent]
+2025-05-14 16:13:40 - socketio.server - INFO - emitting event "status_update" to J1MaGpjKNVc6AFPeAAAB [/agent]
+2025-05-14 16:13:40 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Received packet MESSAGE data 2/agent,["start_agent",{"run_only_phase":"Full","skip_fetch":true,"skip_git":true,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-14 16:13:43 - socketio.server - INFO - received event "start_agent" from J1MaGpjKNVc6AFPeAAAB [/agent]
+2025-05-14 16:13:43 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Received start_agent request. Data: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-14 16:13:43 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to start agent pipeline thread..."}]
+2025-05-14 16:13:43 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Setting up background thread for pipeline..."}]
+2025-05-14 16:13:43 - __main__ - INFO - Pipeline background thread started.
+2025-05-14 16:13:43 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Pipeline background thread started."}]
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Pipeline background thread started successfully."}]
+2025-05-14 16:13:43 - __main__ - INFO - DEBUG: _run_pipeline_async received run_preferences: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: DEBUG: _run_pipeline_async received run_preferences: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-14 16:13:43 - __main__ - INFO - (Web Thread) Initializing twscrape API and account pool...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: (Web Thread) Initializing twscrape API and account pool..."}]
+2025-05-14 16:13:43 - __main__ - INFO - (Web Thread) twscrape API and pool initialized, accounts logged in.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: (Web Thread) twscrape API and pool initialized, accounts logged in."}]
+2025-05-14 16:13:43 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read"}]
+2025-05-14 16:13:43 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'http://whyland-ai.nakedsun.xyz:11434/', Timeout: 10.0s Read
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: HttpClientManager initialized. Base URL: 'http://whyland-ai.nakedsun.xyz:11434/', Timeout: 10.0s Read"}]
+2025-05-14 16:13:43 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized. Dedicated HttpClientManager created for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: OllamaClient initialized. Dedicated HttpClientManager created for URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-14 16:13:43 - __main__ - INFO - DEBUG: In _run_pipeline_async, run_prefs for Playwright decision: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: DEBUG: In _run_pipeline_async, run_prefs for Playwright decision: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-14 16:13:43 - __main__ - INFO - DEBUG: In _run_pipeline_async, derived run_only_phase='Full', skip_fetch='True' for Playwright decision.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: DEBUG: In _run_pipeline_async, derived run_only_phase='Full', skip_fetch='True' for Playwright decision."}]
+2025-05-14 16:13:43 - __main__ - INFO - (Web Thread) Skipping Playwright client initialization as run mode 'Full' does not involve fetching bookmarks or skip_fetch is True.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: (Web Thread) Skipping Playwright client initialization as run mode 'Full' does not involve fetching bookmarks or skip_fetch is True."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.state - INFO - StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.fetcher - INFO - Fetcher initialized.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Fetcher initialized."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - AgentPipeline initialized.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: AgentPipeline initialized."}]
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"running","message":"Agent starting..."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - DEBUG: AgentPipeline.run received run_preferences: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: DEBUG: AgentPipeline.run received run_preferences: {'run_only_phase': 'Full', 'skip_fetch': True, 'skip_git': True, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Agent Pipeline Run Invoked ---
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Agent Pipeline Run Invoked ---"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Run Preferences (inside AgentPipeline.run, from 'prefs' dictionary):
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Run Preferences (inside AgentPipeline.run, from 'prefs' dictionary):"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Run Only Phase: Full
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Run Only Phase: Full"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Fetch Bookmarks: True
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Skip Fetch Bookmarks: True"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Git Sync: True
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Skip Git Sync: True"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Indexing: False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Skip Indexing: False"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-cache Tweets: False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Force Re-cache Tweets: False"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-interpret Media: False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Force Re-interpret Media: False"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-categorize Content: False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Force Re-categorize Content: False"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-generate KB Items: False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Force Re-generate KB Items: False"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Key Configuration Values:
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Key Configuration Values:"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Text Model: llama3.3:70b-instruct-q4_0
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Text Model: llama3.3:70b-instruct-q4_0"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Fallback Model: phi4-reasoning
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Fallback Model: phi4-reasoning"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Vision Model: mistral-small3.1
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Vision Model: mistral-small3.1"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Bookmark Fetching Possible (credentials present): True
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Bookmark Fetching Possible (credentials present): True"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - X Username: lockepacem
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - X Username: lockepacem"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - X Email: chris@whyland.net
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - X Email: chris@whyland.net"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Git Sync Enabled (config): False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Git Sync Enabled (config): False"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO -   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO:   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - ------------------------------------
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: ------------------------------------"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - DEBUG: AgentPipeline.run - requested_run_only_phase from prefs.get(): 'Full'
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: DEBUG: AgentPipeline.run - requested_run_only_phase from prefs.get(): 'Full'"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Run mode: 'Full Pipeline'
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Run mode: 'Full Pipeline'"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'InputAcquisition' due to run preference 'skip_fetch'.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Skipping phase 'InputAcquisition' due to run preference 'skip_fetch'."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'GitSync' due to run preference 'skip_git'.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Skipping phase 'GitSync' due to run preference 'skip_git'."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Total phases planned for this run: 7. Phases: ['Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Total phases planned for this run: 7. Phases: ['Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']"}]
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Loading State","current_item_id":"","eta":"--:--:--","total_phases":7,"current_phase_num":0,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.state - INFO - Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.state - INFO - Successfully loaded state. 55 unprocessed, 0 processed, 55 items in cache.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully loaded state. 55 unprocessed, 0 processed, 55 items in cache."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - Loaded state. Total known items initially: 55. IDs: ['1918917563825938645', '1866615462844383425', '1918895825310089634', '1918645768606335054', '1919110045687595120', '1883134699800867289', '1878628030614290897', '1867918614302458014', '1919039905381880181', '1885016511850659903', '1918901182560714906', '1908781591914049617', '1869027339696214251', '1912891173829493173', '1921781985569345995', '1891527731944235385', '1919485829996794280', '1912758276481228916', '1909942573923197054', '1915355627259408863']...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Loaded state. Total known items initially: 55. IDs: ['1918917563825938645', '1866615462844383425', '1918895825310089634', '1918645768606335054', '1919110045687595120', '1883134699800867289', '1878628030614290897', '1867918614302458014', '1919039905381880181', '1885016511850659903', '1918901182560714906', '1908781591914049617', '1869027339696214251', '1912891173829493173', '1921781985569345995', '1891527731944235385', '1919485829996794280', '1912758276481228916', '1909942573923197054', '1915355627259408863']..."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 1/7: Caching ---
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 1/7: Caching ---"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Phase: Caching --- (Overall Pipeline Step 1/7)
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Phase: Caching --- (Overall Pipeline Step 1/7)"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - [Caching] Identified 0 items for processing in this batch.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Caching] Identified 0 items for processing in this batch."}]
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Caching (1/1)","current_item_id":"","eta":"00:00:00","total_phases":7,"current_phase_num":1,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - [Caching] No items required processing in this batch.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Caching] No items required processing in this batch."}]
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Caching (1/1)","current_item_id":"None","eta":"00:00:00","total_phases":7,"current_phase_num":1,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Phase: Caching --- (Overall Pipeline Step 1/7) --- (0.00s)
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Phase: Caching --- (Overall Pipeline Step 1/7) --- (0.00s)"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 55 unprocessed, 0 processed.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully saved state. 55 unprocessed, 0 processed."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 1/7: Caching ---
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 1/7: Caching ---"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 2/7: Interpretation ---
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 2/7: Interpretation ---"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Phase: Interpretation --- (Overall Pipeline Step 2/7)
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Phase: Interpretation --- (Overall Pipeline Step 2/7)"}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - [Interpretation] Identified 1 items for processing in this batch.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Interpretation] Identified 1 items for processing in this batch."}]
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":1,"current_phase":"Interpretation (1/1)","current_item_id":"","eta":"00:00:00","total_phases":7,"current_phase_num":2,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.pipeline - INFO - [Interpretation] Awaiting 1 tasks...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Interpretation] Awaiting 1 tasks..."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.interpreter - INFO - Tweet 1915492640604492119, Media https://video.twimg.com/amplify_video/1885016270594334720/vid/avc1/1114x720/DCOjFFcuMS_SMNW8.mp4?tag=14: Type 'video' not interpretable by vision model. Skipping.
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Tweet 1915492640604492119, Media https://video.twimg.com/amplify_video/1885016270594334720/vid/avc1/1114x720/DCOjFFcuMS_SMNW8.mp4?tag=14: Type 'video' not interpretable by vision model. Skipping."}]
+2025-05-14 16:13:43 - knowledge_base_agent.processing.interpreter - INFO - Tweet 1915492640604492119, Media https://pbs.twimg.com/amplify_video_thumb/1885016270594334720/img/uF6x_v-Oh4Zr3Vsj.jpg: Interpreting image at /home/nepenthe/git_repos/agents/knowledge-base_v2/data/media_cache/1915492640604492119/uF6x_v-Oh4Zr3Vsj.jpg...
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Tweet 1915492640604492119, Media https://pbs.twimg.com/amplify_video_thumb/1885016270594334720/img/uF6x_v-Oh4Zr3Vsj.jpg: Interpreting image at /home/nepenthe/git_repos/agents/knowledge-base_v2/data/media_cache/1915492640604492119/uF6x_v-Oh4Zr3Vsj.jpg..."}]
+2025-05-14 16:13:43 - knowledge_base_agent.interfaces.ollama - INFO - Generating image description with model 'mistral-small3.1'. Stream: False
+2025-05-14 16:13:43 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:43 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Generating image description with model 'mistral-small3.1'. Stream: False"}]
+2025-05-14 16:13:53 - knowledge_base_agent.interfaces.ollama - ERROR - Error communicating with Ollama endpoint /api/generate: 
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py", line 103, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py", line 57, in _request
+    async with client.stream("POST", endpoint, json=payload) as response:
+  File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"ERROR: Error communicating with Ollama endpoint /api/generate: \nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 101, in map_httpcore_exceptions\n    yield\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 394, in handle_async_request\n    resp = await self._pool.handle_async_request(req)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py\", line 256, in handle_async_request\n    raise exc from None\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py\", line 236, in handle_async_request\n    response = await connection.handle_async_request(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py\", line 103, in handle_async_request\n    return await self._connection.handle_async_request(request)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 136, in handle_async_request\n    raise exc\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 106, in handle_async_request\n    ) = await self._receive_response_headers(**kwargs)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 177, in _receive_response_headers\n    event = await self._receive_event(timeout=timeout)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 217, in _receive_event\n    data = await self._network_stream.read(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py\", line 32, in read\n    with map_exceptions(exc_map):\n  File \"/usr/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py\", line 14, in map_exceptions\n    raise to_exc(exc) from exc\nhttpcore.ReadTimeout\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py\", line 57, in _request\n    async with client.stream(\"POST\", endpoint, json=payload) as response:\n  File \"/usr/lib/python3.12/contextlib.py\", line 210, in __aenter__\n    return await anext(self.gen)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1583, in stream\n    response = await self.send(\n               ^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1629, in send\n    response = await self._send_handling_auth(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1657, in _send_handling_auth\n    response = await self._send_handling_redirects(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1694, in _send_handling_redirects\n    response = await self._send_single_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1730, in _send_single_request\n    response = await transport.handle_async_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 393, in handle_async_request\n    with map_httpcore_exceptions():\n  File \"/usr/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 118, in map_httpcore_exceptions\n    raise mapped_exc(message) from exc\nhttpx.ReadTimeout"}]
+2025-05-14 16:13:53 - knowledge_base_agent.processing.interpreter - ERROR - Tweet 1915492640604492119, Media https://pbs.twimg.com/amplify_video_thumb/1885016270594334720/img/uF6x_v-Oh4Zr3Vsj.jpg: Error during Ollama vision processing: Error interacting with Ollama: Failed to communicate with Ollama at /api/generate (Caused by: ReadTimeout: )
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py", line 103, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py", line 57, in _request
+    async with client.stream("POST", endpoint, json=payload) as response:
+  File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/interpreter.py", line 69, in interpret_single_media_item
+    description = await ollama_client.generate_image_description(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py", line 155, in generate_image_description
+    return await self._request("/api/generate", payload, stream=stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py", line 86, in _request
+    raise OllamaError(f"Failed to communicate with Ollama at {endpoint}", original_exception=e) from e
+knowledge_base_agent.exceptions.OllamaError: Error interacting with Ollama: Failed to communicate with Ollama at /api/generate (Caused by: ReadTimeout: )
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"ERROR: Tweet 1915492640604492119, Media https://pbs.twimg.com/amplify_video_thumb/1885016270594334720/img/uF6x_v-Oh4Zr3Vsj.jpg: Error during Ollama vision processing: Error interacting with Ollama: Failed to communicate with Ollama at /api/generate (Caused by: ReadTimeout: )\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 101, in map_httpcore_exceptions\n    yield\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 394, in handle_async_request\n    resp = await self._pool.handle_async_request(req)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py\", line 256, in handle_async_request\n    raise exc from None\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py\", line 236, in handle_async_request\n    response = await connection.handle_async_request(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py\", line 103, in handle_async_request\n    return await self._connection.handle_async_request(request)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 136, in handle_async_request\n    raise exc\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 106, in handle_async_request\n    ) = await self._receive_response_headers(**kwargs)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 177, in _receive_response_headers\n    event = await self._receive_event(timeout=timeout)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py\", line 217, in _receive_event\n    data = await self._network_stream.read(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py\", line 32, in read\n    with map_exceptions(exc_map):\n  File \"/usr/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py\", line 14, in map_exceptions\n    raise to_exc(exc) from exc\nhttpcore.ReadTimeout\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py\", line 57, in _request\n    async with client.stream(\"POST\", endpoint, json=payload) as response:\n  File \"/usr/lib/python3.12/contextlib.py\", line 210, in __aenter__\n    return await anext(self.gen)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1583, in stream\n    response = await self.send(\n               ^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1629, in send\n    response = await self._send_handling_auth(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1657, in _send_handling_auth\n    response = await self._send_handling_redirects(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1694, in _send_handling_redirects\n    response = await self._send_single_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_client.py\", line 1730, in _send_single_request\n    response = await transport.handle_async_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 393, in handle_async_request\n    with map_httpcore_exceptions():\n  File \"/usr/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/.venv/lib/python3.12/site-packages/httpx/_transports/default.py\", line 118, in map_httpcore_exceptions\n    raise mapped_exc(message) from exc\nhttpx.ReadTimeout\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/processing/interpreter.py\", line 69, in interpret_single_media_item\n    description = await ollama_client.generate_image_description(\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py\", line 155, in generate_image_description\n    return await self._request(\"/api/generate\", payload, stream=stream)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/nepenthe/git_repos/agents/knowledge-base_v2/knowledge_base_agent/interfaces/ollama.py\", line 86, in _request\n    raise OllamaError(f\"Failed to communicate with Ollama at {endpoint}\", original_exception=e) from e\nknowledge_base_agent.exceptions.OllamaError: Error interacting with Ollama: Failed to communicate with Ollama at /api/generate (Caused by: ReadTimeout: )"}]
+2025-05-14 16:13:53 - knowledge_base_agent.processing.interpreter - WARNING - Tweet 1915492640604492119: Media interpretation phase completed with errors for one or more items.
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"WARNING: Tweet 1915492640604492119: Media interpretation phase completed with errors for one or more items."}]
+2025-05-14 16:13:53 - knowledge_base_agent.processing.pipeline - INFO - [Interpretation] Task batch finished gathering.
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Interpretation] Task batch finished gathering."}]
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":1,"current_phase":"Interpretation (1/1)","current_item_id":"Batch Complete","eta":"00:00:00","total_phases":7,"current_phase_num":2,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:53 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Phase: Interpretation --- (Overall Pipeline Step 2/7) --- (10.14s)
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Phase: Interpretation --- (Overall Pipeline Step 2/7) --- (10.14s)"}]
+2025-05-14 16:13:53 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:53 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:53 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 55 unprocessed, 0 processed.
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully saved state. 55 unprocessed, 0 processed."}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 2/7: Interpretation ---
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 2/7: Interpretation ---"}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 3/7: Categorization ---
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 3/7: Categorization ---"}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Phase: Categorization --- (Overall Pipeline Step 3/7)
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Phase: Categorization --- (Overall Pipeline Step 3/7)"}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.pipeline - INFO - [Categorization] Identified 0 items for processing in this batch.
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Categorization] Identified 0 items for processing in this batch."}]
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Categorization (1/1)","current_item_id":"","eta":"00:00:00","total_phases":7,"current_phase_num":3,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.pipeline - INFO - [Categorization] No items required processing in this batch.
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Categorization] No items required processing in this batch."}]
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Categorization (1/1)","current_item_id":"None","eta":"00:00:00","total_phases":7,"current_phase_num":3,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Phase: Categorization --- (Overall Pipeline Step 3/7) --- (0.00s)
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Phase: Categorization --- (Overall Pipeline Step 3/7) --- (0.00s)"}]
+2025-05-14 16:13:54 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:54 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:54 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 55 unprocessed, 0 processed.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully saved state. 55 unprocessed, 0 processed."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 3/7: Categorization ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 3/7: Categorization ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 4/7: Generation ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 4/7: Generation ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Phase: Generation --- (Overall Pipeline Step 4/7)
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Phase: Generation --- (Overall Pipeline Step 4/7)"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - [Generation] Identified 0 items for processing in this batch.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Generation] Identified 0 items for processing in this batch."}]
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Generation (1/1)","current_item_id":"","eta":"00:00:00","total_phases":7,"current_phase_num":4,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - [Generation] No items required processing in this batch.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [Generation] No items required processing in this batch."}]
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Generation (1/1)","current_item_id":"None","eta":"00:00:00","total_phases":7,"current_phase_num":4,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Phase: Generation --- (Overall Pipeline Step 4/7) --- (0.00s)
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Phase: Generation --- (Overall Pipeline Step 4/7) --- (0.00s)"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 55 unprocessed, 0 processed.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully saved state. 55 unprocessed, 0 processed."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 4/7: Generation ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 4/7: Generation ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 5/7: DBSync ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 5/7: DBSync ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Phase: DBSync --- (Overall Pipeline Step 5/7)
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Phase: DBSync --- (Overall Pipeline Step 5/7)"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - [DBSync] Identified 0 items for processing in this batch.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [DBSync] Identified 0 items for processing in this batch."}]
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"DBSync (1/1)","current_item_id":"","eta":"00:00:00","total_phases":7,"current_phase_num":5,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - [DBSync] No items required processing in this batch.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: [DBSync] No items required processing in this batch."}]
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"DBSync (1/1)","current_item_id":"None","eta":"00:00:00","total_phases":7,"current_phase_num":5,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Phase: DBSync --- (Overall Pipeline Step 5/7) --- (0.00s)
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Phase: DBSync --- (Overall Pipeline Step 5/7) --- (0.00s)"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 55 unprocessed, 0 processed.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully saved state. 55 unprocessed, 0 processed."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 5/7: DBSync ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 5/7: DBSync ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 6/7: Indexing ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 6/7: Indexing ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - Running Indexing phase (6/7)...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Running Indexing phase (6/7)..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.indexer - INFO - Generating root README.md for the knowledge base...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Generating root README.md for the knowledge base..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.indexer - WARNING - No generated KB items found to include in the index.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"WARNING: No generated KB items found to include in the index."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - Indexing phase completed successfully.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Indexing phase completed successfully."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 6/7: Indexing ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 6/7: Indexing ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 7/7: Finalizing ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Starting Overall Phase 7/7: Finalizing ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - Running Finalizing phase (7/7)...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Running Finalizing phase (7/7)..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - Finalizing state: Checking for fully processed items...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Finalizing state: Checking for fully processed items..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - No additional items were marked as fully processed in this run.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: No additional items were marked as fully processed in this run."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - --- Finished Overall Phase 7/7: Finalizing ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: --- Finished Overall Phase 7/7: Finalizing ---"}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - Agent pipeline run finished successfully.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Agent pipeline run finished successfully."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Attempting to save state to /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.state - INFO - Successfully saved state. 55 unprocessed, 0 processed.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Successfully saved state. 55 unprocessed, 0 processed."}]
+2025-05-14 16:13:55 - knowledge_base_agent.processing.pipeline - INFO - Run Statistics:
+--- Processing Stats Report ---
+Total Run Time: 11.57 seconds
+
+Phase Summary:
+  - Caching: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)
+  - Categorization: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)
+  - Dbsync: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)
+  - Finalizing: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)
+  - Generation: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)
+  - Indexing: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)
+  - Interpretation: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=1, Success=1, Fail=0)
+
+Average LLM Durations (last 20):
+  - Interpret: No data
+  - Categorize: No data
+  - Generate: No data
+  Overall Items Processed (Distinct): 0 / 55
+--- End Report ---
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Run Statistics:\n--- Processing Stats Report ---\nTotal Run Time: 11.57 seconds\n\nPhase Summary:\n  - Caching: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)\n  - Categorization: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)\n  - Dbsync: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)\n  - Finalizing: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)\n  - Generation: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)\n  - Indexing: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=0, Success=0, Fail=0)\n  - Interpretation: Orchestration (Entries=1, Comp=1, Fail=0), Items (Attempted=1, Success=1, Fail=0)\n\nAverage LLM Durations (last 20):\n  - Interpret: No data\n  - Categorize: No data\n  - Generate: No data\n  Overall Items Processed (Distinct): 0 / 55\n--- End Report ---"}]
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle","message":"Agent run finished."}]
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":55,"current_phase":"Finished","current_item_id":"","eta":"00:00:00","total_phases":7,"current_phase_num":7,"overall_items_processed":0,"overall_total_items":55}]
+2025-05-14 16:13:55 - knowledge_base_agent.interfaces.http_client - INFO - Closing shared httpx.AsyncClient.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Closing shared httpx.AsyncClient."}]
+2025-05-14 16:13:55 - knowledge_base_agent.interfaces.http_client - INFO - Closing shared httpx.AsyncClient.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Closing shared httpx.AsyncClient."}]
+2025-05-14 16:13:55 - __main__ - INFO - Pipeline background thread event loop finished.
+2025-05-14 16:13:55 - socketio.server - INFO - emitting event "new_log" to all [/logs]
+2025-05-14 16:13:55 - engineio.server - INFO - b5p3RqUvMT2d63rkAAAA: Sending packet MESSAGE data 2/logs,["new_log",{"log_line":"INFO: Pipeline background thread event loop finished."}]

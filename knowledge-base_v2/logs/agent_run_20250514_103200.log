@@ -1,0 +1,265 @@
+2025-05-14 10:32:00 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250514_103200.log
+2025-05-14 10:32:00 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250514_103200.log
+2025-05-14 10:32:00 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-14 10:32:00 - engineio.server - INFO - Server initialized for threading.
+2025-05-14 10:32:00 - __main__ - INFO - Initializing database tables...
+2025-05-14 10:32:00 - __main__ - INFO - Database tables checked/created.
+2025-05-14 10:32:00 - __main__ - INFO - Registered Flask blueprints.
+2025-05-14 10:32:00 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent and /logs namespaces.
+2025-05-14 10:32:00 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-14 10:32:00 - __main__ - INFO - WebSocket log handler configured with emitter.
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:00 - __main__ - INFO - Sending direct TEST message to /logs namespace...
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:00 - __main__ - INFO - Direct TEST message emitted.
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:00 - __main__ - INFO - Attempting to start the web server on port 5001...
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:00 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.10.4:5001
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:00 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-05-14 10:32:00 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 10:32:01] "GET / HTTP/1.1" 200 -
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 10:32:01] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 10:32:01] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet OPEN data {'sid': 'kaBhsGPRlPF3AfjpAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-14 10:32:01 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 10:32:01] "GET /socket.io/?EIO=4&transport=polling&t=1hl4sp2z HTTP/1.1" 200 -
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Received packet MESSAGE data 0/agent,
+2025-05-14 10:32:01 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "status_update" to LVB9SRoGQh0ISYntAAAB [/agent]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Received request to upgrade to websocket
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-14 10:32:01 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 10:32:01] "GET /socket.io/?EIO=4&transport=polling&t=1hl4yu9v&sid=kaBhsGPRlPF3AfjpAAAA HTTP/1.1" 200 -
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 0/agent,{"sid":"LVB9SRoGQh0ISYntAAAB"}
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 10:32:01] "POST /socket.io/?EIO=4&transport=polling&t=1hl4ysdq&sid=kaBhsGPRlPF3AfjpAAAA HTTP/1.1" 200 -
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Upgrade to websocket successful
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Received packet MESSAGE data 0/logs,
+2025-05-14 10:32:01 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client connected to /logs namespace. Auth: None"}]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 0/logs,{"sid":"NFH0LYnSGmc72AnxAAAC"}
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-14 10:32:01 - socketio.server - INFO - received event "get_status" from LVB9SRoGQh0ISYntAAAB [/agent]
+2025-05-14 10:32:01 - socketio.server - INFO - emitting event "status_update" to LVB9SRoGQh0ISYntAAAB [/agent]
+2025-05-14 10:32:01 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Received packet MESSAGE data 2/agent,["start_agent",{"run_only_phase":"Caching","skip_fetch":false,"skip_git":false,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-14 10:32:04 - socketio.server - INFO - received event "start_agent" from LVB9SRoGQh0ISYntAAAB [/agent]
+2025-05-14 10:32:04 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'run_only_phase': 'Caching', 'skip_fetch': False, 'skip_git': False, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Received start_agent request. Data: {'run_only_phase': 'Caching', 'skip_fetch': False, 'skip_git': False, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-14 10:32:04 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to start agent pipeline thread..."}]
+2025-05-14 10:32:04 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Setting up background thread for pipeline..."}]
+2025-05-14 10:32:04 - __main__ - INFO - Pipeline background thread started.
+2025-05-14 10:32:04 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started."}]
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - __main__ - INFO - (Web Thread) Initializing twscrape API and account pool...
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started successfully."}]
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Initializing twscrape API and account pool..."}]
+2025-05-14 10:32:04 - __main__ - INFO - (Web Thread) twscrape API and pool initialized, accounts logged in.
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) twscrape API and pool initialized, accounts logged in."}]
+2025-05-14 10:32:04 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read"}]
+2025-05-14 10:32:04 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-14 10:32:04 - __main__ - INFO - (Web Thread) X credentials and bookmarks URL present, initializing Playwright client for bookmark fetching...
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) X credentials and bookmarks URL present, initializing Playwright client for bookmark fetching..."}]
+2025-05-14 10:32:04 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient (Async API) initialized. Headless: True
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: PlaywrightClient (Async API) initialized. Headless: True"}]
+2025-05-14 10:32:04 - __main__ - INFO - (Web Thread) Attempting initial Playwright login for bookmark fetching...
+2025-05-14 10:32:04 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:04 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Attempting initial Playwright login for bookmark fetching..."}]
+2025-05-14 10:32:05 - knowledge_base_agent.interfaces.playwright_client - INFO - Playwright async instance and browser initialized.
+2025-05-14 10:32:05 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:05 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Playwright async instance and browser initialized."}]
+2025-05-14 10:32:05 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting X login via Playwright (async)...
+2025-05-14 10:32:05 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:05 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting X login via Playwright (async)..."}]
+2025-05-14 10:32:07 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Navigating to X login page: https://x.com/login
+2025-05-14 10:32:07 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:07 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Navigating to X login page: https://x.com/login"}]
+2025-05-14 10:32:10 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Entering username...
+2025-05-14 10:32:10 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:10 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Entering username..."}]
+2025-05-14 10:32:14 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Entering password...
+2025-05-14 10:32:14 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:14 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Entering password..."}]
+2025-05-14 10:32:14 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Waiting for login confirmation (e.g., navigation to home)...
+2025-05-14 10:32:14 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:14 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Waiting for login confirmation (e.g., navigation to home)..."}]
+2025-05-14 10:32:16 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) X Login successful.
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) X Login successful."}]
+2025-05-14 10:32:16 - __main__ - INFO - (Web Thread) Playwright initial login appears successful.
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Playwright initial login appears successful."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.state - INFO - StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: StateManager initialized. State file: /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.fetcher - INFO - Fetcher initialized.
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Fetcher initialized."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - AgentPipeline initialized.
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: AgentPipeline initialized."}]
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"running","message":"Agent starting..."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - --- Agent Pipeline Run Invoked ---
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Agent Pipeline Run Invoked ---"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Run Preferences:
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run Preferences:"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Run Only Phase: Full
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Run Only Phase: Full"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Fetch Bookmarks: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Fetch Bookmarks: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Git Sync: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Git Sync: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Skip Indexing: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Skip Indexing: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-cache Tweets: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-cache Tweets: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-interpret Media: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-interpret Media: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-categorize Content: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-categorize Content: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Force Re-generate KB Items: False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Force Re-generate KB Items: False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Key Configuration Values:
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Key Configuration Values:"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Ollama URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Text Model: llama3.3:70b-instruct-q4_0
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Text Model: llama3.3:70b-instruct-q4_0"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Fallback Model: phi4-reasoning
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Fallback Model: phi4-reasoning"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Vision Model: mistral-small3.1
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Vision Model: mistral-small3.1"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Bookmark Fetching Possible (credentials present): True
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Bookmark Fetching Possible (credentials present): True"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - X Username: lockepacem
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Username: lockepacem"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - X Email: chris@whyland.net
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Email: chris@whyland.net"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - X Bookmarks URL: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Git Sync Enabled (config): False
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Git Sync Enabled (config): False"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Knowledge Base Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/kb-generated"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Data Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/data"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO -   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO:   - Log Dir: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - ------------------------------------
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: ------------------------------------"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Run mode: 'Full Pipeline'
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Run mode: 'Full Pipeline'"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Skipping phase 'GitSync' (Git Sync disabled in config).
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Skipping phase 'GitSync' (Git Sync disabled in config)."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Total phases planned for this run: 8. Phases: ['InputAcquisition', 'Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Total phases planned for this run: 8. Phases: ['InputAcquisition', 'Caching', 'Interpretation', 'Categorization', 'Generation', 'DBSync', 'Indexing', 'Finalizing']"}]
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"Loading State","current_item_id":"","eta":"--:--:--","total_phases":8,"current_phase_num":0,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.state - INFO - Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json...
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to load state from /home/nepenthe/git_repos/agents/knowledge-base_v2/data/processing_state.json..."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.state - INFO - Successfully loaded state. 52 unprocessed, 0 processed.
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Successfully loaded state. 52 unprocessed, 0 processed."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Loaded state. Total known items initially: 0. IDs: []
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Loaded state. Total known items initially: 0. IDs: []"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - --- Starting Overall Phase 1/8: InputAcquisition ---
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: --- Starting Overall Phase 1/8: InputAcquisition ---"}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.pipeline - INFO - Running Input Acquisition Phase...
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Running Input Acquisition Phase..."}]
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "progress_update" to all [/agent]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/agent,["progress_update",{"processed_count":0,"total_items":0,"current_phase":"InputAcquisition","current_item_id":"N/A","eta":"--:--:--","total_phases":8,"current_phase_num":1,"overall_items_processed":0,"overall_total_items":0}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Attempting to fetch new tweet sources from X Bookmarks...
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Attempting to fetch new tweet sources from X Bookmarks..."}]
+2025-05-14 10:32:16 - knowledge_base_agent.processing.fetcher - INFO - [Fetcher] Attempting to get bookmark URLs via Playwright client...
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: [Fetcher] Attempting to get bookmark URLs via Playwright client..."}]
+2025-05-14 10:32:16 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting to get bookmark URLs via Playwright (async)...
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to get bookmark URLs via Playwright (async)..."}]
+2025-05-14 10:32:16 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Navigating to X Bookmarks page: https://x.com/i/bookmarks/1866967731179794749
+2025-05-14 10:32:16 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:16 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Navigating to X Bookmarks page: https://x.com/i/bookmarks/1866967731179794749"}]
+2025-05-14 10:32:18 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Waiting for initial tweet content to load...
+2025-05-14 10:32:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:18 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Waiting for initial tweet content to load..."}]
+2025-05-14 10:32:23 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Received packet MESSAGE data 2/agent,["stop_agent"]
+2025-05-14 10:32:23 - socketio.server - INFO - received event "stop_agent" from LVB9SRoGQh0ISYntAAAB [/agent]
+2025-05-14 10:32:23 - knowledge_base_agent.web.sockets - INFO - Received stop_agent request.
+2025-05-14 10:32:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:23 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Received stop_agent request."}]
+2025-05-14 10:32:23 - __main__ - INFO - Attempting to stop agent pipeline thread...
+2025-05-14 10:32:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:23 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to stop agent pipeline thread..."}]
+2025-05-14 10:32:23 - knowledge_base_agent.processing.pipeline - WARNING - Stop requested for the current pipeline run.
+2025-05-14 10:32:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:23 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"WARNING","message":"WARNING: Stop requested for the current pipeline run."}]
+2025-05-14 10:32:23 - __main__ - INFO - Stop request sent to pipeline instance.
+2025-05-14 10:32:23 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:23 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Stop request sent to pipeline instance."}]
+2025-05-14 10:32:23 - socketio.server - INFO - emitting event "status_update" to all [/agent]
+2025-05-14 10:32:23 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"stopping","message":"Stop requested..."}]
+2025-05-14 10:32:24 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scrolling bookmarks page. Scroll pixels: 1000. Wait after scroll: 5000ms. No change tries: 3. Max scroll attempts: 100.
+2025-05-14 10:32:24 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:24 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scrolling bookmarks page. Scroll pixels: 1000. Wait after scroll: 5000ms. No change tries: 3. Max scroll attempts: 100."}]
+2025-05-14 10:32:24 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Scroll attempt 1/100. Found 12 new links this pass. Total unique raw: 12.
+2025-05-14 10:32:24 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 10:32:24 - engineio.server - INFO - kaBhsGPRlPF3AfjpAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Scroll attempt 1/100. Found 12 new links this pass. Total unique raw: 12."}]

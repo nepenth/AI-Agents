@@ -2,16 +2,18 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime # Added for last_generated_at
 
 import aiofiles.os
+import shutil # Ensure shutil is imported
 
 from ..config import Config
 from ..exceptions import GenerationError, FileOperationError
 from ..interfaces.ollama import OllamaClient
-from ..types import TweetData
-from ..utils import file_io, markdown as md_utils # Use markdown utils if needed later
-from .state import StateManager
+from ..types import TweetData, MediaItem # Assuming MediaItem is imported for _copy_media_item type hint
+from ..utils import file_io # Import file_io directly
+from .state import StateManager # Not used directly in generate_kb_item_for_tweet
 
 logger = logging.getLogger(__name__)
 
@@ -36,188 +38,195 @@ def _build_generation_prompt(tweet_data: TweetData) -> str:
 
     prompt_parts.append("\n## Combined Tweet Content (including thread)")
     prompt_parts.append("```text")
-    prompt_parts.append(tweet_data.combined_text or 'N/A')
+    prompt_parts.append(tweet_data.combined_text or 'N/A') # Use combined_text
     prompt_parts.append("```")
 
     if tweet_data.media_items:
         prompt_parts.append("\n## Associated Media Descriptions")
         has_desc = False
         for i, item in enumerate(tweet_data.media_items):
-            if item.description and item.description != "[Error generating description]":
-                 prompt_parts.append(f"### Media {i+1} ({item.type or 'unknown'}):")
+            if item.type == "image" and item.description and not item.interpret_error: # Check for interpret_error
+                 prompt_parts.append(f"### Media {i+1} ({item.type or 'unknown'}):") # Use item.type
                  prompt_parts.append(item.description)
                  has_desc = True
         if not has_desc:
-             prompt_parts.append("(No valid descriptions generated or no media)")
-
+             prompt_parts.append("(No valid descriptions generated or no applicable media)")
 
     prompt_parts.append("\n## Generated Knowledge Base Content")
     prompt_parts.append("Please generate the Markdown content for the README file based on the information above:")
     return "\n".join(prompt_parts)
 
 
-async def _copy_media_item(media_item, source_base_dir: Path, target_item_dir: Path) -> Optional[Path]:
-    """Copies a single media item, returns relative target path on success."""
+async def _copy_media_item_to_kb(
+    media_item: MediaItem, # Use MediaItem type hint
+    tweet_id: str, # For constructing source media path
+    config: Config,
+    target_item_dir: Path # Absolute path to .../kb-generated/main/sub/item
+) -> Optional[Path]:
+    """
+    Copies a single media item from media_cache to the KB item directory.
+    Returns relative target path (filename) on success for linking in README.
+    """
     if not media_item.local_path:
-        logger.warning(f"Cannot copy media, local_path is missing for {media_item.original_url}")
+        logger.warning(f"Tweet {tweet_id}, Media {media_item.original_url}: Cannot copy, local_path is missing.")
         return None
 
-    source_path = media_item.local_path
-    if not source_path.is_absolute():
-        source_path = (source_base_dir / source_path).resolve()
+    # Construct full source path
+    # Assuming media_item.local_path is stored by cacher as relative to "media_cache/tweet_id/"
+    # e.g., local_path = Path("image.jpg")
+    # If local_path is relative to "media_cache/" e.g. Path("tweet_id/image.jpg"), adjust accordingly.
+    media_cache_base_dir = config.data_dir / "media_cache"
+    source_path_in_tweet_cache = media_cache_base_dir / tweet_id / media_item.local_path
+    
+    # Resolve to ensure it's absolute and normalized
+    source_path_absolute = source_path_in_tweet_cache.resolve()
 
-    if not await aiofiles.os.path.exists(source_path):
-        logger.error(f"Media source file not found, cannot copy: {source_path}")
+
+    if not await aiofiles.os.path.exists(source_path_absolute):
+        logger.error(f"Tweet {tweet_id}, Media {media_item.original_url}: Source file not found at {source_path_absolute}, cannot copy.")
         return None
 
-    target_filename = source_path.name # Use the same filename
-    target_path = target_item_dir / target_filename
+    target_filename = media_item.local_path.name # Use the original filename from the media item's local_path
+    target_path_absolute = target_item_dir / target_filename
 
     try:
-        logger.debug(f"Copying media file {source_path} to {target_path}")
-        # Use asyncio.to_thread for shutil.copy2 if preserving metadata is crucial
-        # For simple copy, aiofiles.os.copyfile might suffice (check compatibility)
-        # Let's try wrapping os.link or shutil.copy2 for better performance/metadata
+        logger.debug(f"Copying media file {source_path_absolute} to {target_path_absolute}")
+        await file_io.ensure_dir_async(target_item_dir) # Ensure target item dir exists
+
         try:
-             # Try hard link first (fastest, same filesystem only)
-             await asyncio.to_thread(os.link, source_path, target_path)
-             logger.debug(f"Hard linked media {target_filename}")
-        except (OSError, AttributeError): # OSError (cross-device link), AttributeError (Windows?)
-             # Fallback to copy
-             await asyncio.to_thread(shutil.copy2, source_path, target_path) # copy2 preserves metadata
-             logger.debug(f"Copied media {target_filename}")
+             await asyncio.to_thread(os.link, source_path_absolute, target_path_absolute)
+             logger.debug(f"Hard linked media {target_filename} for tweet {tweet_id}")
+        except (OSError, AttributeError):
+             await asyncio.to_thread(shutil.copy2, source_path_absolute, target_path_absolute)
+             logger.debug(f"Copied media {target_filename} for tweet {tweet_id}")
 
-        # Return the path relative to the KB base directory for storage/linking
-        # Assuming target_item_dir is like .../kb-generated/main/sub/item
-        # We want main/sub/item/filename
-        # kb_base_dir = target_item_dir.parent.parent.parent # Risky assumption
-        # A better way: get kb_base_dir from config
-        # relative_target_path = target_path.relative_to(config.knowledge_base_dir)
-        # For now, just return the filename, linking can handle directory structure
-        return Path(target_filename) # Return just the filename for simplicity in README links
+        return Path(target_filename) # Return just the filename for linking
 
-    except (IOError, OSError, FileOperationError) as e:
-        logger.error(f"Failed to copy media file {source_path} to {target_path}: {e}")
-        return None
     except Exception as e:
-        logger.error(f"Unexpected error copying media file {source_path}: {e}", exc_info=True)
+        logger.error(f"Unexpected error copying media file {source_path_absolute} for tweet {tweet_id}: {e}", exc_info=True)
         return None
 
-import shutil # Import shutil for copy2 fallback
-
-async def generate_kb_item(
+async def generate_kb_item_for_tweet(
     tweet_data: TweetData,
     ollama_client: OllamaClient,
-    config: Config,
-    state_manager: StateManager
+    config: Config
 ):
     """
     Generates the KB item content (README.md), creates the directory structure,
-    and copies associated media files.
-
-    Updates the TweetData object and saves state via StateManager.
+    and copies associated media files. Updates TweetData in place.
     """
     tweet_id = tweet_data.tweet_id
     if not all([tweet_data.main_category, tweet_data.sub_category, tweet_data.item_name]):
-         logger.warning(f"Skipping KB generation for {tweet_id}: Missing category/item name.")
-         tweet_data.mark_failed("Generator", "Missing category/item name.")
-         state_manager.update_tweet_data(tweet_id, tweet_data)
-         return
+        logger.warning(f"Skipping KB generation for {tweet_id}: Missing category/item name.")
+        tweet_data.error_message = "Missing category/item name for generation."
+        tweet_data.failed_phase = "Generation"
+        tweet_data.kb_item_created = False
+        return
 
     logger.info(f"Generating KB item for tweet {tweet_id}: "
                 f"{tweet_data.main_category}/{tweet_data.sub_category}/{tweet_data.item_name}")
 
-    # Define paths
     item_dir_relative = Path(tweet_data.main_category) / tweet_data.sub_category / tweet_data.item_name
     item_dir_absolute = config.knowledge_base_dir.resolve() / item_dir_relative
     readme_path = item_dir_absolute / "README.md"
-    media_cache_dir = config.data_dir / "media_cache"
 
-    # IMPORTANT: Media cache dir for source is now per-tweet
-    media_source_base_dir = media_cache_dir / tweet_id
-
-    generated_content = ""
-    copied_media_paths = [] # Store relative paths (filenames) of copied media
+    generated_readme_content = ""
+    copied_media_filenames: List[Path] = []
 
     try:
-        # 1. Ensure Directory Exists
         await file_io.ensure_dir_async(item_dir_absolute)
-
-        # 2. Generate README Content via LLM
         prompt = _build_generation_prompt(tweet_data)
         logger.debug(f"Generating README content for {tweet_id}...")
-        response = await ollama_client.generate(
+        
+        response = await ollama_client.generate( # Assuming this returns the dict directly
             prompt=prompt,
             system_prompt=GENERATION_SYSTEM_PROMPT,
-            model=config.text_model, # Use primary text model
+            model=config.text_model,
             stream=False
         )
-        if not isinstance(response, dict) or 'response' not in response:
-             raise GenerationError(tweet_id, f"Unexpected response structure from Ollama for generation: {response}")
+        # If ollama_client.generate returns raw response, adapt as in categorizer
+        # For now, assuming 'response' key holds the text if it's a dict, or it's the text itself
+        if isinstance(response, dict) and 'response' in response:
+            generated_readme_content = response['response'].strip()
+        elif isinstance(response, str): # If client directly returns string
+            generated_readme_content = response.strip()
+        else:
+            raise GenerationError(tweet_id, f"Unexpected response structure from Ollama for generation: {response}")
 
-        generated_content = response['response'].strip()
-        if not generated_content:
+        if not generated_readme_content:
              raise GenerationError(tweet_id, "LLM returned empty content for README.")
+        logger.info(f"README content generated for {tweet_id} (Length: {len(generated_readme_content)}).")
 
-        logger.info(f"README content generated for {tweet_id} (Length: {len(generated_content)}).")
-
-
-        # 3. Copy Media Files
         media_copy_tasks = []
         for item in tweet_data.media_items:
-            if item.local_path: # Only copy if it was successfully cached
+            if item.local_path and await aiofiles.os.path.exists(config.data_dir / "media_cache" / tweet_id / item.local_path): # Check existence before scheduling
                 media_copy_tasks.append(
-                     _copy_media_item(item, media_source_base_dir, item_dir_absolute)
+                     _copy_media_item_to_kb(item, tweet_id, config, item_dir_absolute)
                 )
-
+        
         if media_copy_tasks:
             logger.debug(f"Copying {len(media_copy_tasks)} media items for {tweet_id}...")
             results = await asyncio.gather(*media_copy_tasks, return_exceptions=True)
             for result in results:
                  if isinstance(result, Path):
-                      copied_media_paths.append(result) # Store relative path (filename)
-                 elif isinstance(result, Exception):
-                      logger.error(f"Error gathering media copy results for {tweet_id}: {result}")
-                 # else: None was returned on copy failure, logged in _copy_media_item
-
-
-        # 4. Append Media Links to README Content
-        if copied_media_paths:
-            generated_content += "\n\n## Media\n"
-            for relative_media_path in copied_media_paths:
-                 # Assume filename is sufficient for relative linking within README
-                 filename = relative_media_path.name
-                 if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-                      generated_content += f"\n![{filename}](./{filename})"
-                 else: # Basic link for other types (videos, etc.)
-                      generated_content += f"\n[{filename}](./{filename})"
-
-
-        # 5. Write README.md
-        logger.debug(f"Writing README.md to {readme_path}")
-        await file_io.write_text_atomic_async(readme_path, generated_content)
-
-
-        # 6. Update TweetData state
-        tweet_data.generated_content = generated_content # Store generated content? Optional.
-        tweet_data.kb_item_path = item_dir_relative # Store relative path
-        tweet_data.kb_media_paths = copied_media_paths # Store relative paths (filenames)
+                      copied_media_filenames.append(result)
+                 elif result is not None: # Log errors from gather if they are not None
+                      logger.error(f"Error during media copy for {tweet_id}: {result}")
+        
+        if copied_media_filenames:
+            generated_readme_content += "\n\n## Media\n"
+            for media_filename in copied_media_filenames:
+                 link_name = media_filename.name
+                 if link_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                      generated_readme_content += f"\n![{link_name}](./{link_name})"
+                 else:
+                      generated_readme_content += f"\n[{link_name}](./{link_name})"
+        
+        await file_io.write_text_atomic_async(readme_path, generated_readme_content)
+        
+        tweet_data.generated_content = generated_readme_content
+        tweet_data.kb_item_path = item_dir_relative
+        tweet_data.kb_media_paths = [item_dir_relative / fname for fname in copied_media_filenames]
         tweet_data.kb_item_created = True
-        # Clear previous error if reprocessing succeeded
-        if tweet_data.failed_phase == "Generator":
-            tweet_data.error_message = None
-            tweet_data.failed_phase = None
+        tweet_data.error_message = None
+        tweet_data.failed_phase = None
         logger.info(f"KB item generation successful for tweet {tweet_id} at {item_dir_relative}")
 
-
     except Exception as e:
-        logger.error(f"Error during KB item generation phase for tweet {tweet_id}: {e}", exc_info=True)
+        logger.error(f"Error during KB item generation for tweet {tweet_id}: {e}", exc_info=True)
         tweet_data.kb_item_created = False
-        if not isinstance(e, GenerationError):
-            tweet_data.mark_failed("Generator", e)
-        else:
-             tweet_data.mark_failed("Generator", str(e))
-        # Don't re-raise
+        tweet_data.error_message = f"Generation error: {e}"
+        tweet_data.failed_phase = "Generation"
 
-    finally:
-        state_manager.update_tweet_data(tweet_id, tweet_data)
+async def run_generate_phase(
+    tweet_id: str,
+    tweet_data: TweetData,
+    config: Config,
+    ollama_client: OllamaClient,
+    state_manager: StateManager, # Now used for should_process check
+    force_regenerate: bool = False,
+    **kwargs
+):
+    """
+    Phase function for generating KB item for a single tweet.
+    Called by the AgentPipeline.
+    """
+    logger.debug(f"Running generate phase for tweet ID: {tweet_id}. Force regenerate: {force_regenerate}")
+
+    if not tweet_data.cache_complete or \
+       not tweet_data.media_processed or \
+       not tweet_data.categories_processed:
+        logger.warning(f"Tweet {tweet_id}: Skipping generation, prerequisite phases not complete.")
+        return
+
+    should_process = state_manager.should_process_phase(tweet_id, "Generation", force_regenerate)
+    if not should_process:
+        logger.info(f"Tweet {tweet_id}: Skipping generation phase based on state and preferences.")
+        return
+
+    await generate_kb_item_for_tweet(
+        tweet_data=tweet_data,
+        ollama_client=ollama_client,
+        config=config
+    )
+    # Pipeline saves state

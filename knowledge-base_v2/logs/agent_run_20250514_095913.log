@@ -1,0 +1,102 @@
+2025-05-14 09:59:13 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250514_095913.log
+2025-05-14 09:59:13 - root - INFO - Logging configured for target 'web' with level INFO. Log file: /home/nepenthe/git_repos/agents/knowledge-base_v2/logs/agent_run_20250514_095913.log
+2025-05-14 09:59:13 - __main__ - INFO - Configuration loaded successfully for web application.
+2025-05-14 09:59:13 - engineio.server - INFO - Server initialized for threading.
+2025-05-14 09:59:13 - __main__ - INFO - Initializing database tables...
+2025-05-14 09:59:13 - __main__ - INFO - Database tables checked/created.
+2025-05-14 09:59:13 - __main__ - INFO - Registered Flask blueprints.
+2025-05-14 09:59:13 - knowledge_base_agent.web.sockets - INFO - SocketIO handlers registered for /agent and /logs namespaces.
+2025-05-14 09:59:13 - __main__ - INFO - Registered SocketIO handlers.
+2025-05-14 09:59:13 - __main__ - INFO - WebSocket log handler configured with emitter.
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:13 - __main__ - INFO - Sending direct TEST message to /logs namespace...
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:13 - __main__ - INFO - Direct TEST message emitted.
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:13 - __main__ - INFO - Attempting to start the web server on port 5001...
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:13 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.10.4:5001
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:13 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-05-14 09:59:13 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 09:59:15] "GET / HTTP/1.1" 200 -
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 09:59:15] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-05-14 09:59:15 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 09:59:15] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet OPEN data {'sid': 'eBbd2ANJvXo2BWEaAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+2025-05-14 09:59:15 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 09:59:15] "GET /socket.io/?EIO=4&transport=polling&t=0bfmjskb HTTP/1.1" 200 -
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Received packet MESSAGE data 0/agent,
+2025-05-14 09:59:15 - knowledge_base_agent.web.sockets - INFO - Client connected to /agent namespace. Auth: None
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Received request to upgrade to websocket
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "status_update" to -YO9hosE_PEq5vnFAAAB [/agent]
+2025-05-14 09:59:15 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 09:59:15] "GET /socket.io/?EIO=4&transport=polling&t=0bfmr21u&sid=eBbd2ANJvXo2BWEaAAAA HTTP/1.1" 200 -
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 0/agent,{"sid":"-YO9hosE_PEq5vnFAAAB"}
+2025-05-14 09:59:15 - werkzeug - INFO - 10.0.11.66 - - [14/May/2025 09:59:15] "POST /socket.io/?EIO=4&transport=polling&t=0bfmq1la&sid=eBbd2ANJvXo2BWEaAAAA HTTP/1.1" 200 -
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Upgrade to websocket successful
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Received packet MESSAGE data 0/logs,
+2025-05-14 09:59:15 - knowledge_base_agent.web.sockets - INFO - Client connected to /logs namespace. Auth: None
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Client connected to /logs namespace. Auth: None"}]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 0/logs,{"sid":"EZ-OCG9OGXuuooGgAAAC"}
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Received packet MESSAGE data 2/agent,["get_status"]
+2025-05-14 09:59:15 - socketio.server - INFO - received event "get_status" from -YO9hosE_PEq5vnFAAAB [/agent]
+2025-05-14 09:59:15 - socketio.server - INFO - emitting event "status_update" to -YO9hosE_PEq5vnFAAAB [/agent]
+2025-05-14 09:59:15 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/agent,["status_update",{"status":"idle"}]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Received packet MESSAGE data 2/agent,["start_agent",{"run_only_phase":"Caching","skip_fetch":false,"skip_git":false,"force_recache":false,"force_reinterpret":false,"force_recategorize":false,"force_regenerate":false}]
+2025-05-14 09:59:18 - socketio.server - INFO - received event "start_agent" from -YO9hosE_PEq5vnFAAAB [/agent]
+2025-05-14 09:59:18 - knowledge_base_agent.web.sockets - INFO - Received start_agent request. Data: {'run_only_phase': 'Caching', 'skip_fetch': False, 'skip_git': False, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Received start_agent request. Data: {'run_only_phase': 'Caching', 'skip_fetch': False, 'skip_git': False, 'force_recache': False, 'force_reinterpret': False, 'force_recategorize': False, 'force_regenerate': False}"}]
+2025-05-14 09:59:18 - __main__ - INFO - Attempting to start agent pipeline thread...
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting to start agent pipeline thread..."}]
+2025-05-14 09:59:18 - __main__ - INFO - Setting up background thread for pipeline...
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Setting up background thread for pipeline..."}]
+2025-05-14 09:59:18 - __main__ - INFO - Pipeline background thread started.
+2025-05-14 09:59:18 - __main__ - INFO - Pipeline background thread started successfully.
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started."}]
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - __main__ - INFO - (Web Thread) Initializing twscrape API and account pool...
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Pipeline background thread started successfully."}]
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Initializing twscrape API and account pool..."}]
+2025-05-14 09:59:18 - __main__ - INFO - (Web Thread) twscrape API and pool initialized, accounts logged in.
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) twscrape API and pool initialized, accounts logged in."}]
+2025-05-14 09:59:18 - knowledge_base_agent.interfaces.http_client - INFO - HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: HttpClientManager initialized. Base URL: 'None', Timeout: 10.0s Read"}]
+2025-05-14 09:59:18 - knowledge_base_agent.interfaces.ollama - INFO - OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: OllamaClient initialized for URL: http://whyland-ai.nakedsun.xyz:11434/"}]
+2025-05-14 09:59:18 - __main__ - INFO - (Web Thread) X credentials and bookmarks URL present, initializing Playwright client...
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) X credentials and bookmarks URL present, initializing Playwright client..."}]
+2025-05-14 09:59:18 - knowledge_base_agent.interfaces.playwright_client - INFO - PlaywrightClient (Async API) initialized. Headless: True
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: PlaywrightClient (Async API) initialized. Headless: True"}]
+2025-05-14 09:59:18 - __main__ - INFO - (Web Thread) Attempting initial Playwright login...
+2025-05-14 09:59:18 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:18 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Web Thread) Attempting initial Playwright login..."}]
+2025-05-14 09:59:19 - knowledge_base_agent.interfaces.playwright_client - INFO - Playwright async instance and browser initialized.
+2025-05-14 09:59:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:19 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Playwright async instance and browser initialized."}]
+2025-05-14 09:59:19 - knowledge_base_agent.interfaces.playwright_client - INFO - Attempting X login via Playwright (async)...
+2025-05-14 09:59:19 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:19 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: Attempting X login via Playwright (async)..."}]
+2025-05-14 09:59:22 - knowledge_base_agent.interfaces.playwright_client - INFO - (Async) Navigating to X login page: https://x.com/login
+2025-05-14 09:59:22 - socketio.server - INFO - emitting event "log_message" to all [/logs]
+2025-05-14 09:59:22 - engineio.server - INFO - eBbd2ANJvXo2BWEaAAAA: Sending packet MESSAGE data 2/logs,["log_message",{"level":"INFO","message":"INFO: (Async) Navigating to X login page: https://x.com/login"}]

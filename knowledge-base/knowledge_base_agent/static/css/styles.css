@@ -1,138 +1,532 @@
+html[data-bs-theme="light"] {
+    /* Light theme specific variables if needed */
+}
+
+html[data-bs-theme="dark"] {
+    /* Dark theme specific variables if needed */
+    --bs-body-bg: #212529;
+    --bs-body-color: #f8f9fa;
+    --bs-border-color: #495057;
+}
+
 body {
-    background-color: #f8f9fa;
-    color: #212529;
+    /* background-color: #f8f9fa; Default BS light */
+    /* color: #212529; Default BS light */
     height: 100vh;
-    overflow-y: auto;
+    overflow-y: hidden; /* Prevent double scrollbars, main/sidebar handle their own */
     margin: 0;
     padding: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
-body.dark-mode {
-    background-color: #212529;
-    color: #f8f9fa;
+
+/* Navbar adjustments */
+.navbar {
+    /*box-shadow: 0 2px 4px rgba(0,0,0,.1); Optional: adds a subtle shadow */
+    /* The bg-primary and navbar-dark classes will handle most of this already */
 }
-.header {
-    background-color: #007bff;
-    color: white;
-    padding: 15px 20px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    border-bottom: 1px solid #0069d9;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    z-index: 1000;
+
+html[data-bs-theme="dark"] .navbar-brand,
+html[data-bs-theme="dark"] .navbar-nav .nav-link {
+    color: #f8f9fa; /* Ensure text is light in dark mode navbar */
 }
-.dark-mode .header {
-    background-color: #0069d9;
-    border-bottom: 1px solid #004d99;
+
+html[data-bs-theme="dark"] .navbar {
+    /* border-bottom: 1px solid #495057; Optional: if you want a border */
 }
+
 .container-custom {
-    margin-top: 70px;
-    height: calc(100vh - 70px);
+    margin-top: 56px; /* Standard navbar height */
+    height: calc(100vh - 56px);
     display: flex;
     flex-direction: row;
 }
+
 .sidebar {
-    width: 250px;
-    height: calc(100vh - 70px);
+    width: 280px; /* Slightly wider sidebar */
+    height: calc(100vh - 56px);
     overflow-y: auto;
-    background-color: #ffffff;
-    border-right: 1px solid #dee2e6;
-    padding: 15px 0;
+    /* background-color: #ffffff; BS default */
+    border-right: 1px solid var(--bs-border-color-translucent, #dee2e6);
+    padding: 1rem;
     position: fixed;
     left: 0;
-    top: 70px;
+    top: 56px; /* Match navbar height */
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
-.dark-mode .sidebar {
-    background-color: #2c3034;
-    border-right: 1px solid #495057;
+
+html[data-bs-theme="dark"] .sidebar {
+    background-color: #2c3034; /* Darker sidebar bg */
+    border-right: 1px solid var(--bs-border-color, #495057);
 }
+
 .main-content {
-    margin-left: 250px;
-    height: calc(100vh - 70px);
+    margin-left: 280px; /* Match wider sidebar */
+    height: calc(100vh - 56px);
     overflow-y: auto;
-    padding: 20px;
-    width: calc(100% - 250px);
+    padding: 1rem; /* Reduced padding */
+    width: calc(100% - 280px);
 }
-.dark-mode .list-group-item {
-    background-color: #343a40;
-    color: #f8f9fa;
-    border-color: #495057;
+
+/* General card styling for dark mode (if not covered by BS defaults) */
+html[data-bs-theme="dark"] .card {
+    background-color: #2c3034; /* Dark card background */
+    border-color: var(--bs-border-color, #495057);
 }
-.dark-mode .list-group-item:hover {
-    background-color: #454d55;
+
+html[data-bs-theme="dark"] .card-header,
+html[data-bs-theme="dark"] .card-footer {
+    background-color: #343a40; /* Slightly different for headers/footers */
+    border-color: var(--bs-border-color, #495057);
 }
-.category-item, .nav-link-item {
-    cursor: pointer;
+
+html[data-bs-theme="dark"] .list-group-item {
+    background-color: transparent; /* Let card bg show through or set specific color */
+    border-color: var(--bs-border-color, #495057);
+    color: var(--bs-body-color, #f8f9fa);
+}
+
+html[data-bs-theme="dark"] .list-group-item-action:hover,
+html[data-bs-theme="dark"] .list-group-item-action:focus {
+    background-color: #3e444a; /* Darker hover for list items */
+}
+
+/* Agent Execution Plan Dark Mode Styles */
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item {
+    background-color: #2c3034; /* Base for phase items */
+    border-color: #454a4f;
+}
+
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.status-pending,
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-pending {
+    /* Default look in dark mode, maybe slightly different text color if needed */
+    color: #adb5bd;
+}
+
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.status-running,
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-running {
+    background-color: #0d6efd; /* Bootstrap primary */
+    color: white;
     font-weight: bold;
 }
-.subcategory-item {
-    margin-left: 20px;
-    cursor: pointer;
+
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.status-completed .phase-name,
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-completed .phase-name {
+    text-decoration: line-through;
+    color: #6c757d; /* Muted color for completed names */
 }
-.kb-item {
-    margin-left: 40px;
+
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.status-completed,
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-completed {
+    background-color: #1c3c2c; /* Dark green for completed */
+    color: #a3cfbb;
 }
-.dark-mode a {
-    color: #4da6ff;
+
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.status-error,
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-error {
+    background-color: #5e1a1a; /* Dark red for error */
+    color: #f5c6cb;
 }
-.dark-mode a:hover {
-    color: #80bfff;
+
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.status-skipped,
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-skipped {
+    background-color: #3e444a;
+    opacity: 0.7;
+    color: #adb5bd;
 }
-.control-card, .log-card, .welcome-card, .content-card {
-    background-color: #ffffff;
-    border: 1px solid #dee2e6;
-}
-.dark-mode .control-card, .dark-mode .log-card, .dark-mode .welcome-card, .dark-mode .content-card {
+
+html[data-bs-theme="dark"] #current-phase-details {
     background-color: #343a40;
+    color: #f8f9fa;
     border: 1px solid #495057;
 }
-.log-area {
-    height: 300px;
-    overflow-y: auto;
-    background-color: #e9ecef;
-    padding: 10px;
-    border-radius: 5px;
+
+html[data-bs-theme="dark"] .optional-phase-info {
+    color: #adb5bd; /* Lighter text for optional info in dark mode */
 }
-.dark-mode .log-area {
+
+/* Live Logs Dark Mode */
+html[data-bs-theme="dark"] .live-logs-card .list-group-item {
+    /* Inherits from general .list-group-item, can be more specific if needed */
+}
+
+html[data-bs-theme="dark"] .log-entry .text-primary { color: var(--bs-primary-text-emphasis) !important; }
+html[data-bs-theme="dark"] .log-entry .text-muted   { color: var(--bs-secondary-text-emphasis) !important; }
+html[data-bs-theme="dark"] .log-entry .text-warning { color: var(--bs-warning-text-emphasis) !important; }
+html[data-bs-theme="dark"] .log-entry .text-danger  { color: var(--bs-danger-text-emphasis) !important; }
+
+/* Adjustments from old .dark-mode body specific selectors to data-bs-theme */
+html[data-bs-theme="dark"] a {
+    color: #69a9ff; /* Lighter blue for links in dark mode */
+}
+
+html[data-bs-theme="dark"] a:hover {
+    color: #93c2ff;
+}
+
+html[data-bs-theme="dark"] .form-control,
+html[data-bs-theme="dark"] .form-select {
     background-color: #2c3034;
+    color: #f8f9fa;
+    border-color: #495057;
 }
-.btn-custom {
-    background-color: #007bff;
-    color: white;
-    border: none;
+
+html[data-bs-theme="dark"] .form-control::placeholder {
+    color: #adb5bd;
 }
-.btn-custom:hover {
-    background-color: #0056b3;
-    color: white;
+
+html[data-bs-theme="dark"] .btn-outline-secondary {
+    color: #adb5bd;
+    border-color: #adb5bd;
 }
-.dark-mode .btn-custom {
-    background-color: #0069d9;
+html[data-bs-theme="dark"] .btn-outline-secondary:hover {
+    color: #fff;
+    background-color: #5c636a;
+    border-color: #5c636a;
 }
-.dark-mode .btn-custom:hover {
-    background-color: #004d99;
+
+/* Ensure fixed-height-log-area from index.html has appropriate dark mode styling if needed */
+html[data-bs-theme="dark"] .fixed-height-log-area {
+    background-color: #2c3034; /* Or slightly different from card body */
+    border-color: #495057 !important; /* Override if it had a light border */
 }
-.progress {
-    height: 10px;
-}
-.dark-mode .progress {
-    background-color: #454d55;
-}
-.dark-mode .progress-bar {
-    background-color: #007bff;
-}
-.search-bar {
-    margin-bottom: 15px;
-    padding: 0 15px;
-}
-.dark-mode .search-bar input {
+
+/* Remove old style that is now handled by Bootstrap dark theme */
+/* body.dark-mode {\n    background-color: #212529;\n    color: #f8f9fa;\n} */
+
+/* Consolidate dark mode sidebar from previous file content */
+/* html[data-bs-theme=\"dark\"] .sidebar { ... } already covered above */
+
+/* General list group item styling for dark mode from previous file */
+/* html[data-bs-theme=\"dark\"] .list-group-item { ... } already covered above */
+
+/* Dark mode search bar */
+html[data-bs-theme="dark"] .search-bar input {
     background-color: #343a40;
     color: #f8f9fa;
     border-color: #495057;
 }
-.dark-mode .search-bar input::placeholder {
+
+html[data-bs-theme="dark"] .search-bar input::placeholder {
     color: #adb5bd;
+}
+
+/* Dark mode for info icons in control card */
+html[data-bs-theme="dark"] .control-card .bi-info-circle {
+    color: #adb5bd;
+}
+
+/* Original #agentPhasesList styles from previous file */
+/* These should be reviewed and merged/replaced by the new status-specific styles */
+/* For example, the opacity and background-color on line 164 */
+
+/* The following are from the provided existing styles.css */
+/* keeping them for reference but many are superseded or integrated above */
+.agent-phases-card .card-header {
+    /* background-color: #f8f9fa; */ /* Handled by general card dark mode */
+    border-bottom: 1px solid var(--bs-border-color-translucent, #dee2e6);
+}
+html[data-bs-theme="dark"] .agent-phases-card .card-header {
+    background-color: #343a40;
+}
+
+.agent-phases-card .card-title {
+    /* color: #343a40; */ /* Handled by general card dark mode text color */
+}
+
+#agentPhasesList .list-group-item {
+    display: flex;
+    align-items: center;
+    padding: 0.65rem 1.15rem;
+    /* border-color: #e9ecef; */ /* Handled by general list-group-item dark mode */
+    transition: background-color 0.3s ease, opacity 0.3s ease, color 0.3s ease;
+    /* opacity: 0.45; */ /* Initial opacity can be handled by status-pending */
+    /* background-color: #f8f9fa; */ /* Handled by general list-group-item dark mode */
+    border-left: 4px solid transparent;
+}
+html[data-bs-theme="light"] #agentPhasesList .list-group-item.status-pending {
+    opacity: 0.6;
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-pending {
+    opacity: 0.7;
+}
+
+/* Active but not running/completed/error state, for pending optional steps */
+#agentPhasesList .phase-item.phase-active:not(.status-running):not(.status-completed):not(.status-error),
+#agentPhasesList .sub-phase-item.phase-active:not(.status-running):not(.status-completed):not(.status-error) {
+    opacity: 1;
+    background-color: var(--bs-tertiary-bg); /* Bootstrap var for subtle active */
+    font-weight: 500;
+    color: var(--bs-emphasis-color);
+    border-left-color: var(--bs-primary);
+}
+html[data-bs-theme="dark"] #agentPhasesList .phase-item.phase-active:not(.status-running):not(.status-completed):not(.status-error),html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.phase-active:not(.status-running):not(.status-completed):not(.status-error) {
+    background-color: #3e444a;
+    border-left-color: var(--bs-primary-text-emphasis);
+}
+
+#agentPhasesList .phase-icon {
+    margin-right: 0.85rem;
+    font-size: 1.1rem;
+    width: 22px;
+    text-align: center;
+}
+
+#agentPhasesList .phase-name {
+    flex-grow: 1;
+    margin-right: 1rem;
+}
+
+#agentPhasesList .phase-status {
+    margin-left: auto; /* Push to the right */
+    font-style: italic;
+    color: #6c757d; /* Default text color for status messages */
+    white-space: normal; /* Allow text to wrap */
+    text-align: right; /* Align wrapped text to the right */
+    max-width: 65%; /* Adjust as needed, prevents overly wide status */
+    overflow-wrap: break-word; /* Break long words */
+    font-size: 0.9em; /* Slightly smaller for status messages */
+    line-height: 1.4;
+}
+html[data-bs-theme="dark"] #agentPhasesList .phase-status {
+    color: #adb5bd; /* Lighter text for dark mode status */
+}
+
+#agentPhasesList .sub-phases {
+    padding-left: 20px; /* This seems to be from index.html style block */
+    margin-left: calc(0.85rem + 22px); /* Align with phase name, not icon */
+    border-left: 1px dashed var(--bs-border-color-translucent, #dee2e6);
+}
+html[data-bs-theme="dark"] #agentPhasesList .sub-phases {
+     border-left-color: #495057;
+}
+
+#agentPhasesList .sub-phase-item {
+    font-size: 0.9em; /* This seems to be from index.html style block */
+    padding-left: 0.75rem;
+}
+
+/* Remove old .header specific styles */
+.header {
+    display: none; /* Effectively remove the old header */
+}
+
+.dark-mode .header {
+    display: none;
+}
+
+.agent-phases-card .card-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.fixed-height-log-area {
+    max-height: calc(400px - 58px); /* Account for card header/footer if log area is inside a card with fixed height */
+    overflow-y: auto;
+}
+
+.phase-hidden-by-mode {
+    display: none !important;
+}
+
+.control-card.mb-4 {
+    margin-bottom: 1rem !important; /* Reduced margin */
+}
+
+.agent-phases-card .card-body, .live-logs-card .card-body {
+    padding: 0.75rem; /* Reduced padding for card bodies */
+}
+
+#current-phase-details {
+    padding: 0.75rem 1rem; /* Original padding: 0.5rem 1rem; */
+    margin-top: 0.5rem; /* Original margin-top: 1rem; */
+    border: 1px solid var(--bs-border-color-translucent, #dee2e6);
+    border-radius: var(--bs-border-radius, 0.375rem); /* Use Bootstrap variable */
+    background-color: var(--bs-tertiary-bg, #f8f9fa); /* Use Bootstrap subtle bg */
+    font-size: 0.9em; /* Slightly smaller font for details */
+    line-height: 1.5; /* Improved line height for readability */
+    word-wrap: break-word; /* Ensure long words wrap */
+    min-height: 42px; /* Ensure it has some visible height even when idle */
+    display: flex; 
+    align-items: center; /* Vertically center text if single line */
+    /* Removed color as it should inherit or be set by dark mode rule */
+}
+
+html[data-bs-theme="dark"] #current-phase-details {
+    background-color: #2c3034; /* Consistent dark card body */
+    color: var(--bs-body-color, #f8f9fa);
+    border-color: var(--bs-border-color, #495057);
+}
+
+/* GPU Status Card Specific Styling */
+.gpu-status-card .card-body {
+    padding: 0.75rem; /* Reduced padding for GPU card body */
+}
+
+.gpu-status-card .card-header h5 {
+    font-size: 1.1rem; /* Slightly smaller GPU card header */
+    margin-bottom: 0; /* Ensure no extra margin */
+}
+
+.gpu-card-item .card-header {
+    padding: 0.5rem 0.75rem; /* Compact header for individual GPU cards */
+}
+
+.gpu-card-item .card-body {
+    padding: 0.75rem; /* Compact body for individual GPU cards */
+    font-size: 0.875rem; /* Slightly smaller base font for GPU card details */
+}
+
+.gpu-card-item .progress {
+    height: 22px; /* Custom height for progress bars */
+    font-size: 0.75rem; /* Font size for text inside progress bar */
+    border: 1px solid var(--bs-border-color-translucent);
+}
+
+html[data-bs-theme="dark"] .gpu-card-item .progress {
+    border: 1px solid var(--bs-border-color);
+}
+
+.gpu-card-item .progress-bar {
+    color: var(--bs-dark); /* Ensure text is visible on lighter progress bars */
+    font-weight: 500;
+}
+
+html[data-bs-theme="dark"] .gpu-card-item .progress-bar {
+    color: var(--bs-light); /* Ensure text is visible on darker progress bars in dark mode */
+}
+
+/* Specific colors for progress bar text on certain backgrounds if needed */
+.gpu-card-item .progress-bar.bg-warning {
+     color: var(--bs-dark); /* Dark text on yellow */
+}
+html[data-bs-theme="dark"] .gpu-card-item .progress-bar.bg-warning {
+     color: var(--bs-dark); /* Dark text on yellow in dark mode too */
+}
+
+.gpu-card-item small.text-muted {
+    font-size: 0.8em; /* Smaller label font for GPU stats */
+    display: block; /* Make sure it takes full width for alignment */
+    margin-bottom: 0.15rem;
+}
+
+.gpu-card-item .fw-bold {
+    font-size: 0.95em; /* Font size for stat values */
+    line-height: 1.2;
+}
+
+/* Responsive adjustments for GPU cards themselves */
+/* .gpu-status-card .col-md-3 .card, .gpu-status-card .col-md-6 .card were old, direct children. Now using .gpu-card-item */
+.gpu-status-card .gpu-card-item {
+    margin-bottom: 1rem !important; /* Ensure spacing between GPU cards */
+}
+
+/* New styles for pre-run and during-run status visualization */
+#agentPhasesList .list-group-item.status-will-run {
+    opacity: 1;
+    font-weight: 500;
+    /* background-color: #e9f5ff; /* Light blueish tint for light mode */
+    border-left-color: var(--bs-info); /* Bootstrap info color for "will run" */
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-will-run {
+    /* background-color: #2a3b4a; /* Darker blueish tint for dark mode */
+    border-left-color: var(--bs-info); /* Bootstrap info color for "will run" */
+    color: var(--bs-light);
+}
+
+#agentPhasesList .list-group-item.status-skipped {
+    opacity: 0.6;
+    text-decoration: line-through;
+    /* background-color: #f8f9fa; /* Light grey for light mode */
+    border-left-color: var(--bs-secondary); /* Grey border for skipped */
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-skipped {
+    opacity: 0.5;
+    /* background-color: #343a40; /* Dark grey for dark mode */
+    border-left-color: var(--bs-secondary);
+    color: var(--bs-gray-500);
+}
+
+#agentPhasesList .list-group-item.status-active {
+    opacity: 1;
+    font-weight: bold;
+    background-color: var(--bs-primary-bg-subtle);
+    border-left-color: var(--bs-primary);
+    color: var(--bs-primary-text-emphasis);
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-active {
+    background-color: var(--bs-primary-bg-subtle);
+    border-left-color: var(--bs-primary);
+    color: var(--bs-primary-text-emphasis);
+}
+
+#agentPhasesList .list-group-item.status-completed {
+    opacity: 0.8;
+    /* background-color: #d1e7dd; /* Light green for light mode */
+    border-left-color: var(--bs-success);
+}
+#agentPhasesList .list-group-item.status-completed .phase-name {
+    text-decoration: line-through;
+    color: var(--bs-secondary-color); 
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-completed {
+    /* background-color: #1c3c2c; /* Dark green for dark mode */
+    border-left-color: var(--bs-success);
+    color: var(--bs-success-text-emphasis);
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-completed .phase-name {
+    color: var(--bs-gray-500);
+}
+
+#agentPhasesList .list-group-item.status-error {
+    opacity: 1;
+    background-color: var(--bs-danger-bg-subtle);
+    border-left-color: var(--bs-danger);
+    color: var(--bs-danger-text-emphasis);
+    font-weight: bold;
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.status-error {
+    background-color: var(--bs-danger-bg-subtle);
+    border-left-color: var(--bs-danger);
+    color: var(--bs-danger-text-emphasis);
+}
+
+#agentPhasesList .list-group-item.phase-hidden-by-mode {
+    /* display: none; */ /* This is set in styles.css, but for clarity */
+    opacity: 0.4;
+    border-left-color: transparent;
+}
+html[data-bs-theme="dark"] #agentPhasesList .list-group-item.phase-hidden-by-mode {
+    color: var(--bs-gray-600);
+}
+
+
+/* Ensuring sub-phases also get styled correctly */
+#agentPhasesList .sub-phase-item.status-will-run { border-left-color: var(--bs-info); }
+#agentPhasesList .sub-phase-item.status-skipped { border-left-color: var(--bs-secondary); text-decoration: line-through; }
+#agentPhasesList .sub-phase-item.status-active { background-color: var(--bs-primary-bg-subtle); border-left-color: var(--bs-primary); color: var(--bs-primary-text-emphasis); font-weight: bold;}
+#agentPhasesList .sub-phase-item.status-completed { border-left-color: var(--bs-success); }
+#agentPhasesList .sub-phase-item.status-completed .phase-name { text-decoration: line-through; }
+#agentPhasesList .sub-phase-item.status-error { background-color: var(--bs-danger-bg-subtle); border-left-color: var(--bs-danger); color: var(--bs-danger-text-emphasis); font-weight: bold;}
+
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-will-run { border-left-color: var(--bs-info); color: var(--bs-light); }
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-skipped { border-left-color: var(--bs-secondary); color: var(--bs-gray-500);}
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-active { background-color: var(--bs-primary-bg-subtle); border-left-color: var(--bs-primary); color: var(--bs-primary-text-emphasis);}
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-completed { border-left-color: var(--bs-success); color: var(--bs-success-text-emphasis);}
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-completed .phase-name { color: var(--bs-gray-500); }
+html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-error { background-color: var(--bs-danger-bg-subtle); border-left-color: var(--bs-danger); color: var(--bs-danger-text-emphasis);}
+
+
+#current-phase-details {
+    padding: 0.75rem 1rem; /* Original padding: 0.5rem 1rem; */
+    margin-top: 0.5rem; /* Original margin-top: 1rem; */
+    border: 1px solid var(--bs-border-color-translucent, #dee2e6);
+    border-radius: var(--bs-border-radius, 0.375rem); /* Use Bootstrap variable */
+    background-color: var(--bs-tertiary-bg, #f8f9fa); /* Use Bootstrap subtle bg */
+    font-size: 0.9em; /* Slightly smaller font for details */
+    line-height: 1.5; /* Improved line height for readability */
+    word-wrap: break-word; /* Ensure long words wrap */
+    min-height: 42px; /* Ensure it has some visible height even when idle */
+    display: flex; 
+    align-items: center; /* Vertically center text if single line */
+    /* Removed color as it should inherit or be set by dark mode rule */
 } 

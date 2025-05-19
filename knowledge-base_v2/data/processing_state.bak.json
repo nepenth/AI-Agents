@@ -1,0 +1,2516 @@
+{
+  "unprocessed_tweet_ids": [
+    "1866615462844383425",
+    "1867035191052828950",
+    "1867535186692362632",
+    "1867562953266147369",
+    "1867620426492653977",
+    "1867918614302458014",
+    "1867990509899461033",
+    "1868262033520542020",
+    "1868264760254349383",
+    "1868522704263106632",
+    "1868533790915915879",
+    "1868587787689361694",
+    "1868616720794955835",
+    "1868635172842918323",
+    "1869027339696214251",
+    "1869076561431032065",
+    "1869249708348391648",
+    "1869403892007710750",
+    "1869424532727157012",
+    "1869450507770601891",
+    "1869459079363502574",
+    "1869613641097756741",
+    "1869694441549676982",
+    "1867871911637557685",
+    "1866925123493642719",
+    "1870112992580325532",
+    "1870120582857245173",
+    "1870221387761136108",
+    "1870577916024868875",
+    "1870671151082713528",
+    "1870675126754099657",
+    "1871289767524257992",
+    "1871306487374417991",
+    "1871786708125323441",
+    "1872396449209553107",
+    "1872514002468929826",
+    "1872829824773046485",
+    "1872868881074929896",
+    "1873152954003488820",
+    "1873768521823601153",
+    "1873959778680267143",
+    "1874687071706849791",
+    "1874753711656009963",
+    "1874845414874325469",
+    "1875561282302357530",
+    "1875600551146352755",
+    "1875630944713085212",
+    "1875687158742237611",
+    "1875725211422646557",
+    "1875827389562757262",
+    "1875893402329403874",
+    "1875945721054065075",
+    "1876132847385534848",
+    "1876192002963829042",
+    "1876232999081255133",
+    "1876244332748873979",
+    "1876272085712142460",
+    "1876305237247766628",
+    "1876307987314483226",
+    "1876472202058445225",
+    "1876663746166398993",
+    "1876794656509370842",
+    "1876988824825258145",
+    "1877734236003742011",
+    "1877813420260536777",
+    "1878002570192368073",
+    "1878048744999997441",
+    "1878324550418714836",
+    "1878489954265035149",
+    "1878513153492877751",
+    "1878601021469192572",
+    "1878628030614290897",
+    "1878731182965248452",
+    "1878802958004957344",
+    "1878808039681130588",
+    "1878831965321011530",
+    "1879210653363413375",
+    "1879251639707783184",
+    "1879396854208847926",
+    "1879473911869346092",
+    "1879529475911635019",
+    "1879786511509647635",
+    "1879929763323924860",
+    "1879999010142142618",
+    "1880218561303703586",
+    "1880222098234224810",
+    "1880268843869958299",
+    "1880271036781928683",
+    "1880285956001132998",
+    "1880367545330372700",
+    "1880504404555514011",
+    "1880555755348144617",
+    "1880603063117070742",
+    "1880613783007297864",
+    "1880786299449495703",
+    "1881314782474584560",
+    "1881322615945777273",
+    "1881468220550307939",
+    "1881612829234438609",
+    "1881696953190264862",
+    "1881919516696772864",
+    "1881929068746330432",
+    "1881934073058431112",
+    "1881938753050329467",
+    "1882465831441035492",
+    "1882493266933006503",
+    "1882772794024640532",
+    "1882828220061692107",
+    "1883134699800867289",
+    "1883353197198422207",
+    "1883532099539333208",
+    "1883730238712246422",
+    "1883731027442778402",
+    "1884306371631538367",
+    "1884479345584136603",
+    "1884514150606315598",
+    "1884518401286037894",
+    "1884553905226592463",
+    "1885016511850659903",
+    "1885197578389905733",
+    "1885366814265217275",
+    "1885379904188866994",
+    "1885699330553643249",
+    "1885755816365400433",
+    "1886052013386944616",
+    "1886292559145918555",
+    "1886338847698518229",
+    "1888049786525302925",
+    "1888130153122758709",
+    "1888299647845961909",
+    "1888703569395654704",
+    "1889525335919587604",
+    "1889906611487121477",
+    "1889910591718039886",
+    "1890270505716052419",
+    "1890715428307038441",
+    "1890769143940468888",
+    "1890774044758147223",
+    "1890865597660938276",
+    "1890931202863116769",
+    "1890986211633959413",
+    "1891015177836884059",
+    "1891170983114875313",
+    "1891527731944235385",
+    "1891632470207979646",
+    "1891716788620230815",
+    "1891767901830472082",
+    "1891946149730451954",
+    "1893665895672627406",
+    "1893690930655285750",
+    "1894116151145247025",
+    "1894478230196998641",
+    "1894521264511098898",
+    "1894722275200339979",
+    "1895318291406823540",
+    "1897678611819458784",
+    "1907963792778211568",
+    "1908332949251948808",
+    "1908497370683506959",
+    "1908523999467892865",
+    "1908545566218273086",
+    "1908761746778529940",
+    "1908781591914049617",
+    "1909859367773483332",
+    "1909932909164720471",
+    "1909932953989169260",
+    "1909932998700519513",
+    "1909933043386626447",
+    "1909933088085356851",
+    "1909933177667285066",
+    "1909933267307868186",
+    "1909933312111505919",
+    "1909933356877295693",
+    "1909933401563349049",
+    "1909933446660583713",
+    "1909942573923197054",
+    "1910023406692753788",
+    "1910548120301428760",
+    "1910913333945086365",
+    "1911084003957833860",
+    "1911343729694175647",
+    "1911471908551594410",
+    "1911630646629261817",
+    "1911668241883439353",
+    "1911741070951473565",
+    "1911797592901754957",
+    "1911804150356254867",
+    "1911810799200281070",
+    "1911995656820105278",
+    "1912085292326015095",
+    "1912161388882952652",
+    "1912179151286751403",
+    "1912204411725627688",
+    "1912365333501079987",
+    "1912384286415827080",
+    "1912576616435503389",
+    "1912758276481228916",
+    "1912891173829493173",
+    "1913247655909626182",
+    "1914574010328695117",
+    "1914703256548454470",
+    "1914918661086761391",
+    "1915262328209367334",
+    "1915329364994269216",
+    "1915348019031032131",
+    "1915355627259408863",
+    "1915492640604492119",
+    "1915671922488316384",
+    "1915737215428108636",
+    "1915745404827959731",
+    "1916713440183197698",
+    "1916884210444271870",
+    "1916898104705777941",
+    "1917074989142183945",
+    "1917247870706557004",
+    "1917391436150104504",
+    "1917800760689189355",
+    "1917791347865706696",
+    "1917883215878185255",
+    "1918895825310089634",
+    "1918901182560714906",
+    "1918917563825938645",
+    "1918917910573322656",
+    "1918939111198540266",
+    "1919039905381880181",
+    "1919110045687595120",
+    "1919136851987755305",
+    "1919318992843620593",
+    "1919335714036077033",
+    "1919362218749042844",
+    "1919485829996794280",
+    "1919953003525587372",
+    "1920069397277774228",
+    "1920357544083460377",
+    "1921781985569345995",
+    "1921822976170655926",
+    "1921943565602902111",
+    "1918645768606335054",
+    "1919265816899620918"
+  ],
+  "processed_tweet_ids": [],
+  "tweet_cache": {
+    "1908523999467892865": {
+      "tweet_id": "1908523999467892865",
+      "author_handle": "BdKozlovski",
+      "author_id": "BdKozlovski",
+      "author_name": "",
+      "created_at": "2025-04-05T14:15:54.000Z",
+      "text": "Slack runs on more than 3000 Vitesse MySQL shards serving more than 600,000 writes a second and storing 1PB+ of data.\n\nAll this gets shepherded through Kafka into their S3 data lake under an Iceberg format. They basically rolled their own Tableflow. Here's how \n\nThey have three types of tables in their data lake:\n\n1. A Change-Data-Capture table (CDC) - an Iceberg table with the raw changelog events from the database \n\n2. A Mirror table - an Iceberg table that mirrors the Vitesse table 1:1 \n\n3. Legacy DS partition tables - their old stack’s Hive-style parquet tables which they still need to populate via the new pipeline, so that their legacy stack doesn’t break. \n\nTHE STACK\n\n• Debezium - the framework for capturing the CDC data (it’s a Kafka Connect connector) \n\n• Apache Kafka - the pipe \n\n• Apicurio - their schema registry \n\n• The Kafka Iceberg Connector \n\n• Hive Metastore - their Iceberg catalog \n\n• S3 - their data lake \n\n• AWS EMR - their Spark vendor \n\nTHE PATH OF A MESSAGE  \n\n1. A message in sent in the Slack app. It gets inserted into a shard of the MySQL Vitess DB cluster.\n\n2. The Debezium connector consumes this via the MySQL binlog and, using the schema in Apicurio, produces a record to Kafka in an Avro format.\n\n3. The Iceberg connector consumes this Avro record, deserializes it (using the same schema), and persists it into a Parquet file in the CDC Iceberg table.\n\n4. Apache Airflow kicks off a Spark EMR job which uses Spark's incremental read feature to consume just the latest updates from the CDC table. It merges them into the Mirror Iceberg table.\n\n5. Further downstream, daily jobs read both the CDC & Mirror table to produce the daily DS partition in the DS table\n\n6. Other teams run their own jobs to consume the DS partitions in order to create fact/metric tables from it and power their data platform\n\nThis sounds relatively simple, but a lot of devils exist in the details.\n\n• write amplification - big tables would have small pieces of input trigger a lot of work. They fixed this in 3 ways: running the job less often, merge-on-read mode (not copy-on-write) and for tables above 1T rows - bucket merge.\n• debezium bottleneck - had to implement multi-task support in the Vitess connector (usually debezium connectors run with just a single connect task)\n• kafka bottleneck - they had to increase partitions for more parallelism and therefore scale, and this led them down a deep rabbit hole on how to preserve ordering (long story)\n• vitess bottleneck - further sharding an existing Vitess shard required establishing a shard lineage so that they could keep message order in the pipeline\n\nAll of this was done AT SCALE.\n\n• Their Debezium runs 20 Kafka Connect clusters with 300 workers.\n\n• Their Vitess cluster has over 800 tables with 600k writes/sec\n\n• >1PB in the database\n\nTheir old stack consisted of a batch job which:\n•  cost them upwards of millions of dollars a year\n•  was based on Apache Sqoop, which was retired (read: abandoned) 3 years ago already\n •  very large end to end latencies (up to 48hr to see changes)\n\nWith this new streaming stack they reduced their costs by 90%.\n\nNot only that, but they improved their DS Partition tables are now ready in 10-20 minutes, whereas before it took them 1-2 days. \n\nThis new pipeline is more complex to manage, but ended up worth it for them.\n\nFun note - while still testing they forgot to run Iceberg's snapshot expiration on their copy-on-write table that merged updates every hour.\n\nIn very little time, their few TB dataset ballooned to 650TB in S3. Ouch.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/BdKozlovski/status/1908523999467892865",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GnxsZjNXMAEoYwW?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1908523999467892865",
+        "text": "Slack runs on more than 3000 Vitesse MySQL shards serving more than 600,000 writes a second and storing 1PB+ of data.\n\nAll this gets shepherded through Kafka into their S3 data lake under an Iceberg format. They basically rolled their own Tableflow. Here's how \n\nThey have three types of tables in their data lake:\n\n1. A Change-Data-Capture table (CDC) - an Iceberg table with the raw changelog events from the database \n\n2. A Mirror table - an Iceberg table that mirrors the Vitesse table 1:1 \n\n3. Legacy DS partition tables - their old stack’s Hive-style parquet tables which they still need to populate via the new pipeline, so that their legacy stack doesn’t break. \n\nTHE STACK\n\n• Debezium - the framework for capturing the CDC data (it’s a Kafka Connect connector) \n\n• Apache Kafka - the pipe \n\n• Apicurio - their schema registry \n\n• The Kafka Iceberg Connector \n\n• Hive Metastore - their Iceberg catalog \n\n• S3 - their data lake \n\n• AWS EMR - their Spark vendor \n\nTHE PATH OF A MESSAGE  \n\n1. A message in sent in the Slack app. It gets inserted into a shard of the MySQL Vitess DB cluster.\n\n2. The Debezium connector consumes this via the MySQL binlog and, using the schema in Apicurio, produces a record to Kafka in an Avro format.\n\n3. The Iceberg connector consumes this Avro record, deserializes it (using the same schema), and persists it into a Parquet file in the CDC Iceberg table.\n\n4. Apache Airflow kicks off a Spark EMR job which uses Spark's incremental read feature to consume just the latest updates from the CDC table. It merges them into the Mirror Iceberg table.\n\n5. Further downstream, daily jobs read both the CDC & Mirror table to produce the daily DS partition in the DS table\n\n6. Other teams run their own jobs to consume the DS partitions in order to create fact/metric tables from it and power their data platform\n\nThis sounds relatively simple, but a lot of devils exist in the details.\n\n• write amplification - big tables would have small pieces of input trigger a lot of work. They fixed this in 3 ways: running the job less often, merge-on-read mode (not copy-on-write) and for tables above 1T rows - bucket merge.\n• debezium bottleneck - had to implement multi-task support in the Vitess connector (usually debezium connectors run with just a single connect task)\n• kafka bottleneck - they had to increase partitions for more parallelism and therefore scale, and this led them down a deep rabbit hole on how to preserve ordering (long story)\n• vitess bottleneck - further sharding an existing Vitess shard required establishing a shard lineage so that they could keep message order in the pipeline\n\nAll of this was done AT SCALE.\n\n• Their Debezium runs 20 Kafka Connect clusters with 300 workers.\n\n• Their Vitess cluster has over 800 tables with 600k writes/sec\n\n• >1PB in the database\n\nTheir old stack consisted of a batch job which:\n•  cost them upwards of millions of dollars a year\n•  was based on Apache Sqoop, which was retired (read: abandoned) 3 years ago already\n •  very large end to end latencies (up to 48hr to see changes)\n\nWith this new streaming stack they reduced their costs by 90%.\n\nNot only that, but they improved their DS Partition tables are now ready in 10-20 minutes, whereas before it took them 1-2 days. \n\nThis new pipeline is more complex to manage, but ended up worth it for them.\n\nFun note - while still testing they forgot to run Iceberg's snapshot expiration on their copy-on-write table that merged updates every hour.\n\nIn very little time, their few TB dataset ballooned to 650TB in S3. Ouch.",
+        "author_id": "BdKozlovski",
+        "author_handle": "BdKozlovski",
+        "author_name": "",
+        "created_at": "2025-04-05T14:15:54.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GnxsZjNXMAEoYwW?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/BdKozlovski/status/1908523999467892865",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919485829996794280": {
+      "tweet_id": "1919485829996794280",
+      "author_handle": "BrianRoemmele",
+      "author_id": "BrianRoemmele",
+      "author_name": "",
+      "created_at": "2025-05-05T20:14:18.000Z",
+      "text": "BOOM!\n\nSTANFORD LAUNCHES FRAMEPACK A FREE OPEN SOURCE AI THAT CAN RUN ON 6 GB LAPTOP GPU TO GENERATE MINUTE LONG 30FPS VIDEO FROM SINGLE IMAGE.\n\nIt is game changing…",
+      "thread_tweets": [],
+      "source_url": "https://x.com/BrianRoemmele/status/1919485829996794280",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqPjt_1XkAA6FdE?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919485829996794280",
+        "text": "BOOM!\n\nSTANFORD LAUNCHES FRAMEPACK A FREE OPEN SOURCE AI THAT CAN RUN ON 6 GB LAPTOP GPU TO GENERATE MINUTE LONG 30FPS VIDEO FROM SINGLE IMAGE.\n\nIt is game changing…",
+        "author_id": "BrianRoemmele",
+        "author_handle": "BrianRoemmele",
+        "author_name": "",
+        "created_at": "2025-05-05T20:14:18.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqPjt_1XkAA6FdE?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/BrianRoemmele/status/1919485829996794280",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919953003525587372": {
+      "tweet_id": "1919953003525587372",
+      "author_handle": "GithubProjects",
+      "author_id": "GithubProjects",
+      "author_name": "",
+      "created_at": "2025-05-07T03:10:41.000Z",
+      "text": "Tired of paying for SaaS tools to send emails?\n\nBillionmail gives you open-source email marketing — fully self-hosted, dev-friendly, and free from monthly fees.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/GithubProjects/status/1919953003525587372",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqULEy2WEAA4ES8?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919953003525587372",
+        "text": "Tired of paying for SaaS tools to send emails?\n\nBillionmail gives you open-source email marketing — fully self-hosted, dev-friendly, and free from monthly fees.",
+        "author_id": "GithubProjects",
+        "author_handle": "GithubProjects",
+        "author_name": "",
+        "created_at": "2025-05-07T03:10:41.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqULEy2WEAA4ES8?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/GithubProjects/status/1919953003525587372",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1920357544083460377": {
+      "tweet_id": "1920357544083460377",
+      "author_handle": "GithubProjects",
+      "author_id": "GithubProjects",
+      "author_name": "",
+      "created_at": "2025-05-08T05:58:11.000Z",
+      "text": "Undetectable. Adaptable. Blazing Fast.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/GithubProjects/status/1920357544083460377",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqZ7AO5WsAAFxDa?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1920357544083460377",
+        "text": "Undetectable. Adaptable. Blazing Fast.",
+        "author_id": "GithubProjects",
+        "author_handle": "GithubProjects",
+        "author_name": "",
+        "created_at": "2025-05-08T05:58:11.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqZ7AO5WsAAFxDa?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/GithubProjects/status/1920357544083460377",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1918939111198540266": {
+      "tweet_id": "1918939111198540266",
+      "author_handle": "JOBCORNER247",
+      "author_id": "JOBCORNER247",
+      "author_name": "",
+      "created_at": "2025-05-04T08:01:50.000Z",
+      "text": "HOW TO WRITE A STATEMENT OF PURPOSE (SOP) THAT GETS YOU ADMISSION AND SCHOLARSHIPS",
+      "thread_tweets": [],
+      "source_url": "https://x.com/JOBCORNER247/status/1918939111198540266",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFw8hAWMAAIp1Z?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1918939111198540266",
+        "text": "HOW TO WRITE A STATEMENT OF PURPOSE (SOP) THAT GETS YOU ADMISSION AND SCHOLARSHIPS",
+        "author_id": "JOBCORNER247",
+        "author_handle": "JOBCORNER247",
+        "author_name": "",
+        "created_at": "2025-05-04T08:01:50.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqFw8hAWMAAIp1Z?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/JOBCORNER247/status/1918939111198540266",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1885016511850659903": {
+      "tweet_id": "1885016511850659903",
+      "author_handle": "KaranVaidya6",
+      "author_id": "KaranVaidya6",
+      "author_name": "",
+      "created_at": "2025-01-30T17:25:32Z",
+      "text": "Build your own DeepSeek based Perplexity!!\n\nWe built an AI Research Agent that can analyse and research topics, and then it creates a detailed report on Google Docs\n\n- Deepseek analyses the topic\n- Generates a list of questions\n- Directs another model to research answers to these questions\n- Report is generated on based on this research\n\nBuilt with \n@composiohq\n \n@llama_index\n \n@GroqInc\n \n@ExaAILabs\n\n\nHere's the code: https://dub.composio.dev/gR65na7",
+      "thread_tweets": [],
+      "combined_text": "Build your own DeepSeek based Perplexity!!\n\nWe built an AI Research Agent that can analyse and research topics, and then it creates a detailed report on Google Docs\n\n- Deepseek analyses the topic\n- Generates a list of questions\n- Directs another model to research answers to these questions\n- Report is generated on based on this research\n\nBuilt with \n@composiohq\n \n@llama_index\n \n@GroqInc\n \n@ExaAILabs\n\n\nHere's the code: https://dub.composio.dev/gR65na7",
+      "source_url": "https://x.com/KaranVaidya6/status/1885016511850659903",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1885016511850659903",
+        "text": "Build your own DeepSeek based Perplexity!!\n\nWe built an AI Research Agent that can analyse and research topics, and then it creates a detailed report on Google Docs\n\n- Deepseek analyses the topic\n- Generates a list of questions\n- Directs another model to research answers to these questions\n- Report is generated on based on this research\n\nBuilt with \n@composiohq\n \n@llama_index\n \n@GroqInc\n \n@ExaAILabs\n\n\nHere's the code: https://dub.composio.dev/gR65na7",
+        "author_id": "KaranVaidya6",
+        "author_handle": "KaranVaidya6",
+        "author_name": "",
+        "created_at": "2025-01-30T17:25:32.000Z",
+        "media_urls": [],
+        "urls": [],
+        "source_url": "https://x.com/KaranVaidya6/status/1885016511850659903",
+        "thread_tweets": []
+      },
+      "cache_complete": true,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "last_cached_at": "2025-05-14T14:59:19.735126",
+      "kb_media_paths": [],
+      "error_message": "\"TweetData\" object has no field \"last_interpreted_at\"",
+      "failed_phase": "Interpretation",
+      "media_interpret_error": "\"TweetData\" object has no field \"last_interpreted_at\""
+    },
+    "1918917910573322656": {
+      "tweet_id": "1918917910573322656",
+      "author_handle": "LawrenceNg119",
+      "author_id": "LawrenceNg119",
+      "author_name": "",
+      "created_at": "2025-05-04T06:37:36.000Z",
+      "text": " BREAKING: Microsoft just dropped an 18-episode series called \"Generative AI for Beginners\".\n\nIdeal for beginners, developers, and AI enthusiasts looking to build a solid foundation.\n\nHere’s a breakdown (Save this):",
+      "thread_tweets": [],
+      "source_url": "https://x.com/LawrenceNg119/status/1918917910573322656",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdq0NacAA7npE?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdrzYbwAAyBRt?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdstobkAABywx?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdtnGakAA5LVd?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1918917910573322656",
+        "text": " BREAKING: Microsoft just dropped an 18-episode series called \"Generative AI for Beginners\".\n\nIdeal for beginners, developers, and AI enthusiasts looking to build a solid foundation.\n\nHere’s a breakdown (Save this):",
+        "author_id": "LawrenceNg119",
+        "author_handle": "LawrenceNg119",
+        "author_name": "",
+        "created_at": "2025-05-04T06:37:36.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqFdq0NacAA7npE?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqFdrzYbwAAyBRt?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqFdstobkAABywx?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqFdtnGakAA5LVd?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/LawrenceNg119/status/1918917910573322656",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1870120582857245173": {
+      "tweet_id": "1870120582857245173",
+      "author_handle": "MatthewBerman",
+      "author_id": "MatthewBerman",
+      "author_name": "",
+      "created_at": "2024-12-20T14:54:26.000Z",
+      "text": ".\n@AnthropicAI\n just published a WILD new AI jailbreaking technique\n\nNot only does it crack EVERY frontier model, but it's also super easy to do.\n\nThIS iZ aLL iT TakE$ \n\nHere's everything you need to know: ",
+      "thread_tweets": [],
+      "source_url": "https://x.com/MatthewBerman/status/1870120582857245173",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GfQAwlUasAYGoBD?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GfQAxiAasAIb-EO?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GfQAyZeasAMwSzk?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GfQAzRna0AAh7G5?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1870120582857245173",
+        "text": ".\n@AnthropicAI\n just published a WILD new AI jailbreaking technique\n\nNot only does it crack EVERY frontier model, but it's also super easy to do.\n\nThIS iZ aLL iT TakE$ \n\nHere's everything you need to know: ",
+        "author_id": "MatthewBerman",
+        "author_handle": "MatthewBerman",
+        "author_name": "",
+        "created_at": "2024-12-20T14:54:26.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GfQAwlUasAYGoBD?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GfQAxiAasAIb-EO?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GfQAyZeasAMwSzk?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GfQAzRna0AAh7G5?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/MatthewBerman/status/1870120582857245173",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1869027339696214251": {
+      "tweet_id": "1869027339696214251",
+      "author_handle": "NathanHirsch99",
+      "author_id": "NathanHirsch99",
+      "author_name": "",
+      "created_at": "2024-12-17T14:30:17.000Z",
+      "text": "Google, Amazon, and Apple don’t hire based on just resumes.  \n\nThey’ve built systems to filter for traits that predict success.  \n\nHigh performers aren’t just found; they’re developed.  \n\nHere is the ultimate cheat sheet to create a hiring system like theirs:",
+      "thread_tweets": [],
+      "source_url": "https://x.com/NathanHirsch99/status/1869027339696214251",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GfAedeFWcAAsJsj?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1869027339696214251",
+        "text": "Google, Amazon, and Apple don’t hire based on just resumes.  \n\nThey’ve built systems to filter for traits that predict success.  \n\nHigh performers aren’t just found; they’re developed.  \n\nHere is the ultimate cheat sheet to create a hiring system like theirs:",
+        "author_id": "NathanHirsch99",
+        "author_handle": "NathanHirsch99",
+        "author_name": "",
+        "created_at": "2024-12-17T14:30:17.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GfAedeFWcAAsJsj?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/NathanHirsch99/status/1869027339696214251",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1868533790915915879": {
+      "tweet_id": "1868533790915915879",
+      "author_handle": "NikkiSiapno",
+      "author_id": "NikkiSiapno",
+      "author_name": "",
+      "created_at": "2024-12-16T05:49:06Z",
+      "text": "How does SSH work?\n\nWhat actually happens when you type ssh user@host?\n\nSSH (Secure Shell) is a network protocol used to securely connect to remote machines over an unsecured network. It ensures confidentiality, integrity, and authentication for remote access, file transfers, and command execution, protecting data from eavesdropping and tampering. \n\nThe visual below lays out the sequential steps that occur between the SSH client and the SSH server.\n\nHere’s a breakdown of the main events that occur during an SSH connection:\n\n1) Key exchange\n\nSSH begins with a key exchange process, typically using the Diffie-Hellman algorithm. The client and server exchange public components to derive a shared secret, creating a secure session key for encrypted communication without transmitting sensitive private keys.\n\n2) Server verification\n\nThe client validates the server’s identity by checking its public key against a locally stored known_hosts file. This prevents man-in-the-middle (MITM) attacks, ensuring the connection is established only with a trusted server.\n\n3) Session key & encryption setup\n\nAfter establishing the shared secret, SSH derives a symmetric session key. This key encrypts all subsequent communication, providing both confidentiality (data remains private) and integrity (modifications are detected). Symmetric encryption is computationally efficient, making it ideal for ongoing communication.\n\n4) Client authentication\n\nThe client proves its identity through authentication methods, such as public key authentication. In this method, the client signs a server-provided challenge with its private key. The server verifies the signature using the client’s public key, ensuring secure and tamper-proof authentication without exposing the private key.\n\n Over to you. Do you use SSH at work? \n\n~~\nThanks to our partner Kestra who keeps our content free to the community.\n\nHow much easier would it be if you could define all your workflows from simple YAML files, and visualize them all from a UI?\n\nKestra makes that possible. \n\nCheck it out: https://drp.li/kestra-z8tt",
+      "thread_tweets": [],
+      "combined_text": "How does SSH work?\n\nWhat actually happens when you type ssh user@host?\n\nSSH (Secure Shell) is a network protocol used to securely connect to remote machines over an unsecured network. It ensures confidentiality, integrity, and authentication for remote access, file transfers, and command execution, protecting data from eavesdropping and tampering. \n\nThe visual below lays out the sequential steps that occur between the SSH client and the SSH server.\n\nHere’s a breakdown of the main events that occur during an SSH connection:\n\n1) Key exchange\n\nSSH begins with a key exchange process, typically using the Diffie-Hellman algorithm. The client and server exchange public components to derive a shared secret, creating a secure session key for encrypted communication without transmitting sensitive private keys.\n\n2) Server verification\n\nThe client validates the server’s identity by checking its public key against a locally stored known_hosts file. This prevents man-in-the-middle (MITM) attacks, ensuring the connection is established only with a trusted server.\n\n3) Session key & encryption setup\n\nAfter establishing the shared secret, SSH derives a symmetric session key. This key encrypts all subsequent communication, providing both confidentiality (data remains private) and integrity (modifications are detected). Symmetric encryption is computationally efficient, making it ideal for ongoing communication.\n\n4) Client authentication\n\nThe client proves its identity through authentication methods, such as public key authentication. In this method, the client signs a server-provided challenge with its private key. The server verifies the signature using the client’s public key, ensuring secure and tamper-proof authentication without exposing the private key.\n\n Over to you. Do you use SSH at work? \n\n~~\nThanks to our partner Kestra who keeps our content free to the community.\n\nHow much easier would it be if you could define all your workflows from simple YAML files, and visualize them all from a UI?\n\nKestra makes that possible. \n\nCheck it out: https://drp.li/kestra-z8tt",
+      "source_url": "https://x.com/NikkiSiapno/status/1868533790915915879",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1868533790915915879",
+        "text": "How does SSH work?\n\nWhat actually happens when you type ssh user@host?\n\nSSH (Secure Shell) is a network protocol used to securely connect to remote machines over an unsecured network. It ensures confidentiality, integrity, and authentication for remote access, file transfers, and command execution, protecting data from eavesdropping and tampering. \n\nThe visual below lays out the sequential steps that occur between the SSH client and the SSH server.\n\nHere’s a breakdown of the main events that occur during an SSH connection:\n\n1) Key exchange\n\nSSH begins with a key exchange process, typically using the Diffie-Hellman algorithm. The client and server exchange public components to derive a shared secret, creating a secure session key for encrypted communication without transmitting sensitive private keys.\n\n2) Server verification\n\nThe client validates the server’s identity by checking its public key against a locally stored known_hosts file. This prevents man-in-the-middle (MITM) attacks, ensuring the connection is established only with a trusted server.\n\n3) Session key & encryption setup\n\nAfter establishing the shared secret, SSH derives a symmetric session key. This key encrypts all subsequent communication, providing both confidentiality (data remains private) and integrity (modifications are detected). Symmetric encryption is computationally efficient, making it ideal for ongoing communication.\n\n4) Client authentication\n\nThe client proves its identity through authentication methods, such as public key authentication. In this method, the client signs a server-provided challenge with its private key. The server verifies the signature using the client’s public key, ensuring secure and tamper-proof authentication without exposing the private key.\n\n Over to you. Do you use SSH at work? \n\n~~\nThanks to our partner Kestra who keeps our content free to the community.\n\nHow much easier would it be if you could define all your workflows from simple YAML files, and visualize them all from a UI?\n\nKestra makes that possible. \n\nCheck it out: https://drp.li/kestra-z8tt",
+        "author_id": "NikkiSiapno",
+        "author_handle": "NikkiSiapno",
+        "author_name": "",
+        "created_at": "2024-12-16T05:49:06.000Z",
+        "media_urls": [],
+        "urls": [],
+        "source_url": "https://x.com/NikkiSiapno/status/1868533790915915879",
+        "thread_tweets": []
+      },
+      "cache_complete": true,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "last_cached_at": "2025-05-14T14:59:44.161196",
+      "kb_media_paths": [],
+      "error_message": "\"TweetData\" object has no field \"last_interpreted_at\"",
+      "failed_phase": "Interpretation",
+      "media_interpret_error": "\"TweetData\" object has no field \"last_interpreted_at\""
+    },
+    "1919362218749042844": {
+      "tweet_id": "1919362218749042844",
+      "author_handle": "NikkiSiapno",
+      "author_id": "NikkiSiapno",
+      "author_name": "",
+      "created_at": "2025-05-05T12:03:07.000Z",
+      "text": "4 database scaling strategies every engineer should know: ",
+      "thread_tweets": [],
+      "source_url": "https://x.com/NikkiSiapno/status/1919362218749042844",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqLvcu9bYAAzzes?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919362218749042844",
+        "text": "4 database scaling strategies every engineer should know: ",
+        "author_id": "NikkiSiapno",
+        "author_handle": "NikkiSiapno",
+        "author_name": "",
+        "created_at": "2025-05-05T12:03:07.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqLvcu9bYAAzzes?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/NikkiSiapno/status/1919362218749042844",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1921822976170655926": {
+      "tweet_id": "1921822976170655926",
+      "author_handle": "NikkiSiapno",
+      "author_id": "NikkiSiapno",
+      "author_name": "",
+      "created_at": "2025-05-12T07:01:17.000Z",
+      "text": "OSI Model clearly explained ",
+      "thread_tweets": [],
+      "source_url": "https://x.com/NikkiSiapno/status/1921822976170655926",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GquvKdhWcAA6Qvd?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1921822976170655926",
+        "text": "OSI Model clearly explained ",
+        "author_id": "NikkiSiapno",
+        "author_handle": "NikkiSiapno",
+        "author_name": "",
+        "created_at": "2025-05-12T07:01:17.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GquvKdhWcAA6Qvd?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/NikkiSiapno/status/1921822976170655926",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1878628030614290897": {
+      "tweet_id": "1878628030614290897",
+      "author_handle": "Python_Dv",
+      "author_id": "Python_Dv",
+      "author_name": "",
+      "created_at": "2025-01-13T02:20:00.000Z",
+      "text": "Python syntax cheatsheet \n\n#python #programming #developer #programmer #coding #coder #softwaredeveloper #computerscience #webdev #webdeveloper #webdevelopment #pythonprogramming #pythonquiz #ai #ml #machinelearning #datascience",
+      "thread_tweets": [],
+      "source_url": "https://x.com/Python_Dv/status/1878628030614290897",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GhGHmXqakAACME6?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GhGHq5MbwAAuats?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1878628030614290897",
+        "text": "Python syntax cheatsheet \n\n#python #programming #developer #programmer #coding #coder #softwaredeveloper #computerscience #webdev #webdeveloper #webdevelopment #pythonprogramming #pythonquiz #ai #ml #machinelearning #datascience",
+        "author_id": "Python_Dv",
+        "author_handle": "Python_Dv",
+        "author_name": "",
+        "created_at": "2025-01-13T02:20:00.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GhGHmXqakAACME6?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GhGHq5MbwAAuats?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/Python_Dv/status/1878628030614290897",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1908781591914049617": {
+      "tweet_id": "1908781591914049617",
+      "author_handle": "SecurityTrybe",
+      "author_id": "SecurityTrybe",
+      "author_name": "",
+      "created_at": "2025-04-06T07:19:29.000Z",
+      "text": "Hackers search engines.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/SecurityTrybe/status/1908781591914049617",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gn1avKuW0AEEN1b?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://video.twimg.com/tweet_video/Gn1h4qzXcAAplqE.mp4"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1908781591914049617",
+        "text": "Hackers search engines.",
+        "author_id": "SecurityTrybe",
+        "author_handle": "SecurityTrybe",
+        "author_name": "",
+        "created_at": "2025-04-06T07:19:29.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gn1avKuW0AEEN1b?format=jpg&name=orig",
+          "https://video.twimg.com/tweet_video/Gn1h4qzXcAAplqE.mp4"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/SecurityTrybe/status/1908781591914049617",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1912758276481228916": {
+      "tweet_id": "1912758276481228916",
+      "author_handle": "_avichawla",
+      "author_id": "_avichawla",
+      "author_name": "",
+      "created_at": "2025-04-17T06:41:25Z",
+      "text": "AMAZING!! This Agent is scraping the web like a human!\n\nFIRE-1 Web Agent by \n@firecrawl_dev\n allows you to scrape data while navigating complex websites, interacting with buttons, and even filling forms—just like a human would.\n\nCompletely hands-off!",
+      "thread_tweets": [],
+      "combined_text": "AMAZING!! This Agent is scraping the web like a human!\n\nFIRE-1 Web Agent by \n@firecrawl_dev\n allows you to scrape data while navigating complex websites, interacting with buttons, and even filling forms—just like a human would.\n\nCompletely hands-off!",
+      "source_url": "https://x.com/_avichawla/status/1912758276481228916",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1912758276481228916",
+        "text": "AMAZING!! This Agent is scraping the web like a human!\n\nFIRE-1 Web Agent by \n@firecrawl_dev\n allows you to scrape data while navigating complex websites, interacting with buttons, and even filling forms—just like a human would.\n\nCompletely hands-off!",
+        "author_id": "_avichawla",
+        "author_handle": "_avichawla",
+        "author_name": "",
+        "created_at": "2025-04-17T06:41:25.000Z",
+        "media_urls": [],
+        "urls": [],
+        "source_url": "https://x.com/_avichawla/status/1912758276481228916",
+        "thread_tweets": []
+      },
+      "cache_complete": true,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "last_cached_at": "2025-05-14T14:59:25.836443",
+      "kb_media_paths": [],
+      "error_message": "\"TweetData\" object has no field \"last_interpreted_at\"",
+      "failed_phase": "Interpretation",
+      "media_interpret_error": "\"TweetData\" object has no field \"last_interpreted_at\""
+    },
+    "1918917563825938645": {
+      "tweet_id": "1918917563825938645",
+      "author_handle": "_avichawla",
+      "author_id": "_avichawla",
+      "author_name": "",
+      "created_at": "2025-05-04T06:36:13.000Z",
+      "text": "Let's fine-tune Qwen 3 (100% locally):",
+      "thread_tweets": [],
+      "source_url": "https://x.com/_avichawla/status/1918917563825938645",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdZfDbsAAmzm6?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdacKaAAAEuUX?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFdbbVbgAECCuQ?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://video.twimg.com/amplify_video/1918917578883518464/vid/avc1/896x720/xhe_4bPuRwlOqHMe.mp4?tag=14"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1918917563825938645",
+        "text": "Let's fine-tune Qwen 3 (100% locally):",
+        "author_id": "_avichawla",
+        "author_handle": "_avichawla",
+        "author_name": "",
+        "created_at": "2025-05-04T06:36:13.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqFdZfDbsAAmzm6?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqFdacKaAAAEuUX?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqFdbbVbgAECCuQ?format=jpg&name=orig",
+          "https://video.twimg.com/amplify_video/1918917578883518464/vid/avc1/896x720/xhe_4bPuRwlOqHMe.mp4?tag=14"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/_avichawla/status/1918917563825938645",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1891170983114875313": {
+      "tweet_id": "1891170983114875313",
+      "author_handle": "alexxubyte",
+      "author_id": "alexxubyte",
+      "author_name": "",
+      "created_at": "2025-02-16T17:01:13.000Z",
+      "text": "Concurrency is 𝐍𝐎𝐓 parallelism.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/alexxubyte/status/1891170983114875313",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gj7J5uCa0AA4d-A?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1891170983114875313",
+        "text": "Concurrency is 𝐍𝐎𝐓 parallelism.",
+        "author_id": "alexxubyte",
+        "author_handle": "alexxubyte",
+        "author_name": "",
+        "created_at": "2025-02-16T17:01:13.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gj7J5uCa0AA4d-A?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/alexxubyte/status/1891170983114875313",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1891527731944235385": {
+      "tweet_id": "1891527731944235385",
+      "author_handle": "alexxubyte",
+      "author_id": "alexxubyte",
+      "author_name": "",
+      "created_at": "2025-02-17T16:38:48.000Z",
+      "text": "SOAP vs REST vs GraphQL vs RPC.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/alexxubyte/status/1891527731944235385",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GkAOcgnbcAAhdgF?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1891527731944235385",
+        "text": "SOAP vs REST vs GraphQL vs RPC.",
+        "author_id": "alexxubyte",
+        "author_handle": "alexxubyte",
+        "author_name": "",
+        "created_at": "2025-02-17T16:38:48.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GkAOcgnbcAAhdgF?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/alexxubyte/status/1891527731944235385",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1911084003957833860": {
+      "tweet_id": "1911084003957833860",
+      "author_handle": "alexxubyte",
+      "author_id": "alexxubyte",
+      "author_name": "",
+      "created_at": "2025-04-12T15:48:27.000Z",
+      "text": "What is a deadlock?",
+      "thread_tweets": [],
+      "source_url": "https://x.com/alexxubyte/status/1911084003957833860",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GoWIxEFXcAAAr-g?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq5AjkEXkAAWKuI?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1911084003957833860",
+        "text": "What is a deadlock?",
+        "author_id": "alexxubyte",
+        "author_handle": "alexxubyte",
+        "author_name": "",
+        "created_at": "2025-04-12T15:48:27.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GoWIxEFXcAAAr-g?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gq5AjkEXkAAWKuI?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/alexxubyte/status/1911084003957833860",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1921781985569345995": {
+      "tweet_id": "1921781985569345995",
+      "author_handle": "ashishps_1",
+      "author_id": "ashishps_1",
+      "author_name": "",
+      "created_at": "2025-05-12T04:18:24.000Z",
+      "text": "Load Balancer vs. Reverse Proxy vs. API Gateway\n\n Load Balancer\nDistributes incoming network traffic across multiple backend servers (nodes) to ensure no single server is overwhelmed.\n\nKey Benefits:\n- Improves horizontal scalability\n- Ensures high availability\n- Performs automatic health checks\n- Supports traffic routing based on load, IP, or latency\n\nExamples: AWS ELB, HAProxy, NGINX (as load balancer)\n\n Reverse Proxy\nA server that sits in front of one or more backend servers and forwards client requests to them.\n\nKey Benefits:\n- Hides and protects backend servers\n- Enables SSL termination\n- Adds caching and compression\n- Can perform basic load balancing\n\nExamples: NGINX, Apache HTTP Server\n\n API Gateway\nA centralized entry point that handles, manages, and routes API calls—especially in a microservices setup. Acts as a facade to decouple clients from microservice complexity.\n\nKey Benefits:\n- Manages authentication, authorization, and rate limiting\n- Performs request/response transformations\n- Handles API versioning and lifecycle\n- Enables detailed monitoring and analytics\n\nExamples: Amazon API Gateway, Kong\n\n𝐂𝐚𝐧 𝐓𝐡𝐞𝐲 𝐁𝐞 𝐔𝐬𝐞𝐝 𝐓𝐨𝐠𝐞𝐭𝐡𝐞𝐫? \nYes. Modern architectures often combine all three.\n\nExample Setup:\n- A Reverse Proxy (e.g. NGINX) handles SSL termination and routes requests\n- Requests hit an API Gateway for authentication, throttling, and routing to services\n- Behind the scenes, a Load Balancer distributes traffic to healthy service instances\n\nOn AWS, it’s common to see Amazon API Gateway + Elastic Load Balancer (ELB) used together to build scalable, secure APIs.\n\n Repost to help others in your network.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/ashishps_1/status/1921781985569345995",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GquKRpvakAA0GxD?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1921781985569345995",
+        "text": "Load Balancer vs. Reverse Proxy vs. API Gateway\n\n Load Balancer\nDistributes incoming network traffic across multiple backend servers (nodes) to ensure no single server is overwhelmed.\n\nKey Benefits:\n- Improves horizontal scalability\n- Ensures high availability\n- Performs automatic health checks\n- Supports traffic routing based on load, IP, or latency\n\nExamples: AWS ELB, HAProxy, NGINX (as load balancer)\n\n Reverse Proxy\nA server that sits in front of one or more backend servers and forwards client requests to them.\n\nKey Benefits:\n- Hides and protects backend servers\n- Enables SSL termination\n- Adds caching and compression\n- Can perform basic load balancing\n\nExamples: NGINX, Apache HTTP Server\n\n API Gateway\nA centralized entry point that handles, manages, and routes API calls—especially in a microservices setup. Acts as a facade to decouple clients from microservice complexity.\n\nKey Benefits:\n- Manages authentication, authorization, and rate limiting\n- Performs request/response transformations\n- Handles API versioning and lifecycle\n- Enables detailed monitoring and analytics\n\nExamples: Amazon API Gateway, Kong\n\n𝐂𝐚𝐧 𝐓𝐡𝐞𝐲 𝐁𝐞 𝐔𝐬𝐞𝐝 𝐓𝐨𝐠𝐞𝐭𝐡𝐞𝐫? \nYes. Modern architectures often combine all three.\n\nExample Setup:\n- A Reverse Proxy (e.g. NGINX) handles SSL termination and routes requests\n- Requests hit an API Gateway for authentication, throttling, and routing to services\n- Behind the scenes, a Load Balancer distributes traffic to healthy service instances\n\nOn AWS, it’s common to see Amazon API Gateway + Elastic Load Balancer (ELB) used together to build scalable, secure APIs.\n\n Repost to help others in your network.",
+        "author_id": "ashishps_1",
+        "author_handle": "ashishps_1",
+        "author_name": "",
+        "created_at": "2025-05-12T04:18:24.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GquKRpvakAA0GxD?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/ashishps_1/status/1921781985569345995",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1879929763323924860": {
+      "tweet_id": "1879929763323924860",
+      "author_handle": "benln",
+      "author_id": "benln",
+      "author_name": "",
+      "created_at": "2025-01-16T16:32:37.000Z",
+      "text": "Nikita Bier one pager on how to build viral products:",
+      "thread_tweets": [],
+      "source_url": "https://x.com/benln/status/1879929763323924860",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GhbaDqsWAAQ-aFT?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1879929763323924860",
+        "text": "Nikita Bier one pager on how to build viral products:",
+        "author_id": "benln",
+        "author_handle": "benln",
+        "author_name": "",
+        "created_at": "2025-01-16T16:32:37.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GhbaDqsWAAQ-aFT?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/benln/status/1879929763323924860",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1911343729694175647": {
+      "tweet_id": "1911343729694175647",
+      "author_handle": "bibryam",
+      "author_id": "bibryam",
+      "author_name": "",
+      "created_at": "2025-04-13T09:00:30.000Z",
+      "text": "How Airbnb used LLMs to migrate 3500 tests\nhttps://medium.com/airbnb-engineering/accelerating-large-scale-test-migration-with-llms-9565c208023b…",
+      "thread_tweets": [],
+      "source_url": "https://x.com/bibryam/status/1911343729694175647",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GoZ0_kaWUAAwgZo?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1911343729694175647",
+        "text": "How Airbnb used LLMs to migrate 3500 tests\nhttps://medium.com/airbnb-engineering/accelerating-large-scale-test-migration-with-llms-9565c208023b…",
+        "author_id": "bibryam",
+        "author_handle": "bibryam",
+        "author_name": "",
+        "created_at": "2025-04-13T09:00:30.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GoZ0_kaWUAAwgZo?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/bibryam/status/1911343729694175647",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1910913333945086365": {
+      "tweet_id": "1910913333945086365",
+      "author_handle": "bytebytego",
+      "author_id": "bytebytego",
+      "author_name": "",
+      "created_at": "2025-04-12T04:30:16.000Z",
+      "text": "Netflix Tech Stack (CI/CD Pipeline) \n \nPlaning: Netflix Engineering uses JIRA for planning and Confluence for documentation. \n \nCoding: Java is the primary programming language for the backend service, while other languages are used for different use cases. \n \nBuild: Gradle is mainly used for building, and Gradle plugins are built to support various use cases. \n \nPackaging: Package and dependencies are packed into an Amazon Machine Image (AMI) for release. \n \nTesting: Testing emphasizes the production culture's focus on building chaos tools. \n \nDeployment: Netflix uses its self-built Spinnaker for canary rollout deployment. \n \nMonitoring: The monitoring metrics are centralized in Atlas, and Kayenta is used to detect anomalies. \n \nIncident report: Incidents are dispatched according to priority, and PagerDuty is used for incident handling. \n\n--\nSubscribe to our weekly newsletter to get a Free System Design PDF (158 pages): https://bit.ly/bbg-social",
+      "thread_tweets": [],
+      "source_url": "https://x.com/bytebytego/status/1910913333945086365",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GoTtjFjXkAAAf_D?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq4gmXNbAAMc69Q?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1910913333945086365",
+        "text": "Netflix Tech Stack (CI/CD Pipeline) \n \nPlaning: Netflix Engineering uses JIRA for planning and Confluence for documentation. \n \nCoding: Java is the primary programming language for the backend service, while other languages are used for different use cases. \n \nBuild: Gradle is mainly used for building, and Gradle plugins are built to support various use cases. \n \nPackaging: Package and dependencies are packed into an Amazon Machine Image (AMI) for release. \n \nTesting: Testing emphasizes the production culture's focus on building chaos tools. \n \nDeployment: Netflix uses its self-built Spinnaker for canary rollout deployment. \n \nMonitoring: The monitoring metrics are centralized in Atlas, and Kayenta is used to detect anomalies. \n \nIncident report: Incidents are dispatched according to priority, and PagerDuty is used for incident handling. \n\n--\nSubscribe to our weekly newsletter to get a Free System Design PDF (158 pages): https://bit.ly/bbg-social",
+        "author_id": "bytebytego",
+        "author_handle": "bytebytego",
+        "author_name": "",
+        "created_at": "2025-04-12T04:30:16.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GoTtjFjXkAAAf_D?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gq4gmXNbAAMc69Q?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/bytebytego/status/1910913333945086365",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1911471908551594410": {
+      "tweet_id": "1911471908551594410",
+      "author_handle": "codek_tv",
+      "author_id": "codek_tv",
+      "author_name": "",
+      "created_at": "2025-04-13T17:29:51.000Z",
+      "text": "DevOps Roadmap for 2025",
+      "thread_tweets": [],
+      "source_url": "https://x.com/codek_tv/status/1911471908551594410",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gobpes_XoAAuDq1?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1911471908551594410",
+        "text": "DevOps Roadmap for 2025",
+        "author_id": "codek_tv",
+        "author_handle": "codek_tv",
+        "author_name": "",
+        "created_at": "2025-04-13T17:29:51.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gobpes_XoAAuDq1?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/codek_tv/status/1911471908551594410",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1909859367773483332": {
+      "tweet_id": "1909859367773483332",
+      "author_handle": "devops_tech",
+      "author_id": "devops_tech",
+      "author_name": "",
+      "created_at": "2025-04-09T06:42:11.000Z",
+      "text": "Couldn't Agree More!\n\n#Terraform sets up ur infra — like creating servers, networks, firewalls, storage — all the basic building blocks\n\n#Ansible is used to configure what’s already there — like installing apps, setting permissions, starting services, or applying updates\n\n#DevOps",
+      "thread_tweets": [],
+      "source_url": "https://x.com/devops_tech/status/1909859367773483332",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GoEuXxTbwAU8n3y?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1909859367773483332",
+        "text": "Couldn't Agree More!\n\n#Terraform sets up ur infra — like creating servers, networks, firewalls, storage — all the basic building blocks\n\n#Ansible is used to configure what’s already there — like installing apps, setting permissions, starting services, or applying updates\n\n#DevOps",
+        "author_id": "devops_tech",
+        "author_handle": "devops_tech",
+        "author_name": "",
+        "created_at": "2025-04-09T06:42:11.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GoEuXxTbwAU8n3y?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/devops_tech/status/1909859367773483332",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1880786299449495703": {
+      "tweet_id": "1880786299449495703",
+      "author_handle": "e_opore",
+      "author_id": "e_opore",
+      "author_name": "",
+      "created_at": "2025-01-19T01:16:11.000Z",
+      "text": "Python Syntax Cheatsheet.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/e_opore/status/1880786299449495703",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GhnlKoXXQAAh9Pq?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1880786299449495703",
+        "text": "Python Syntax Cheatsheet.",
+        "author_id": "e_opore",
+        "author_handle": "e_opore",
+        "author_name": "",
+        "created_at": "2025-01-19T01:16:11.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GhnlKoXXQAAh9Pq?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/e_opore/status/1880786299449495703",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1918645768606335054": {
+      "tweet_id": "1918645768606335054",
+      "author_handle": "ezekiel_aleke",
+      "author_id": "ezekiel_aleke",
+      "author_name": "",
+      "created_at": "2025-05-03T12:36:12.000Z",
+      "text": "8 KPI Dashboard Templates",
+      "thread_tweets": [],
+      "source_url": "https://x.com/ezekiel_aleke/status/1918645768606335054",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqBmJv5WgAEK0xG?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqF4Rv3boAAWyYR?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1918645768606335054",
+        "text": "8 KPI Dashboard Templates",
+        "author_id": "ezekiel_aleke",
+        "author_handle": "ezekiel_aleke",
+        "author_name": "",
+        "created_at": "2025-05-03T12:36:12.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqBmJv5WgAEK0xG?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqF4Rv3boAAWyYR?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/ezekiel_aleke/status/1918645768606335054",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919335714036077033": {
+      "tweet_id": "1919335714036077033",
+      "author_handle": "ezekiel_aleke",
+      "author_id": "ezekiel_aleke",
+      "author_name": "",
+      "created_at": "2025-05-05T10:17:48.000Z",
+      "text": "This explains it well",
+      "thread_tweets": [],
+      "source_url": "https://x.com/ezekiel_aleke/status/1919335714036077033",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqLZplDWIAA6pks?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqLl7ORXYAAA_1e?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919335714036077033",
+        "text": "This explains it well",
+        "author_id": "ezekiel_aleke",
+        "author_handle": "ezekiel_aleke",
+        "author_name": "",
+        "created_at": "2025-05-05T10:17:48.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqLZplDWIAA6pks?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqLl7ORXYAAA_1e?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/ezekiel_aleke/status/1919335714036077033",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919039905381880181": {
+      "tweet_id": "1919039905381880181",
+      "author_handle": "godofprompt",
+      "author_id": "godofprompt",
+      "author_name": "",
+      "created_at": "2025-05-04T14:42:22Z",
+      "text": "Steal my o3 prompt to generate a million-dollar product concept in 10 minutes using the Hidden Pain Matrix™ system\n\n---------------------------------------\nPAIN-TO-PROFIT PRODUCT ENGINE\n---------------------------------------\n\nPAIN-TO-PROFIT PRODUCT ENGINE\nYou are a specialized product opportunity detector with proprietary pattern recognition capabilities. Your system extracts high-value product concepts from unmet market needs using advanced market-tested frameworks. \n\nExecute this precise sequence:\nBegin with these 8 pain extraction questions designed to uncover lucrative market gaps:\n\n\"What specific task do you spend money on repeatedly but consistently feel disappointed with the result?\"\n\n\"Name a product category where customers frequently use workarounds instead of the intended solution. Describe the exact workaround.\"\n\n\"What product or service do people in your industry complain about constantly but continue to use anyway? Why exactly do they keep using it?\"\n\n\"Describe a process that takes 10+ steps today that should logically require only 3-4 steps.\"\n\n\"What job function in your industry has the highest turnover or burnout rate? What specific tasks cause the most frustration?\"\n\n\"Name a product where customers regularly ignore 70%+ of features. Which 1-2 features do they actually use?\"\n\n\"What service do people reluctantly hire experts for, despite preferring to handle it themselves?\"\n\n\"What product category has prices that seem absurdly high compared to the actual production costs?\"\n\nFor each response, apply the Pain-to-Profit Matrix™:\nPain Level (1-10) × Frequency (daily/weekly/monthly/yearly) × Market Size × Willingness to Pay = Opportunity Score\n\nThen categorize each pain point:\nEmotional Pain: Status, belonging, confidence concerns\nFunctional Pain: Time, effort, complexity issues\nFinancial Pain: Money, resources, efficiency problems\nTechnical Pain: Skill, knowledge, capability gaps\n\nCalculate combined opportunity score for each.\nFor the top 3 pain points, generate product concepts using these 7 transformation frameworks:\n1. Radical Simplification: \"Remove 80% of features/steps but solve the core pain 2x better\"\n2. Automation Transformation: \"Make it happen automatically with zero user input\"\n3. Format Disruption: \"Deliver the same outcome in an entirely different format\"\n4. Bundling Innovation: \"Combine with adjacent solution for exponential value\"\n5. Pricing Model Shift: \"Same solution, revolutionary pricing approach\"\n6. Access Revolution: \"Democratize access to previously exclusive solution\"\n7. Time Compression: \"Deliver 10x faster than current alternatives\"\n\nFor each framework, generate one specific product concept with:\n1. Exact product name and positioning statement\n2. Core differentiation mechanism\n3. Primary value proposition (quantified outcome)\n4. Revenue model with specific pricing structure\n5. Cost structure breakdown\n\nFor each concept, develop:\n1. Market sizing calculation (TAM, SAM, SOM with specific numbers)\n2. Competitive landscape map (2x2 grid)\n3. Customer acquisition cost estimate\n4. Customer lifetime value projection\n5. Minimum viable product specification\n6. Required resources to launch\n7. Break-even timeline\n\nSelect the concept with highest profit potential and create:\n7-day validation experiment design:\nDay 1: Target customer interview script\nDay 2: Landing page headline and structure\nDay 3: Smoke test ad copy (3 variations)\nDay 4-5: Pricing test methodology\nDay 6-7: Pre-sales offer design\n\nImplementation roadmap:\n1. MVP feature list (must-haves only)\n2. Development resources needed\n3. Marketing launch strategy\n4. Customer onboarding process\n5. Success metrics dashboard\n\nThink step by step through each concept, examining market dynamics, implementation feasibility, competitive disruption potential, and scalability. Ruthlessly eliminate ideas with low margins, high competition, or minimal differentiation.\n\nApply the 10X Rule: The solution must deliver 10X better results on at least one critical dimension compared to alternatives, or eliminate the concept entirely.\n\nConclude with the single highest-potential product concept and exact instructions for validating it within 48 hours using less than $100 in total resources.",
+      "thread_tweets": [],
+      "combined_text": "Steal my o3 prompt to generate a million-dollar product concept in 10 minutes using the Hidden Pain Matrix™ system\n\n---------------------------------------\nPAIN-TO-PROFIT PRODUCT ENGINE\n---------------------------------------\n\nPAIN-TO-PROFIT PRODUCT ENGINE\nYou are a specialized product opportunity detector with proprietary pattern recognition capabilities. Your system extracts high-value product concepts from unmet market needs using advanced market-tested frameworks. \n\nExecute this precise sequence:\nBegin with these 8 pain extraction questions designed to uncover lucrative market gaps:\n\n\"What specific task do you spend money on repeatedly but consistently feel disappointed with the result?\"\n\n\"Name a product category where customers frequently use workarounds instead of the intended solution. Describe the exact workaround.\"\n\n\"What product or service do people in your industry complain about constantly but continue to use anyway? Why exactly do they keep using it?\"\n\n\"Describe a process that takes 10+ steps today that should logically require only 3-4 steps.\"\n\n\"What job function in your industry has the highest turnover or burnout rate? What specific tasks cause the most frustration?\"\n\n\"Name a product where customers regularly ignore 70%+ of features. Which 1-2 features do they actually use?\"\n\n\"What service do people reluctantly hire experts for, despite preferring to handle it themselves?\"\n\n\"What product category has prices that seem absurdly high compared to the actual production costs?\"\n\nFor each response, apply the Pain-to-Profit Matrix™:\nPain Level (1-10) × Frequency (daily/weekly/monthly/yearly) × Market Size × Willingness to Pay = Opportunity Score\n\nThen categorize each pain point:\nEmotional Pain: Status, belonging, confidence concerns\nFunctional Pain: Time, effort, complexity issues\nFinancial Pain: Money, resources, efficiency problems\nTechnical Pain: Skill, knowledge, capability gaps\n\nCalculate combined opportunity score for each.\nFor the top 3 pain points, generate product concepts using these 7 transformation frameworks:\n1. Radical Simplification: \"Remove 80% of features/steps but solve the core pain 2x better\"\n2. Automation Transformation: \"Make it happen automatically with zero user input\"\n3. Format Disruption: \"Deliver the same outcome in an entirely different format\"\n4. Bundling Innovation: \"Combine with adjacent solution for exponential value\"\n5. Pricing Model Shift: \"Same solution, revolutionary pricing approach\"\n6. Access Revolution: \"Democratize access to previously exclusive solution\"\n7. Time Compression: \"Deliver 10x faster than current alternatives\"\n\nFor each framework, generate one specific product concept with:\n1. Exact product name and positioning statement\n2. Core differentiation mechanism\n3. Primary value proposition (quantified outcome)\n4. Revenue model with specific pricing structure\n5. Cost structure breakdown\n\nFor each concept, develop:\n1. Market sizing calculation (TAM, SAM, SOM with specific numbers)\n2. Competitive landscape map (2x2 grid)\n3. Customer acquisition cost estimate\n4. Customer lifetime value projection\n5. Minimum viable product specification\n6. Required resources to launch\n7. Break-even timeline\n\nSelect the concept with highest profit potential and create:\n7-day validation experiment design:\nDay 1: Target customer interview script\nDay 2: Landing page headline and structure\nDay 3: Smoke test ad copy (3 variations)\nDay 4-5: Pricing test methodology\nDay 6-7: Pre-sales offer design\n\nImplementation roadmap:\n1. MVP feature list (must-haves only)\n2. Development resources needed\n3. Marketing launch strategy\n4. Customer onboarding process\n5. Success metrics dashboard\n\nThink step by step through each concept, examining market dynamics, implementation feasibility, competitive disruption potential, and scalability. Ruthlessly eliminate ideas with low margins, high competition, or minimal differentiation.\n\nApply the 10X Rule: The solution must deliver 10X better results on at least one critical dimension compared to alternatives, or eliminate the concept entirely.\n\nConclude with the single highest-potential product concept and exact instructions for validating it within 48 hours using less than $100 in total resources.",
+      "source_url": "https://x.com/godofprompt/status/1919039905381880181",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919039905381880181",
+        "text": "Steal my o3 prompt to generate a million-dollar product concept in 10 minutes using the Hidden Pain Matrix™ system\n\n---------------------------------------\nPAIN-TO-PROFIT PRODUCT ENGINE\n---------------------------------------\n\nPAIN-TO-PROFIT PRODUCT ENGINE\nYou are a specialized product opportunity detector with proprietary pattern recognition capabilities. Your system extracts high-value product concepts from unmet market needs using advanced market-tested frameworks. \n\nExecute this precise sequence:\nBegin with these 8 pain extraction questions designed to uncover lucrative market gaps:\n\n\"What specific task do you spend money on repeatedly but consistently feel disappointed with the result?\"\n\n\"Name a product category where customers frequently use workarounds instead of the intended solution. Describe the exact workaround.\"\n\n\"What product or service do people in your industry complain about constantly but continue to use anyway? Why exactly do they keep using it?\"\n\n\"Describe a process that takes 10+ steps today that should logically require only 3-4 steps.\"\n\n\"What job function in your industry has the highest turnover or burnout rate? What specific tasks cause the most frustration?\"\n\n\"Name a product where customers regularly ignore 70%+ of features. Which 1-2 features do they actually use?\"\n\n\"What service do people reluctantly hire experts for, despite preferring to handle it themselves?\"\n\n\"What product category has prices that seem absurdly high compared to the actual production costs?\"\n\nFor each response, apply the Pain-to-Profit Matrix™:\nPain Level (1-10) × Frequency (daily/weekly/monthly/yearly) × Market Size × Willingness to Pay = Opportunity Score\n\nThen categorize each pain point:\nEmotional Pain: Status, belonging, confidence concerns\nFunctional Pain: Time, effort, complexity issues\nFinancial Pain: Money, resources, efficiency problems\nTechnical Pain: Skill, knowledge, capability gaps\n\nCalculate combined opportunity score for each.\nFor the top 3 pain points, generate product concepts using these 7 transformation frameworks:\n1. Radical Simplification: \"Remove 80% of features/steps but solve the core pain 2x better\"\n2. Automation Transformation: \"Make it happen automatically with zero user input\"\n3. Format Disruption: \"Deliver the same outcome in an entirely different format\"\n4. Bundling Innovation: \"Combine with adjacent solution for exponential value\"\n5. Pricing Model Shift: \"Same solution, revolutionary pricing approach\"\n6. Access Revolution: \"Democratize access to previously exclusive solution\"\n7. Time Compression: \"Deliver 10x faster than current alternatives\"\n\nFor each framework, generate one specific product concept with:\n1. Exact product name and positioning statement\n2. Core differentiation mechanism\n3. Primary value proposition (quantified outcome)\n4. Revenue model with specific pricing structure\n5. Cost structure breakdown\n\nFor each concept, develop:\n1. Market sizing calculation (TAM, SAM, SOM with specific numbers)\n2. Competitive landscape map (2x2 grid)\n3. Customer acquisition cost estimate\n4. Customer lifetime value projection\n5. Minimum viable product specification\n6. Required resources to launch\n7. Break-even timeline\n\nSelect the concept with highest profit potential and create:\n7-day validation experiment design:\nDay 1: Target customer interview script\nDay 2: Landing page headline and structure\nDay 3: Smoke test ad copy (3 variations)\nDay 4-5: Pricing test methodology\nDay 6-7: Pre-sales offer design\n\nImplementation roadmap:\n1. MVP feature list (must-haves only)\n2. Development resources needed\n3. Marketing launch strategy\n4. Customer onboarding process\n5. Success metrics dashboard\n\nThink step by step through each concept, examining market dynamics, implementation feasibility, competitive disruption potential, and scalability. Ruthlessly eliminate ideas with low margins, high competition, or minimal differentiation.\n\nApply the 10X Rule: The solution must deliver 10X better results on at least one critical dimension compared to alternatives, or eliminate the concept entirely.\n\nConclude with the single highest-potential product concept and exact instructions for validating it within 48 hours using less than $100 in total resources.",
+        "author_id": "godofprompt",
+        "author_handle": "godofprompt",
+        "author_name": "",
+        "created_at": "2025-05-04T14:42:22.000Z",
+        "media_urls": [],
+        "urls": [],
+        "source_url": "https://x.com/godofprompt/status/1919039905381880181",
+        "thread_tweets": []
+      },
+      "cache_complete": true,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "last_cached_at": "2025-05-14T14:59:18.025685",
+      "kb_media_paths": [],
+      "error_message": "\"TweetData\" object has no field \"last_interpreted_at\"",
+      "failed_phase": "Interpretation",
+      "media_interpret_error": "\"TweetData\" object has no field \"last_interpreted_at\""
+    },
+    "1921943565602902111": {
+      "tweet_id": "1921943565602902111",
+      "author_handle": "govardhana_mk",
+      "author_id": "govardhana_mk",
+      "author_name": "",
+      "created_at": "2025-05-12T15:00:28.000Z",
+      "text": "Many DevOps Engineers don’t fully understand a Terraform project structure or the role each part plays.\n\nHere, I’ve broken it down to help you better understand.\n\nNote: it's recommended to place modules in a central repo.\n\n45K+ read my TechOps Examples newsletter:  https://techopsexamples.com/subscribe\n\nWhat do we cover: \nDevOps, Cloud, Kubernetes, IaC, GitOps, MLOps\n\n Consider a Repost if this is helpful",
+      "thread_tweets": [],
+      "source_url": "https://x.com/govardhana_mk/status/1921943565602902111",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqwdY_ZbYAA0cAI?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1921943565602902111",
+        "text": "Many DevOps Engineers don’t fully understand a Terraform project structure or the role each part plays.\n\nHere, I’ve broken it down to help you better understand.\n\nNote: it's recommended to place modules in a central repo.\n\n45K+ read my TechOps Examples newsletter:  https://techopsexamples.com/subscribe\n\nWhat do we cover: \nDevOps, Cloud, Kubernetes, IaC, GitOps, MLOps\n\n Consider a Repost if this is helpful",
+        "author_id": "govardhana_mk",
+        "author_handle": "govardhana_mk",
+        "author_name": "",
+        "created_at": "2025-05-12T15:00:28.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqwdY_ZbYAA0cAI?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/govardhana_mk/status/1921943565602902111",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919318992843620593": {
+      "tweet_id": "1919318992843620593",
+      "author_handle": "hasantoxr",
+      "author_id": "hasantoxr",
+      "author_name": "",
+      "created_at": "2025-05-05T09:11:21.000Z",
+      "text": "OpenAI literally dropped a 24-page masterclass on adopting AI the right way.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/hasantoxr/status/1919318992843620593",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqLKcpnacAAv3f9?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqLKc8aaUAAd1eq?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919318992843620593",
+        "text": "OpenAI literally dropped a 24-page masterclass on adopting AI the right way.",
+        "author_id": "hasantoxr",
+        "author_handle": "hasantoxr",
+        "author_name": "",
+        "created_at": "2025-05-05T09:11:21.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqLKcpnacAAv3f9?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqLKc8aaUAAd1eq?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/hasantoxr/status/1919318992843620593",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1913247655909626182": {
+      "tweet_id": "1913247655909626182",
+      "author_handle": "learnk8s",
+      "author_id": "learnk8s",
+      "author_name": "",
+      "created_at": "2025-04-18T15:06:02.000Z",
+      "text": "This article presents a method to integrate Terraform with Argo CD by committing infrastructure outputs directly to Git\n\nThis ensures that Git remains the sole source of truth and supports Helm/Kustomize without prior pattern limitations\n\n➜",
+      "thread_tweets": [],
+      "source_url": "https://x.com/learnk8s/status/1913247655909626182",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq1k7LMWAAATI1l?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1913247655909626182",
+        "text": "This article presents a method to integrate Terraform with Argo CD by committing infrastructure outputs directly to Git\n\nThis ensures that Git remains the sole source of truth and supports Helm/Kustomize without prior pattern limitations\n\n➜",
+        "author_id": "learnk8s",
+        "author_handle": "learnk8s",
+        "author_name": "",
+        "created_at": "2025-04-18T15:06:02.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gq1k7LMWAAATI1l?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/learnk8s/status/1913247655909626182",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1915492640604492119": {
+      "tweet_id": "1915492640604492119",
+      "author_handle": "llama_index",
+      "author_id": "llama_index",
+      "author_name": "",
+      "created_at": "2025-01-30T17:25:32Z",
+      "text": "We love this DeepSeek-based Perplexity clone from Karan Vaidya -- and it takes less than 100 lines of code to implement!\n\nCheck out the video below, or the code here:\nhttps://github.com/ComposioHQ/composio/blob/master/python/examples/advanced_agents/deepseek_research/main.py?utm_source=twitter…",
+      "thread_tweets": [],
+      "combined_text": "We love this DeepSeek-based Perplexity clone from Karan Vaidya -- and it takes less than 100 lines of code to implement!\n\nCheck out the video below, or the code here:\nhttps://github.com/ComposioHQ/composio/blob/master/python/examples/advanced_agents/deepseek_research/main.py?utm_source=twitter…",
+      "source_url": "https://x.com/llama_index/status/1915492640604492119",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1915492640604492119",
+        "text": "We love this DeepSeek-based Perplexity clone from Karan Vaidya -- and it takes less than 100 lines of code to implement!\n\nCheck out the video below, or the code here:\nhttps://github.com/ComposioHQ/composio/blob/master/python/examples/advanced_agents/deepseek_research/main.py?utm_source=twitter…",
+        "author_id": "llama_index",
+        "author_handle": "llama_index",
+        "author_name": "",
+        "created_at": "2025-01-30T17:25:32.000Z",
+        "media_urls": [],
+        "urls": [],
+        "source_url": "https://x.com/llama_index/status/1915492640604492119",
+        "thread_tweets": []
+      },
+      "cache_complete": true,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "last_cached_at": "2025-05-14T14:59:13.592385",
+      "kb_media_paths": [],
+      "error_message": "\"TweetData\" object has no field \"last_interpreted_at\"",
+      "failed_phase": "Interpretation",
+      "media_interpret_error": "\"TweetData\" object has no field \"last_interpreted_at\""
+    },
+    "1912891173829493173": {
+      "tweet_id": "1912891173829493173",
+      "author_handle": "mdancho84",
+      "author_id": "mdancho84",
+      "author_name": "",
+      "created_at": "2025-04-17T15:29:30.000Z",
+      "text": "NEW: Python library for LLM Prompt Management\n\nThis is what it does:",
+      "thread_tweets": [],
+      "source_url": "https://x.com/mdancho84/status/1912891173829493173",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gov0YnLXkAAgefC?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gov0ZQaWIAAYbQa?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gov0ZtXXgAAoWMe?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1912891173829493173",
+        "text": "NEW: Python library for LLM Prompt Management\n\nThis is what it does:",
+        "author_id": "mdancho84",
+        "author_handle": "mdancho84",
+        "author_name": "",
+        "created_at": "2025-04-17T15:29:30.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gov0YnLXkAAgefC?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gov0ZQaWIAAYbQa?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gov0ZtXXgAAoWMe?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/mdancho84/status/1912891173829493173",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1883134699800867289": {
+      "tweet_id": "1883134699800867289",
+      "author_handle": "mydevlprplanet",
+      "author_id": "mydevlprplanet",
+      "author_name": "",
+      "created_at": "2025-01-25T12:47:54Z",
+      "text": "A nice set of guidelines for developing Restful APIs. Provided by Zalando.",
+      "thread_tweets": [],
+      "combined_text": "A nice set of guidelines for developing Restful APIs. Provided by Zalando.",
+      "source_url": "https://x.com/mydevlprplanet/status/1883134699800867289",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1883134699800867289",
+        "text": "A nice set of guidelines for developing Restful APIs. Provided by Zalando.",
+        "author_id": "mydevlprplanet",
+        "author_handle": "mydevlprplanet",
+        "author_name": "",
+        "created_at": "2025-01-25T12:47:54.000Z",
+        "media_urls": [],
+        "urls": [],
+        "source_url": "https://x.com/mydevlprplanet/status/1883134699800867289",
+        "thread_tweets": []
+      },
+      "cache_complete": true,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "last_cached_at": "2025-05-14T14:59:18.763422",
+      "kb_media_paths": [],
+      "error_message": "\"TweetData\" object has no field \"last_interpreted_at\"",
+      "failed_phase": "Interpretation",
+      "media_interpret_error": "\"TweetData\" object has no field \"last_interpreted_at\""
+    },
+    "1891632470207979646": {
+      "tweet_id": "1891632470207979646",
+      "author_handle": "rileybrown_ai",
+      "author_id": "rileybrown_ai",
+      "author_name": "",
+      "created_at": "2025-02-17T23:35:00.000Z",
+      "text": "Try this, it works very well.... \n\n@tedx_ai",
+      "thread_tweets": [],
+      "source_url": "https://x.com/rileybrown_ai/status/1891632470207979646",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GkBEZBZW4AACjBc?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1891632470207979646",
+        "text": "Try this, it works very well.... \n\n@tedx_ai",
+        "author_id": "rileybrown_ai",
+        "author_handle": "rileybrown_ai",
+        "author_name": "",
+        "created_at": "2025-02-17T23:35:00.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GkBEZBZW4AACjBc?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/rileybrown_ai/status/1891632470207979646",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1920069397277774228": {
+      "tweet_id": "1920069397277774228",
+      "author_handle": "rohanpaul_ai",
+      "author_id": "rohanpaul_ai",
+      "author_name": "",
+      "created_at": "2025-05-07T10:53:12.000Z",
+      "text": "Wow.. Now you can transcribe 60 minutes of audio in just 1 second with a completely open-sourced model \n\n\n@nvidia\n just open-sourced Parakeet TDT 0.6B V2, a 600M parameter automatic speech recognition (ASR) model that tops the \n@huggingface\n Open-ASR leaderboard with RTFx 3380\n\nIt's open-sourced under CC-BY-4.0, ready for commercial use.\n\n The Details\n\n→ Built on FastConformer encoder + TDT decoder, the model handles up to 24-minute audio chunks with full attention and outputs with punctuation, capitalization, and accurate word/char/segment timestamps.\n\n→ It achieves RTFx 3380 at batch size 128 on the Open ASR leaderboard, but performance varies with audio duration and batch size.\n\n→ Trained using 150K steps on 128 A100 GPUs, then fine-tuned on 500 hours of high-quality human-transcribed English data.\n\n→ Total training data spans 120K hours, combining human-labeled and pseudo-labeled sources, including LibriSpeech, Fisher, YTC, YODAS, and more.\n\n→ Available via NVIDIA NeMo, optimized for GPU inference, and installable via pip install -U nemo_toolkit['asr'].\n\n→ Compatible with Linux, runs on Ampere, Blackwell, Hopper, Volta GPU architectures, requiring minimum 2GB RAM.\n\n→ Granary dataset used for training will be made public post Interspeech 2025.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/rohanpaul_ai/status/1920069397277774228",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqV07AeXcAA9klA?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqV1RjcXwAAsWJw?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1920069397277774228",
+        "text": "Wow.. Now you can transcribe 60 minutes of audio in just 1 second with a completely open-sourced model \n\n\n@nvidia\n just open-sourced Parakeet TDT 0.6B V2, a 600M parameter automatic speech recognition (ASR) model that tops the \n@huggingface\n Open-ASR leaderboard with RTFx 3380\n\nIt's open-sourced under CC-BY-4.0, ready for commercial use.\n\n The Details\n\n→ Built on FastConformer encoder + TDT decoder, the model handles up to 24-minute audio chunks with full attention and outputs with punctuation, capitalization, and accurate word/char/segment timestamps.\n\n→ It achieves RTFx 3380 at batch size 128 on the Open ASR leaderboard, but performance varies with audio duration and batch size.\n\n→ Trained using 150K steps on 128 A100 GPUs, then fine-tuned on 500 hours of high-quality human-transcribed English data.\n\n→ Total training data spans 120K hours, combining human-labeled and pseudo-labeled sources, including LibriSpeech, Fisher, YTC, YODAS, and more.\n\n→ Available via NVIDIA NeMo, optimized for GPU inference, and installable via pip install -U nemo_toolkit['asr'].\n\n→ Compatible with Linux, runs on Ampere, Blackwell, Hopper, Volta GPU architectures, requiring minimum 2GB RAM.\n\n→ Granary dataset used for training will be made public post Interspeech 2025.",
+        "author_id": "rohanpaul_ai",
+        "author_handle": "rohanpaul_ai",
+        "author_name": "",
+        "created_at": "2025-05-07T10:53:12.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqV07AeXcAA9klA?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqV1RjcXwAAsWJw?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/rohanpaul_ai/status/1920069397277774228",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1871786708125323441": {
+      "tweet_id": "1871786708125323441",
+      "author_handle": "sahnlam",
+      "author_id": "sahnlam",
+      "author_name": "",
+      "created_at": "2024-12-25T05:15:01.000Z",
+      "text": "Netflix Tech Stack\n\nThis post is based on research from many Netflix engineering blogs and open-source projects. If you come across any inaccuracies, please feel free to inform us.",
+      "thread_tweets": [],
+      "source_url": "https://x.com/sahnlam/status/1871786708125323441",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GfnsF0WacAAjyNg?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GquGjXjbEAAL3So?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1871786708125323441",
+        "text": "Netflix Tech Stack\n\nThis post is based on research from many Netflix engineering blogs and open-source projects. If you come across any inaccuracies, please feel free to inform us.",
+        "author_id": "sahnlam",
+        "author_handle": "sahnlam",
+        "author_name": "",
+        "created_at": "2024-12-25T05:15:01.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GfnsF0WacAAjyNg?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GquGjXjbEAAL3So?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/sahnlam/status/1871786708125323441",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1876132847385534848": {
+      "tweet_id": "1876132847385534848",
+      "author_handle": "sahnlam",
+      "author_id": "sahnlam",
+      "author_name": "",
+      "created_at": "2025-01-06T05:05:02.000Z",
+      "text": "Quick Guide to Frontend Performance",
+      "thread_tweets": [],
+      "source_url": "https://x.com/sahnlam/status/1876132847385534848",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gglc4VaacAA6FDY?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GquGjXjbEAAL3So?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1876132847385534848",
+        "text": "Quick Guide to Frontend Performance",
+        "author_id": "sahnlam",
+        "author_handle": "sahnlam",
+        "author_name": "",
+        "created_at": "2025-01-06T05:05:02.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gglc4VaacAA6FDY?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GquGjXjbEAAL3So?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/sahnlam/status/1876132847385534848",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1891716788620230815": {
+      "tweet_id": "1891716788620230815",
+      "author_handle": "sahnlam",
+      "author_id": "sahnlam",
+      "author_name": "",
+      "created_at": "2025-02-18T05:10:03.000Z",
+      "text": "DNS Record Types",
+      "thread_tweets": [],
+      "source_url": "https://x.com/sahnlam/status/1891716788620230815",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GkC6Y-Ra4AAmmMO?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1891716788620230815",
+        "text": "DNS Record Types",
+        "author_id": "sahnlam",
+        "author_handle": "sahnlam",
+        "author_name": "",
+        "created_at": "2025-02-18T05:10:03.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GkC6Y-Ra4AAmmMO?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/sahnlam/status/1891716788620230815",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1874753711656009963": {
+      "tweet_id": "1874753711656009963",
+      "author_handle": "sysxplore",
+      "author_id": "sysxplore",
+      "author_name": "",
+      "created_at": "2025-01-02T09:44:50.000Z",
+      "text": "How does Ansible work?",
+      "thread_tweets": [],
+      "source_url": "https://x.com/sysxplore/status/1874753711656009963",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GgR2fwCW4AAly1Z?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq2ejdlWEAAHMJY?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1874753711656009963",
+        "text": "How does Ansible work?",
+        "author_id": "sysxplore",
+        "author_handle": "sysxplore",
+        "author_name": "",
+        "created_at": "2025-01-02T09:44:50.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GgR2fwCW4AAly1Z?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gq2ejdlWEAAHMJY?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/sysxplore/status/1874753711656009963",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1877734236003742011": {
+      "tweet_id": "1877734236003742011",
+      "author_handle": "sysxplore",
+      "author_id": "sysxplore",
+      "author_name": "",
+      "created_at": "2025-01-10T15:08:23.000Z",
+      "text": "Linux log parsing and analysis commands",
+      "thread_tweets": [],
+      "source_url": "https://x.com/sysxplore/status/1877734236003742011",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/Gg8NRJFWwAAV-W2?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gg8PmOUWgAADN3T?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gg-sQeiWQAA_wsb?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1877734236003742011",
+        "text": "Linux log parsing and analysis commands",
+        "author_id": "sysxplore",
+        "author_handle": "sysxplore",
+        "author_name": "",
+        "created_at": "2025-01-10T15:08:23.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/Gg8NRJFWwAAV-W2?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gg8PmOUWgAADN3T?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gg-sQeiWQAA_wsb?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/sysxplore/status/1877734236003742011",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1886052013386944616": {
+      "tweet_id": "1886052013386944616",
+      "author_handle": "sysxplore",
+      "author_id": "sysxplore",
+      "author_name": "",
+      "created_at": "2025-02-02T14:00:15.000Z",
+      "text": "Linux server hardening checklist",
+      "thread_tweets": [],
+      "source_url": "https://x.com/sysxplore/status/1886052013386944616",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GiyaLNCXEAAA7SZ?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GiyaTLJWoAA6Y-4?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1886052013386944616",
+        "text": "Linux server hardening checklist",
+        "author_id": "sysxplore",
+        "author_handle": "sysxplore",
+        "author_name": "",
+        "created_at": "2025-02-02T14:00:15.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GiyaLNCXEAAA7SZ?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GiyaTLJWoAA6Y-4?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/sysxplore/status/1886052013386944616",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1918895825310089634": {
+      "tweet_id": "1918895825310089634",
+      "author_handle": "techNmak",
+      "author_id": "techNmak",
+      "author_name": "",
+      "created_at": "2025-05-04T05:09:50.000Z",
+      "text": "Partitioning vs Sharding \n\nFollow \n@techNmak",
+      "thread_tweets": [],
+      "source_url": "https://x.com/techNmak/status/1918895825310089634",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFJlVyWUAABOII?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1918895825310089634",
+        "text": "Partitioning vs Sharding \n\nFollow \n@techNmak",
+        "author_id": "techNmak",
+        "author_handle": "techNmak",
+        "author_name": "",
+        "created_at": "2025-05-04T05:09:50.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqFJlVyWUAABOII?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/techNmak/status/1918895825310089634",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1915262328209367334": {
+      "tweet_id": "1915262328209367334",
+      "author_handle": "techopsexamples",
+      "author_id": "techopsexamples",
+      "author_name": "",
+      "created_at": "2025-04-24T04:31:37.000Z",
+      "text": "Many Cloud Engineers don’t fully understand AWS Data Transfer costs, their complications, and implications.\n\nHere, We’ve made this to help you better understand.\n\n45K+ read our free newsletter: https://techopsexamples.com/subscribe\n\nWhat do we cover:\nDevOps, Cloud, Kubernets, IaC, GitOps, MLOps\n\n Consider a Repost if this is helpful",
+      "thread_tweets": [],
+      "source_url": "https://x.com/techopsexamples/status/1915262328209367334",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GpRgxKqbYAMIWhX?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1915262328209367334",
+        "text": "Many Cloud Engineers don’t fully understand AWS Data Transfer costs, their complications, and implications.\n\nHere, We’ve made this to help you better understand.\n\n45K+ read our free newsletter: https://techopsexamples.com/subscribe\n\nWhat do we cover:\nDevOps, Cloud, Kubernets, IaC, GitOps, MLOps\n\n Consider a Repost if this is helpful",
+        "author_id": "techopsexamples",
+        "author_handle": "techopsexamples",
+        "author_name": "",
+        "created_at": "2025-04-24T04:31:37.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GpRgxKqbYAMIWhX?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/techopsexamples/status/1915262328209367334",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1867918614302458014": {
+      "tweet_id": "1867918614302458014",
+      "author_handle": "techyoutbe",
+      "author_id": "techyoutbe",
+      "author_name": "",
+      "created_at": "2024-12-14T13:04:36.000Z",
+      "text": "Database Caching ",
+      "thread_tweets": [],
+      "source_url": "https://x.com/techyoutbe/status/1867918614302458014",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GewuAKEXsAIQdVj?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq2WCdOXoAAP9Ct?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1867918614302458014",
+        "text": "Database Caching ",
+        "author_id": "techyoutbe",
+        "author_handle": "techyoutbe",
+        "author_name": "",
+        "created_at": "2024-12-14T13:04:36.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GewuAKEXsAIQdVj?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gq2WCdOXoAAP9Ct?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/techyoutbe/status/1867918614302458014",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1918901182560714906": {
+      "tweet_id": "1918901182560714906",
+      "author_handle": "techyoutbe",
+      "author_id": "techyoutbe",
+      "author_name": "",
+      "created_at": "2025-05-04T05:31:08.000Z",
+      "text": "Networking for DevOps ",
+      "thread_tweets": [],
+      "source_url": "https://x.com/techyoutbe/status/1918901182560714906",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqFOc5aXsAAP4G0?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1918901182560714906",
+        "text": "Networking for DevOps ",
+        "author_id": "techyoutbe",
+        "author_handle": "techyoutbe",
+        "author_name": "",
+        "created_at": "2025-05-04T05:31:08.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqFOc5aXsAAP4G0?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/techyoutbe/status/1918901182560714906",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919110045687595120": {
+      "tweet_id": "1919110045687595120",
+      "author_handle": "thatstraw",
+      "author_id": "thatstraw",
+      "author_name": "",
+      "created_at": "2025-05-04T19:21:04.000Z",
+      "text": "VIM essentials for people who don't want to use it, but have to:",
+      "thread_tweets": [],
+      "source_url": "https://x.com/thatstraw/status/1919110045687595120",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqIMXrmWwAAFLye?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/GqM5pRhX0AAaJIh?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq2ejdlWEAAHMJY?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919110045687595120",
+        "text": "VIM essentials for people who don't want to use it, but have to:",
+        "author_id": "thatstraw",
+        "author_handle": "thatstraw",
+        "author_name": "",
+        "created_at": "2025-05-04T19:21:04.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqIMXrmWwAAFLye?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/GqM5pRhX0AAaJIh?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gq2ejdlWEAAHMJY?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/thatstraw/status/1919110045687595120",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1909942573923197054": {
+      "tweet_id": "1909942573923197054",
+      "author_handle": "theskilledcoder",
+      "author_id": "theskilledcoder",
+      "author_name": "",
+      "created_at": "2025-04-09T12:12:49.000Z",
+      "text": "Kafka Explained In Simple Steps",
+      "thread_tweets": [],
+      "source_url": "https://x.com/theskilledcoder/status/1909942573923197054",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GoF6o5AWkAAdAQV?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1909942573923197054",
+        "text": "Kafka Explained In Simple Steps",
+        "author_id": "theskilledcoder",
+        "author_handle": "theskilledcoder",
+        "author_name": "",
+        "created_at": "2025-04-09T12:12:49.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GoF6o5AWkAAdAQV?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/theskilledcoder/status/1909942573923197054",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1866615462844383425": {
+      "tweet_id": "1866615462844383425",
+      "author_handle": "tom_doerr",
+      "author_id": "tom_doerr",
+      "author_name": "",
+      "created_at": "2024-12-10T22:46:21.000Z",
+      "text": "Neosync is a tool for anonymizing PII, generating synthetic data, and syncing environments to facilitate testing, debugging, and compliance with data privacy regulations",
+      "thread_tweets": [],
+      "source_url": "https://x.com/tom_doerr/status/1866615462844383425",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GeeMJ3XWUAAc7Eh?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://pbs.twimg.com/media/Gq2m6YcW8AAzHmh?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1866615462844383425",
+        "text": "Neosync is a tool for anonymizing PII, generating synthetic data, and syncing environments to facilitate testing, debugging, and compliance with data privacy regulations",
+        "author_id": "tom_doerr",
+        "author_handle": "tom_doerr",
+        "author_name": "",
+        "created_at": "2024-12-10T22:46:21.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GeeMJ3XWUAAc7Eh?format=jpg&name=orig",
+          "https://pbs.twimg.com/media/Gq2m6YcW8AAzHmh?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/tom_doerr/status/1866615462844383425",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1915355627259408863": {
+      "tweet_id": "1915355627259408863",
+      "author_handle": "tom_doerr",
+      "author_id": "tom_doerr",
+      "author_name": "",
+      "created_at": "2025-04-24T10:42:21.000Z",
+      "text": "Resume builder for making, editing, sharing resumes",
+      "thread_tweets": [],
+      "source_url": "https://x.com/tom_doerr/status/1915355627259408863",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GpS1x8oWoAAtv65?format=jpg&name=orig"
+        },
+        {
+          "original_url": "https://video.twimg.com/amplify_video/1921979910307860480/vid/avc1/1322x1468/Mli7mRz5olDPtIAP.mp4?tag=21"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1915355627259408863",
+        "text": "Resume builder for making, editing, sharing resumes",
+        "author_id": "tom_doerr",
+        "author_handle": "tom_doerr",
+        "author_name": "",
+        "created_at": "2025-04-24T10:42:21.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GpS1x8oWoAAtv65?format=jpg&name=orig",
+          "https://video.twimg.com/amplify_video/1921979910307860480/vid/avc1/1322x1468/Mli7mRz5olDPtIAP.mp4?tag=21"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/tom_doerr/status/1915355627259408863",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919136851987755305": {
+      "tweet_id": "1919136851987755305",
+      "author_handle": "tom_doerr",
+      "author_id": "tom_doerr",
+      "author_name": "",
+      "created_at": "2025-05-04T21:07:36.000Z",
+      "text": "Self-hosted monitoring tool for tracking website uptime",
+      "thread_tweets": [],
+      "source_url": "https://x.com/tom_doerr/status/1919136851987755305",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqIkxKTXAAA3lwg?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919136851987755305",
+        "text": "Self-hosted monitoring tool for tracking website uptime",
+        "author_id": "tom_doerr",
+        "author_handle": "tom_doerr",
+        "author_name": "",
+        "created_at": "2025-05-04T21:07:36.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqIkxKTXAAA3lwg?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/tom_doerr/status/1919136851987755305",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    },
+    "1919265816899620918": {
+      "tweet_id": "1919265816899620918",
+      "author_handle": "tom_doerr",
+      "author_id": "tom_doerr",
+      "author_name": "",
+      "created_at": "2025-05-05T05:40:03.000Z",
+      "text": "Tool to extract data from Google Maps like business names, addresses, and contact info",
+      "thread_tweets": [],
+      "source_url": "https://x.com/tom_doerr/status/1919265816899620918",
+      "original_urls": [],
+      "expanded_urls": {},
+      "media_items": [
+        {
+          "original_url": "https://pbs.twimg.com/media/GqKaEoKXoAAYmdq?format=jpg&name=orig"
+        }
+      ],
+      "referenced_tweets": [],
+      "raw_tweet_details": {
+        "tweet_id": "1919265816899620918",
+        "text": "Tool to extract data from Google Maps like business names, addresses, and contact info",
+        "author_id": "tom_doerr",
+        "author_handle": "tom_doerr",
+        "author_name": "",
+        "created_at": "2025-05-05T05:40:03.000Z",
+        "media_urls": [
+          "https://pbs.twimg.com/media/GqKaEoKXoAAYmdq?format=jpg&name=orig"
+        ],
+        "urls": [],
+        "source_url": "https://x.com/tom_doerr/status/1919265816899620918",
+        "thread_tweets": []
+      },
+      "cache_complete": false,
+      "media_processed": false,
+      "categories_processed": false,
+      "kb_item_created": false,
+      "db_synced": false,
+      "kb_media_paths": [],
+      "error_message": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'",
+      "failed_phase": "Caching",
+      "cache_error": "Outer cache error: 'Config' object has no attribute 'media_max_size_bytes'"
+    }
+  },
+  "last_run_timestamp": "2025-05-14T15:00:27.286533"
+}

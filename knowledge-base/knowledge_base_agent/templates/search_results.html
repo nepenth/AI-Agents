@@ -69,7 +69,7 @@
                                                 {% for item in sub_group|sort(attribute='title') %}
                                                     <li>
                                                         <!-- Use item.title for display -->
-                                                        <a href="{{ url_for('item_detail', id=item.id) }}" class="nav-link sidebar-link item-link">
+                                                        <a href="{{ url_for('item_detail', item_id=item.id) }}" class="nav-link sidebar-link item-link">
                                                             {{ item.title }}
                                                         </a>
                                                     </li>
@@ -98,7 +98,7 @@
                         <h5 class="card-title">Found {{ results|length }} Results</h5>
                         <div class="list-group mt-3">
                             {% for item in results %}
-                                <a href="{{ url_for('item_detail', id=item.id) }}" class="list-group-item list-group-item-action">
+                                <a href="{{ url_for('item_detail', item_id=item.id) }}" class="list-group-item list-group-item-action">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h5 class="mb-1">{{ item.title }}</h5>
                                         <small>{{ item.last_updated.strftime('%Y-%m-%d') if item.last_updated else 'N/A' }}</small>
