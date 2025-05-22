@@ -137,7 +137,7 @@ class BookmarksFetcher:
 
             # Navigate to bookmarks page
             logging.info(f"Navigating to bookmarks page: {self.config.x_bookmarks_url}")
-            await self.page.goto(str(self.config.x_bookmarks_url), wait_until="domcontentloaded", timeout=60000)
+            await self.page.goto(str(self.config.x_bookmarks_url), wait_until="domcontentloaded", timeout=self.timeout)
             await self.page.wait_for_timeout(10000)  # wait for dynamic content
 
             # Check current URL

@@ -162,8 +162,9 @@ class MarkdownWriter:
                  except ValueError:
                     markdown_lines.append(f"**Original Post Date:** {item.source_tweet.get('created_at')}")
 
-            markdown_lines.append("")
+            markdown_lines.append("") # Add a separator line after metadata
             
+            # Add media embeds here, before the main content from item.markdown_content
             current_media_idx = 0
             # Iterate over the source media paths to ensure descriptions match original media items
             for i, original_media_path_str in enumerate(item.source_media_cache_paths): # Changed from item.media_urls
@@ -173,20 +174,32 @@ class MarkdownWriter:
                     
                     file_type = "Image" if media_filename_in_item_dir.startswith("image_") else "Video" if media_filename_in_item_dir.startswith("video_") else "Media"
                     
+                    # Provide a heading for the media section if this is the first piece of media
+                    if current_media_idx == 0:
+                        markdown_lines.append("## Media")
+                        markdown_lines.append("")
+
                     markdown_lines.append(f"**{file_type} Description:** {format_links_in_text(description if description else 'N/A')}")
                     # Link to media inside the 'media' subdirectory
-                    markdown_lines.append(f"![{description if description else file_type}]({Path('./media', media_filename_in_item_dir)})" ) 
+                    markdown_lines.append(f"![{description if description else file_type}]({Path('./media', media_filename_in_item_dir)})") 
                     markdown_lines.append("")
                     current_media_idx +=1
                 else:
                     logging.warning(f"Media file {original_media_path_str} was in item.source_media_cache_paths but not found in copied media list for Markdown generation.")
+            
+            # Ensure there's a blank line after media section if media was added
+            if current_media_idx > 0:
+                markdown_lines.append("")
 
-
-            markdown_lines.append("## Content")
-            markdown_lines.append("")
-            markdown_lines.append(format_links_in_text(item.markdown_content)) # Changed from item.content
-
-            final_markdown_content = "\n".join(markdown_lines)
+            # The main content now comes directly from item.markdown_content, which is already fully structured.
+            # No need to add "## Content" header or re-format.
+            # format_links_in_text is presumably already applied within item.markdown_content generation if needed,
+            # or can be applied to item.markdown_content before it's passed to MarkdownWriter.
+            # For now, assuming item.markdown_content is ready.
+            
+            # Concatenate the metadata/media header with the main content
+            header_content = "\n".join(markdown_lines)
+            final_markdown_content = header_content + "\n" + item.markdown_content # item.markdown_content already has its own newlines.
 
             # 4. Write README.md
             readme_path_in_temp_abs = temp_kb_item_dir_abs / "README.md"

@@ -15,6 +15,9 @@ from flask_socketio import SocketIO
 import json
 from dataclasses import asdict
 from flask import current_app
+import math
+from statistics import mean, median
+from collections import defaultdict
 
 from knowledge_base_agent.config import Config, load_config
 from knowledge_base_agent.exceptions import AgentError, MarkdownGenerationError
@@ -112,6 +115,13 @@ class KnowledgeBaseAgent:
         _current_phase_status (Optional[str]): Current phase status.
         _current_run_preferences (Optional[UserPreferences]): Current run preferences.
         _plan_statuses (Dict[str, Dict[str, str]]): Stores {'phase_id': {'status': '...', 'message': '...'}}
+        
+        # Time estimation tracking
+        _phase_start_times = {}
+        _phase_item_processing_times = defaultdict(list)
+        _phase_total_items = {}
+        _phase_processed_items = {}
+        _phase_estimated_completion_times = {}
     """
     
     def __init__(self, app, config: Config, socketio: Optional[SocketIO] = None):
@@ -146,17 +156,22 @@ class KnowledgeBaseAgent:
         self._current_phase_status = None
         self._current_run_preferences = None
         self._plan_statuses = {}
+        
+        # Time estimation tracking
+        self._phase_start_times = {}
+        self._phase_item_processing_times = defaultdict(list)
+        self._phase_total_items = {}
+        self._phase_processed_items = {}
+        self._phase_estimated_completion_times = {}
+        
         self.logger = logging.getLogger(__name__)
         logging.info("KnowledgeBaseAgent initialized")
 
     def socketio_emit_log(self, message: str, level: str = "INFO") -> None:
-        """Helper method to emit general logs via SocketIO if available."""
+        """Emit a log message via socketio and logging module."""
+        logging.log(getattr(logging, level.upper(), logging.INFO), message)
         if self.socketio:
             self.socketio.emit('log', {'message': message, 'level': level.upper()})
-        # Standard logging should already be happening where this is called if it's a duplicate of a logging call.
-        # Otherwise, if it's a new log point:
-        logger_level = getattr(logging, level.upper(), logging.INFO)
-        self.logger.log(logger_level, message) # Main agent log
 
     def socketio_emit_phase_update(self, 
                                  phase_id: str, 
@@ -177,6 +192,73 @@ class KnowledgeBaseAgent:
         if error_count is not None:
             log_message += f", Errors={error_count}"
         self.logger.info(log_message)
+
+        # Track timing and estimate completion
+        current_time = time.time()
+        estimated_completion_time = None
+        estimated_remaining_minutes = None
+        
+        # Handle timing for non-substep updates (main phases)
+        if not is_sub_step_update:
+            # When a phase starts, record the start time
+            if status == 'in_progress' and phase_id not in self._phase_start_times:
+                self._phase_start_times[phase_id] = current_time
+                if total_count is not None and total_count > 0:
+                    self._phase_total_items[phase_id] = total_count
+                    self._phase_processed_items[phase_id] = 0
+            
+            # When a phase ends, clear its timing data
+            if status in ['completed', 'error', 'skipped', 'interrupted']:
+                self._phase_start_times.pop(phase_id, None)
+                self._phase_estimated_completion_times.pop(phase_id, None)
+                self._phase_item_processing_times.pop(phase_id, None)
+                self._phase_total_items.pop(phase_id, None)
+                self._phase_processed_items.pop(phase_id, None)
+        
+        # Track item processing for time estimation (works for both main phases and substeps)
+        if processed_count is not None and total_count is not None and total_count > 0:
+            phase_key = phase_id
+            
+            # Check if we have previous processed count to calculate time per item
+            previous_processed = self._phase_processed_items.get(phase_key, 0)
+            if processed_count > previous_processed:
+                # We've processed new items since last update
+                items_just_processed = processed_count - previous_processed
+                
+                # If we have a start time for this batch, calculate processing time
+                if phase_key in self._phase_start_times:
+                    elapsed_since_last = current_time - self._phase_start_times.get(phase_key)
+                    
+                    # Only if we have meaningful timing data (more than 1 second elapsed)
+                    if elapsed_since_last > 1 and items_just_processed > 0:
+                        time_per_item = elapsed_since_last / items_just_processed
+                        self._phase_item_processing_times[phase_key].append(time_per_item)
+                        
+                        # Keep only the last 10 timing samples for moving average
+                        if len(self._phase_item_processing_times[phase_key]) > 10:
+                            self._phase_item_processing_times[phase_key] = self._phase_item_processing_times[phase_key][-10:]
+                
+                # Update stored processed count
+                self._phase_processed_items[phase_key] = processed_count
+                
+                # Calculate estimated completion time if we have enough data
+                if phase_key in self._phase_item_processing_times and len(self._phase_item_processing_times[phase_key]) > 0:
+                    # Use median time per item for better stability
+                    median_time_per_item = median(self._phase_item_processing_times[phase_key])
+                    remaining_items = total_count - processed_count
+                    
+                    # Estimated seconds remaining
+                    estimated_remaining_seconds = remaining_items * median_time_per_item
+                    
+                    # Convert to minutes for display with 1 decimal place
+                    estimated_remaining_minutes = round(estimated_remaining_seconds / 60, 1)
+                    
+                    # Calculate actual completion timestamp
+                    estimated_completion_time = current_time + estimated_remaining_seconds
+                    self._phase_estimated_completion_times[phase_key] = estimated_completion_time
+            
+            # Reset phase start time for next batch of timing
+            self._phase_start_times[phase_key] = current_time
 
         current_message_for_plan = message
         if is_sub_step_update:
@@ -202,6 +284,18 @@ class KnowledgeBaseAgent:
 
 
         if self.socketio:
+            # Format estimated time remaining for display if available
+            time_estimate_display = None
+            if estimated_remaining_minutes is not None and estimated_remaining_minutes > 0:
+                if estimated_remaining_minutes < 1:
+                    time_estimate_display = "< 1 minute remaining"
+                elif estimated_remaining_minutes < 60:
+                    time_estimate_display = f"~{int(estimated_remaining_minutes)} minute{'s' if estimated_remaining_minutes != 1 else ''} remaining"
+                else:
+                    hours = estimated_remaining_minutes // 60
+                    minutes = estimated_remaining_minutes % 60
+                    time_estimate_display = f"~{int(hours)}h {int(minutes)}m remaining"
+            
             data = {
                 'phase_id': phase_id,
                 'status': status,
@@ -210,7 +304,8 @@ class KnowledgeBaseAgent:
                 'processed_count': processed_count,
                 'total_count': total_count,
                 'error_count': error_count,
-                'full_plan_statuses': dict(self._plan_statuses) # For client-side state reconstruction
+                'full_plan_statuses': dict(self._plan_statuses), # For client-side state reconstruction
+                'time_estimate': time_estimate_display
             }
             self.socketio.emit('agent_phase_update', data)
 
@@ -522,13 +617,38 @@ class KnowledgeBaseAgent:
                     # First get unprocessed tweets
                     unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
                     
-                    # If force_reprocess_content is enabled, also include already processed tweets
+                    # Include already processed tweets if any force reprocessing flag is enabled
                     tweets_to_process = list(unprocessed_tweets)  # Create a copy to avoid modifying the original
-                    if preferences.force_reprocess_content:
+                    
+                    # Check if any force reprocessing flag is enabled
+                    any_force_reprocessing = (
+                        preferences.force_reprocess_content or
+                        preferences.force_reprocess_media or
+                        preferences.force_reprocess_llm or
+                        preferences.force_reprocess_kb_item
+                    )
+                    
+                    if any_force_reprocessing:
                         # Get processed tweets from state manager
                         processed_tweets = await self.state_manager.get_processed_tweets()
                         if processed_tweets:
-                            self.socketio_emit_log(f"Force reprocess enabled - adding {len(processed_tweets)} already processed tweets to the queue", "INFO")
+                            # Log which force flags are enabled
+                            force_flags_enabled = []
+                            if preferences.force_reprocess_content:
+                                force_flags_enabled.append("All Phases")
+                            else:
+                                if preferences.force_reprocess_media:
+                                    force_flags_enabled.append("Media Analysis")
+                                if preferences.force_reprocess_llm:
+                                    force_flags_enabled.append("LLM Processing")
+                                if preferences.force_reprocess_kb_item:
+                                    force_flags_enabled.append("KB Item Generation")
+                            
+                            self.socketio_emit_log(
+                                f"Force reprocessing enabled for: {', '.join(force_flags_enabled)} - " +
+                                f"adding {len(processed_tweets)} already processed tweets to the queue", 
+                                "INFO"
+                            )
                             tweets_to_process.extend(processed_tweets)
                     
                     total_tweets_count = len(tweets_to_process)
@@ -547,10 +667,10 @@ class KnowledgeBaseAgent:
                         self.socketio_emit_log(f"Content processing finished. Processed in this run: {processed_tweets_in_run}, Errors: {stats.error_count}", "INFO")
                         self.socketio_emit_phase_update('content_processing_overall', 'completed', f'Processed {processed_tweets_in_run}/{total_tweets_count} items. Errors: {stats.error_count}.')
                     else:
-                        if preferences.force_reprocess_content:
-                            self.socketio_emit_log("No tweets found to process, even with force_reprocess_content enabled. Your knowledge base may be empty.", "INFO")
+                        if any_force_reprocessing:
+                            self.socketio_emit_log("No tweets found to process, even with force reprocessing options enabled. Your knowledge base may be empty.", "INFO")
                         else:
-                            self.socketio_emit_log("No unprocessed tweets found. Add new tweets or enable 'Force Re-process Content' to reprocess existing items.", "INFO")
+                            self.socketio_emit_log("No unprocessed tweets found. Add new tweets or enable one of the force reprocessing options to reprocess existing items.", "INFO")
                         self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets to process.')
                 except Exception as e:
                     self.socketio_emit_log(f"Error during content processing: {e}", "ERROR")
@@ -685,24 +805,38 @@ class KnowledgeBaseAgent:
         }
 
     def get_current_state(self) -> Dict[str, Any]:
-        """Return the current state of the agent, including plan statuses and phase information.
-        Used for UI synchronization across browsers/sessions."""
-        state = {
+        """Get current state information for multi-client synchronization."""
+        # Format any active time estimates for display
+        time_estimate_display = None
+        if self._is_running and self._current_phase_id:
+            # Check if we have a time estimate for the current phase
+            phase_key = self._current_phase_id
+            if phase_key in self._phase_estimated_completion_times:
+                current_time = time.time()
+                estimated_completion_time = self._phase_estimated_completion_times[phase_key]
+                
+                # Only show if estimate is in the future
+                if estimated_completion_time > current_time:
+                    remaining_seconds = estimated_completion_time - current_time
+                    remaining_minutes = remaining_seconds / 60
+                    
+                    if remaining_minutes < 1:
+                        time_estimate_display = "< 1 minute remaining"
+                    elif remaining_minutes < 60:
+                        time_estimate_display = f"~{int(remaining_minutes)} minute{'s' if remaining_minutes != 1 else ''} remaining"
+                    else:
+                        hours = remaining_minutes // 60
+                        minutes = remaining_minutes % 60
+                        time_estimate_display = f"~{int(hours)}h {int(minutes)}m remaining"
+        
+        return {
             'is_running': self._is_running,
             'current_phase_id': self._current_phase_id,
-            'current_step_in_current_phase_progress_message': self._current_step_in_current_phase_progress_message if hasattr(self, '_current_step_in_current_phase_progress_message') else None,
-            'plan_statuses': self._plan_statuses.copy() if hasattr(self, '_plan_statuses') else {}
+            'current_step_in_current_phase_progress_message': self._current_phase_message,
+            'plan_statuses': self._plan_statuses,
+            'active_run_preferences': self._current_run_preferences,
+            'time_estimate': time_estimate_display
         }
-        
-        # Add any running stats/metrics
-        if hasattr(self, 'stats'):
-            state['stats'] = {
-                'processed_count': getattr(self.stats, 'processed_count', 0),
-                'error_count': getattr(self.stats, 'error_count', 0),
-                'categories_processed': getattr(self.stats, 'categories_processed', 0)
-            }
-            
-        return state
 
     def _initialize_plan_statuses(self, preferences: Optional[UserPreferences] = None):
         """Initializes or resets plan statuses, optionally considering user preferences for initial 'skipped' states."""

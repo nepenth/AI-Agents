@@ -42,6 +42,11 @@ class Config(BaseSettings):
     vision_model: str = Field(..., alias="VISION_MODEL")
     text_model: str = Field(..., alias="TEXT_MODEL")
     fallback_model: str = Field(..., alias="FALLBACK_MODEL")
+    categorization_model: str = Field("", alias="CATEGORIZATION_MODEL", description="Dedicated model for AI categorization, defaults to text_model if not set")
+    gpu_total_memory: int = Field(0, alias="GPU_TOTAL_MEM", description="Total GPU memory available in MB for parallelization decisions")
+    num_gpus_available: int = Field(1, alias="NUM_GPUS_AVAILABLE", description="Number of GPUs available for parallel processing")
+    text_model_thinking: bool = Field(False, alias="TEXT_MODEL_THINKING", description="Whether the text model supports reasoning/thinking subroutines (e.g., Cogito)")
+    categorization_model_thinking: bool = Field(False, alias="CATEGORIZATION_MODEL_THINKING", description="Whether the categorization model supports reasoning/thinking subroutines")
     
     # GitHub settings
     github_token: str = Field(..., alias="GITHUB_TOKEN")
@@ -140,38 +145,54 @@ class Config(BaseSettings):
     ollama_supports_json_mode: bool = Field(False, alias="OLLAMA_SUPPORTS_JSON_MODE", description="Whether the Ollama instance supports JSON mode for formatted output.")
 
     @model_validator(mode='after')
-    def resolve_paths(cls, values: 'Config') -> 'Config':
-        root = values.project_root
+    def resolve_paths(self):
+        """Resolve relative paths to absolute paths based on project_root."""
         
-        values.data_processing_dir = (root / values.data_processing_dir_rel).resolve()
-        values.knowledge_base_dir = (root / values.knowledge_base_dir_rel).resolve()
-        values.categories_file = (root / values.categories_file_rel).resolve()
-        values.bookmarks_file = (root / values.bookmarks_file_rel).resolve()
-        values.processed_tweets_file = (root / values.processed_tweets_file_rel).resolve()
-        values.media_cache_dir = (root / values.media_cache_dir_rel).resolve()
-        values.tweet_cache_file = (root / values.tweet_cache_file_rel).resolve()
+        # Ensure that the project_root has been set by something valid
+        if self.project_root is None:
+            logging.error("Project root is None. This should not happen as default_factory should be called.")
+            raise ConfigurationError("Project root is None.")
+        
+        self.data_processing_dir = (self.project_root / self.data_processing_dir_rel).resolve()
+        self.knowledge_base_dir = (self.project_root / self.knowledge_base_dir_rel).resolve()
+        self.categories_file = (self.project_root / self.categories_file_rel).resolve()
+        self.bookmarks_file = (self.project_root / self.bookmarks_file_rel).resolve()
+        self.processed_tweets_file = (self.project_root / self.processed_tweets_file_rel).resolve()
+        self.unprocessed_tweets_file = (self.project_root / self.unprocessed_tweets_file_rel).resolve()
+        self.media_cache_dir = (self.project_root / self.media_cache_dir_rel).resolve()
+        self.tweet_cache_file = (self.project_root / self.tweet_cache_file_rel).resolve()
         
         # Handle timestamp in log_file name before resolving
-        log_file_str = str(values.log_file_rel)
+        log_file_str = str(self.log_file_rel)
         if '{timestamp}' in log_file_str:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             log_file_str = log_file_str.replace('{timestamp}', timestamp)
         
-        values.log_file = (root / Path(log_file_str)).resolve()
-        values.unprocessed_tweets_file = (root / values.unprocessed_tweets_file_rel).resolve()
-        values.log_dir = (root / values.log_dir_rel).resolve()
+        self.log_file = (self.project_root / Path(log_file_str)).resolve()
+        self.log_dir = (self.project_root / self.log_dir_rel).resolve()
         
         # Ensure directories for these resolved absolute paths
         # This replaces the old field_validator for paths
         paths_to_ensure_parent_exists = [
-            values.data_processing_dir, values.knowledge_base_dir, values.categories_file,
-            values.bookmarks_file, values.processed_tweets_file, values.media_cache_dir,
-            values.tweet_cache_file, values.log_file, values.unprocessed_tweets_file, values.log_dir
+            self.data_processing_dir, self.knowledge_base_dir, self.categories_file,
+            self.bookmarks_file, self.processed_tweets_file, self.media_cache_dir,
+            self.tweet_cache_file, self.log_file, self.unprocessed_tweets_file, self.log_dir
         ]
         for p in paths_to_ensure_parent_exists:
             p.parent.mkdir(parents=True, exist_ok=True)
             
-        return values
+        # If categorization_model is empty, use text_model
+        if not self.categorization_model:
+            self.categorization_model = self.text_model
+            logging.info(f"No specific CATEGORIZATION_MODEL set. Using TEXT_MODEL ({self.text_model}) for categorization.")
+        
+        # Log GPU memory information
+        if self.gpu_total_memory > 0:
+            logging.info(f"GPU memory configuration: {self.gpu_total_memory}MB available for parallel processing")
+        else:
+            logging.warning("No GPU memory information available (GPU_TOTAL_MEM=0 or not set). Parallel LLM processing will be limited.")
+        
+        return self
     
     @field_validator('rate_limit_period', mode='before')
     def validate_rate_limit_period(cls, v):

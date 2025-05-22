@@ -5,8 +5,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const liveLogsUl = document.getElementById('liveLogsUl');
     const clearLogsButton = document.getElementById('clearLogsButton');
     const agentExecutionPlanUl = document.getElementById('agentExecutionPlan');
-    const runAgentBtn = document.getElementById('runAgentButton');
-    const stopAgentBtn = document.getElementById('stopAgentButton');
+    const runAgentButton = document.getElementById('runAgentButton');
+    const stopAgentButton = document.getElementById('stopAgentButton');
     
     const gpuUsageElement = document.getElementById('gpuUsage');
     const gpuMemoryElement = document.getElementById('gpuMemory');
@@ -23,13 +23,17 @@ document.addEventListener('DOMContentLoaded', function () {
         skip_readme_generation: document.getElementById('skipReadmeGeneration'),
         skip_git_push: document.getElementById('skipGitPush'),
         force_recache_tweets: document.getElementById('forceRecacheTweets'),
-        force_reprocess_content: document.getElementById('forceReprocessContent')
+        force_reprocess_media: document.getElementById('forceReprocessMedia'),
+        force_reprocess_llm: document.getElementById('forceReprocessLLM'),
+        force_reprocess_kb_item: document.getElementById('forceReprocessKBItem')
     };
 
     // State variables
     let agentIsRunning = false;
     let currentPhaseId = null; // Stores the ID of the currently active main phase
     let activeRunPreferences = null; // Stores preferences of the current/last run
+    let currentPhaseExpectedEndTime = null; // Timestamp when the current phase is expected to end (for ETC)
+    let phaseEtcInterval = null; // Interval timer for updating ETC display
 
     // --- Theme Initialization (Dark Mode) ---
     function initializeTheme() {
@@ -87,22 +91,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Agent Run Button State & Status UI --- Changed name
     function updateAgentStatusUI() { 
         const isRunning = agentIsRunning || (activeRunPreferences && activeRunPreferences.is_running);
-        const agentRunStatusSpan = document.getElementById('agentRunStatus');
-
-        if (runAgentBtn) {
-            runAgentBtn.disabled = isRunning;
-            runAgentBtn.textContent = isRunning ? 'Agent Running...' : 'Run Agent';
-            runAgentBtn.classList.toggle('btn-secondary', isRunning);
-            runAgentBtn.classList.toggle('btn-primary', !isRunning);
+        
+        // Update Run/Stop buttons
+        runAgentButton.disabled = isRunning;
+        stopAgentButton.disabled = !isRunning;
+        
+        // Update agent run status display IN THE LOGS FOOTER
+        const agentRunStatusLogsFooter = document.getElementById('agentRunStatusLogsFooter');
+        if (agentRunStatusLogsFooter) {
+            agentRunStatusLogsFooter.textContent = isRunning ? 'Agent Status: Running' : 'Agent Status: Not Running';
+            agentRunStatusLogsFooter.classList.remove('text-danger', 'text-success');
+            agentRunStatusLogsFooter.classList.add(isRunning ? 'text-success' : 'text-danger');
         }
-        if (stopAgentBtn) {
-            stopAgentBtn.disabled = !isRunning;
-            stopAgentBtn.classList.toggle('btn-danger', isRunning);
-            stopAgentBtn.classList.toggle('btn-secondary', !isRunning);
-        }
-        if (agentRunStatusSpan) {
-            agentRunStatusSpan.textContent = isRunning ? 'Running' : 'Not Running';
-            agentRunStatusSpan.className = isRunning ? 'text-success fw-bold' : 'text-muted'; // Added styling
+        
+        // Show/hide ETC in LOGS FOOTER based on agent running state
+        const phaseEtcLogsFooter = document.getElementById('phaseEtcLogsFooter');
+        if (phaseEtcLogsFooter) {
+            phaseEtcLogsFooter.style.display = isRunning && currentPhaseExpectedEndTime ? 'inline' : 'none';
         }
 
         // Disable preference form controls if agent is running
@@ -114,12 +119,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Agent Execution Plan UI Update ---
     function updatePhaseInExecutionPlan(phaseIdToUpdate, statusToSet, messageToSet, isSubStepUpdate = false, fullPlanStatuses = null) {
-        const agentPhasesList = document.getElementById('agentPhasesList');
-        if (!agentPhasesList) return;
+        const executionPlanContainer = document.getElementById('executionPlanContainer');
+        if (!executionPlanContainer) return;
 
         const applyStatusToElement = (el, status, message) => {
             if (!el) return;
-            el.classList.remove('status-pending', 'status-will-run', 'status-active', 'status-completed', 'status-skipped', 'status-error', 'phase-hidden-by-mode');
+            el.classList.remove('status-pending', 'status-will-run', 'status-active', 'status-completed', 'status-skipped', 'status-error', 'phase-hidden-by-mode', 'status-interrupted');
             const statusSpan = el.querySelector('.phase-status');
 
             if (status) {
@@ -136,6 +141,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     case 'completed': statusSpan.textContent = 'Completed'; break;
                     case 'skipped': statusSpan.textContent = 'Skipped'; break;
                     case 'error': statusSpan.textContent = 'Error'; break;
+                    case 'interrupted': statusSpan.textContent = 'Interrupted'; break;
                     default: statusSpan.textContent = '';
                 }
             }
@@ -144,14 +150,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (fullPlanStatuses) {
             // Iterate and update all known plan items based on full server state
             for (const [phaseId, phaseInfo] of Object.entries(fullPlanStatuses)) {
-                const phaseElement = agentPhasesList.querySelector(`[data-phase-id="${phaseId}"]`);
+                const phaseElement = executionPlanContainer.querySelector(`[data-phase-id="${phaseId}"]`);
                 if (phaseElement) {
                     applyStatusToElement(phaseElement, phaseInfo.status, phaseInfo.message);
                 }
             }
         } else if (phaseIdToUpdate) {
             // Update a single specified phase
-            const phaseElement = agentPhasesList.querySelector(`[data-phase-id="${phaseIdToUpdate}"]`);
+            const phaseElement = executionPlanContainer.querySelector(`[data-phase-id="${phaseIdToUpdate}"]`);
             if (phaseElement) {
                 applyStatusToElement(phaseElement, statusToSet, messageToSet);
             }
@@ -159,14 +165,64 @@ document.addEventListener('DOMContentLoaded', function () {
         // Special handling for current phase details box
         const currentPhaseDetailsBox = document.getElementById('current-phase-details');
         if (currentPhaseDetailsBox) {
-            if (agentIsRunning && currentPhaseId && messageToSet) {
+            if (agentIsRunning && currentPhaseId && messageToSet && messageToSet !== 'Running...') { // Avoid generic "Running..."
                  let activePhaseName = '';
-                 const activePhaseEl = agentPhasesList.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
+                 const activePhaseEl = executionPlanContainer.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
                  if(activePhaseEl) activePhaseName = activePhaseEl.textContent.trim() + ": ";
                  currentPhaseDetailsBox.textContent = activePhaseName + messageToSet;
+            } else if (agentIsRunning && !messageToSet && currentPhaseId) {
+                // If running and there's a phase but no specific message, show phase name + Processing
+                let activePhaseName = '';
+                const activePhaseEl = executionPlanContainer.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
+                if(activePhaseEl) activePhaseName = activePhaseEl.textContent.trim();
+                currentPhaseDetailsBox.textContent = activePhaseName ? `${activePhaseName}: Processing...` : 'Agent Processing...';
             } else if (!agentIsRunning) {
                  currentPhaseDetailsBox.textContent = 'Agent Idle';
             }
+        }
+
+        // Call a new function to adjust heights after updating the execution plan
+        setTimeout(adjustPanelHeights, 50);
+    }
+
+    // New function to ensure panel heights are matched appropriately
+    function adjustPanelHeights() {
+        // Get the execution plan and live logs containers using the new layout classes
+        const executionPlanPanel = document.querySelector('.execution-plan-panel .card');
+        const liveLogsPanel = document.querySelector('.live-logs-panel .card');
+        
+        if (!executionPlanPanel || !liveLogsPanel) return;
+        
+        // Let the execution plan determine its natural height first
+        executionPlanPanel.style.height = 'auto';
+        
+        // Get the natural height of the execution plan after it has rendered
+        const executionPlanHeight = executionPlanPanel.offsetHeight;
+        
+        // Make sure the live logs panel matches this height (but can scroll internally)
+        liveLogsPanel.style.height = `${executionPlanHeight}px`;
+        
+        // Make sure log container fills the available space
+        const logContainer = document.getElementById('liveLogsUl');
+        if (logContainer) {
+            // Calculate the height available for the logs container
+            const logsPanelBody = document.querySelector('.live-logs-panel .card-body');
+            const logsHeaderHeight = document.querySelector('.live-logs-panel .card-header')?.offsetHeight || 0;
+            const logsFooterHeight = document.querySelector('.live-logs-panel .card-footer')?.offsetHeight || 0;
+            
+            if (logsPanelBody) {
+                // Subtract header/footer heights from available space
+                const availableHeight = executionPlanHeight - logsHeaderHeight - logsFooterHeight - 30; // 30px for padding
+                logContainer.style.height = `${availableHeight}px`;
+                logContainer.style.maxHeight = `${availableHeight}px`;
+                logContainer.style.overflowY = 'auto';
+            }
+        }
+        
+        // Make sure panels are visible
+        const mainPanelsContainer = document.querySelector('.dashboard-main-panels');
+        if (mainPanelsContainer) {
+            mainPanelsContainer.style.display = 'flex';
         }
     }
     
@@ -196,7 +252,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const prefs = {};
         prefs.run_mode = 'full_pipeline'; // Always full_pipeline now
         prefs.force_recache_tweets = controlInputs.force_recache_tweets ? controlInputs.force_recache_tweets.checked : false;
-        prefs.force_reprocess_content = controlInputs.force_reprocess_content ? controlInputs.force_reprocess_content.checked : false;
+        
+        // Granular force flags for different phases
+        prefs.force_reprocess_media = controlInputs.force_reprocess_media ? controlInputs.force_reprocess_media.checked : false;
+        prefs.force_reprocess_llm = controlInputs.force_reprocess_llm ? controlInputs.force_reprocess_llm.checked : false;
+        prefs.force_reprocess_kb_item = controlInputs.force_reprocess_kb_item ? controlInputs.force_reprocess_kb_item.checked : false;
 
         // These depend on run_mode - now they are direct controls
         prefs.skip_fetch_bookmarks = controlInputs.skip_fetch_bookmarks ? controlInputs.skip_fetch_bookmarks.checked : false;
@@ -214,7 +274,9 @@ document.addEventListener('DOMContentLoaded', function () {
             skip_readme_generation: controlInputs.skip_readme_generation ? controlInputs.skip_readme_generation.checked : false,
             skip_git_push: controlInputs.skip_git_push ? controlInputs.skip_git_push.checked : false,
             force_recache_tweets: controlInputs.force_recache_tweets ? controlInputs.force_recache_tweets.checked : false,
-            force_reprocess_content: controlInputs.force_reprocess_content ? controlInputs.force_reprocess_content.checked : false,
+            force_reprocess_media: controlInputs.force_reprocess_media ? controlInputs.force_reprocess_media.checked : false,
+            force_reprocess_llm: controlInputs.force_reprocess_llm ? controlInputs.force_reprocess_llm.checked : false,
+            force_reprocess_kb_item: controlInputs.force_reprocess_kb_item ? controlInputs.force_reprocess_kb_item.checked : false,
             darkMode: darkModeToggle ? darkModeToggle.checked : false
         };
         localStorage.setItem('agentClientPreferences', JSON.stringify(clientPrefs));
@@ -251,8 +313,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (controlInputs.force_recache_tweets && clientPrefs.hasOwnProperty('force_recache_tweets')) controlInputs.force_recache_tweets.checked = clientPrefs.force_recache_tweets;
         else if (controlInputs.force_recache_tweets) controlInputs.force_recache_tweets.checked = false;
 
-        if (controlInputs.force_reprocess_content && clientPrefs.hasOwnProperty('force_reprocess_content')) controlInputs.force_reprocess_content.checked = clientPrefs.force_reprocess_content;
-        else if (controlInputs.force_reprocess_content) controlInputs.force_reprocess_content.checked = false;
+        // New granular force reprocessing options
+        if (controlInputs.force_reprocess_media && clientPrefs.hasOwnProperty('force_reprocess_media')) 
+            controlInputs.force_reprocess_media.checked = clientPrefs.force_reprocess_media;
+        else if (controlInputs.force_reprocess_media) 
+            controlInputs.force_reprocess_media.checked = false;
+            
+        if (controlInputs.force_reprocess_llm && clientPrefs.hasOwnProperty('force_reprocess_llm')) 
+            controlInputs.force_reprocess_llm.checked = clientPrefs.force_reprocess_llm;
+        else if (controlInputs.force_reprocess_llm) 
+            controlInputs.force_reprocess_llm.checked = false;
+            
+        if (controlInputs.force_reprocess_kb_item && clientPrefs.hasOwnProperty('force_reprocess_kb_item')) 
+            controlInputs.force_reprocess_kb_item.checked = clientPrefs.force_reprocess_kb_item;
+        else if (controlInputs.force_reprocess_kb_item) 
+            controlInputs.force_reprocess_kb_item.checked = false;
             
         const currentPrefsForViz = getPreferencesForServer(); 
         updateExecutionPlanVisualization(currentPrefsForViz); 
@@ -260,21 +335,21 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function updateExecutionPlanVisualization(preferences) {
         console.log("Updating execution plan visualization (Restored Logic) with prefs:", preferences);
-        const agentPhasesList = document.getElementById('agentPhasesList');
-        if (!agentPhasesList) return;
+        const executionPlanContainer = document.getElementById('executionPlanContainer');
+        if (!executionPlanContainer) return;
 
         const phaseConfigs = {
-            'initialization': { el: agentPhasesList.querySelector('[data-phase-id="initialization"]'), skipKey: null },
-            'fetch_bookmarks': { el: agentPhasesList.querySelector('[data-phase-id="fetch_bookmarks"]'), skipKey: 'skip_fetch_bookmarks' },
-            'content_processing_overall': { el: agentPhasesList.querySelector('[data-phase-id="content_processing_overall"]'), skipKey: 'skip_process_content' },
-            'subphase_cp_cache': { el: agentPhasesList.querySelector('[data-phase-id="subphase_cp_cache"]'), parent: 'content_processing_overall' },
-            'subphase_cp_media': { el: agentPhasesList.querySelector('[data-phase-id="subphase_cp_media"]'), parent: 'content_processing_overall' },
-            'subphase_cp_llm': { el: agentPhasesList.querySelector('[data-phase-id="subphase_cp_llm"]'), parent: 'content_processing_overall' },
-            'subphase_cp_kbitem': { el: agentPhasesList.querySelector('[data-phase-id="subphase_cp_kbitem"]'), parent: 'content_processing_overall' },
-            'subphase_cp_db': { el: agentPhasesList.querySelector('[data-phase-id="subphase_cp_db"]'), parent: 'content_processing_overall' },
-            'readme_generation': { el: agentPhasesList.querySelector('[data-phase-id="readme_generation"]'), skipKey: 'skip_readme_generation' },
-            'git_sync': { el: agentPhasesList.querySelector('[data-phase-id="git_sync"]'), skipKey: 'skip_git_push' },
-            'cleanup': { el: agentPhasesList.querySelector('[data-phase-id="cleanup"]'), skipKey: null }
+            'initialization': { el: executionPlanContainer.querySelector('[data-phase-id="initialization"]'), skipKey: null },
+            'fetch_bookmarks': { el: executionPlanContainer.querySelector('[data-phase-id="fetch_bookmarks"]'), skipKey: 'skip_fetch_bookmarks' },
+            'content_processing_overall': { el: executionPlanContainer.querySelector('[data-phase-id="content_processing_overall"]'), skipKey: 'skip_process_content' },
+            'subphase_cp_cache': { el: executionPlanContainer.querySelector('[data-phase-id="subphase_cp_cache"]'), parent: 'content_processing_overall' },
+            'subphase_cp_media': { el: executionPlanContainer.querySelector('[data-phase-id="subphase_cp_media"]'), parent: 'content_processing_overall' },
+            'subphase_cp_llm': { el: executionPlanContainer.querySelector('[data-phase-id="subphase_cp_llm"]'), parent: 'content_processing_overall' },
+            'subphase_cp_kbitem': { el: executionPlanContainer.querySelector('[data-phase-id="subphase_cp_kbitem"]'), parent: 'content_processing_overall' },
+            'subphase_cp_db': { el: executionPlanContainer.querySelector('[data-phase-id="subphase_cp_db"]'), parent: 'content_processing_overall' },
+            'readme_generation': { el: executionPlanContainer.querySelector('[data-phase-id="readme_generation"]'), skipKey: 'skip_readme_generation' },
+            'git_sync': { el: executionPlanContainer.querySelector('[data-phase-id="git_sync"]'), skipKey: 'skip_git_push' },
+            'cleanup': { el: executionPlanContainer.querySelector('[data-phase-id="cleanup"]'), skipKey: null }
         };
 
         for (const phaseId in phaseConfigs) {
@@ -287,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const statusSpan = config.el.querySelector('.phase-status');
             const optionalInfoSpan = config.el.querySelector('.optional-phase-info'); 
             
-            config.el.classList.remove('status-pending', 'status-will-run', 'status-skipped', 'status-active', 'status-completed', 'status-error');
+            config.el.classList.remove('status-pending', 'status-will-run', 'status-skipped', 'status-active', 'status-completed', 'status-error', 'status-interrupted');
             
             if (statusSpan) statusSpan.textContent = '';
             if (optionalInfoSpan) optionalInfoSpan.textContent = ''; 
@@ -303,15 +378,30 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.warn("Parent config element not found for subphase:", phaseId);
                     continue;
                 }
-                // A sub-phase runs if its parent runs. Parent's skipKey determines its status.
+                
                 const parentIsSkipped = parentConfig.skipKey && preferences[parentConfig.skipKey];
-                effectiveWillRun = !parentIsSkipped;
+
+                // If the parent "Content Processing Overall" is skipped, all sub-phases are skipped.
                 if (parentIsSkipped) {
                     statusClass = 'status-skipped';
                     statusText = 'Skipped (parent)';
                 } else {
+                    // Default for sub-phases if parent is not skipped: they will run.
+                    // Specific force flags might change their nature (e.g. re-running) but they are part of the active pipeline.
                     statusClass = 'status-will-run';
-                    statusText = 'Will run'; 
+                    statusText = 'Will run';
+
+                    // Indicate if a sub-phase is explicitly forced
+                    if (phaseId === 'subphase_cp_cache' && preferences.force_recache_tweets) {
+                        statusText = 'Will run (forced)';
+                    } else if (phaseId === 'subphase_cp_media' && preferences.force_reprocess_media) {
+                        statusText = 'Will run (forced)';
+                    } else if (phaseId === 'subphase_cp_llm' && preferences.force_reprocess_llm) {
+                        statusText = 'Will run (forced)';
+                    } else if (phaseId === 'subphase_cp_kbitem' && preferences.force_reprocess_kb_item) {
+                        statusText = 'Will run (forced)';
+                    }
+                    // DB sync runs if KB item runs, no separate force flag needed for visualization here.
                 }
             } else { // Main phases (and phases without a parent like initialization/cleanup)
                 effectiveWillRun = !isSkippedByOwnCheckbox;
@@ -331,7 +421,8 @@ document.addEventListener('DOMContentLoaded', function () {
                  if (statusClass === 'status-skipped'){
                     optionalInfoSpan.textContent = '(Skipped)';
                  } else if (statusClass === 'status-will-run') {
-                    optionalInfoSpan.textContent = '(Will Run)'; 
+                    // Don't add duplicate "(Will Run)" text, as it's already shown in the status span
+                    // optionalInfoSpan.textContent = '(Will Run)'; 
                  }
             }
         }
@@ -348,16 +439,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    if (runAgentBtn) {
-        runAgentBtn.addEventListener('click', () => {
+    if (runAgentButton) {
+        runAgentButton.addEventListener('click', () => {
             const preferences = getPreferencesForServer();
             addLogMessage(`Requesting to run agent with preferences: ${JSON.stringify(preferences)}`, 'INFO');
             socket.emit('run_agent', { preferences: preferences });
         });
     }
 
-    if (stopAgentBtn) {
-        stopAgentBtn.addEventListener('click', () => {
+    if (stopAgentButton) {
+        stopAgentButton.addEventListener('click', () => {
             addLogMessage('Requesting to stop agent.', 'WARN');
             socket.emit('stop_agent');
         });
@@ -395,55 +486,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         updateAgentStatusUI(); // Updates buttons, status text, and disables/enables form controls
 
-        // Determine how to render the execution plan:
-        // Highest priority: If agent is running and server provides a live plan.
-        if (agentIsRunning && data.plan_statuses && Object.keys(data.plan_statuses).length > 0) {
-            console.log("Agent is running. Applying full plan from server:", data.plan_statuses);
-            updatePhaseInExecutionPlan(null, null, null, false, data.plan_statuses);
-        } else {
-            // Fallback: Agent is NOT running, OR it is running but server didn't send a valid plan.
-            // In these cases, visualize based on current checkbox selections (i.e., what a *new* run would look like).
-            console.log("Agent not running or no valid plan_statuses from server for active run. Visualizing based on current control preferences.");
-            const currentPrefsForViz = getPreferencesForServer(); // Gets values from checkboxes
-            updateExecutionPlanVisualization(currentPrefsForViz);
-        }
-
-        // This part updates the "Current Phase Details" box with the specific step message.
-        if (agentIsRunning && data.current_phase_id && data.current_step_in_current_phase_progress_message) {
-             updatePhaseInExecutionPlan(
-                data.current_phase_id,
-                'active', // The phase itself should be marked 'active' in plan_statuses
-                data.current_step_in_current_phase_progress_message, // This is the more detailed message for the box
-                true // Indicates it's updating the details box / current sub-step message
-            );
-        }
-
-        // Git config info
-        const gitSshCommandEl = document.getElementById('gitSshCommand');
-        const gitRemoteNameEl = document.getElementById('gitRemoteName');
-        const gitBranchNameEl = document.getElementById('gitBranchName');
-        if (gitSshCommandEl) gitSshCommandEl.textContent = data.git_ssh_command || 'Not set';
-        if (gitRemoteNameEl) gitRemoteNameEl.textContent = data.git_remote_name || 'Not set';
-        if (gitBranchNameEl) gitBranchNameEl.textContent = data.git_branch_name || 'Not set';
-
-        // Log History - Process historical logs sent from the server 
-        if (data.log_history && Array.isArray(data.log_history) && data.log_history.length > 0) {
-            // Clear existing logs if we have historical ones to show
-            if (liveLogsUl) liveLogsUl.innerHTML = '';
-            
-            // Add a header for historical logs
-            addLogMessage('--- Begin historical logs from current run ---', 'INFO');
-            
-            // Add all the historical logs
-            data.log_history.forEach(logEntry => {
-                if (logEntry && logEntry.message) {
-                    addLogMessage(logEntry.message, logEntry.level || 'INFO');
+        // Set time estimate if provided and agent is running
+        if (agentIsRunning && data.time_estimate) {
+            const timeEstimateSpans = document.querySelectorAll('#timeEstimatePlan, #timeEstimateLogs');
+            timeEstimateSpans.forEach(span => {
+                if (span) {
+                    span.textContent = data.time_estimate;
+                    span.style.display = 'inline';
                 }
             });
-            
-            // Add a separator after historical logs
-            addLogMessage('--- End of historical logs ---', 'INFO');
-            addLogMessage('Connected to server. New logs will appear below.', 'INFO');
+        }
+        
+        // Update full execution plan based on initial status
+        if (data.full_plan_statuses) {
+            updatePhaseInExecutionPlan(null, null, null, false, data.full_plan_statuses);
         }
     });
 
@@ -458,17 +514,26 @@ document.addEventListener('DOMContentLoaded', function () {
         if (agentIsRunning && activeRunPreferences) {
             console.log("Agent is running, attempting to restore execution plan state from activeRunPreferences.plan_statuses");
             // If agent is running, reconstruct the plan from server's idea of the current run.
-            // The server should ideally send the full plan status.
-            // The 'initial_status_and_git_config' event handles a more comprehensive initial setup.
-            // This 'agent_status' might be more for simple running/not running updates.
-            // Let's assume plan_statuses comes with initial_status or agent_phase_update.
-            if (activeRunPreferences.plan_statuses) {
+            if (data.plan_statuses) {
+                 updatePhaseInExecutionPlan(null, null, null, false, data.plan_statuses);
+            } else if (activeRunPreferences.plan_statuses) {
                  updatePhaseInExecutionPlan(null, null, null, false, activeRunPreferences.plan_statuses);
             } else {
                 // If no plan_statuses, re-visualize based on loaded preferences (pre-run state)
-                // This might be redundant if initial_status always provides plan_statuses
                  const prefsForViz = getPreferencesForServer();
                  updateExecutionPlanVisualization(prefsForViz);
+            }
+            
+            // Update the current phase details box if we have phase info
+            if (data.current_phase_id && data.current_step_in_current_phase_progress_message) {
+                currentPhaseId = data.current_phase_id;
+                const currentPhaseDetailsBox = document.getElementById('current-phase-details');
+                if (currentPhaseDetailsBox) {
+                    let activePhaseName = '';
+                    const activePhaseEl = document.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
+                    if (activePhaseEl) activePhaseName = activePhaseEl.textContent.trim() + ": ";
+                    currentPhaseDetailsBox.textContent = activePhaseName + data.current_step_in_current_phase_progress_message;
+                }
             }
         } else if (!agentIsRunning) {
             // Agent stopped, reset currentPhaseId and clear details box
@@ -479,68 +544,164 @@ document.addEventListener('DOMContentLoaded', function () {
             const prefsForViz = getPreferencesForServer();
             updateExecutionPlanVisualization(prefsForViz);
         }
+
+        // Adjust panel heights after initialization
+        setTimeout(adjustPanelHeights, 100);
     });
 
     socket.on('agent_phase_update', function(data) {
-        // Expected data: { phase_id, status, message, is_sub_step_update, 
-        //                  processed_count, total_count, error_count, 
-        //                  full_plan_statuses }
-        console.log("Received agent_phase_update:", data);
-
-        if (agentIsRunning && data.phase_id && !data.is_sub_step_update) {
-            // Update currentPhaseId only for main phase changes (not sub-steps)
-            // and only if the agent is actually running.
-            currentPhaseId = data.phase_id; 
-        } else if (agentIsRunning && data.phase_id && data.is_sub_step_update && !currentPhaseId) {
-            // If we get a sub-step update but currentPhaseId is not set (e.g. page reload during sub-step)
-            // try to infer it from the sub-step's phase_id if it implies a parent.
-            // This is a heuristic. Better if server always anchors sub-steps to a known main phase.
-            // For now, we'll rely on currentPhaseId being set by a main phase update.
+        addLogMessage(`Phase update: ${data.phase_id} - ${data.status} - ${data.message}`, 'INFO');
+        console.log("Agent Phase Update:", data);
+        currentPhaseId = data.phase_id; // Update current phase ID
+        
+        let formattedProgressMessage = data.message || '';
+        if (data.status === 'active') {
+             formattedProgressMessage = data.message || 'Processing...'; // Default for active phase in list
+            if (data.initial_estimated_duration_seconds !== undefined && data.initial_estimated_duration_seconds > 0) {
+                const phaseStartTime = Date.now();
+                currentPhaseExpectedEndTime = phaseStartTime + (data.initial_estimated_duration_seconds * 1000);
+                console.log(`Phase ${data.phase_id} started. Initial Estimated Duration: ${data.initial_estimated_duration_seconds}s. Expected end: ${new Date(currentPhaseExpectedEndTime)}`);
+                startEtcUpdateInterval(); // Start ETC timer
+                updatePhaseEtcDisplay(); // Initial display
+            } else {
+                currentPhaseExpectedEndTime = null; // No historical estimate for this phase
+                stopEtcUpdateInterval();
+                const phaseEtcLogsFooter = document.getElementById('phaseEtcLogsFooter');
+                if(phaseEtcLogsFooter) {
+                    phaseEtcLogsFooter.textContent = 'ETC: N/A';
+                    phaseEtcLogsFooter.style.display = agentIsRunning ? 'inline' : 'none';
+                }
+            }
+        } else if (data.status === 'completed' || data.status === 'skipped' || data.status === 'error') {
+            // If the current phase just completed/skipped/errored, clear its ETC.
+            if (data.phase_id === currentPhaseId) {
+                currentPhaseExpectedEndTime = null;
+                stopEtcUpdateInterval();
+                 const phaseEtcLogsFooter = document.getElementById('phaseEtcLogsFooter');
+                if(phaseEtcLogsFooter) phaseEtcLogsFooter.style.display = 'none';
+            }
         }
 
+        updatePhaseInExecutionPlan(data.phase_id, data.status, formattedProgressMessage, data.is_sub_step || false);
+        updateAgentStatusUI(); // Update overall agent status display elements
 
-        // Create the payload for updatePhaseProgress formatter
-        // data.message from server is the base status message for the item/event
-        const progressDataForFormatter = {
-            status_message: data.message, 
-            processed_count: data.processed_count,
-            total_count: data.total_count,
-            error_count: data.error_count
-        };
-        
-        // Generate the potentially detailed message string
-        let detailedMessage = updatePhaseProgress(data.phase_id, progressDataForFormatter);
-
-        // Pass this detailedMessage to updatePhaseInExecutionPlan.
-        // data.status is the status for the list item (e.g., 'active', 'completed').
-        // data.is_sub_step_update guides how updatePhaseInExecutionPlan behaves.
-        // data.full_plan_statuses is used if it's a full plan refresh (typically not for sub-steps).
-        
-        if (data.is_sub_step_update) {
-            // For sub-step updates, only update the specific phase.
-            // The detailedMessage will be used by updatePhaseInExecutionPlan for the 
-            // current-phase-details box and potentially the phase item's status span.
-            updatePhaseInExecutionPlan(data.phase_id, data.status, detailedMessage, data.is_sub_step_update, null);
-        } else {
-            // For main phase updates or final summaries of sub-phases (where is_sub_step_update=false).
-            // Here, data.full_plan_statuses might be relevant if the server sends it
-            // to ensure the entire plan view is consistent with the server state.
-            updatePhaseInExecutionPlan(data.phase_id, data.status, detailedMessage, data.is_sub_step_update, data.full_plan_statuses);
+        if (data.phase_id === 'git_sync' && data.git_config_error) {
+            const gitPhaseElement = document.querySelector('[data-phase-id="git_sync"]');
+            const optionalInfoSpan = gitPhaseElement ? gitPhaseElement.querySelector('.optional-phase-info') : null;
+            if (optionalInfoSpan) {
+                optionalInfoSpan.textContent = '(Error: Git not configured)';
+                optionalInfoSpan.classList.add('text-danger');
+            }
         }
     });
-    
+
+    // New listener for ongoing phase progress and ETC
+    socket.on('agent_phase_progress', function(data) {
+        // This event is now primarily for updating the (X/Y) counts in the current-phase-details box.
+        // The main ETC countdown is handled by the interval timer.
+        if (agentIsRunning && data.phase_id === currentPhaseId && data.total_count > 0) {
+            const processed = data.processed_count;
+            const total = data.total_count;
+            
+            const currentPhaseDetailsBox = document.getElementById('current-phase-details');
+            if (currentPhaseDetailsBox) {
+                let activePhaseName = '';
+                const activePhaseEl = document.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
+                if(activePhaseEl) activePhaseName = activePhaseEl.textContent.trim();
+                
+                let baseMessage = data.status_message || 'Processing...'; // Message from backend if any
+                
+                // ETC string will be updated by the interval timer, so we don't include it here directly from this event
+                // to avoid conflicts if historical ETC is used.
+                currentPhaseDetailsBox.textContent = `${activePhaseName}: (${processed}/${total}) ${baseMessage}`;
+            }
+        } else if (data.phase_id === currentPhaseId && data.total_count === 0 && agentIsRunning) {
+             const currentPhaseDetailsBox = document.getElementById('current-phase-details');
+             if (currentPhaseDetailsBox) {
+                let activePhaseName = '';
+                const activePhaseEl = document.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
+                if(activePhaseEl) activePhaseName = activePhaseEl.textContent.trim();
+                currentPhaseDetailsBox.textContent = `${activePhaseName}: ${data.status_message || 'Processing...'}`;
+             }
+        }
+    });
+
+    function formatRemainingTime(milliseconds) {
+        if (milliseconds < 0) milliseconds = 0;
+        const totalSeconds = Math.ceil(milliseconds / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        if (hours > 0) {
+            return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m`;
+        } else if (minutes > 0) {
+            return `${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+        } else {
+            return `${String(seconds).padStart(2, '0')}s`;
+        }
+    }
+
+    function updatePhaseEtcDisplay() {
+        const phaseEtcLogsFooter = document.getElementById('phaseEtcLogsFooter');
+        if (!phaseEtcLogsFooter || !agentIsRunning) return;
+
+        if (currentPhaseExpectedEndTime) {
+            const remainingMs = currentPhaseExpectedEndTime - Date.now();
+            if (remainingMs > 0) {
+                phaseEtcLogsFooter.textContent = `ETC: ${formatRemainingTime(remainingMs)}`;
+                phaseEtcLogsFooter.style.display = 'inline';
+            } else {
+                phaseEtcLogsFooter.textContent = 'ETC: Finishing...'; // Or some other message
+                phaseEtcLogsFooter.style.display = 'inline';
+                // Optionally stop interval if it goes significantly past expected end time
+            }
+        } else {
+            // Fallback to real-time calculation if no historical estimate was provided
+            // This part can reuse logic from the previous 'agent_phase_progress' if a simple real-time ETC is desired as fallback
+            // For now, if no currentPhaseExpectedEndTime, it shows N/A via agent_phase_update logic.
+            // phaseEtcLogsFooter.textContent = 'ETC: N/A (Live)';
+            // phaseEtcLogsFooter.style.display = 'inline';
+        }
+    }
+
+    function startEtcUpdateInterval() {
+        stopEtcUpdateInterval(); // Clear existing interval if any
+        if (currentPhaseExpectedEndTime) {
+            phaseEtcInterval = setInterval(updatePhaseEtcDisplay, 1000); // Update every second
+            updatePhaseEtcDisplay(); // Initial call
+        }
+    }
+
+    function stopEtcUpdateInterval() {
+        if (phaseEtcInterval) {
+            clearInterval(phaseEtcInterval);
+            phaseEtcInterval = null;
+        }
+    }
+
     socket.on('agent_run_completed', function(data) {
         addLogMessage(`Agent run completed. Summary: ${data.summary_message}`, 'INFO');
         agentIsRunning = data.is_running; 
-        updateAgentStatusUI(); // Changed from updateRunAgentButtonState
+        updateAgentStatusUI();
         currentPhaseId = null; 
         activeRunPreferences = null; 
+        currentPhaseExpectedEndTime = null; // Clear expected end time
+        stopEtcUpdateInterval(); // Stop ETC timer
+
+        const phaseEtcLogsFooter = document.getElementById('phaseEtcLogsFooter');
+        if (phaseEtcLogsFooter) {
+            phaseEtcLogsFooter.style.display = 'none';
+        }
 
         if (data.plan_statuses) {
             updatePhaseInExecutionPlan(null, null, null, false, data.plan_statuses);
         }
         fetchKnowledgeBaseItems(); 
         loadClientPreferences(); // Reload local prefs and re-visualize for a new run
+        
+        // Adjust panel heights after completion
+        setTimeout(adjustPanelHeights, 50);
     });
 
     socket.on('progress_update', function(data) {
@@ -630,28 +791,24 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </div>
                             </div>
                             
-                            <div class="row">
-                                <div class="col-6 col-sm-4 mb-2">
+                            <div class="row d-flex flex-nowrap">
+                                <div class="col-3 mb-2">
                                     <small class="text-muted">Temperature</small>
                                     <div class="fw-bold ${tempClass}">${tempDisplay}</div>
                                 </div>
-                                <div class="col-6 col-sm-4 mb-2">
+                                <div class="col-3 mb-2">
                                     <small class="text-muted">Power Draw</small>
                                     <div class="fw-bold">${powerDraw}</div>
                                 </div>
-                                 <div class="col-6 col-sm-4 mb-2">
+                                <div class="col-3 mb-2">
                                     <small class="text-muted">Graphics Clock</small>
                                     <div class="fw-bold">${gfxClock}</div>
                                 </div>
-                                ${data.gpus.length === 1 ? `<div class="col-6 col-sm-4 mb-2">
+                                <div class="col-3 mb-2">
                                     <small class="text-muted">Memory Clock</small>
                                     <div class="fw-bold">${memClock}</div>
-                                </div>` : ''}
+                                </div>
                             </div>
-                             ${data.gpus.length > 1 && memClock !== 'N/A' ? `<div class="row"><div class="col-6 col-sm-4 mb-2">
-                                    <small class="text-muted">Memory Clock</small>
-                                    <div class="fw-bold">${memClock}</div>
-                                </div></div>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -752,10 +909,79 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
     
+    // Handle initialization of all UI components when the DOM loads
+    function initializeUI() {
+        // Other UI initialization...
+        
+        // When media option changes, update LLM and KB Item options to maintain pipeline coherence
+        if (controlInputs.force_reprocess_media) {
+            controlInputs.force_reprocess_media.addEventListener('change', function() {
+                if (this.checked) {
+                    // When enabling media processing, also enable all subsequent phases
+                    if (controlInputs.force_reprocess_llm)
+                        controlInputs.force_reprocess_llm.checked = true;
+                    if (controlInputs.force_reprocess_kb_item)
+                        controlInputs.force_reprocess_kb_item.checked = true;
+                }
+                
+                updateExecutionPlanVisualization(getPreferencesForServer());
+                saveClientPreferences();
+            });
+        }
+        
+        // When LLM option changes, update KB Item option to maintain pipeline coherence
+        if (controlInputs.force_reprocess_llm) {
+            controlInputs.force_reprocess_llm.addEventListener('change', function() {
+                if (this.checked) {
+                    // When enabling LLM processing, also enable KB item generation
+                    if (controlInputs.force_reprocess_kb_item)
+                        controlInputs.force_reprocess_kb_item.checked = true;
+                } else if (!controlInputs.force_reprocess_media.checked) {
+                    // Only allow unchecking if media option is not enabled
+                    // Otherwise LLM should stay checked
+                }
+                
+                updateExecutionPlanVisualization(getPreferencesForServer());
+                saveClientPreferences();
+            });
+        }
+        
+        // When KB item option changes
+        if (controlInputs.force_reprocess_kb_item) {
+            controlInputs.force_reprocess_kb_item.addEventListener('change', function() {
+                if (!this.checked) {
+                    // If turning off KB item generation, ensure higher-level options are also off
+                    if (controlInputs.force_reprocess_media.checked || controlInputs.force_reprocess_llm.checked) {
+                        // KB items should stay checked if higher-level options are enabled
+                        this.checked = true;
+                    }
+                }
+                
+                updateExecutionPlanVisualization(getPreferencesForServer());
+                saveClientPreferences();
+            });
+        }
+        
+        // Restore preferences from localStorage
+        restoreClientPreferences();
+    }
+    
     // Initializations
     initializeTheme(); // Initialize theme settings
+    initializeUI(); // Initialize UI components and event handlers
     socket.emit('request_initial_status_and_git_config'); // Request initial state explicitly
     fetchKnowledgeBaseItems(); // Load KB items on page load
+    
+    // Call the adjustment function on page load, window resize, and whenever content changes
+    adjustPanelHeights();
+    window.addEventListener('resize', adjustPanelHeights);
+    
+    // Add additional trigger points for panel height adjustment
+    const executionPlanObserver = new MutationObserver(adjustPanelHeights);
+    const executionPlanContainer = document.getElementById('executionPlanContainer');
+    if (executionPlanContainer) {
+        executionPlanObserver.observe(executionPlanContainer, { childList: true, subtree: true });
+    }
 
     addLogMessage('Client JavaScript initialized.', 'INFO');
 }); 

@@ -18,7 +18,7 @@ def list_logs(config: Config): # Accept config as an argument
         
         # Create directory if it doesn't exist (logs might not have been written yet)
         configured_log_dir.mkdir(parents=True, exist_ok=True)
-        
+
         if not configured_log_dir.is_dir():
             logging.error(f"Configured log directory is not a directory: {configured_log_dir}")
             return jsonify({"error": f"Log directory {configured_log_dir} is not a valid directory"}), 500

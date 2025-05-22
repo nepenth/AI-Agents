@@ -168,7 +168,7 @@ class PlaywrightFetcher:
                 # Wait for the main tweet article to ensure it's loaded
                 # The main tweet is usually in an article that might be distinct or the first one
                 main_tweet_article_selector = 'article[data-testid="tweet"]' # Adjust if X changes this
-                await self.page.wait_for_selector(main_tweet_article_selector, timeout=30000)
+                await self.page.wait_for_selector(main_tweet_article_selector, timeout=self.config.selenium_timeout * 1000) # Use configured selenium_timeout
                 
                 # Locate the primary tweet article. This can be tricky if the page shows other tweets above/below.
                 # We might need to find the one that matches the tweet_url's ID if possible, or assume the first prominent one.

@@ -1,25 +1,66 @@
 <!-- knowledge_base_agent/templates/sidebar_content.html -->
-<h5 class="px-3 mb-3">Knowledge Base</h5>
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Knowledge Base</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if items %}
+            {% set categories = items|groupby('main_category')|sort(attribute='grouper') %}
+            <div class="accordion" id="categoryAccordion">
+                {% for main_category, main_items in categories %}
+                    {% set has_current_item = false %}
+                    {% for item in main_items %}
+                        {% if item.id == current_item_id %}
+                            {% set has_current_item = true %}
+                        {% endif %}
+                    {% endfor %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                            <button class="accordion-button {% if not has_current_item %}collapsed{% endif %}" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse{{ loop.index }}" 
+                                    aria-expanded="{% if has_current_item %}true{% else %}false{% endif %}" 
+                                    aria-controls="collapse{{ loop.index }}">
+                                {{ main_category|replace('_', ' ')|title }}
+                            </button>
+                        </h2>
+                        <div id="collapse{{ loop.index }}" 
+                             class="accordion-collapse collapse {% if has_current_item %}show{% endif %}" 
+                             aria-labelledby="heading{{ loop.index }}" 
+                             data-bs-parent="#categoryAccordion">
+                            <div class="accordion-body p-0">
+                                {% set subcategories = main_items|groupby('sub_category')|sort(attribute='grouper') %}
 <div class="list-group list-group-flush">
-    {% if items %}
-        {% for item_obj in items %}
-            <a href="{{ url_for('item_detail', item_id=item_obj.id) }}" class="list-group-item list-group-item-action {% if item_obj.id == current_item_id %}active{% endif %}">
-                <div class="d-flex w-100 justify-content-between">
-                    <h6 class="mb-1">{{ item_obj.display_title or item_obj.title }}</h6>
+                                {% for sub_category, sub_items in subcategories %}
+                                    <div class="list-group-item p-0">
+                                        <div class="d-flex w-100 p-2 bg-light">
+                                            <span class="fw-bold">{{ sub_category|replace('_', ' ')|title }}</span>
                 </div>
-                {% if item_obj.main_category or item_obj.sub_category %}
-                <small class="text-muted">
-                    {% if item_obj.main_category %}{{ item_obj.main_category.replace('_', ' ') | title }}{% endif %}
-                    {% if item_obj.main_category and item_obj.sub_category %} / {% endif %}
-                    {% if item_obj.sub_category %}{{ item_obj.sub_category.replace('_', ' ') | title }}{% endif %}
-                </small>
-                {% endif %}
-                 <small class="d-block text-muted">Updated: {{ item_obj.last_updated.strftime('%Y-%m-%d') }}</small>
+                                        <div class="list-group list-group-flush">
+                                            {% for item in sub_items|sort(attribute='display_title') %}
+                                                <a href="{{ url_for('item_detail', item_id=item.id) }}" 
+                                                   class="list-group-item list-group-item-action {% if item.id == current_item_id %}active{% endif %}"
+                                                   style="padding-left: 1.5rem;">
+                                                    {{ item.display_title }}
             </a>
         {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
     {% else %}
-        <p class="px-3">No items in the knowledge base yet.</p>
+            <div class="p-3 text-muted">
+                <p>No knowledge base items found.</p>
+                <p>Run the agent to generate knowledge base content from tweets.</p>
+            </div>
     {% endif %}
+    </div>
 </div>
 
 <h5 class="px-3 mt-4 mb-3">Agent & Logs</h5>

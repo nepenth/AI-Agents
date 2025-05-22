@@ -7,22 +7,12 @@ from typing import Tuple, Optional, Dict, Any, List
 from knowledge_base_agent.naming_utils import normalize_name_for_filesystem, is_valid_item_name, fix_invalid_name, fallback_snippet_based_name
 from knowledge_base_agent.exceptions import KnowledgeBaseError, AIError
 from knowledge_base_agent.http_client import HTTPClient
-
-# Define specific terms we want to reject if the AI returns them
-REJECTED_CATEGORY_TERMS = {
-    # Generic placeholders
-    'general', 'default', 'uncategorized', 'miscellaneous', 'other', 'fallback', 'undefined',
-    # Too-broad technical domains
-    'software_engineering', 'programming', 'devops', 'cloud_computing', 'technology', 
-    'development', 'engineering', 'computer_science', 'tech', 'software', 'development',
-    'machine_learning', 'data_science', 'artificial_intelligence', 'tech_insights',
-    'web_development', 'mobile_development', 'infrastructure', 'security', 'coding',
-    'best_practices', 'frameworks', 'architecture'
-}
+from knowledge_base_agent.prompts import LLMPrompts
 
 def process_category_response(response_text: str, tweet_id: str) -> Tuple[str, str, str]:
     """
     Process and validate the category JSON response from the AI model strictly.
+    Validation for generic terms has been removed.
 
     Args:
         response_text: Raw response string from the AI model, expected to be a JSON object.
@@ -32,8 +22,7 @@ def process_category_response(response_text: str, tweet_id: str) -> Tuple[str, s
         Tuple of (main_category, sub_category, item_name)
 
     Raises:
-        ValueError: If the response format is invalid JSON, missing required keys, contains empty parts,
-                    or uses rejected generic terms.
+        ValueError: If the response format is invalid JSON, missing required keys, or contains empty parts.
     """
     try:
         # Clean up potential markdown fences or extra text around JSON
@@ -75,10 +64,8 @@ def process_category_response(response_text: str, tweet_id: str) -> Tuple[str, s
         sub_category_norm = normalize_name_for_filesystem(sub_category)
         item_name_norm = normalize_name_for_filesystem(item_name) # Also normalize item_name for consistency
 
-        # Reject common unwanted generic terms
-        if main_category_norm.lower() in REJECTED_CATEGORY_TERMS or sub_category_norm.lower() in REJECTED_CATEGORY_TERMS:
-            logging.warning(f"Rejected generic category term for tweet {tweet_id}: {main_category_norm}/{sub_category_norm}")
-            raise ValueError(f"Rejected generic category term used: {main_category_norm}/{sub_category_norm}")
+        # Logic for rejecting generic terms has been removed.
+        # Rely on prompting to guide the model.
 
         # Final check on normalized names (should be redundant if initial check and normalization are robust)
         if not main_category_norm or not sub_category_norm or not item_name_norm:
@@ -104,13 +91,19 @@ def process_category_response(response_text: str, tweet_id: str) -> Tuple[str, s
 async def categorize_and_name_content(
     http_client: HTTPClient,
     tweet_data: Dict[str, Any],
-    text_model: str,
+    text_model: str,  # Keep for backward compatibility
     tweet_id: str,
     category_manager, # Instance of CategoryManager
     max_retries: int = 5,
-    fallback_model: str = ""
+    fallback_model: str = "",
+    gpu_device: int = 0
 ) -> Tuple[str, str, str]:
     """Categorize content using text and image descriptions, with robust retries, expecting JSON output."""
+    
+    # Use categorization_model if available, otherwise fall back to text_model
+    model_to_use = getattr(http_client.config, 'categorization_model', text_model)
+    if model_to_use != text_model:
+        logging.info(f"Using dedicated categorization model: {model_to_use} for tweet {tweet_id}")
     
     raw_tweet_text = ""
     thread_segments = tweet_data.get("thread_tweets", [])
@@ -193,121 +186,143 @@ async def categorize_and_name_content(
     if not formatted_existing_categories:
         formatted_existing_categories = "No existing categories defined yet. You can define new ones."
 
-    # Determine if the content is a thread for the prompt
-    source_type_indicator = "Tweet Thread Content" if thread_segments else "Tweet Content"
+    # Check if the model supports reasoning mode - prioritize categorization model setting
+    use_reasoning = False
+    if hasattr(http_client.config, 'categorization_model_thinking') and http_client.config.categorization_model_thinking:
+        use_reasoning = True
+        logging.info(f"Using dedicated reasoning mode for categorization model ({model_to_use}) for tweet {tweet_id}")
+    elif hasattr(http_client.config, 'text_model_thinking') and http_client.config.text_model_thinking:
+        use_reasoning = True
+        logging.info(f"Using reasoning mode from text_model_thinking setting for tweet {tweet_id}")
+    
+    is_thread = bool(thread_segments)
 
-    prompt_text = (
-        "You are an expert technical content curator specializing in software engineering, system design, and technical management. "
-        f"Your task is to categorize the following content ({source_type_indicator} and any associated media insights) and suggest a filename-compatible item name.\n\n"
-        f"{source_type_indicator}:\n---\n{context_content}\n---\n\n"
-        f"Existing Categories (use these as a guide or create specific new ones if necessary):\n{formatted_existing_categories}\n\n"
-        "Instructions:\n"
-        "1. Main Category:\n"
-        "   - Choose a HIGHLY SPECIFIC technical domain (e.g., \"backend_frameworks\", \"devops_automation\", \"cloud_architecture\", \"testing_patterns\").\n"
-        "   - **CRITICAL: DO NOT use generic top-level terms like \"software_engineering\", \"programming\", \"devops\", \"cloud_computing\".**\n"
-        "   - The main category should represent the most specific technical area that is relevant, not a broad discipline.\n"
-        "   - Example: Use \"concurrency_models\" instead of \"software_engineering\", use \"api_design\" instead of \"programming\".\n"
-        "2. Sub Category:\n"
-        "   - Specify an even more precise technical area (e.g., \"thread_safety\", \"circuit_breaker_pattern\", \"terraform_modules\").\n"
-        "   - **CRITICAL: Sub-categories must be highly specific. Never use generic terms.**\n"
-        "3. Item Name:\n"
-        "   - Create a concise, descriptive, filesystem-friendly title (2-5 words, e.g., \"java_thread_synchronization\", \"gpt4_fine_tuning_guide\", \"terraform_state_locking\").\n"
-        "   - Format: lowercase with underscores, no special characters other than underscore.\n"
-        "   - Avoid generic terms like \"guide\", \"overview\", \"notes\", \"details\", \"insights\". Focus on keywords.\n\n"
-        "**Response Format (MUST be a valid JSON object, on a single line if possible, or pretty-printed):**\n"
-        "```json\n"
-        "{\n"
-        "  \"main_category\": \"example_main_category\",\n"
-        "  \"sub_category\": \"example_sub_category\",\n"
-        "  \"item_name\": \"example_item_name_topic\"\n"
-        "}\n"
-        "```\n\n"
-        "Examples of good JSON responses:\n"
-        "```json\n"
-        "{\n"
-        "  \"main_category\": \"concurrency_patterns\",\n"
-        "  \"sub_category\": \"thread_synchronization\",\n"
-        "  \"item_name\": \"java_atomic_variables_usage\"\n"
-        "}\n"
-        "```\n"
-        "```json\n"
-        "{\n"
-        "  \"main_category\": \"ci_cd_automation\",\n"
-        "  \"sub_category\": \"github_actions\",\n"
-        "  \"item_name\": \"secure_environment_secrets\"\n"
-        "}\n"
-        "```\n"
-        "```json\n"
-        "{\n"
-        "  \"main_category\": \"database_optimization\",\n"
-        "  \"sub_category\": \"query_performance\",\n"
-        "  \"item_name\": \"postgresql_indexing_strategies\"\n"
-        "}\n"
-        "```\n"
-        "Respond ONLY with the JSON object."
-    )
-
-    current_model = text_model
-    last_error = None
-
-    for attempt in range(max_retries * 2): # Total attempts considering primary and fallback
-        model_to_use = current_model
-        is_primary_model_attempt = (model_to_use == text_model)
+    if use_reasoning:
+        from knowledge_base_agent.prompts import ReasoningPrompts
         
-        # Determine if this is a retry with the current model or a switch to fallback
-        # Switch to fallback after 'max_retries' with the primary model
-        if not is_primary_model_attempt and attempt < max_retries: # Should not happen if logic is correct
-             pass # Still on primary
-        elif is_primary_model_attempt and attempt >= max_retries and fallback_model and fallback_model != text_model:
-            logging.info(f"Switching to fallback model {fallback_model} for tweet {tweet_id} after {max_retries} attempts with {text_model}.")
-            current_model = fallback_model
-            model_to_use = current_model # Update for this iteration
+        logging.info(f"Using reasoning mode for categorization of tweet {tweet_id}")
         
-        try:
-            logging.info(f"Categorization Attempt {(attempt % max_retries) + 1 if is_primary_model_attempt else (attempt - max_retries) + 1}/{max_retries} using model {model_to_use} for tweet {tweet_id}")
-            
-            raw_response = await http_client.ollama_generate(
-                model=model_to_use,
-                prompt=prompt_text,
-                temperature=0.05, # Very low temperature for strict format adherence
-                options={"json_mode": True} if http_client.config.ollama_supports_json_mode else {} # Use if supported
-            )
-
-            if not raw_response:
-                last_error = ValueError("Empty response from AI model")
-                logging.warning(f"{last_error} on attempt {attempt + 1} with {model_to_use} for tweet {tweet_id}")
-                # Continue to error handling for retry/fallback logic
-                raise last_error
-
-            main_cat, sub_cat, item_name = process_category_response(raw_response, tweet_id)
-            logging.info(f"Successfully categorized tweet {tweet_id} as {main_cat}/{sub_cat}/{item_name} using {model_to_use}")
-            return main_cat, sub_cat, item_name
-
-        except ValueError as ve:
-            last_error = ve
-            logging.warning(f"Validation failed for tweet {tweet_id} on attempt {attempt + 1} with {model_to_use}: {ve}. Raw response: '{raw_response.strip() if 'raw_response' in locals() and raw_response else 'EMPTY_OR_PRE_RESPONSE_ERROR'}'")
-            # Fallback/retry logic handled by the loop structure
-        except Exception as e: # Catch other unexpected errors
-            last_error = e
-            logging.error(f"Unexpected error during categorization attempt {attempt + 1} with {model_to_use} for tweet {tweet_id}: {e}")
-            # Fallback/retry logic handled by the loop structure
+        # Create the messages list with system message and user prompt
+        messages = [
+            ReasoningPrompts.get_system_message(),
+            ReasoningPrompts.get_categorization_prompt(context_content, formatted_existing_categories, is_thread)
+        ]
         
-        # If we are here, an error occurred. Check if it's the last attempt for the current model type.
-        is_last_attempt_for_primary = is_primary_model_attempt and (attempt == max_retries - 1)
-        is_last_attempt_overall = (attempt == (max_retries * 2) - 1)
-
-        if is_last_attempt_overall or (is_last_attempt_for_primary and not (fallback_model and fallback_model != text_model)):
-            # This is the absolute final attempt, or final for primary and no fallback.
-            logging.error(f"All categorization attempts failed for tweet {tweet_id}. Last error: {last_error}")
-            raise AIError(f"Categorization failed for tweet {tweet_id} after all retries. Last error: {last_error}")
+        # Loop for retries
+        for attempt in range(max_retries):
+            try:
+                # Use the chat endpoint for reasoning models
+                response = await http_client.ollama_chat(
+                    model=model_to_use,
+                    messages=messages,
+                    temperature=0.7,
+                    top_p=0.9,
+                    timeout=http_client.config.content_generation_timeout,
+                    options={"gpu_device": gpu_device}
+                )
+                
+                if response and response.strip():
+                    try:
+                        main_cat, sub_cat, item_name = process_category_response(response, tweet_id)
+                        logging.info(f"Categorization successful for tweet {tweet_id}: {main_cat}/{sub_cat}/{item_name}")
+                        return main_cat, sub_cat, item_name
+                    except ValueError as validation_error:
+                        logging.warning(f"Attempt {attempt+1}/{max_retries}: Invalid category response: {validation_error}")
+                        # Add a correction message for the next attempt
+                        if attempt < max_retries - 1:
+                            messages.append({
+                                "role": "user", 
+                                "content": f"Your previous response had an issue: {validation_error}. Please try again with a valid JSON response."
+                            })
+                else:
+                    logging.warning(f"Attempt {attempt+1}/{max_retries}: Empty response for tweet {tweet_id}")
+            except AIError as e:
+                logging.warning(f"Attempt {attempt+1}/{max_retries}: AI error during categorization for tweet {tweet_id}: {e}")
+                # If we've reached max retries, try fallback model if available
+                if attempt == max_retries - 1 and fallback_model:
+                    logging.info(f"Trying fallback model {fallback_model} for tweet {tweet_id}")
+                    try:
+                        response = await http_client.ollama_chat(
+                            model=fallback_model,
+                            messages=messages,
+                            temperature=0.7,
+                            top_p=0.9,
+                            timeout=http_client.config.content_generation_timeout,
+                            options={"gpu_device": gpu_device}
+                        )
+                        
+                        if response and response.strip():
+                            main_cat, sub_cat, item_name = process_category_response(response, tweet_id)
+                            logging.info(f"Fallback categorization successful for tweet {tweet_id}: {main_cat}/{sub_cat}/{item_name}")
+                            return main_cat, sub_cat, item_name
+                    except Exception as fallback_error:
+                        logging.error(f"Fallback categorization also failed for tweet {tweet_id}: {fallback_error}")
+                
+                # Add exponential backoff delay
+                await asyncio.sleep(2 ** attempt)
         
-        # If not the absolute last attempt, sleep and continue the loop
-        # The model switch logic at the beginning of the loop will handle changing to fallback if necessary.
-        await asyncio.sleep(1.5 ** (attempt % max_retries)) # Exponential backoff based on attempts for the current model type
+        # If we exhausted retries and fallbacks
+        raise AIError(f"Failed to categorize tweet {tweet_id} after {max_retries} attempts")
+    else:
+        # Determine if the content is a thread for the prompt
+        source_type_indicator = "Tweet Thread Content" if thread_segments else "Tweet Content"
 
-    # Should not be reached if logic is correct
-    logging.critical(f"Categorization logic ended unexpectedly for tweet {tweet_id} without success or error.")
-    raise AIError(f"Categorization failed for tweet {tweet_id} unexpectedly (flow error). Last error: {last_error}")
+        # Use the centralized prompt
+        prompt_text = LLMPrompts.get_categorization_prompt_standard(
+            context_content=context_content,
+            formatted_existing_categories=formatted_existing_categories,
+            is_thread=bool(thread_segments) # Pass is_thread directly
+        )
+
+        # Loop for retries
+        for attempt in range(max_retries):
+            try:
+                use_json_mode = hasattr(http_client.config, 'ollama_supports_json_mode') and http_client.config.ollama_supports_json_mode
+                response = await http_client.ollama_generate(
+                    model=model_to_use,
+                    prompt=prompt_text,
+                    temperature=0.7,
+                    top_p=0.9,
+                    timeout=http_client.config.content_generation_timeout,
+                    options={"json_mode": use_json_mode, "gpu_device": gpu_device} if use_json_mode else {"gpu_device": gpu_device}
+                )
+                
+                if response and response.strip():
+                    try:
+                        main_cat, sub_cat, item_name = process_category_response(response, tweet_id)
+                        logging.info(f"Categorization successful for tweet {tweet_id}: {main_cat}/{sub_cat}/{item_name}")
+                        return main_cat, sub_cat, item_name
+                    except ValueError as validation_error:
+                        logging.warning(f"Attempt {attempt+1}/{max_retries}: Invalid category response: {validation_error}")
+                else:
+                    logging.warning(f"Attempt {attempt+1}/{max_retries}: Empty response for tweet {tweet_id}")
+            except AIError as e:
+                logging.warning(f"Attempt {attempt+1}/{max_retries}: AI error during categorization for tweet {tweet_id}: {e}")
+                # If we've reached max retries, try fallback model if available
+                if attempt == max_retries - 1 and fallback_model:
+                    logging.info(f"Trying fallback model {fallback_model} for tweet {tweet_id}")
+                    try:
+                        response = await http_client.ollama_generate(
+                            model=fallback_model,
+                            prompt=prompt_text,
+                            temperature=0.7,
+                            top_p=0.9,
+                            timeout=http_client.config.content_generation_timeout,
+                            options={"json_mode": use_json_mode, "gpu_device": gpu_device} if use_json_mode else {"gpu_device": gpu_device}
+                        )
+                        
+                        if response and response.strip():
+                            main_cat, sub_cat, item_name = process_category_response(response, tweet_id)
+                            logging.info(f"Fallback categorization successful for tweet {tweet_id}: {main_cat}/{sub_cat}/{item_name}")
+                            return main_cat, sub_cat, item_name
+                    except Exception as fallback_error:
+                        logging.error(f"Fallback categorization also failed for tweet {tweet_id}: {fallback_error}")
+                
+                # Add exponential backoff delay
+                await asyncio.sleep(2 ** attempt)
+        
+        # If we exhausted retries and fallbacks
+        raise AIError(f"Failed to categorize tweet {tweet_id} after {max_retries} attempts")
 
 
 # --- Keep infer_basic_category and re_categorize_offline as they might be used elsewhere, ---

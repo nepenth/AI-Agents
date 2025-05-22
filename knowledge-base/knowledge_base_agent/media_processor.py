@@ -60,7 +60,7 @@ async def process_media(tweet_data: Dict[str, Any], http_client: HTTPClient, con
                         image_descriptions.append(f"Error analyzing video: {media_path_abs.name}")
                 else:
                     logging.info(f"Video processing disabled, skipping video analysis for {media_path_abs}")
-                    image_descriptions.append(f"Video file: {media_path_abs.name}")
+                image_descriptions.append(f"Video file: {media_path_abs.name}")
                 continue
 
             has_unprocessed_media = True

@@ -16,112 +16,62 @@ import shutil
 import json
 from knowledge_base_agent.naming_utils import normalize_name_for_filesystem
 from knowledge_base_agent.exceptions import AIError
+import re # Import re for the new extraction function
+from knowledge_base_agent.prompts import LLMPrompts, ReasoningPrompts # Added import
 
-def create_kb_content_generation_prompt(context_data: Dict[str, Any]) -> str:
-    tweet_segments = context_data.get('tweet_segments', [])
-    single_tweet_text = context_data.get('tweet_text', '')
+def _extract_json_from_text(text: str) -> Optional[str]:
+    """
+    Extracts a JSON string from a larger text block.
+    Handles markdown code blocks and searches for the outermost curly braces.
+    """
+    if not text:
+        return None
 
-    main_category = context_data.get('main_category', 'N/A')
-    sub_category = context_data.get('sub_category', 'N/A')
-    item_name_hint = context_data.get('item_name', 'N/A')
-    
-    all_urls = context_data.get('all_urls', [])
-    all_media_descriptions = context_data.get('all_media_descriptions', [])
+    # Attempt 1: Markdown code block (json)
+    match_json_block = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if match_json_block:
+        try:
+            json_str = match_json_block.group(1)
+            json.loads(json_str) # Validate
+            return json_str
+        except json.JSONDecodeError:
+            pass # Continue to next method
 
-    source_content_md = ""
-    if tweet_segments:
-        source_content_md += "**Source Information (Tweet Thread):**\\n"
-        for i, segment_text in enumerate(tweet_segments):
-            source_content_md += f"- Segment {i+1}: \"{segment_text}\"\\n"
-        source_content_md += "\\n"
-    elif single_tweet_text:
-        source_content_md += "**Source Information (Single Tweet):**\\n"
-        source_content_md += f"- Tweet Text: \"{single_tweet_text}\"\\n\\n"
+    # Attempt 2: Markdown code block (any language or no language)
+    match_any_block = re.search(r"```\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if match_any_block:
+        try:
+            json_str = match_any_block.group(1)
+            json.loads(json_str) # Validate
+            return json_str
+        except json.JSONDecodeError:
+            pass # Continue to next method
 
-    media_context_md = ""
-    if all_media_descriptions:
-        media_context_md += "Associated Media Insights (derived from all images/videos in the thread/tweet):\\n"
-        for i, desc in enumerate(all_media_descriptions):
-            media_context_md += f"- Media {i+1}: {desc}\\n"
-        media_context_md += "\\n"
+    # Attempt 3: Find the first '{' and last '}'
+    try:
+        start_index = text.find('{')
+        end_index = text.rfind('}')
+        if start_index != -1 and end_index != -1 and end_index > start_index:
+            potential_json = text[start_index : end_index + 1]
+            json.loads(potential_json) # Validate
+            return potential_json
+    except json.JSONDecodeError:
+        pass # Not a valid JSON object
 
-    urls_context_md = ""
-    if all_urls:
-        urls_context_md += "Mentioned URLs (from all segments in the thread/tweet, for context, not necessarily for inclusion as external_references unless very specific and high-value):\\n"
-        for url in all_urls:
-            urls_context_md += f"- {url}\\n"
-        urls_context_md += "\\n"
+    return None
 
-    prompt = f"""
-You are an expert technical writer tasked with creating a structured knowledge base article.
-The source content is from a tweet (or a thread of tweets) and associated media/links.
-The target audience is technical (software engineers, data scientists, IT professionals).
 
-{source_content_md}
-- Initial Topic/Keyword (for title inspiration): "{item_name_hint}"
-- Category: {main_category} / {sub_category}
-{media_context_md}{urls_context_md}
-**Your Task:**
-Generate a comprehensive, well-structured knowledge base article in JSON format.
-The JSON object MUST conform to the following schema. Ensure all string values are plain text without any markdown.
-
-```json
-{{
-  "suggested_title": "string (A polished, human-readable title for the article, inspired by '{item_name_hint}' but can be more descriptive. e.g., 'Understanding Asynchronous Execution in Python')",
-  "meta_description": "string (1-2 sentence summary of the article, suitable for SEO or a brief preview. Max 160 characters.)",
-  "introduction": "string (1-2 engaging paragraphs introducing the topic, its importance, and what the article will cover.)",
-  "sections": [
-    {{
-      "heading": "string (Clear, concise heading for this section, e.g., 'Core Concepts of X', 'Setting up Y', 'Common Pitfalls')",
-      "content_paragraphs": [
-        "string (Detailed paragraph. Explain concepts clearly. Use technical terms accurately.)",
-        "string (Another paragraph if needed for this section.)"
-      ],
-      "code_blocks": [
-        {{
-          "language": "string (e.g., python, javascript, bash, json, yaml, Dockerfile, plain_text)",
-          "code": "string (The actual code snippet. Ensure it is correct and well-formatted.)",
-          "explanation": "string (Optional: Brief explanation of what this code does or demonstrates.)"
-        }}
-      ],
-      "lists": [
-        {{
-          "type": "bulleted | numbered",
-          "items": [
-            "string (List item 1)",
-            "string (List item 2)"
-          ]
-        }}
-      ],
-      "notes_or_tips": [
-        "string (A key note, tip, best practice, or warning related to this section.)"
-      ]
-    }}
-  ],
-  "key_takeaways": [
-    "string (A concise key learning point or summary statement. Aim for 3-5 takeaways.)"
-  ],
-  "conclusion": "string (Concluding paragraph, summarizing the main points and perhaps suggesting further reading or next steps.)",
-  "external_references": [
-    {{"text": "string (Descriptive text for the link, e.g., 'Official Python Asyncio Docs')", "url": "string (The URL)"}}
-  ]
-}}
-```
-
-**Guidelines for Content Generation:**
-- **Accuracy:** Ensure all technical information, code examples, and explanations are correct.
-- **Clarity:** Write in clear, concise language. Define jargon if used.
-- **Depth:** Go beyond surface-level explanations. Provide meaningful insights. Aim for 2-4 detailed sections.
-- **Structure:** Organize content logically. Each section should have a clear purpose.
-- **Completeness:** Populate all fields. Use empty lists `[]` for optional sub-fields if not applicable (e.g., `code_blocks: []`).
-- **Title:** `suggested_title` must be a refined, descriptive title for the article.
-- **Paragraphs:** `content_paragraphs` must be an array of strings.
-- **Code:** If including code, specify the language. `plain_text` can be used for generic text blocks.
-- **No Markdown in JSON Values:** All string values within the JSON MUST be plain text. Markdown formatting will be applied later.
-
-Respond ONLY with a single, valid JSON object that strictly adheres to the schema. Do not include any other text, explanations, or apologies before or after the JSON.
-"""
-    return prompt.strip()
+def _ensure_string_from_value(value: Any) -> str:
+    """
+    Ensures the value is a string. If it's a list, joins its elements.
+    Strips whitespace from the final string. Handles None by returning empty string.
+    """
+    if isinstance(value, list):
+        # Join list elements, ensuring each is a string, separated by double newlines for paragraphs
+        return "\\n\\n".join(str(item).strip() for item in value if item is not None).strip()
+    elif value is None:
+        return ""
+    return str(value).strip()
 
 
 async def _generate_kb_content_json(
@@ -131,168 +81,296 @@ async def _generate_kb_content_json(
     config: Config
 ) -> Dict[str, Any]:
     """Generates knowledge base content as a structured JSON object from tweet data."""
-    prompt = create_kb_content_generation_prompt(context_data)
+    # Use the centralized prompt for the standard path
+    prompt = LLMPrompts.get_kb_item_generation_prompt_standard(context_data)
     
-    current_model = config.text_model
-    last_exception = None
-
-    # Total attempts for primary model + fallback model
-    total_attempts = config.content_retries * 2 
-
-    for attempt in range(total_attempts):
-        model_to_use = current_model
-        is_primary_model_attempt = (model_to_use == config.text_model)
-        attempt_num_for_model = (attempt % config.content_retries) + 1
-
-        if not is_primary_model_attempt and attempt < config.content_retries: 
-             pass # Should be on primary, logic error in original, corrected below
-        elif is_primary_model_attempt and attempt >= config.content_retries and config.fallback_model and config.fallback_model != config.text_model:
-            logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
-            current_model = config.fallback_model
-            model_to_use = current_model # Ensure model_to_use is updated
-            attempt_num_for_model = (attempt - config.content_retries) + 1
-        # Corrected logic for model switching:
-        # if attempt >= config.content_retries: # Time to switch to fallback if primary failed enough
-        #     if config.fallback_model and config.fallback_model != config.text_model and current_model == config.text_model:
-        #         logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
-        #         current_model = config.fallback_model
-        #     model_to_use = current_model
-        #     attempt_num_for_model = (attempt % config.content_retries) + 1 # Reset attempt count for this model
-        # else:
-        #     model_to_use = config.text_model
-        #     attempt_num_for_model = attempt + 1
-
-
-        logging.info(f"Tweet {tweet_id}: Attempt {attempt_num_for_model}/{config.content_retries} to generate KB content JSON using model {model_to_use}.")
+    # Check if the model supports reasoning mode
+    use_reasoning = hasattr(config, 'text_model_thinking') and config.text_model_thinking
+    
+    if use_reasoning:
+        logging.info(f"Tweet {tweet_id}: Using reasoning mode for KB content generation")
         
-        try:
-            raw_response = await http_client.ollama_generate(
-                model=model_to_use,
-                prompt=prompt,
-                temperature=0.2, 
-                options={"json_mode": True} 
+        # Create the messages list with system message and user prompt
+        # Extract texts for reasoning format
+        tweet_text = context_data.get('tweet_text', '')
+        if not tweet_text and 'tweet_segments' in context_data:
+            tweet_text = '\n\n'.join(context_data.get('tweet_segments', []))
+        
+        categories = {
+            'main_category': context_data.get('main_category', ''),
+            'sub_category': context_data.get('sub_category', ''),
+            'item_name': context_data.get('item_name', '')
+        }
+        
+        media_descriptions = context_data.get('all_media_descriptions', [])
+        
+        messages = [
+            ReasoningPrompts.get_system_message(),
+            ReasoningPrompts.get_kb_item_generation_prompt(tweet_text, categories, media_descriptions)
+        ]
+        
+        current_model = config.text_model
+        last_exception = None
+        total_attempts = config.content_retries * 2
+        
+        for attempt in range(total_attempts):
+            model_to_use = current_model
+            is_primary_model_attempt = (model_to_use == config.text_model)
+            attempt_num_for_model = (attempt % config.content_retries) + 1
+
+            # Logic for switching to fallback model if needed
+            if is_primary_model_attempt and attempt >= config.content_retries and config.fallback_model and config.fallback_model != config.text_model:
+                logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
+                current_model = config.fallback_model
+                model_to_use = current_model
+                attempt_num_for_model = (attempt - config.content_retries) + 1
+
+            logging.info(f"Tweet {tweet_id}: Attempt {attempt_num_for_model}/{config.content_retries} to generate KB content JSON using reasoning mode with model {model_to_use}.")
+            
+            try:
+                raw_response_text = await http_client.ollama_chat(
+                    model=model_to_use,
+                    messages=messages,
+                    temperature=0.2,
+                    timeout=config.content_generation_timeout # Using the configured timeout
+                )
+
+                if not raw_response_text:
+                    logging.warning(f"Tweet {tweet_id}: Empty raw response from {model_to_use} (attempt {attempt_num_for_model}).")
+                    last_exception = ContentGenerationError("Generated content JSON is empty")
+                    
+                    # Add a correction message for the next attempt
+                    if attempt < total_attempts - 1:
+                        messages.append({
+                            "role": "user", 
+                            "content": "Your previous response was empty. Please generate a valid JSON response with the required structure."
+                        })
+                else:
+                    # Use the new extraction function
+                    json_str_from_response = _extract_json_from_text(raw_response_text)
+                    if json_str_from_response:
+                        try:
+                            content_json = json.loads(json_str_from_response)
+                            if not isinstance(content_json, dict) or "suggested_title" not in content_json or "sections" not in content_json:
+                                logging.warning(f"Tweet {tweet_id}: Invalid JSON structure from {model_to_use} (attempt {attempt_num_for_model}). Missing key fields. Extracted JSON: {json_str_from_response[:500]}")
+                                last_exception = ContentGenerationError("Generated content JSON lacks required structure (e.g., missing title or sections).")
+                                if attempt < total_attempts - 1:
+                                    messages.append({
+                                        "role": "user", 
+                                        "content": "Your JSON response is missing required fields. Please ensure your response includes 'suggested_title' and 'sections' fields."
+                                    })
+                            else:
+                                logging.info(f"Tweet {tweet_id}: Successfully generated and parsed KB content JSON from {model_to_use} (attempt {attempt_num_for_model}) using reasoning mode.")
+                                return content_json
+                        except json.JSONDecodeError as e:
+                            logging.warning(f"Tweet {tweet_id}: Failed to decode extracted JSON from {model_to_use} (attempt {attempt_num_for_model}): {e}. Extracted JSON: {json_str_from_response[:500]}")
+                            last_exception = ContentGenerationError(f"Failed to decode extracted JSON: {e}")
+                            if attempt < total_attempts - 1:
+                                messages.append({
+                                    "role": "user", 
+                                    "content": f"Your response contained JSON that could not be parsed. Error: {e}. Please ensure you provide a valid JSON object."
+                                })
+                    else: # No JSON found by _extract_json_from_text
+                        logging.warning(f"Tweet {tweet_id}: Could not extract valid JSON from {model_to_use} response (attempt {attempt_num_for_model}). Response: {raw_response_text[:500]}")
+                        last_exception = ContentGenerationError("No valid JSON found in model response.")
+                        if attempt < total_attempts - 1:
+                            messages.append({
+                                "role": "user",
+                                "content": "Your response did not appear to contain a valid JSON object. Please ensure your entire response is, or contains, a single valid JSON object."
+                            })
+            
+            except AIError as e: 
+                logging.warning(f"Tweet {tweet_id}: AIError from {model_to_use} (attempt {attempt_num_for_model}): {e}")
+                last_exception = e
+            except Exception as e: 
+                logging.error(f"Tweet {tweet_id}: Unexpected error during KB content JSON generation with {model_to_use} (attempt {attempt_num_for_model}): {e}", exc_info=True)
+                last_exception = e
+
+            is_last_overall_attempt = (attempt == total_attempts - 1)
+            is_last_primary_no_effective_fallback = (
+                is_primary_model_attempt and
+                (attempt_num_for_model == config.content_retries) and
+                (not config.fallback_model or config.fallback_model == config.text_model)
             )
+            
+            if is_last_overall_attempt or is_last_primary_no_effective_fallback:
+                break 
 
-            if not raw_response:
-                logging.warning(f"Tweet {tweet_id}: Empty raw response from {model_to_use} (attempt {attempt_num_for_model}).")
-                last_exception = ContentGenerationError("Generated content JSON is empty")
-            else:
+            await asyncio.sleep(1.5 ** attempt_num_for_model)
+        
+        err_msg = f"Tweet {tweet_id}: All {config.content_retries} attempts per model failed to generate valid KB content JSON using reasoning mode."
+        if last_exception:
+            logging.error(f"{err_msg} Last error: {last_exception}")
+            raise ContentGenerationError(err_msg) from last_exception
+        else: 
+            logging.error(err_msg + " No specific last exception recorded.")
+            raise ContentGenerationError(err_msg)
+            
+    else:
+        # Standard non-reasoning mode (existing implementation)
+            current_model = config.text_model
+            last_exception = None
+
+            # Total attempts for primary model + fallback model
+            total_attempts = config.content_retries * 2 
+
+            for attempt in range(total_attempts):
+                model_to_use = current_model
+                is_primary_model_attempt = (model_to_use == config.text_model)
+                attempt_num_for_model = (attempt % config.content_retries) + 1
+
+                if not is_primary_model_attempt and attempt < config.content_retries: 
+                    pass # Should be on primary, logic error in original, corrected below
+                elif is_primary_model_attempt and attempt >= config.content_retries and config.fallback_model and config.fallback_model != config.text_model:
+                    logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
+                    current_model = config.fallback_model
+                    model_to_use = current_model # Ensure model_to_use is updated
+                    attempt_num_for_model = (attempt - config.content_retries) + 1
+
+                logging.info(f"Tweet {tweet_id}: Attempt {attempt_num_for_model}/{config.content_retries} to generate KB content JSON using model {model_to_use}.")
+                
                 try:
-                    if raw_response.startswith("```json"):
-                        raw_response = raw_response.split("```json")[1].split("```")[0].strip()
-                    elif raw_response.startswith("```"):
-                         raw_response = raw_response.split("```")[1].strip()
-                    
-                    content_json = json.loads(raw_response)
-                    
-                    if not isinstance(content_json, dict) or "suggested_title" not in content_json or "sections" not in content_json:
-                        logging.warning(f"Tweet {tweet_id}: Invalid JSON structure from {model_to_use} (attempt {attempt_num_for_model}). Missing key fields. Response: {raw_response[:500]}")
-                        last_exception = ContentGenerationError("Generated content JSON lacks required structure (e.g., missing title or sections).")
+                    raw_response_text = await http_client.ollama_generate(
+                        model=model_to_use,
+                        prompt=prompt,
+                        temperature=0.2, 
+                        options={"json_mode": True},
+                        timeout=config.content_generation_timeout # Using the configured timeout
+                    )
+
+                    if not raw_response_text:
+                        logging.warning(f"Tweet {tweet_id}: Empty raw response from {model_to_use} (attempt {attempt_num_for_model}).")
+                        last_exception = ContentGenerationError("Generated content JSON is empty")
                     else:
-                        logging.info(f"Tweet {tweet_id}: Successfully generated and parsed KB content JSON from {model_to_use} (attempt {attempt_num_for_model}).")
-                        return content_json 
-                        
-                except json.JSONDecodeError as e:
-                    logging.warning(f"Tweet {tweet_id}: Failed to decode JSON from {model_to_use} (attempt {attempt_num_for_model}): {e}. Response: {raw_response[:500]}")
-                    last_exception = ContentGenerationError(f"Failed to decode JSON: {e}")
-        
-        except AIError as e: 
-            logging.warning(f"Tweet {tweet_id}: AIError from {model_to_use} (attempt {attempt_num_for_model}): {e}")
-            last_exception = e
-        except Exception as e: 
-            logging.error(f"Tweet {tweet_id}: Unexpected error during KB content JSON generation with {model_to_use} (attempt {attempt_num_for_model}): {e}", exc_info=True)
-            last_exception = e
+                        json_str_from_response = _extract_json_from_text(raw_response_text)
+                        if json_str_from_response:
+                            try:
+                                content_json = json.loads(json_str_from_response)
+                                if not isinstance(content_json, dict) or "suggested_title" not in content_json or "sections" not in content_json:
+                                    logging.warning(f"Tweet {tweet_id}: Invalid JSON structure from {model_to_use} (attempt {attempt_num_for_model}). Missing key fields. Extracted JSON: {json_str_from_response[:500]}")
+                                    last_exception = ContentGenerationError("Generated content JSON lacks required structure (e.g., missing title or sections).")
+                                else:
+                                    logging.info(f"Tweet {tweet_id}: Successfully generated and parsed KB content JSON from {model_to_use} (attempt {attempt_num_for_model}).")
+                                    return content_json
+                            except json.JSONDecodeError as e:
+                                logging.warning(f"Tweet {tweet_id}: Failed to decode extracted JSON from {model_to_use} (attempt {attempt_num_for_model}): {e}. Extracted JSON: {json_str_from_response[:500]}")
+                                last_exception = ContentGenerationError(f"Failed to decode extracted JSON: {e}")
+                        else: # No JSON found by _extract_json_from_text
+                            logging.warning(f"Tweet {tweet_id}: Could not extract valid JSON from {model_to_use} response (attempt {attempt_num_for_model}). Response: {raw_response_text[:500]}")
+                            last_exception = ContentGenerationError("No valid JSON found in model response.")
+                
+                except AIError as e: 
+                    logging.warning(f"Tweet {tweet_id}: AIError from {model_to_use} (attempt {attempt_num_for_model}): {e}")
+                    last_exception = e
+                except Exception as e: 
+                    logging.error(f"Tweet {tweet_id}: Unexpected error during KB content JSON generation with {model_to_use} (attempt {attempt_num_for_model}): {e}", exc_info=True)
+                    last_exception = e
 
-        is_last_overall_attempt = (attempt == total_attempts - 1)
-        is_last_primary_no_effective_fallback = (
-            is_primary_model_attempt and
-            (attempt_num_for_model == config.content_retries) and
-            (not config.fallback_model or config.fallback_model == config.text_model)
-        )
-        
-        if is_last_overall_attempt or is_last_primary_no_effective_fallback:
-            break 
+                is_last_overall_attempt = (attempt == total_attempts - 1)
+                is_last_primary_no_effective_fallback = (
+                    is_primary_model_attempt and
+                    (attempt_num_for_model == config.content_retries) and
+                    (not config.fallback_model or config.fallback_model == config.text_model)
+                )
+                
+                if is_last_overall_attempt or is_last_primary_no_effective_fallback:
+                    break 
 
-        await asyncio.sleep(1.5 ** attempt_num_for_model) 
+                await asyncio.sleep(1.5 ** attempt_num_for_model) 
 
-    err_msg = f"Tweet {tweet_id}: All {config.content_retries} attempts per model failed to generate valid KB content JSON."
-    if last_exception:
-        logging.error(f"{err_msg} Last error: {last_exception}")
-        raise ContentGenerationError(err_msg) from last_exception
-    else: 
-        logging.error(err_msg + " No specific last exception recorded.")
-        raise ContentGenerationError(err_msg)
+            err_msg = f"Tweet {tweet_id}: All {config.content_retries} attempts per model failed to generate valid KB content JSON."
+            if last_exception:
+                logging.error(f"{err_msg} Last error: {last_exception}")
+                raise ContentGenerationError(err_msg) from last_exception
+            else: 
+                logging.error(err_msg + " No specific last exception recorded.")
+                raise ContentGenerationError(err_msg)
 
 
 def _convert_kb_json_to_markdown(kb_json: Dict[str, Any]) -> str:
     """Converts the structured JSON KB content to a Markdown string."""
     lines = []
 
-    title = kb_json.get("suggested_title", "Knowledge Base Item")
-    lines.append(f"# {title.strip()}")
+    title_val = kb_json.get("suggested_title", "Knowledge Base Item")
+    title = _ensure_string_from_value(title_val)
+    lines.append(f"# {title}")
     lines.append("")
 
-    introduction = kb_json.get("introduction", "")
+    introduction_val = kb_json.get("introduction", "")
+    introduction = _ensure_string_from_value(introduction_val)
     if introduction:
         lines.append(f"## Introduction")
-        lines.append(introduction.strip())
+        lines.append(introduction)
         lines.append("")
 
     for section in kb_json.get("sections", []):
-        heading = section.get("heading", "Section")
-        lines.append(f"## {heading.strip()}")
+        heading_val = section.get("heading", "Section")
+        heading = _ensure_string_from_value(heading_val)
+        lines.append(f"## {heading}")
         lines.append("")
 
-        for paragraph in section.get("content_paragraphs", []):
-            lines.append(paragraph.strip())
+        for paragraph_val in section.get("content_paragraphs", []):
+            paragraph = _ensure_string_from_value(paragraph_val)
+            lines.append(paragraph)
             lines.append("")
 
         for code_block in section.get("code_blocks", []):
-            lang = code_block.get("language", "plain_text")
-            code = code_block.get("code", "")
-            explanation = code_block.get("explanation", "")
+            lang = _ensure_string_from_value(code_block.get("language", "plain_text"))
+            code = _ensure_string_from_value(code_block.get("code", ""))
+            explanation_val = code_block.get("explanation", "")
+            explanation = _ensure_string_from_value(explanation_val)
             if explanation:
-                lines.append(f"_{explanation.strip()}_") 
+                lines.append(f"_{explanation}_") 
                 lines.append("")
-            lines.append(f"```{lang}\n{code.strip()}\n```")
+            lines.append(f"```{lang}\\n{code}\\n```")
             lines.append("")
 
         for list_data in section.get("lists", []):
-            list_type = list_data.get("type", "bulleted")
+            list_type = _ensure_string_from_value(list_data.get("type", "bulleted"))
             prefix = "-" if list_type == "bulleted" else "1."
-            for item_text in list_data.get("items", []):
-                lines.append(f"{prefix} {item_text.strip()}")
+            for item_val in list_data.get("items", []):
+                item_text = _ensure_string_from_value(item_val)
+                lines.append(f"{prefix} {item_text}")
             lines.append("")
         
-        for note in section.get("notes_or_tips", []):
-            lines.append(f"> **Note/Tip:** {note.strip()}") 
+        for note_val in section.get("notes_or_tips", []):
+            note = _ensure_string_from_value(note_val)
+            lines.append(f"> **Note/Tip:** {note}") 
             lines.append("")
 
-    takeaways = kb_json.get("key_takeaways", [])
-    if takeaways:
+    takeaways_list = kb_json.get("key_takeaways", [])
+    if takeaways_list: # Ensure it's actually a list before iterating
         lines.append("## Key Takeaways")
         lines.append("")
-        for takeaway in takeaways:
-            lines.append(f"- {takeaway.strip()}")
+        for takeaway_val in takeaways_list:
+            takeaway = _ensure_string_from_value(takeaway_val)
+            lines.append(f"- {takeaway}")
         lines.append("")
 
-    conclusion = kb_json.get("conclusion", "")
+    conclusion_val = kb_json.get("conclusion", "")
+    conclusion = _ensure_string_from_value(conclusion_val)
     if conclusion:
         lines.append("## Conclusion")
-        lines.append(conclusion.strip())
+        lines.append(conclusion)
         lines.append("")
 
-    references = kb_json.get("external_references", [])
-    if references:
+    references_list = kb_json.get("external_references", [])
+    if references_list: # Ensure it's actually a list
         lines.append("## External References")
         lines.append("")
-        for ref in references:
-            text = ref.get("text", ref.get("url", "Link"))
-            url = ref.get("url", "#")
-            lines.append(f"- [{text.strip()}]({url.strip()})")
+        for ref in references_list:
+            if isinstance(ref, dict): # Ensure ref is a dict before .get
+                text_val = ref.get("text", ref.get("url", "Link"))
+                url_val = ref.get("url", "#")
+                text = _ensure_string_from_value(text_val)
+                url = _ensure_string_from_value(url_val)
+                lines.append(f"- [{text}]({url})")
+            else: # Handle case where ref might not be a dict
+                ref_str = _ensure_string_from_value(ref)
+                lines.append(f"- {ref_str}") # Fallback to just listing it
         lines.append("")
         
-    return "\n".join(lines)
+    return "\\n".join(lines)
 
 
 async def create_knowledge_base_item(
