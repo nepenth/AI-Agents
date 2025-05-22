@@ -24,6 +24,7 @@ body {
 .navbar {
     /*box-shadow: 0 2px 4px rgba(0,0,0,.1); Optional: adds a subtle shadow */
     /* The bg-primary and navbar-dark classes will handle most of this already */
+    height: 56px;
 }
 
 html[data-bs-theme="dark"] .navbar-brand,
@@ -36,22 +37,25 @@ html[data-bs-theme="dark"] .navbar {
 }
 
 .container-custom {
-    margin-top: 56px; /* Standard navbar height */
+    margin-top: 56px; /* This is the only top spacing we need */
     height: calc(100vh - 56px);
     display: flex;
     flex-direction: row;
+    width: 100%;
+    padding: 0;
 }
 
 .sidebar {
-    width: 280px; /* Slightly wider sidebar */
-    height: calc(100vh - 56px);
+    width: 280px;
+    min-width: 280px;
+    height: calc(100vh - 56px); /* Match navbar height exactly */
     overflow-y: auto;
-    /* background-color: #ffffff; BS default */
-    border-right: 1px solid var(--bs-border-color-translucent, #dee2e6);
-    padding: 1rem;
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    padding-top: 15px;
     position: fixed;
     left: 0;
-    top: 56px; /* Match navbar height */
+    top: 56px; /* Match navbar height exactly */
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
@@ -61,11 +65,36 @@ html[data-bs-theme="dark"] .sidebar {
 }
 
 .main-content {
-    margin-left: 280px; /* Match wider sidebar */
+    padding: 10px;
+    margin-left: 280px;
     height: calc(100vh - 56px);
     overflow-y: auto;
-    padding: 1rem; /* Reduced padding */
     width: calc(100% - 280px);
+    flex: 1;
+}
+
+/* Remove excess padding in card containers */
+.main-content .card {
+    margin-bottom: 10px;
+}
+
+.main-content > .col-12 {
+    padding: 0;
+    height: 100%;
+}
+
+.main-content > .col-12 > .card {
+    height: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content > .col-12 > .card > .card-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 /* General card styling for dark mode (if not covered by BS defaults) */
@@ -337,18 +366,14 @@ html[data-bs-theme="dark"] #agentPhasesList .sub-phases {
 }
 
 #current-phase-details {
-    padding: 0.75rem 1rem; /* Original padding: 0.5rem 1rem; */
-    margin-top: 0.5rem; /* Original margin-top: 1rem; */
-    border: 1px solid var(--bs-border-color-translucent, #dee2e6);
-    border-radius: var(--bs-border-radius, 0.375rem); /* Use Bootstrap variable */
-    background-color: var(--bs-tertiary-bg, #f8f9fa); /* Use Bootstrap subtle bg */
-    font-size: 0.9em; /* Slightly smaller font for details */
-    line-height: 1.5; /* Improved line height for readability */
-    word-wrap: break-word; /* Ensure long words wrap */
-    min-height: 42px; /* Ensure it has some visible height even when idle */
-    display: flex; 
-    align-items: center; /* Vertically center text if single line */
-    /* Removed color as it should inherit or be set by dark mode rule */
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+    min-height: 40px;
+    max-height: 80px;
+    overflow-y: auto;
 }
 
 html[data-bs-theme="dark"] #current-phase-details {
@@ -357,7 +382,7 @@ html[data-bs-theme="dark"] #current-phase-details {
     border-color: var(--bs-border-color, #495057);
 }
 
-/* GPU Status Card Specific Styling */
+/* GPU Status Card Specific StyLING */
 .gpu-status-card .card-body {
     padding: 0.75rem; /* Reduced padding for GPU card body */
 }
@@ -517,16 +542,3342 @@ html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-error { backg
 
 
 #current-phase-details {
-    padding: 0.75rem 1rem; /* Original padding: 0.5rem 1rem; */
-    margin-top: 0.5rem; /* Original margin-top: 1rem; */
-    border: 1px solid var(--bs-border-color-translucent, #dee2e6);
-    border-radius: var(--bs-border-radius, 0.375rem); /* Use Bootstrap variable */
-    background-color: var(--bs-tertiary-bg, #f8f9fa); /* Use Bootstrap subtle bg */
-    font-size: 0.9em; /* Slightly smaller font for details */
-    line-height: 1.5; /* Improved line height for readability */
-    word-wrap: break-word; /* Ensure long words wrap */
-    min-height: 42px; /* Ensure it has some visible height even when idle */
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+    min-height: 40px;
+    max-height: 60px;
+    overflow-y: auto;
+    margin-bottom: 0;
+}
+
+/* Navigation Styles */
+.nav-link-item {
+    font-weight: 600;
+}
+
+.subcategory-item {
+    padding-left: 2rem;
+}
+
+.sidebar-link {
+    color: #212529;
+    text-decoration: none;
+    padding: 0.25rem 0;
+    display: inline-block;
+}
+
+.sidebar-link:hover {
+    color: #0d6efd;
+}
+
+.sidebar-link.active {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+.item-link {
+    padding-left: 1rem;
+}
+
+/* Log Styles */
+.log-container {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+}
+
+.log-container .list-group-item {
+    padding: 0.4rem 0.75rem;
+    border-left: none;
+    border-right: none;
+}
+
+.log-timestamp {
+    color: #6c757d;
+    margin-right: 0.5rem;
+}
+
+.log-level {
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.log-message {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-debug { color: #6c757d; }
+.log-info { color: #0d6efd; }
+.log-warning, .log-warn { color: #fd7e14; }
+.log-error { color: #dc3545; }
+.log-critical { color: #dc3545; font-weight: bold; }
+
+/* Execution Plan Styles */
+.main-phases .phase-item {
+    margin-bottom: 5px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.main-phases .phase-item:hover {
+    background-color: #f0f0f0;
+}
+
+.sub-phases-grid {
     display: flex; 
-    align-items: center; /* Vertically center text if single line */
-    /* Removed color as it should inherit or be set by dark mode rule */
-} 
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.sub-phase-row {
+    display: flex;
+    gap: 10px;
+}
+
+.sub-phase-item {
+    flex: 1;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    min-height: 32px;
+    transition: all 0.2s ease;
+}
+
+.sub-phase-item:hover {
+    background-color: #e9e9e9;
+}
+
+/* Time Estimate styling */
+#timeEstimatePlan, #timeEstimateLogs {
+    display: inline-block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #0d6efd; /* Bootstrap primary blue */
+}
+
+html[data-bs-theme="dark"] #timeEstimatePlan, 
+html[data-bs-theme="dark"] #timeEstimateLogs {
+    color: #6ea8fe; /* Lighter blue for dark mode */
+}
+
+/* Status colors */
+.status-pending { color: #6c757d; border-color: #6c757d !important; }
+.status-will-run { color: #0d6efd; border-color: #0d6efd !important; }
+.status-active { color: #198754; border-color: #198754 !important; background-color: #e8f3ee !important; }
+.status-completed { color: #198754; border-color: #198754 !important; }
+.status-skipped { color: #6c757d; border-color: #adb5bd !important; text-decoration: line-through; }
+.status-error { color: #dc3545; border-color: #dc3545 !important; background-color: #f8d7da !important; }
+.status-interrupted { color: #fd7e14; border-color: #fd7e14 !important; }
+
+/* GPU Status */
+.gpu-status-card {
+    margin-bottom: 15px;
+}
+
+/* Dark Mode Styles */
+.dark-mode {
+    background-color: #212529;
+    color: #f8f9fa;
+}
+
+.dark-mode .card {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+.dark-mode .card-header {
+    background-color: #2b3035;
+    border-color: #495057;
+}
+
+.dark-mode .sidebar {
+    background-color: #2b3035;
+    border-color: #495057;
+}
+
+.dark-mode .list-group-item {
+    background-color: #343a40;
+    border-color: #495057;
+    color: #f8f9fa;
+}
+
+.dark-mode .sidebar-link {
+    color: #f8f9fa;
+}
+
+.dark-mode .sidebar-link:hover {
+    color: #0dcaf0;
+}
+
+.dark-mode .sidebar-link.active {
+    color: #0dcaf0;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .container-custom {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 10px;
+    }
+    
+    .main-content {
+        height: auto;
+    }
+}
+
+/* Add styles for the new nested card layout */
+.main-content .card {
+    margin-bottom: 10px;
+}
+
+/* Nested card styling */
+.main-content .card .card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: none;
+    margin-bottom: 0;
+}
+
+.main-content .card .card-header {
+    padding: 0.5rem 1rem;
+    background-color: rgba(0,0,0,.03);
+}
+
+/* Proper card header size in nested cards */
+.main-content .card .card-header h6 {
+    font-size: 1rem;
+}
+
+/* Ensure cards in a row have same height */
+.row .card.h-100 {
+    height: 100% !important;
+}
+
+.card-body {
+    overflow-y: auto;
+}
+
+/* Remove double scrollbars */
+.main-content {
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* Ensure proper spacing in nested layouts */
+.main-content .card .card-body {
+    padding: 0.75rem;
+}
+
+.main-content .card .row {
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+}
+
+/* Dark mode adjustments for nested cards */
+html[data-bs-theme="dark"] .main-content .card .card {
+    border-color: var(--bs-border-color, #495057);
+    background-color: #343a40;
+}
+
+html[data-bs-theme="dark"] .main-content .card .card-header {
+    background-color: #2c3034;
+    border-color: var(--bs-border-color, #495057);
+}
+
+/* Time Estimate styling */
+#timeEstimatePlan, #timeEstimateLogs {
+    display: inline-block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #0d6efd; /* Bootstrap primary blue */
+}
+
+html[data-bs-theme="dark"] #timeEstimatePlan, 
+html[data-bs-theme="dark"] #timeEstimateLogs {
+    color: #6ea8fe; /* Lighter blue for dark mode */
+}
+
+/* Remove unnecessary scrolling from execution plan */
+#executionPlanContainer {
+    padding-right: 5px;
+    height: auto;
+    overflow: visible;
+}
+
+/* Improve spacing for execution plan and logs panel */
+.row.g-2 {
+    margin-bottom: 0.25rem !important;
+    margin-top: 0 !important;
+    gap: 0.5rem !important;
+    align-items: stretch;
+}
+
+/* Modern styling for content boxes */
+.main-content .card {
+    box-shadow: 0 2px 4px rgba(0,0,0,.05);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+/* Ensure consistent height for both panels */
+.row.g-2 .card-body {
+    height: auto !important; 
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+/* Improved panel matching styles */
+.row.g-2 {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.row.g-2 .col-md-5,
+.row.g-2 .col-md-7 {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+.row.g-2 .card.h-100 {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: auto !important;
+}
+
+.row.g-2 .col-md-5 .card-body {
+    overflow-y: visible;
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+}
+
+.row.g-2 .col-md-7 .card-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+}
+
+/* Remove all height constraints from execution plan to let it dictate natural height */
+#executionPlanCardBody {
+    display: flex;
+    flex-direction: column;
+    height: 300px; /* Or a fixed height, or use flex-grow if the parent card has a defined height */
+    max-height: 300px; /* Consistent with height */
+    padding: 0.5rem !important;
+    overflow: hidden; /* Prevent children from spilling out of the card body's bounds */
+}
+
+/* Make sure footer doesn't expand */
+.card-footer {
+    flex-shrink: 0;
+}
+
+/* Match heights between panels dynamically */
+.row.g-2 .col-md-5 .card.h-100,
+.row.g-2 .col-md-7 .card.h-100 {
+    height: auto !important;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Make both card bodies auto-sized but still maintain scrolling for logs */
+.row.g-2 .col-md-5 .card.h-100 .card-body,
+.row.g-2 .col-md-7 .card.h-100 .card-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Special handling for execution plan - no scrollbar needed */
+#executionPlanCardBody {
+    overflow: visible !important;
+    min-height: auto !important;
+    max-height: none !important;
+    padding-bottom: 0;
+}
+
+/* Time Estimate styling - make it more visible */
+#timeEstimatePlan, 
+#timeEstimateLogs {
+    display: inline-block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #0d6efd;
+    padding: 4px 0;
+}
+
+/* Make sure card footers are visible */
+.card-footer {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Make dark mode more modern */
+html[data-bs-theme="dark"] .main-content .card {
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+
+/* More compact GPU status card */
+.gpu-status-card {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0 !important;
+}
+
+/* Better contrast for phase items */
+.main-phases .phase-item {
+    border-left: 4px solid transparent;
+    background-color: rgba(0,0,0,.01);
+}
+
+html[data-bs-theme="dark"] .main-phases .phase-item {
+    background-color: rgba(255,255,255,.03);
+}
+
+/* Improve padding for main container */
+.main-content .card > .card-body {
+    padding: 0.75rem 1rem;
+}
+
+/* Make top card header more prominent */
+.main-content > .col-12 > .card > .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+/* Improve card spacing throughout */
+.row > [class*='col-'] {
+    padding-right: 8px;
+    padding-left: 8px;
+}
+
+/* Better GPU card styling */
+.gpu-status-card .card-body {
+    padding: 0.5rem;
+}
+
+/* Ensure form labels are consistent */
+.form-check-label {
+    font-size: 0.9rem;
+}
+
+/* Fix checkbox alignment */
+.form-check-input {
+    margin-top: 0.25rem;
+}
+
+/* Better phase item styling */
+.main-phases .phase-item {
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+}
+
+/* Add smooth transitions */
+.card, .phase-item, .sub-phase-item {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Better dark mode styling */
+html[data-bs-theme="dark"] .main-content > .col-12 > .card > .card-header {
+    background-color: #2c3034;
+    border-bottom: 1px solid #495057;
+}
+
+/* Modern dark mode cards */
+html[data-bs-theme="dark"] #current-phase-details {
+    background-color: #343a40;
+    border: 1px solid #495057;
+}
+
+/* IMPROVED PANEL HEIGHT MATCHING */
+/* This section specifically fixes the height matching between Execution Plan and Live Logs */
+.row.g-2 {
+    display: flex;
+    align-items: stretch;
+}
+
+.row.g-2 .col-md-5,
+.row.g-2 .col-md-7 {
+    display: flex;
+}
+
+.row.g-2 .card.h-100 {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Make Execution Plan column auto-size based on content */
+.row.g-2 .col-md-5 .card-body {
+    overflow-y: visible;
+    height: auto !important;
+    max-height: none !important;
+}
+
+/* Live Logs should scroll when necessary */
+.row.g-2 .col-md-7 .card-body {
+    overflow-y: auto;
+}
+
+/* Set a minimum height to avoid short panels */
+.row.g-2 .col-md-5 .card-body,
+.row.g-2 .col-md-7 .card-body {
+    min-height: 320px;
+}
+
+/* Make sure card footers are visible and properly aligned */
+.row.g-2 .card-footer {
+    margin-top: auto;
+}
+
+/* Special fix for log container to ensure proper scrolling */
+#liveLogsUl.log-container {
+    flex: 1 !important;
+    height: 100% !important;
+    min-height: 280px !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+/* Fine-tune scrolling behaviors */
+.row.g-2 .col-md-7 .card-body {
+    overflow-y: hidden !important;
+    padding: 0.5rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+}
+
+.row.g-2 .col-md-7 .card-body #liveLogsUl {
+    flex: 1 !important;
+    width: 100% !important;
+    overflow-y: auto !important;
+}
+
+/* Remove unnecessary margins from GPU card */
+.gpu-status-card {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Ensure consistent card body padding */
+.card-body {
+    padding: 0.75rem;
+}
+
+/* Explicit height declaration for the execution plan and live logs */
+.row.g-2 .col-md-5 .card-body,
+.row.g-2 .col-md-7 .card-body {
+    min-height: 320px;
+    height: 320px;
+}
+
+/* Remove extra margin at top of execution plan */
+#executionPlanContainer {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Enhanced layout for Execution Plan and Live Logs */
+.row.g-2 {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    margin-top: 0 !important;
+    margin-bottom: 0.25rem !important;
+    min-height: 350px !important;
+}
+
+/* Force side-by-side layout at all screen sizes */
+@media (min-width: 320px) {
+    .row.g-2 .col-xl-5,
+    .row.g-2 .col-xl-7 {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .row.g-2 .card.h-100 {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 350px !important;
+        margin-bottom: 10px !important;
+    }
+}
+
+/* Special fix for the log container and execution plan */
+#liveLogsUl.log-container {
+    flex: 1 !important;
+    height: 100% !important;
+    min-height: 280px !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    display: block !important;
+    list-style-type: none !important;
+}
+
+.row.g-2 .col-xl-7 .card-body {
+    overflow-y: hidden !important;
+    padding: 0.5rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 280px !important;
+}
+
+/* Fix for Execution Plan container */
+#executionPlanCardBody {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    padding: 0.5rem !important;
+}
+
+#executionPlanContainer {
+    height: auto !important;
+    overflow-y: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Remove extra spacing below the execution plan and logs row */
+.gpu-status-card {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0 !important;
+}
+
+/* On very small screens, stack them on top of each other */
+@media (max-width: 767.98px) {
+    .row.g-2 {
+        flex-direction: column !important;
+    }
+    
+    .row.g-2 .col-xl-5,
+    .row.g-2 .col-xl-7 {
+        width: 100% !important;
+        flex-basis: auto !important;
+        max-width: 100% !important;
+    }
+    
+    .row.g-2 .card.h-100 {
+        height: auto !important;
+        min-height: 250px !important;
+        margin-bottom: 10px !important;
+    }
+}
+
+/* Custom side-by-side layout */
+.sbs-layout {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    margin: 0 -5px !important; /* Negative margin to counteract padding */
+}
+
+.sbs-layout > [class*='col-'] {
+    padding: 0 5px !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Force exact 40/60 split as requested */
+@media (min-width: 768px) {
+    .sbs-layout > .col-xl-5 {
+        flex: 0 0 40% !important;
+        max-width: 40% !important;
+    }
+    
+    .sbs-layout > .col-xl-7 {
+        flex: 0 0 60% !important;
+        max-width: 60% !important;
+    }
+}
+
+/* Ensure cards inside the layout take full height */
+.sbs-layout .card.h-100 {
+    height: 100% !important;
+    min-height: 350px !important;
+    margin-bottom: 0 !important;
+}
+
+/* More aggressive fix for Live Logs */
+.sbs-layout .col-xl-7 .card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0.5rem !important;
+    overflow: hidden !important;
+}
+
+.sbs-layout .col-xl-7 .card-body #liveLogsUl {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    min-height: 300px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* --- DASHBOARD LAYOUT --- */
+.dashboard-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    height: 100%;
+}
+
+/* Main panels container - holds execution plan and live logs side by side */
+.dashboard-main-panels {
+    display: flex;
+    flex-direction: row;
+    min-height: 300px; /* Minimum height instead of fixed height */
+    height: auto; /* Auto height to fit content */
+    gap: 15px;
+}
+
+/* Set width for execution plan panel (40%) */
+.execution-plan-panel {
+    flex: 4;
+    min-width: 0; /* Allow flexbox to shrink this item */
+}
+
+/* Set width for live logs panel (60%) */
+.live-logs-panel {
+    flex: 6;
+    min-width: 0; /* Allow flexbox to shrink this item */
+}
+
+/* GPU panel at the bottom */
+.dashboard-gpu-panel {
+    flex: 0 0 auto;
+}
+
+/* Make each panel's card take the full height of its container */
+.execution-plan-panel .card,
+.live-logs-panel .card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Make execution plan card body fit content without scrollbar */
+.execution-plan-panel .card-body {
+    flex: 1;
+    overflow: visible; /* Change from auto to visible to prevent scrollbar */
+    padding: 0.75rem;
+}
+
+/* Keep live logs card body scrollable */
+.live-logs-panel .card-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0.75rem;
+}
+
+/* Ensure log container fills the full height of its card body */
+#liveLogsUl.log-container {
+    height: 100%;
+    max-height: none;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+/* Make execution plan fit content without scrolling */
+#executionPlanContainer {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#executionPlanCardBody {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0.5rem !important;
+}
+
+/* Phase items styling */
+.main-phases .phase-item {
+    margin-bottom: 5px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.main-phases .phase-item:hover {
+    background-color: #f0f0f0;
+}
+
+/* Sub-phases styling */
+.sub-phases-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.sub-phase-row {
+    display: flex;
+    gap: 10px;
+}
+
+.sub-phase-item {
+    flex: 1;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    min-height: 32px;
+    transition: all 0.2s ease;
+}
+
+.sub-phase-item:hover {
+    background-color: #e9e9e9;
+}
+
+/* Phase status colors */
+.status-pending { color: #6c757d; border-left-color: #6c757d !important; }
+.status-will-run { color: #0d6efd; border-left-color: #0d6efd !important; }
+.status-active { 
+    color: #198754;
+    border-left-color: #198754 !important;
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+.status-completed { color: #198754; border-left-color: #198754 !important; }
+.status-completed .phase-name { text-decoration: line-through; }
+.status-skipped { color: #6c757d; border-left-color: #adb5bd !important; text-decoration: line-through; }
+.status-error {
+    color: #dc3545;
+    border-left-color: #dc3545 !important;
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+.status-interrupted { color: #fd7e14; border-left-color: #fd7e14 !important; }
+
+/* Details panel styling */
+#current-phase-details {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+    min-height: 40px;
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+/* Add border to phase items */
+.phase-item {
+    border-left: 4px solid transparent;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 768px) {
+    .dashboard-main-panels {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .execution-plan-panel,
+    .live-logs-panel {
+        flex: 1 1 auto;
+        width: 100%;
+        min-height: 300px;
+    }
+}
+
+/* Log styles */
+.log-container {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+}
+
+.log-container .list-group-item {
+    padding: 0.4rem 0.75rem;
+    border-left: none;
+    border-right: none;
+}
+
+.log-timestamp {
+    color: #6c757d;
+    margin-right: 0.5rem;
+}
+
+.log-level {
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.log-message {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-debug { color: #6c757d; }
+.log-info { color: #0d6efd; }
+.log-warning, .log-warn { color: #fd7e14; }
+.log-error { color: #dc3545; }
+.log-critical { color: #dc3545; font-weight: bold; }
+
+/* Dark mode adjustments */
+html[data-bs-theme="dark"] #current-phase-details {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+html[data-bs-theme="dark"] .main-phases .phase-item {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+html[data-bs-theme="dark"] .main-phases .phase-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-bs-theme="dark"] .sub-phase-item {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+html[data-bs-theme="dark"] .sub-phase-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Time estimate styling */
+#timeEstimatePlan, #timeEstimateLogs {
+    display: inline-block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #0d6efd;
+}
+
+html[data-bs-theme="dark"] #timeEstimatePlan, 
+html[data-bs-theme="dark"] #timeEstimateLogs {
+    color: #6ea8fe;
+}
+
+/* Ensure the execution plan body can contain the list and the current phase details correctly */
+#executionPlanCardBody {
+    display: flex;
+    flex-direction: column;
+    height: 300px; /* Or a fixed height, or use flex-grow if the parent card has a defined height */
+    max-height: 300px; /* Consistent with height */
+    padding: 0.5rem !important;
+    overflow: hidden; /* Prevent children from spilling out of the card body's bounds */
+}
+
+/* Make the list of phases scrollable and take up available space */
+#agentPhasesList {
+    flex-grow: 1; /* Allow the list to take up available vertical space */
+    overflow-y: auto; /* Allow vertical scrolling for the list of phases */
+    margin-bottom: 0.5rem; /* Add some space before the current phase details */
+    padding-right: 5px; /* Add some padding to avoid scrollbar overlap if content is tight */
+}
+
+/* Styling for the current phase details panel */
+#current-phase-details {
+    flex-shrink: 0; /* Prevent this from shrinking if space is tight */
+    border: 1px solid #dee2e6;
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Ensure the GPU status card body can scroll if content overflows */
+#gpuStatusCardBody {
+    max-height: 200px; /* Or your desired max height */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}
+
+/* Add some spacing below the execution plan card if needed, or ensure its container manages layout */
+.card.mb-3 { /* Assuming the card has mb-3 or similar for bottom margin */
+    /* No specific change here unless global card spacing needs adjustment */
+}

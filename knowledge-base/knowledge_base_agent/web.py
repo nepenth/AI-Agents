@@ -41,6 +41,8 @@ from knowledge_base_agent.gpu_utils import get_gpu_stats # Import GPU utility
 import threading
 import time
 from flask_migrate import Migrate
+import aiofiles
+import psutil
 
 # Global config variable, to be initialized in __main__
 config: Optional[Config] = None
@@ -49,7 +51,7 @@ log_file_path: Optional[Path] = None # Store log file path globally for file han
 # Server-side state storage
 # agent_running = False  # REMOVE - Consolidate state
 agent_is_running = False # Primary flag for agent execution status
-recent_logs = deque(maxlen=500)  # Store recent logs to send to new connections
+recent_logs = deque(maxlen=400)  # Store recent logs to send to new connections
 current_run_preferences: Optional[dict] = None # Store preferences of the active run
 
 # Initial logging setup (before config is fully loaded, might be to stdout or a default file if needed)
@@ -153,15 +155,14 @@ def index():
 
 @app.route('/item/<int:item_id>')
 def item_detail(item_id):
-    # global config # Remove global config usage
-    app_config = getattr(current_app, 'config_instance', None) # Use current_app.config_instance
+    app_config = getattr(current_app, 'config_instance', None)
     if not app_config:
         logging.error("Application configuration not found in item_detail.")
         return "Application configuration not found.", 500
 
     item = KnowledgeBaseItem.query.get_or_404(item_id)
     
-    if not item.file_path: # Check file_path instead of content_path
+    if not item.file_path:
         logging.error(f"Content file path (file_path) missing for item {item_id}")
         return "Error: KB Item content file path not set.", 404
 
@@ -179,9 +180,17 @@ def item_detail(item_id):
         logging.error(f"Error reading content file {content_file_abs_path} for item {item_id}: {e}")
         return "Error: Could not read KB Item content file.", 500
 
+    # Try to parse raw_json_content if available for better display
+    processed_json_content = None
+    if item.raw_json_content:
+        try:
+            processed_json_content = json.loads(item.raw_json_content)
+            logging.debug(f"Successfully parsed raw_json_content for item {item_id}")
+        except json.JSONDecodeError:
+            logging.warning(f"Failed to parse raw_json_content for item {item_id}")
+
     relative_item_dir = ""
     try:
-        # Use app_config obtained from current_app
         if not app_config.knowledge_base_dir:
             logging.error("Configuration error: app_config.knowledge_base_dir is not set. Cannot determine media paths.")
             raise ValueError("Server configuration issue for media paths.")
@@ -223,7 +232,8 @@ def item_detail(item_id):
                            items=all_items_for_sidebar, 
                            current_item_id=item_id,
                            media_list=media_list,
-                           config=app_config) # Pass app_config here too
+                           kb_json_data=processed_json_content,
+                           config=app_config)
 
 async def _run_agent_async_logic(preferences_data: dict):
     """Helper async function to contain the core agent running logic."""
@@ -383,7 +393,7 @@ def api_logs():
         logging.error("API /api/logs: Application configuration not found.")
         return jsonify({"error": "Application configuration not available"}), 500
     
-    # Pass the config to list_logs 
+    # Pass the config to list_logs
     return list_logs(app_config)
 
 @app.route('/api/logs/<path:filename>', methods=['GET'])
@@ -415,21 +425,116 @@ def api_log_content(filename):
         logging.error(f"Error reading log file {filename}: {e}", exc_info=True)
         return jsonify({"error": f"Failed to read log file: {str(e)}"}), 500
 
+@app.route('/api/logs/delete-all', methods=['POST'])
+def api_delete_all_logs():
+    """API endpoint to delete all log files."""
+    app_config = getattr(current_app, 'config_instance', config)
+    if not app_config:
+        logging.error("API /api/logs/delete-all: Application configuration not found.")
+        return jsonify({"error": "Application configuration not available"}), 500
+    
+    try:
+        # Get the log directory
+        log_dir = Path(app_config.log_dir).expanduser().resolve()
+        if not log_dir.is_dir():
+            return jsonify({"error": f"Log directory {log_dir} is not a valid directory"}), 500
+        
+        # Get all log files
+        log_files = [f for f in log_dir.iterdir() if f.is_file() and f.suffix == '.log']
+        deleted_count = 0
+        
+        # Don't delete the currently active log file (if any)
+        current_log_file = getattr(logging.getLoggerClass().root.handlers[0], 'baseFilename', None)
+        current_log_path = Path(current_log_file).resolve() if current_log_file else None
+        
+        # Delete each file
+        for log_file in log_files:
+            try:
+                # Skip the currently active log file
+                if current_log_path and log_file.resolve() == current_log_path:
+                    logging.info(f"Skipping current active log file: {log_file}")
+                    continue
+                    
+                log_file.unlink()
+                deleted_count += 1
+                logging.info(f"Deleted log file: {log_file}")
+            except Exception as e:
+                logging.error(f"Failed to delete log file {log_file}: {e}")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully deleted {deleted_count} log files.",
+            "deleted_count": deleted_count
+        })
+    except Exception as e:
+        logging.error(f"Error deleting log files: {e}", exc_info=True)
+        return jsonify({"error": f"Failed to delete log files: {str(e)}"}), 500
+
 # --- End Log Viewer Routes ---
 
 @app.route('/kb-media/<path:path>')
-def serve_kb_media_generic(path): # Renamed from serve_kb_media
-    """Serve media files from the kb-generated directory using a single path argument.
-    This is a more generic version. Consider if this is still needed or if the
-    more specific route below is the primary one.
-    """
-    base_path = Path('kb-generated')
+def serve_kb_media_generic(path): # Generic handler for single path pattern
+    """Serve media files from the kb-generated directory using a single path argument."""
+    app_config = getattr(current_app, 'config_instance', None)
+    if not app_config:
+        return "Application configuration not found", 500
+
+    # Use app_config.knowledge_base_dir as the base path
+    base_path = Path(app_config.knowledge_base_dir).resolve()
     file_path = base_path / path
-    if file_path.exists():
+    
+    # Validate the path is within the knowledge base directory
+    try:
+        if not file_path.exists():
+            logging.warning(f"Media file not found: {file_path}")
+            return "File not found", 404
+        
+        # Check if the file is within the knowledge base directory
+        if not file_path.is_relative_to(base_path):
+            logging.warning(f"Attempted to access file outside knowledge base directory: {file_path}")
+            return "Access denied", 403
+            
         return send_from_directory(base_path, path)
-    else:
-        logging.warning(f"Generic media file not found: {file_path}")
+    except Exception as e:
+        logging.error(f"Error serving media file {path}: {e}")
+        return "Error serving file", 500
+
+# Serve media files with specific category/subcategory/item path pattern
+@app.route('/kb-media/<path:category>/<path:subcategory>/<path:item_name>/<path:filename>')
+def serve_kb_media(category, subcategory, item_name, filename):
+    app_config = getattr(current_app, 'config_instance', None)
+    if not app_config:
+        return "Application configuration not found", 500
+    
+    # Construct the path relative to the knowledge_base_dir
+    kb_root = Path(app_config.knowledge_base_dir).resolve()
+    media_dir = kb_root / category / subcategory / item_name
+    file_path = media_dir / filename
+    
+    try:
+        # Security validation - check that the file exists and is within the knowledge base directory
+        if not file_path.exists():
+            logging.warning(f"Media file not found: {file_path}")
         return "File not found", 404
+            
+        if not file_path.is_relative_to(kb_root):
+            logging.warning(f"Attempted to access file outside knowledge base directory: {file_path}")
+            return "Access denied", 403
+            
+        # Send the file
+        return send_from_directory(media_dir, filename)
+    except Exception as e:
+        logging.error(f"Error serving media file {category}/{subcategory}/{item_name}/{filename}: {e}")
+        return "Error serving file", 500
+
+# Serve media files from the media_cache_dir
+@app.route('/media_cache/<path:filename>')
+def serve_media(filename):
+    app_config = getattr(current_app, 'config_instance', None)
+    if not app_config:
+        return "Application configuration not found", 500
+    # media_cache_dir is already an absolute path from Pydantic Config
+    return send_from_directory(Path(app_config.media_cache_dir), filename)
 
 # --- FUNCTION TO HANDLE STARTUP SYNC ---
 def run_startup_synchronization(app_instance, loaded_config: Config):
@@ -475,9 +580,10 @@ def gpu_stats_emitter_thread(app):
 
 @socketio.on('connect')
 def handle_connect(auth=None): # Added auth=None to handle potential argument
-    global agent_is_running, current_run_preferences, config # Ensure config is accessible
+    global agent_instance, agent_is_running, current_run_preferences, config # Ensure config is accessible
     emit('log', {'message': 'Client connected', 'level': 'INFO'})
     
+    # Build a complete state object to synchronize this client with current state
     initial_state_payload = {
         'agent_is_running': agent_is_running,
         'active_run_preferences': current_run_preferences if agent_is_running else None,
@@ -492,14 +598,14 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
         'log_history': list(recent_logs)
     }
 
-    # Get state from agent instance if it exists
+    # Get complete state from agent instance if it exists
     if agent_instance and hasattr(agent_instance, 'get_current_state'):
         try:
             agent_state_from_instance = agent_instance.get_current_state()
             initial_state_payload.update(agent_state_from_instance) 
             if agent_is_running and current_run_preferences:
                 initial_state_payload['active_run_preferences'] = current_run_preferences
-            current_app.logger.info(f"Emitting initial_status_and_git_config to new client with complete agent state")
+                current_app.logger.info(f"Emitting initial_status_and_git_config to new client with complete agent state")
         except Exception as e:
             current_app.logger.error(f"Error getting agent state: {e}")
 
@@ -514,26 +620,6 @@ def handle_disconnect():
 def handle_request_initial_status_and_git_config():
     current_app.logger.info("'request_initial_status_and_git_config' event received. Re-emitting current state.")
     handle_connect() # Re-run connect logic to send current state
-
-# Serve media files from the knowledge base
-@app.route('/kb-media/<path:category>/<path:subcategory>/<path:item_name>/<path:filename>')
-def serve_kb_media(category, subcategory, item_name, filename):
-    app_config = getattr(current_app, 'config_instance', None)
-    if not app_config:
-        return "Application configuration not found", 500
-    # Construct the path relative to the knowledge_base_dir
-    # knowledge_base_dir is already an absolute path from Pydantic Config
-    media_dir = Path(app_config.knowledge_base_dir) / category / subcategory / item_name
-    return send_from_directory(media_dir, filename)
-
-# Serve media files from the media_cache_dir
-@app.route('/media_cache/<path:filename>')
-def serve_media(filename):
-    app_config = getattr(current_app, 'config_instance', None)
-    if not app_config:
-        return "Application configuration not found", 500
-    # media_cache_dir is already an absolute path from Pydantic Config
-    return send_from_directory(Path(app_config.media_cache_dir), filename)
 
 if __name__ == "__main__":
     # Load configuration first

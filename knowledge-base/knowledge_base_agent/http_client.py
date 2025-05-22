@@ -10,6 +10,7 @@ import aiofiles
 from pathlib import Path
 import base64
 import time
+import os
 
 class HTTPClient:
     """HTTP client for making requests to external services."""
@@ -23,7 +24,10 @@ class HTTPClient:
         self.max_retries = self.config.max_retries
         self.batch_size = self.config.batch_size
         self.max_concurrent = self.config.max_concurrent_requests
+        
+        # Create semaphore for controlling concurrency
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
+        
         logging.info(f"Initializing HTTPClient with Ollama URL: {self.base_url}")
         logging.info(f"Settings: timeout={self.timeout}s, max_retries={self.max_retries}, "
                     f"batch_size={self.batch_size}, max_concurrent={self.max_concurrent}")
@@ -100,14 +104,26 @@ class HTTPClient:
                     "stream": False,
                     "temperature": temperature,
                     "top_p": top_p,
+                    "options": {}  # Initialize options dict
                 }
-
-                if options and options.get("json_mode") is True:
-                    if hasattr(self.config, 'ollama_supports_json_mode') and self.config.ollama_supports_json_mode:
-                        payload["format"] = "json"
-                        logging.info(f"Ollama JSON mode enabled for model {model} due to options and config.")
-                    else:
-                        logging.warning(f"JSON mode requested for Ollama model {model}, but not enabled in config (ollama_supports_json_mode=False). Sending as plain text.")
+                
+                # Add options from the function parameters
+                if options:
+                    # Handle JSON mode if enabled
+                    if options.get("json_mode") is True:
+                        if hasattr(self.config, 'ollama_supports_json_mode') and self.config.ollama_supports_json_mode:
+                            payload["format"] = "json"
+                            logging.info(f"Ollama JSON mode enabled for model {model} due to options and config.")
+                        else:
+                            logging.warning(f"JSON mode requested for Ollama model {model}, but not enabled in config (ollama_supports_json_mode=False). Sending as plain text.")
+                    
+                    # If there's a specific GPU device requested, pass it through
+                    if "gpu_device" in options:
+                        payload["options"]["gpu_device_index"] = options["gpu_device"]
+                        logging.debug(f"Setting GPU device index to {options['gpu_device']} for this request")
+                
+                # Log the complete payload for debugging
+                logging.debug(f"Complete Ollama payload: {payload}")
                 
                 start_time = time.time()
                 async with self.session.post(
@@ -148,6 +164,112 @@ class HTTPClient:
             except Exception as e:
                 logging.error(f"Unexpected error in ollama_generate with model {model}: {str(e)}", exc_info=True)
                 raise AIError(f"Failed to generate text with Ollama: {str(e)}")
+            
+    async def ollama_chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate text using Ollama chat API with messages format for reasoning models.
+        
+        Args:
+            model: The model to use for generation (from config.text_model)
+            messages: List of message objects with 'role' and 'content' keys
+            temperature: Controls randomness (0.0-1.0)
+            top_p: Nucleus sampling parameter
+            timeout: Request timeout in seconds (defaults to config.request_timeout)
+            options: Additional options, e.g., {"json_mode": True}
+        
+        Returns:
+            str: Generated text response
+            
+        Raises:
+            AIError: If the API request fails or returns invalid response
+            TimeoutError: If the request exceeds the timeout period
+        """
+        request_timeout = timeout or self.timeout
+        
+        async with self._semaphore:
+            await self.ensure_session()
+            
+            try:
+                api_endpoint = f"{self.base_url}/api/chat"
+                logging.debug(f"Sending Ollama chat request to {api_endpoint}")
+                logging.debug(f"Using model: {model}")
+                logging.debug(f"Messages preview: {str(messages)[:200]}...")
+
+                payload = {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "options": {}  # Initialize options dict
+                }
+
+                # Add options from the function parameters
+                if options:
+                    # Handle JSON mode if enabled
+                    if options.get("json_mode") is True and hasattr(self.config, 'ollama_supports_json_mode') and self.config.ollama_supports_json_mode:
+                        payload["format"] = "json"
+                        logging.info(f"Ollama JSON mode enabled for chat with model {model}")
+                    
+                    # If there's a specific GPU device requested, pass it through
+                    if "gpu_device" in options:
+                        payload["options"]["gpu_device_index"] = options["gpu_device"]
+                        logging.debug(f"Setting GPU device index to {options['gpu_device']} for chat request")
+                
+                # Log the complete payload for debugging
+                logging.debug(f"Complete Ollama chat payload: {payload}")
+                
+                start_time = time.time()
+                async with self.session.post(
+                    api_endpoint,
+                    json=payload,
+                    timeout=request_timeout
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logging.error(f"Ollama chat API error: {response.status} - {error_text}")
+                        logging.error(f"Request URL: {api_endpoint}, Payload: {str(payload)[:500]}")
+                        raise AIError(f"Ollama chat API returned status {response.status}")
+                    
+                    result = await response.json()
+                    elapsed = time.time() - start_time
+                    
+                    # Chat API returns a different format
+                    if "message" not in result:
+                        logging.error(f"Ollama chat API returned unexpected response format: {result}")
+                        raise AIError("Unexpected response format from Ollama chat API")
+                    
+                    response_message = result.get("message", {})
+                    response_text = response_message.get("content", "").strip()
+                    
+                    if not response_text:
+                        logging.error(f"Ollama chat API returned empty response: {result}")
+                        raise AIError("Empty response from Ollama chat API")
+                    
+                    logging.debug(f"Received chat response of length: {len(response_text)} in {elapsed:.2f}s. Model: {model}")
+                    
+                    if self.batch_size > 1:
+                        await asyncio.sleep(0.1)
+                        
+                    return response_text
+                    
+            except asyncio.TimeoutError:
+                logging.error(f"Ollama chat request timed out after {request_timeout} seconds for model {model}")
+                raise AIError(f"Chat request timed out after {request_timeout} seconds")
+            except aiohttp.ClientError as e:
+                logging.error(f"HTTP client error with Ollama chat: {str(e)} for model {model}")
+                raise AIError(f"HTTP client error in chat: {str(e)}")
+            except Exception as e:
+                logging.error(f"Unexpected error in ollama_chat with model {model}: {str(e)}", exc_info=True)
+                raise AIError(f"Failed to generate text with Ollama chat: {str(e)}")
             
     async def __aenter__(self):
         await self.initialize()
@@ -240,7 +362,7 @@ class OllamaClient:
         else:
             self.base_url = "http://localhost:11434"
         logging.debug(f"Initializing OllamaClient with base_url: {self.base_url}")
-        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=60.0)
+        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=config.request_timeout if config else 60.0)
         
     async def __aenter__(self):
         return self
