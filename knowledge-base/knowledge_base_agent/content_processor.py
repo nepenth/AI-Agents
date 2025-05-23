@@ -215,7 +215,7 @@ class ContentProcessor:
 
         phase_details_results.append(cache_phase)
 
-        if stop_flag:
+        if stop_flag.is_set():
             self.socketio_emit_log("Caching sub-phase potentially stopped by flag. Check logs from cache_tweets.", "WARNING")
             if self.phase_emitter_func:
                  current_cache_status = 'interrupted'
@@ -260,7 +260,7 @@ class ContentProcessor:
                 )
         
         for i, tweet_id in enumerate(media_analysis_eligible_ids):
-            if stop_flag:
+            if stop_flag.is_set():
                 self.socketio_emit_log("Media Analysis sub-phase stopped by flag.", "WARNING")
                 if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_media', 'interrupted', 'Media analysis stopped.')
                 break
@@ -304,13 +304,13 @@ class ContentProcessor:
         media_phase.details = f"{media_phase.newly_created_or_updated} newly analyzed, {media_phase.skipped_already_done} skipped, {media_phase.failed} failed out of {media_phase.attempted} attempted."
         self.socketio_emit_log(f"Media Analysis sub-phase summary: {media_phase.details}", "INFO")
 
-        if not stop_flag:
+        if not stop_flag.is_set():
             self.socketio_emit_log(f"--- Sub-Phase: Media Analysis completed. Attempted: {media_phase.attempted}/{media_phase.total_eligible}, Succeeded: {media_phase.succeeded} ---", "INFO")
             if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_media', 'completed', f'Media analysis done. {media_phase.details}')
         
         phase_details_results.append(media_phase)
 
-        if stop_flag:
+        if stop_flag.is_set():
             if self.phase_emitter_func: self.phase_emitter_func('content_processing_overall', 'interrupted', 'Processing stopped during media analysis.')
             return phase_details_results
 
@@ -364,6 +364,7 @@ class ContentProcessor:
                 phase_historical_stats = processing_stats_data.get("phases", {}).get(current_phase_id_str_llm, {})
                 avg_time_per_item_llm = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
                 initial_estimated_duration_llm = avg_time_per_item_llm * actual_items_to_process_llm if avg_time_per_item_llm > 0 else 0
+                logging.info(f"CONTENT_PROCESSOR_ETC: Phase {current_phase_id_str_llm} - Avg time/item: {avg_time_per_item_llm:.2f}s, Items: {actual_items_to_process_llm}, Calculated Initial ETC: {initial_estimated_duration_llm:.0f}s")
 
                 num_gpus = self.config.num_gpus_available
                 logging.info(f"Configured num_gpus_available: {num_gpus}")
@@ -420,7 +421,7 @@ class ContentProcessor:
                                 )
                 
                 for tweet_id_to_process, data_for_categorization in tasks_to_process_data:
-                    if stop_flag: 
+                    if stop_flag.is_set(): 
                         logging.warning("Stop flag detected before creating all LLM tasks. Remaining tasks will not be scheduled.")
                         break
                     llm_phase.attempted +=1 # Increment attempted for items that will be processed by a worker
@@ -430,7 +431,7 @@ class ContentProcessor:
                 if all_tasks:
                     results_from_workers = await asyncio.gather(*all_tasks, return_exceptions=False)
                     for processed_tweet_id, result_data, error_obj in results_from_workers:
-                        if stop_flag and not error_obj and not result_data: # Check if task was cancelled due to stop_flag
+                        if stop_flag.is_set() and not error_obj and not result_data: # Check if task was cancelled due to stop_flag
                             logging.info(f"LLM task for {processed_tweet_id} likely cancelled by stop_flag before completion.")
                             # Treat as error for accounting if it didn't complete, or decide on other handling
                             llm_phase.failed += 1 
@@ -478,10 +479,10 @@ class ContentProcessor:
         self.socketio_emit_log(f"LLM Processing sub-phase summary: {llm_phase.details}", "INFO")
         phase_details_results.append(llm_phase)
 
-        if not stop_flag:
+        if not stop_flag.is_set():
             self.socketio_emit_log(f"--- Sub-Phase: LLM Processing completed. Attempted: {llm_phase.attempted}/{llm_phase.total_eligible}, Succeeded: {llm_phase.succeeded} ---", "INFO")
             if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_llm', 'completed', f'LLM done. {llm_phase.details}')
-        if stop_flag:
+        if stop_flag.is_set():
             if self.phase_emitter_func: self.phase_emitter_func('content_processing_overall', 'interrupted', 'Processing stopped during LLM.')
             return phase_details_results
 
@@ -506,7 +507,7 @@ class ContentProcessor:
             )
 
         for i, tweet_id in enumerate(kb_item_eligible_ids):
-            if stop_flag:
+            if stop_flag.is_set():
                 self.socketio_emit_log("KB Item Gen sub-phase stopped by flag.", "WARNING")
                 if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_kbitem', 'interrupted', 'KB Item generation stopped.')
                 break
@@ -557,10 +558,10 @@ class ContentProcessor:
         self.socketio_emit_log(f"KB Item Generation sub-phase summary: {kb_item_phase.details}", "INFO")
         phase_details_results.append(kb_item_phase)
 
-        if not stop_flag:
+        if not stop_flag.is_set():
             self.socketio_emit_log(f"--- Sub-Phase: KB Item Generation completed. Attempted: {kb_item_phase.attempted}/{kb_item_phase.total_eligible}, Succeeded: {kb_item_phase.succeeded} ---", "INFO")
             if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_kbitem', 'completed', f'KB Gen done. {kb_item_phase.details}')
-        if stop_flag:
+        if stop_flag.is_set():
             if self.phase_emitter_func: self.phase_emitter_func('content_processing_overall', 'interrupted', 'Processing stopped during KB item generation.')
             return phase_details_results
 
@@ -586,7 +587,7 @@ class ContentProcessor:
             )
 
         for i, tweet_id in enumerate(db_sync_eligible_ids):
-            if stop_flag:
+            if stop_flag.is_set():
                 self.socketio_emit_log("DB Sync sub-phase stopped by flag.", "WARNING")
                 if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_db', 'interrupted', 'DB Sync stopped.')
                 break
@@ -627,10 +628,10 @@ class ContentProcessor:
         self.socketio_emit_log(f"Database Sync sub-phase summary: {db_sync_phase.details}", "INFO")
         phase_details_results.append(db_sync_phase)
 
-        if not stop_flag:
+        if not stop_flag.is_set():
             self.socketio_emit_log(f"--- Sub-Phase: Database Sync completed. Attempted: {db_sync_phase.attempted}/{db_sync_phase.total_eligible}, Succeeded: {db_sync_phase.succeeded} ---", "INFO")
             if self.phase_emitter_func: self.phase_emitter_func('subphase_cp_db', 'completed', f'DB Sync done. {db_sync_phase.details}')
-        if stop_flag:
+        if stop_flag.is_set():
             if self.phase_emitter_func: self.phase_emitter_func('content_processing_overall', 'interrupted', 'Processing stopped during DB sync.')
             return phase_details_results
 
@@ -679,7 +680,7 @@ class ContentProcessor:
         self.socketio_emit_log(final_summary_msg, "INFO")
         
         overall_status = 'completed'
-        if stop_flag:
+        if stop_flag.is_set():
             overall_status = 'interrupted'
         # Items that are not (len(unprocessed_tweets) - stats.error_count) might be skipped due to non-error conditions
         elif stats.error_count > 0 and stats.processed_count < (len(unprocessed_tweets) - stats.error_count):

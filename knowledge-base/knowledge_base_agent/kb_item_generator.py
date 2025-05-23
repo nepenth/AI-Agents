@@ -458,6 +458,10 @@ async def create_knowledge_base_item(
 
 
         kb_content_json = await _generate_kb_content_json(tweet_id, context_for_llm, http_client, config)
+        
+        # Log the raw JSON received from the LLM for debugging
+        logging.debug(f"KB_ITEM_GEN ({tweet_id}): Raw JSON from LLM: {json.dumps(kb_content_json, indent=2)}")
+
         markdown_content = _convert_kb_json_to_markdown(kb_content_json)
         display_title = kb_content_json.get("suggested_title", ai_generated_item_name).strip()
         if not display_title: display_title = ai_generated_item_name

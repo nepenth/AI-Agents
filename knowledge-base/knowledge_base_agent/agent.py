@@ -180,7 +180,8 @@ class KnowledgeBaseAgent:
                                  is_sub_step_update: bool = False,
                                  processed_count: Optional[int] = None,
                                  total_count: Optional[int] = None,
-                                 error_count: Optional[int] = None):
+                                 error_count: Optional[int] = None,
+                                 initial_estimated_duration_seconds: Optional[float] = None):
         """Emits a phase update via SocketIO and updates internal agent state."""
         log_message = (
             f"Phase Update: ID='{phase_id}', Status='{status}', Message='{message}', SubStep='{is_sub_step_update}'"
@@ -191,6 +192,8 @@ class KnowledgeBaseAgent:
             log_message += f", Total={total_count}"
         if error_count is not None:
             log_message += f", Errors={error_count}"
+        if initial_estimated_duration_seconds is not None:
+            log_message += f", InitialETC={initial_estimated_duration_seconds:.0f}s"
         self.logger.info(log_message)
 
         # Track timing and estimate completion
@@ -200,12 +203,18 @@ class KnowledgeBaseAgent:
         
         # Handle timing for non-substep updates (main phases)
         if not is_sub_step_update:
-            # When a phase starts, record the start time
-            if status == 'in_progress' and phase_id not in self._phase_start_times:
-                self._phase_start_times[phase_id] = current_time
+            # When a phase starts, record the start time and historical ETC if provided
+            if status == 'active' or status == 'in_progress':
+                if phase_id not in self._phase_start_times:
+                    self._phase_start_times[phase_id] = current_time
+                
+                if initial_estimated_duration_seconds is not None and initial_estimated_duration_seconds > 0:
+                    self._phase_estimated_completion_times[phase_id] = current_time + initial_estimated_duration_seconds
+                    self.logger.info(f"Historical ETC for {phase_id} set: ends at {self._phase_estimated_completion_times[phase_id]} (in {initial_estimated_duration_seconds:.0f}s)")
+                
                 if total_count is not None and total_count > 0:
                     self._phase_total_items[phase_id] = total_count
-                    self._phase_processed_items[phase_id] = 0
+                    self._phase_processed_items[phase_id] = processed_count if processed_count is not None else 0
             
             # When a phase ends, clear its timing data
             if status in ['completed', 'error', 'skipped', 'interrupted']:
@@ -215,99 +224,68 @@ class KnowledgeBaseAgent:
                 self._phase_total_items.pop(phase_id, None)
                 self._phase_processed_items.pop(phase_id, None)
         
-        # Track item processing for time estimation (works for both main phases and substeps)
+        # Determine the ETC to send to UI
+        final_etc_timestamp_to_send = self._phase_estimated_completion_times.get(phase_id)
+        
+        # Dynamic ETC calculation (can be a fallback or refinement)
+        dynamic_etc_timestamp = None
         if processed_count is not None and total_count is not None and total_count > 0:
             phase_key = phase_id
             
-            # Check if we have previous processed count to calculate time per item
             previous_processed = self._phase_processed_items.get(phase_key, 0)
             if processed_count > previous_processed:
-                # We've processed new items since last update
                 items_just_processed = processed_count - previous_processed
                 
-                # If we have a start time for this batch, calculate processing time
-                if phase_key in self._phase_start_times:
-                    elapsed_since_last = current_time - self._phase_start_times.get(phase_key)
-                    
-                    # Only if we have meaningful timing data (more than 1 second elapsed)
-                    if elapsed_since_last > 1 and items_just_processed > 0:
-                        time_per_item = elapsed_since_last / items_just_processed
-                        self._phase_item_processing_times[phase_key].append(time_per_item)
-                        
-                        # Keep only the last 10 timing samples for moving average
-                        if len(self._phase_item_processing_times[phase_key]) > 10:
-                            self._phase_item_processing_times[phase_key] = self._phase_item_processing_times[phase_key][-10:]
+                batch_start_time = self._phase_start_times.get(phase_key, current_time)
                 
-                # Update stored processed count
-                self._phase_processed_items[phase_key] = processed_count
+                elapsed_since_batch_start = current_time - batch_start_time
                 
-                # Calculate estimated completion time if we have enough data
-                if phase_key in self._phase_item_processing_times and len(self._phase_item_processing_times[phase_key]) > 0:
-                    # Use median time per item for better stability
-                    median_time_per_item = median(self._phase_item_processing_times[phase_key])
-                    remaining_items = total_count - processed_count
+                if elapsed_since_batch_start > 1 and items_just_processed > 0:
+                    time_per_item = elapsed_since_batch_start / items_just_processed
+                    self._phase_item_processing_times[phase_key].append(time_per_item)
                     
-                    # Estimated seconds remaining
-                    estimated_remaining_seconds = remaining_items * median_time_per_item
-                    
-                    # Convert to minutes for display with 1 decimal place
-                    estimated_remaining_minutes = round(estimated_remaining_seconds / 60, 1)
-                    
-                    # Calculate actual completion timestamp
-                    estimated_completion_time = current_time + estimated_remaining_seconds
-                    self._phase_estimated_completion_times[phase_key] = estimated_completion_time
+                    if len(self._phase_item_processing_times[phase_key]) > 10:
+                        self._phase_item_processing_times[phase_key] = self._phase_item_processing_times[phase_key][-10:]
             
-            # Reset phase start time for next batch of timing
-            self._phase_start_times[phase_key] = current_time
+            self._phase_processed_items[phase_key] = processed_count
 
-        current_message_for_plan = message
-        if is_sub_step_update:
-            # For sub-steps, the main phase message in _plan_statuses should ideally not change frequently
-            # or should reflect the sub-step's general activity if desired.
-            # The detailed 'message' here (with counts) is primarily for the 'current-phase-details' box.
-            if self._current_phase_id == phase_id:
-                 self._current_step_in_current_phase_progress_message = message # This might need refinement.
-            else:
-                self.logger.warning(f"Received sub-step update for '{phase_id}' but current main phase is '{self._current_phase_id}'. Sub-step message: '{message}'")
-        else: # This is an update for a main phase
+            if self._phase_item_processing_times[phase_key]:
+                median_time_per_item = median(self._phase_item_processing_times[phase_key])
+                remaining_items = total_count - processed_count
+                if remaining_items > 0 and median_time_per_item > 0:
+                    dynamic_etc_timestamp = current_time + (remaining_items * median_time_per_item)
+
+        # Prefer historical ETC if available, otherwise use dynamic if calculated
+        if final_etc_timestamp_to_send is None and dynamic_etc_timestamp is not None:
+            final_etc_timestamp_to_send = dynamic_etc_timestamp
+
+        # Update agent's overall phase state (non-sub-step only)
+        if not is_sub_step_update:
             self._current_phase_id = phase_id
+            self._current_phase_message = message
             self._current_phase_status = status
-            self._current_phase_message = message # This is the general message for the phase list item
-            self._current_step_in_current_phase_progress_message = None # Clear sub-step message
-            
-            if phase_id in self._plan_statuses:
-                self._plan_statuses[phase_id]['status'] = status
-                self._plan_statuses[phase_id]['message'] = message # General message for the plan
-            else: # Should ideally be pre-initialized
-                self._plan_statuses[phase_id] = {'status': status, 'message': message}
-            current_message_for_plan = message
+            if phase_id in DEFAULT_PHASE_IDS or phase_id.startswith("subphase_cp_"):
+                self._plan_statuses[phase_id] = {'status': status, 'message': message, 'sub_step': False}
 
-
+        # Prepare data for SocketIO emit
+        data_to_emit = {
+            'phase_id': phase_id,
+            'status': status,
+            'message': message,
+            'is_sub_step_update': is_sub_step_update,
+            'processed_count': processed_count,
+            'total_count': total_count,
+            'error_count': error_count,
+            'initial_estimated_duration_seconds': initial_estimated_duration_seconds,
+            'estimated_completion_timestamp': final_etc_timestamp_to_send
+        }
+        
         if self.socketio:
-            # Format estimated time remaining for display if available
-            time_estimate_display = None
-            if estimated_remaining_minutes is not None and estimated_remaining_minutes > 0:
-                if estimated_remaining_minutes < 1:
-                    time_estimate_display = "< 1 minute remaining"
-                elif estimated_remaining_minutes < 60:
-                    time_estimate_display = f"~{int(estimated_remaining_minutes)} minute{'s' if estimated_remaining_minutes != 1 else ''} remaining"
-                else:
-                    hours = estimated_remaining_minutes // 60
-                    minutes = estimated_remaining_minutes % 60
-                    time_estimate_display = f"~{int(hours)}h {int(minutes)}m remaining"
-            
-            data = {
-                'phase_id': phase_id,
-                'status': status,
-                'message': message, # This will be used as data.status_message by client's updatePhaseProgress
-                'is_sub_step_update': is_sub_step_update,
-                'processed_count': processed_count,
-                'total_count': total_count,
-                'error_count': error_count,
-                'full_plan_statuses': dict(self._plan_statuses), # For client-side state reconstruction
-                'time_estimate': time_estimate_display
-            }
-            self.socketio.emit('agent_phase_update', data)
+            self.socketio.emit('phase_update', data_to_emit)
+
+        # If overall content processing is done, update its status based on sub-phases
+        if phase_id.startswith("subphase_cp_") and status in ['completed', 'error', 'skipped', 'interrupted']:
+            pass
 
     async def initialize(self) -> None:
         """
@@ -355,7 +333,7 @@ class KnowledgeBaseAgent:
             int: The number of new tweet IDs added to the unprocessed queue.
         """
         newly_added_tweet_ids_count = 0
-        if stop_flag:
+        if stop_flag.is_set():
             logging.info("Bookmark fetching skipped due to stop flag.")
             self.socketio_emit_log("Bookmark fetching skipped due to stop flag.", "INFO")
             self.socketio_emit_phase_update('fetch_bookmarks', 'skipped', 'Stop flag active.')
@@ -372,7 +350,7 @@ class KnowledgeBaseAgent:
             new_tweet_ids_this_run = []
             total_bookmarks = len(bookmarks)
             for i, bookmark_url in enumerate(bookmarks):
-                if stop_flag:
+                if stop_flag.is_set():
                     self.socketio_emit_log("Bookmark processing loop stopped by flag.", "INFO")
                     break
                 
@@ -433,57 +411,70 @@ class KnowledgeBaseAgent:
         Raises:
             AgentError: If bookmark fetching or processing fails.
         """
-        global stop_flag
+        if stop_flag.is_set():
+            logging.info("Bookmark processing skipped due to stop flag.")
+            # Optionally emit a socket event here if this phase is distinct in UI
+            return
+
+        logging.info("Starting bookmark processing")
+        bookmark_fetcher = BookmarksFetcher(self.config)
         try:
-            logging.info("Starting bookmark processing")
-            bookmark_fetcher = BookmarksFetcher(self.config)
-            try:
-                await bookmark_fetcher.initialize()
-                bookmarks = await bookmark_fetcher.fetch_bookmarks()
-                logging.info(f"Fetched {len(bookmarks)} bookmarks")
+            await bookmark_fetcher.initialize()
+            bookmarks = await bookmark_fetcher.fetch_bookmarks()
+            logging.info(f"Fetched {len(bookmarks)} bookmarks")
+            
+            new_tweet_ids = []
+            for bookmark in bookmarks:
+                if stop_flag.is_set():
+                    logging.info("Stopping bookmark processing loop due to stop request")
+                    break
+                tweet_id = parse_tweet_id_from_url(bookmark)
+                if not tweet_id:
+                    logging.warning(f"Invalid tweet URL in bookmark: {bookmark}")
+                    continue
                 
-                new_tweet_ids = []
-                for bookmark in bookmarks:
-                    if stop_flag:
-                        logging.info("Stopping bookmark processing due to stop request")
-                        break
-                    tweet_id = parse_tweet_id_from_url(bookmark)
-                    if not tweet_id:
-                        logging.warning(f"Invalid tweet URL in bookmark: {bookmark}")
-                        continue
-                    
-                    if not await self.state_manager.is_tweet_processed(tweet_id):
-                        if tweet_id not in self.state_manager.unprocessed_tweets:
-                            self.state_manager.unprocessed_tweets.append(tweet_id)
-                            new_tweet_ids.append(tweet_id)
-                            logging.info(f"Added tweet {tweet_id} from bookmark to unprocessed list")
-                        else:
-                            logging.info(f"Tweet {tweet_id} from bookmark already in unprocessed list")
-                    else:
-                        logging.info(f"Tweet {tweet_id} from bookmark already processed, skipping")
-                
-                if new_tweet_ids:
-                    await self.state_manager.save_unprocessed()
-                    logging.info(f"Processing {len(new_tweet_ids)} new tweets from bookmarks")
-                    await self.content_processor.process_all_tweets(
-                        preferences=UserPreferences(update_bookmarks=True, regenerate_readme=False),
-                        unprocessed_tweets=new_tweet_ids,
-                        total_tweets=len(new_tweet_ids),
-                        stats=self.stats,
-                        category_manager=self.category_manager
-                    )
-                    logging.info(f"Completed phased processing of {len(new_tweet_ids)} tweets from bookmarks")
-                else:
-                    logging.info("No new tweets to process from bookmarks")
-                
-            except Exception as e:
-                logging.exception("Bookmark fetching failed")
-                raise AgentError(f"Failed to fetch bookmarks: {str(e)}")
-            finally:
-                await bookmark_fetcher.cleanup()
+                # Check if already processed or in unprocessed queue
+                is_processed = await self.state_manager.is_tweet_processed(tweet_id)
+                in_unprocessed_queue = tweet_id in await self.state_manager.get_unprocessed_tweets() # Assuming this returns a set/list
+
+                if not is_processed and not in_unprocessed_queue:
+                    # self.state_manager.unprocessed_tweets.append(tweet_id) # Deprecated direct access
+                    new_tweet_ids.append(tweet_id)
+                    logging.info(f"Queued new tweet {tweet_id} from bookmark.")
+                elif is_processed:
+                    logging.info(f"Tweet {tweet_id} from bookmark already processed, skipping.")
+                else: # Already in unprocessed_queue
+                    logging.info(f"Tweet {tweet_id} from bookmark already in unprocessed queue, skipping.")
+            
+            if new_tweet_ids:
+                await self.state_manager.add_tweets_to_unprocessed(new_tweet_ids)
+                logging.info(f"Added {len(new_tweet_ids)} new tweets from bookmarks to unprocessed list.")
+                logging.info(f"Processing {len(new_tweet_ids)} new tweets from bookmarks via ContentProcessor...")
+                # Assuming UserPreferences needs to be instantiated. 
+                # This part needs careful review of what preferences are appropriate for this specific call path.
+                # For now, using defaults that enable processing but not necessarily forcing everything.
+                current_prefs = UserPreferences(
+                    skip_fetch_bookmarks=True, # Already fetched here
+                    skip_process_content=False,
+                    # Set other flags as appropriate for this context, or load defaults
+                )
+                await self.content_processor.process_all_tweets(
+                    preferences=current_prefs, 
+                    unprocessed_tweets=new_tweet_ids,
+                    total_tweets_for_processing=len(new_tweet_ids), # Corrected argument name
+                    stats=self.stats,
+                    category_manager=self.category_manager
+                )
+                logging.info(f"Completed phased processing of {len(new_tweet_ids)} tweets from bookmarks")
+            else:
+                logging.info("No new unique tweets to process from bookmarks.")
+            
         except Exception as e:
-            logging.exception("Bookmark processing failed")
+            logging.exception("An error occurred during bookmark processing pipeline")
             raise AgentError(f"Failed to process bookmarks: {str(e)}")
+        finally:
+            if bookmark_fetcher: # Ensure fetcher was initialized
+                await bookmark_fetcher.cleanup()
 
     async def update_indexes(self) -> None:
         """
@@ -495,15 +486,14 @@ class KnowledgeBaseAgent:
         Raises:
             AgentError: If index update fails.
         """
-        global stop_flag
         try:
-            if stop_flag:
+            if stop_flag.is_set():
                 logging.info("Skipping index update due to stop request")
                 return
             logging.info("Starting index update")
             categories = self.category_manager.get_all_categories()
             for category in categories:
-                if stop_flag:
+                if stop_flag.is_set():
                     logging.info("Stopping index update due to stop request")
                     break
                 try:
@@ -512,7 +502,7 @@ class KnowledgeBaseAgent:
                     logging.error(f"Failed to process category {category}: {e}")
             logging.info("Index update completed")
         except Exception as e:
-            logging.error(f"Index update failed: {e}")
+            logging.exception(f"Index update failed: {e}") # Log with stack trace
             raise AgentError("Failed to update indexes") from e
 
     async def sync_changes(self) -> None:
@@ -525,16 +515,15 @@ class KnowledgeBaseAgent:
         Raises:
             AgentError: If synchronization fails.
         """
-        global stop_flag
         try:
-            if stop_flag:
+            if stop_flag.is_set():
                 logging.info("Skipping GitHub sync due to stop request")
                 return
             logging.info("Starting GitHub sync...")
             await self.git_handler.sync_to_github("Update knowledge base content")
             logging.info("GitHub sync completed successfully")
         except Exception as e:
-            logging.error(f"GitHub sync failed: {str(e)}")
+            logging.exception(f"GitHub sync failed: {str(e)}") # Log with stack trace
             raise AgentError("Failed to sync changes to GitHub") from e
 
     async def cleanup(self) -> None:
@@ -584,7 +573,7 @@ class KnowledgeBaseAgent:
         try:
             # --- Phase 1: Parse User Preferences (already done by receiving `preferences` object) ---
             self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed and applied.')
-            if stop_flag: raise InterruptedError("Run stopped by user after parsing preferences.")
+            if stop_flag.is_set(): raise InterruptedError("Run stopped by user after parsing preferences.")
 
             # --- Phase 2: Retrieve New Bookmarks (Optional) ---
             self.socketio_emit_log(f"DEBUG: Preferences object before accessing skip_fetch_bookmarks: {preferences}", "DEBUG")
@@ -608,7 +597,7 @@ class KnowledgeBaseAgent:
                 self.socketio_emit_log("Skipping bookmark fetching due to user preference.", "INFO")
                 # Status already set by _initialize_plan_statuses and emitted loop
 
-            if stop_flag: raise InterruptedError("Run stopped by user after retrieving bookmarks.")
+            if stop_flag.is_set(): raise InterruptedError("Run stopped by user after retrieving bookmarks.")
 
             # --- Phase 3: Process Content (Optional) ---
             if not preferences.skip_process_content: # Corrected attribute name
@@ -645,7 +634,7 @@ class KnowledgeBaseAgent:
                                     force_flags_enabled.append("KB Item Generation")
                             
                             self.socketio_emit_log(
-                                f"Force reprocessing enabled for: {', '.join(force_flags_enabled)} - " +
+                                f"Force re-processing enabled for: {', '.join(force_flags_enabled)} - " +
                                 f"adding {len(processed_tweets)} already processed tweets to the queue", 
                                 "INFO"
                             )
@@ -680,7 +669,7 @@ class KnowledgeBaseAgent:
                 self.socketio_emit_log("Skipping content processing due to user preference.", "INFO")
                 # Status already set
 
-            if stop_flag: raise InterruptedError("Run stopped by user during content processing.")
+            if stop_flag.is_set(): raise InterruptedError("Run stopped by user during content processing.")
 
             # --- Phase 4: Generate/Update Readmes (Optional) ---
             if not preferences.skip_readme_generation:
@@ -711,7 +700,7 @@ class KnowledgeBaseAgent:
                 self.socketio_emit_log("Skipping Readme generation due to user preference.", "INFO")
                 # Status already set
 
-            if stop_flag: raise InterruptedError("Run stopped by user after Readme generation.")
+            if stop_flag.is_set(): raise InterruptedError("Run stopped by user after Readme generation.")
 
             # --- Phase 5: Git Synchronization (Optional) ---
             # Use self.config.git_enabled directly as it's a boolean field in the Config model
@@ -805,38 +794,28 @@ class KnowledgeBaseAgent:
         }
 
     def get_current_state(self) -> Dict[str, Any]:
-        """Get current state information for multi-client synchronization."""
-        # Format any active time estimates for display
-        time_estimate_display = None
-        if self._is_running and self._current_phase_id:
-            # Check if we have a time estimate for the current phase
-            phase_key = self._current_phase_id
-            if phase_key in self._phase_estimated_completion_times:
-                current_time = time.time()
-                estimated_completion_time = self._phase_estimated_completion_times[phase_key]
-                
-                # Only show if estimate is in the future
-                if estimated_completion_time > current_time:
-                    remaining_seconds = estimated_completion_time - current_time
-                    remaining_minutes = remaining_seconds / 60
-                    
-                    if remaining_minutes < 1:
-                        time_estimate_display = "< 1 minute remaining"
-                    elif remaining_minutes < 60:
-                        time_estimate_display = f"~{int(remaining_minutes)} minute{'s' if remaining_minutes != 1 else ''} remaining"
-                    else:
-                        hours = remaining_minutes // 60
-                        minutes = remaining_minutes % 60
-                        time_estimate_display = f"~{int(hours)}h {int(minutes)}m remaining"
-        
-        return {
+        """Returns the current operational state of the agent."""
+        # Make sure current_run_preferences is serializable if it's not None
+        serializable_preferences = None
+        if self._current_run_preferences:
+            try:
+                serializable_preferences = asdict(self._current_run_preferences)
+            except Exception as e:
+                self.logger.warning(f"Could not serialize current_run_preferences: {e}")
+                serializable_preferences = str(self._current_run_preferences) # Fallback to string
+
+        state = {
             'is_running': self._is_running,
             'current_phase_id': self._current_phase_id,
-            'current_step_in_current_phase_progress_message': self._current_phase_message,
-            'plan_statuses': self._plan_statuses,
-            'active_run_preferences': self._current_run_preferences,
-            'time_estimate': time_estimate_display
+            'current_phase_message': self._current_phase_message,
+            'current_phase_status': self._current_phase_status,
+            'current_run_preferences': serializable_preferences,
+            'plan_statuses': self._plan_statuses, # For execution plan visualization
+            'stop_flag_status': stop_flag.is_set(),
+            'phase_estimated_completion_times': self._phase_estimated_completion_times # Send current ETCs
         }
+        # self.logger.debug(f"Reporting current state: {state}")
+        return state
 
     def _initialize_plan_statuses(self, preferences: Optional[UserPreferences] = None):
         """Initializes or resets plan statuses, optionally considering user preferences for initial 'skipped' states."""
@@ -897,8 +876,7 @@ class KnowledgeBaseAgent:
         then run full content processing pipeline for this single tweet.
         This is an intensive operation for a single item, usually for testing or manual adds.
         """
-        global stop_flag
-        if stop_flag:
+        if stop_flag.is_set():
             self.socketio_emit_log(f"Skipping single tweet processing for {tweet_id} due to stop flag.", "INFO")
             return
         
@@ -964,8 +942,7 @@ class KnowledgeBaseAgent:
         Raises:
             MarkdownGenerationError: If README regeneration fails completely.
         """
-        global stop_flag
-        if stop_flag:
+        if stop_flag.is_set():
             self.socketio_emit_log("Skipping README regeneration due to stop request.", "INFO")
             self.socketio_emit_phase_update('readme_generation', 'skipped', 'Stop flag active.')
             return
@@ -1082,7 +1059,6 @@ class KnowledgeBaseAgent:
         Args:
             tweet_urls (List[str]): List of tweet URLs or IDs to process.
         """
-        global stop_flag
         if not self._initialized:
             await self.initialize()
 
@@ -1090,7 +1066,7 @@ class KnowledgeBaseAgent:
         total_tweets = len(tweet_urls)
         
         for i, tweet_url in enumerate(tweet_urls):
-            if stop_flag:
+            if stop_flag.is_set():
                 logging.info("Stopping tweet processing due to stop request")
                 break
             tweet_id = parse_tweet_id_from_url(tweet_url)
