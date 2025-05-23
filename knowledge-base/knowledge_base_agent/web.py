@@ -468,6 +468,78 @@ def api_delete_all_logs():
         logging.error(f"Error deleting log files: {e}", exc_info=True)
         return jsonify({"error": f"Failed to delete log files: {str(e)}"}), 500
 
+@app.route('/api/kb_items', methods=['GET'])
+def api_kb_items():
+    """API endpoint to fetch all knowledge base items."""
+    try:
+        all_items = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
+        items_data = []
+        for item in all_items:
+            items_data.append({
+                'id': item.id,
+                'item_name': item.item_name or item.title,
+                'display_title': item.display_title or item.title,
+                'title': item.title,
+                'main_category': item.main_category,
+                'sub_category': item.sub_category,
+                'description': item.description,
+                'source_url': item.source_url,
+                'created_at': item.created_at.isoformat() if item.created_at else None,
+                'last_updated': item.last_updated.isoformat() if item.last_updated else None,
+                'tweet_url': item.source_url
+            })
+        return jsonify(items_data)
+    except Exception as e:
+        logging.error(f"Error fetching KB items via API: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch knowledge base items'}), 500
+
+@app.route('/api/kb_items/<int:item_id>', methods=['GET'])
+def api_kb_item_detail(item_id):
+    """API endpoint to fetch a specific knowledge base item."""
+    try:
+        item = KnowledgeBaseItem.query.get_or_404(item_id)
+        
+        # Read markdown content
+        markdown_content = ""
+        if item.file_path:
+            try:
+                content_file_abs_path = Path(item.file_path).resolve()
+                if content_file_abs_path.exists():
+                    with open(content_file_abs_path, 'r', encoding='utf-8') as f:
+                        markdown_content = f.read()
+            except Exception as e:
+                logging.error(f"Error reading content file for item {item_id}: {e}")
+        
+        # Parse media paths
+        media_list = []
+        if item.kb_media_paths:
+            try:
+                media_list = json.loads(item.kb_media_paths)
+            except json.JSONDecodeError:
+                logging.error(f"Failed to parse kb_media_paths for item {item_id}")
+        
+        item_data = {
+            'id': item.id,
+            'item_name': item.item_name or item.title,
+            'display_title': item.display_title or item.title,
+            'title': item.title,
+            'main_category': item.main_category,
+            'sub_category': item.sub_category,
+            'description': item.description,
+            'content_markdown': markdown_content,
+            'source_url': item.source_url,
+            'tweet_url': item.source_url,
+            'created_at': item.created_at.isoformat() if item.created_at else None,
+            'created_at_tweet': item.created_at.isoformat() if item.created_at else None,
+            'last_updated': item.last_updated.isoformat() if item.last_updated else None,
+            'media_list': media_list,
+            'source': 'tweet'  # Default source type
+        }
+        return jsonify(item_data)
+    except Exception as e:
+        logging.error(f"Error fetching KB item {item_id} via API: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch knowledge base item'}), 500
+
 # --- End Log Viewer Routes ---
 
 @app.route('/kb-media/<path:path>')
@@ -593,7 +665,9 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
         'git_remote_name': getattr(config, 'git_remote', None) if config else None,
         'git_branch_name': getattr(config, 'git_branch', None) if config else None,
         # Add log history for new client connections
-        'log_history': list(recent_logs)
+        'log_history': list(recent_logs),
+        # Add time estimation data
+        'phase_estimated_completion_times': {}
     }
 
     # Get complete state from agent instance if it exists

@@ -281,7 +281,7 @@ class KnowledgeBaseAgent:
         }
         
         if self.socketio:
-            self.socketio.emit('phase_update', data_to_emit)
+            self.socketio.emit('agent_phase_update', data_to_emit)
 
         # If overall content processing is done, update its status based on sub-phases
         if phase_id.startswith("subphase_cp_") and status in ['completed', 'error', 'skipped', 'interrupted']:

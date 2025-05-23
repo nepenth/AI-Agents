@@ -495,16 +495,30 @@ class ContentProcessor:
         ]
         kb_item_phase = PhaseDetail(name="KB Item Generation", total_eligible=len(kb_item_eligible_ids))
         self.socketio_emit_log(f"--- Starting Sub-Phase: {kb_item_phase.name} for {kb_item_phase.total_eligible} eligible tweets ---", "INFO")
+        
+        # Load historical stats for ETC calculation (KB Item Generation)
+        current_phase_id_str_kbitem = "subphase_cp_kbitem"
+        processing_stats_data = load_processing_stats()
+        phase_historical_stats = processing_stats_data.get("phases", {}).get(current_phase_id_str_kbitem, {})
+        avg_time_per_item_kbitem = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
+        initial_estimated_duration_kbitem = avg_time_per_item_kbitem * len(kb_item_eligible_ids) if avg_time_per_item_kbitem > 0 else 0
+        logging.info(f"CONTENT_PROCESSOR_ETC: Phase {current_phase_id_str_kbitem} - Avg time/item: {avg_time_per_item_kbitem:.2f}s, Items: {len(kb_item_eligible_ids)}, Calculated Initial ETC: {initial_estimated_duration_kbitem:.0f}s")
+
         if self.phase_emitter_func: 
             self.phase_emitter_func(
                 'subphase_cp_kbitem', 
-                'in_progress', 
+                'active', 
                 f'KB Item Gen for {kb_item_phase.total_eligible} tweets...',
                 False,
                 0, # processed_count starts at 0
                 kb_item_phase.total_eligible, # total_count is the number of eligible tweets
-                0 # error_count starts at 0
+                0, # error_count starts at 0
+                initial_estimated_duration_kbitem # Send historical ETC
             )
+
+        # Start timing for KB Item Generation phase
+        phase_start_time_monotonic_kbitem = time.monotonic()
+        items_successfully_processed_this_run_kbitem = 0
 
         for i, tweet_id in enumerate(kb_item_eligible_ids):
             if stop_flag.is_set():
@@ -538,6 +552,7 @@ class ContentProcessor:
                     await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                     kb_item_phase.newly_created_or_updated += 1
                     self.socketio_emit_log(f"KB Item generation complete for {tweet_id}. Path (rel to project): {tweet_data['kb_item_path']}", "INFO")
+                    items_successfully_processed_this_run_kbitem += 1  # Track successful KB item generation
                 else:
                     self.socketio_emit_log(f"Skipping KB Item Generation for {tweet_id} (complete, not forced, or prerequisites missing).", "INFO")
                     if not kb_item_file_exists and tweet_data.get('kb_item_path') and not should_run_kb_gen:
@@ -553,6 +568,17 @@ class ContentProcessor:
                 self.socketio_emit_log(f"Error in KB Item Generation for {current_item_progress_msg}: {e}", "ERROR")
                 tweets_data_map[tweet_id]['_kbitem_error'] = str(e)
                 tweets_data_map[tweet_id]['kb_item_created'] = False
+
+        # After processing all tasks for this phase, update historical stats
+        phase_end_time_monotonic_kbitem = time.monotonic()
+        duration_this_run_kbitem = phase_end_time_monotonic_kbitem - phase_start_time_monotonic_kbitem
+        
+        if items_successfully_processed_this_run_kbitem > 0: # Only update stats if actual work was done
+            update_phase_stats(
+                phase_id=current_phase_id_str_kbitem,
+                items_processed_this_run=items_successfully_processed_this_run_kbitem,
+                duration_this_run_seconds=duration_this_run_kbitem
+            )
 
         kb_item_phase.details = f"{kb_item_phase.newly_created_or_updated} newly generated, {kb_item_phase.skipped_already_done} skipped, {kb_item_phase.failed} failed out of {kb_item_phase.attempted} attempted."
         self.socketio_emit_log(f"KB Item Generation sub-phase summary: {kb_item_phase.details}", "INFO")
@@ -575,16 +601,30 @@ class ContentProcessor:
         ]
         db_sync_phase = PhaseDetail(name="Database Sync", total_eligible=len(db_sync_eligible_ids))
         self.socketio_emit_log(f"--- Starting Sub-Phase: {db_sync_phase.name} for {db_sync_phase.total_eligible} eligible tweets ---", "INFO")
+        
+        # Load historical stats for ETC calculation (Database Sync)
+        current_phase_id_str_db = "subphase_cp_db"
+        processing_stats_data = load_processing_stats()
+        phase_historical_stats = processing_stats_data.get("phases", {}).get(current_phase_id_str_db, {})
+        avg_time_per_item_db = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
+        initial_estimated_duration_db = avg_time_per_item_db * len(db_sync_eligible_ids) if avg_time_per_item_db > 0 else 0
+        logging.info(f"CONTENT_PROCESSOR_ETC: Phase {current_phase_id_str_db} - Avg time/item: {avg_time_per_item_db:.2f}s, Items: {len(db_sync_eligible_ids)}, Calculated Initial ETC: {initial_estimated_duration_db:.0f}s")
+
         if self.phase_emitter_func: 
             self.phase_emitter_func(
                 'subphase_cp_db', 
-                'in_progress', 
+                'active', 
                 f'DB Sync for {db_sync_phase.total_eligible} tweets...',
                 False,
                 0, # processed_count starts at 0
                 db_sync_phase.total_eligible, # total_count is the number of eligible tweets
-                0 # error_count starts at 0
+                0, # error_count starts at 0
+                initial_estimated_duration_db # Send historical ETC
             )
+
+        # Start timing for Database Sync phase
+        phase_start_time_monotonic_db = time.monotonic()
+        items_successfully_processed_this_run_db = 0
 
         for i, tweet_id in enumerate(db_sync_eligible_ids):
             if stop_flag.is_set():
@@ -610,6 +650,7 @@ class ContentProcessor:
                     await self.state_manager.update_tweet_data(tweet_id, tweet_data) 
                     db_sync_phase.newly_created_or_updated += 1 # Consider this an update/creation for the phase
                     self.socketio_emit_log(f"Database sync complete for {tweet_id}", "INFO")
+                    items_successfully_processed_this_run_db += 1  # Track successful DB sync
                 else:
                     self.socketio_emit_log(f"Skipping Database Sync for {tweet_id} (already synced and not forced).", "INFO")
                     db_sync_phase.skipped_already_done += 1
@@ -623,6 +664,17 @@ class ContentProcessor:
                 self.socketio_emit_log(f"Error in DB Sync for {current_item_progress_msg}: {e}", "ERROR")
                 tweets_data_map[tweet_id]['_db_error'] = str(e)
                 tweets_data_map[tweet_id]['db_synced'] = False
+
+        # After processing all tasks for this phase, update historical stats
+        phase_end_time_monotonic_db = time.monotonic()
+        duration_this_run_db = phase_end_time_monotonic_db - phase_start_time_monotonic_db
+        
+        if items_successfully_processed_this_run_db > 0: # Only update stats if actual work was done
+            update_phase_stats(
+                phase_id=current_phase_id_str_db,
+                items_processed_this_run=items_successfully_processed_this_run_db,
+                duration_this_run_seconds=duration_this_run_db
+            )
 
         db_sync_phase.details = f"{db_sync_phase.newly_created_or_updated} newly synced/updated, {db_sync_phase.skipped_already_done} skipped, {db_sync_phase.failed} failed out of {db_sync_phase.attempted} attempted."
         self.socketio_emit_log(f"Database Sync sub-phase summary: {db_sync_phase.details}", "INFO")

@@ -163,38 +163,22 @@ class MarkdownWriter:
             if header_lines: # Check if any of the above lines were added
                 header_lines.append("") 
             
-            # Add media embeds section if media exists
-            if new_media_filenames_in_item_dir: # Check if media was successfully copied
-                header_lines.append("## Media")
-                header_lines.append("")
-                current_media_idx = 0
-                for i, original_media_path_str in enumerate(item.source_media_cache_paths):
-                    if current_media_idx < len(new_media_filenames_in_item_dir):
-                        media_filename_in_item_dir = new_media_filenames_in_item_dir[current_media_idx]
-                        description = item.image_descriptions[i] if i < len(item.image_descriptions) else "Media"
-                        file_type = "Image" if media_filename_in_item_dir.startswith("image_") else "Video" if media_filename_in_item_dir.startswith("video_") else "Media"
-                        
-                        header_lines.append(f"**{file_type} Description:** {format_links_in_text(description if description else 'N/A')}")
-                        header_lines.append(f"![{description if description else file_type}]({Path('./media', media_filename_in_item_dir)})") 
-                        header_lines.append("")
-                        current_media_idx +=1
-                    else:
-                        # This case should ideally not be hit if logic is correct, but good for logging.
-                        logging.warning(f"Media file {original_media_path_str} mentioned in source_media_cache_paths but not found in new_media_filenames_in_item_dir during Markdown header generation.")
-                
-                # Add a blank line after the media section if it was added and had content.
-                if current_media_idx > 0: # Check if any media items were actually processed and added
-                    header_lines.append("")
-
-            # Construct the header string.
-            metadata_and_media_header = "\n".join(header_lines)
+            # Construct the metadata header (no media embeds here)
+            metadata_header = "\n".join(header_lines)
 
             # The item.markdown_content already contains the H1 title and the full article body.
-            # Prepend the metadata_and_media_header.
-            if metadata_and_media_header.strip(): # If there's actual content in the header
-                final_markdown_content = metadata_and_media_header.strip() + "\n\n" + item.markdown_content.strip()
-            else: # No metadata or media, just use the item's markdown content
-                final_markdown_content = item.markdown_content.strip()
+            # We'll add media embeds to any existing ## Media section in the content
+            enhanced_markdown_content = self._add_media_embeds_to_content(
+                item.markdown_content, 
+                new_media_filenames_in_item_dir, 
+                item.image_descriptions
+            )
+
+            # Prepend the metadata header
+            if metadata_header.strip(): # If there's actual content in the header
+                final_markdown_content = metadata_header.strip() + "\n\n" + enhanced_markdown_content.strip()
+            else: # No metadata, just use the enhanced markdown content
+                final_markdown_content = enhanced_markdown_content.strip()
 
             # 4. Write README.md
             readme_path_in_temp_abs = temp_kb_item_dir_abs / "README.md"
@@ -238,6 +222,88 @@ class MarkdownWriter:
                 except Exception as cleanup_e:
                     logging.error(f"Failed to cleanup temporary directory {temp_kb_item_dir_abs}: {cleanup_e}")
             raise MarkdownGenerationError(f"Failed to write KB item '{item.display_title}': {str(e)}") from e # Changed from item.title
+
+    def _add_media_embeds_to_content(self, content: str, media_filenames: List[str], descriptions: List[str]) -> str:
+        """
+        Finds existing ## Media sections in the content and adds actual media embeds for the copied files.
+        
+        Args:
+            content: The existing markdown content from the LLM.
+            media_filenames: List of media filenames that were copied (e.g., ["image_1.jpg", "video_1.mp4"]).
+            descriptions: List of descriptions corresponding to the media files.
+        
+        Returns:
+            The content with media embeds added to existing ## Media sections.
+        """
+        if not media_filenames:
+            logging.debug("No media filenames provided, returning content unchanged.")
+            return content
+        
+        lines = content.split('\n')
+        enhanced_lines = []
+        in_media_section = False
+        media_section_found = False
+        
+        for line in lines:
+            enhanced_lines.append(line)
+            
+            # Check if we're entering a ## Media section
+            if line.strip().startswith('## Media'):
+                in_media_section = True
+                media_section_found = True
+                logging.debug(f"Found ## Media section, will add embeds for {len(media_filenames)} media files")
+                
+                # Add a blank line after the Media header if it doesn't exist
+                if len(enhanced_lines) > 1 and enhanced_lines[-2].strip():
+                    enhanced_lines.append('')
+                
+                # Add media embeds after the ## Media header
+                for i, media_filename in enumerate(media_filenames):
+                    description = descriptions[i] if i < len(descriptions) else "Media file"
+                    file_type = "Image" if media_filename.startswith("image_") else "Video" if media_filename.startswith("video_") else "Media"
+                    
+                    # Clean up description for alt text (remove problematic characters)
+                    clean_description = description.replace('[', '').replace(']', '').replace('(', '').replace(')', '').replace('\n', ' ').strip()
+                    if len(clean_description) > 100:
+                        clean_description = clean_description[:100] + "..."
+                    
+                    # Add description line
+                    enhanced_lines.append(f"**{file_type} Description:** {format_links_in_text(description)}")
+                    
+                    # Add media embed
+                    media_path = f"./media/{media_filename}"
+                    enhanced_lines.append(f"![{clean_description}]({media_path})")
+                    enhanced_lines.append('')  # Add blank line after each media item
+                
+            # Check if we're leaving the media section (next ## header)
+            elif in_media_section and line.strip().startswith('## ') and not line.strip().startswith('## Media'):
+                in_media_section = False
+        
+        # If no ## Media section was found, add one at the end if we have media
+        if not media_section_found and media_filenames:
+            logging.debug("No ## Media section found in content, adding one at the end")
+            enhanced_lines.append('')
+            enhanced_lines.append('## Media')
+            enhanced_lines.append('')
+            
+            for i, media_filename in enumerate(media_filenames):
+                description = descriptions[i] if i < len(descriptions) else "Media file"
+                file_type = "Image" if media_filename.startswith("image_") else "Video" if media_filename.startswith("video_") else "Media"
+                
+                # Clean up description for alt text
+                clean_description = description.replace('[', '').replace(']', '').replace('(', '').replace(')', '').replace('\n', ' ').strip()
+                if len(clean_description) > 100:
+                    clean_description = clean_description[:100] + "..."
+                
+                # Add description line
+                enhanced_lines.append(f"**{file_type} Description:** {format_links_in_text(description)}")
+                
+                # Add media embed
+                media_path = f"./media/{media_filename}"
+                enhanced_lines.append(f"![{clean_description}]({media_path})")
+                enhanced_lines.append('')  # Add blank line after each media item
+        
+        return '\n'.join(enhanced_lines)
 
 
 # Keep validate_media_references if it's still valuable for debugging or a final check,
