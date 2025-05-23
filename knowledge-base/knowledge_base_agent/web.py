@@ -248,7 +248,7 @@ async def _run_agent_async_logic(preferences_data: dict):
         return
 
     agent_is_running = True
-    sg.stop_flag = False # Reset shared stop_flag
+    sg.clear_stop_flag() # Reset shared stop_flag
     current_run_preferences = preferences_data # Store the preferences for this run
     socketio.emit('agent_status', {'is_running': True, 'active_run_preferences': current_run_preferences})
     logging.info(f"Agent status set to running. Stop flag reset. User Preferences: {preferences_data}")
@@ -349,14 +349,12 @@ def run_agent_socket(data: dict):
 
 @socketio.on('stop_agent')
 def handle_stop_agent():
-    global agent_is_running # current_run_preferences is cleared when the run actually stops in _run_agent_async_logic
-    logging.info("--- stop_agent event received ---")
-    if agent_is_running:
-        logging.info("Stop flag set. Agent will attempt to stop.")
-        sg.stop_flag = True
-        # The agent's main loop should check sg.stop_flag and exit gracefully.
-        # UI will be updated by the agent itself when it finishes/stops (via agent_complete or phase_update).
-        socketio.emit('log', {'message': 'Stop request received. Agent will attempt to stop gracefully.', 'level': 'INFO'})
+    logger.info("SocketIO: Received stop_agent request.")
+    global agent_instance
+    if agent_instance and agent_instance._is_running:
+        logger.info("Setting stop flag via shared_globals...")
+        sg.set_stop_flag() # <-- NEW
+        socketio.emit('log', {'message': 'Stop signal sent to agent. It may take a moment for all operations to cease.', 'level': 'WARN'})
     else:
         logging.info("Agent is not currently running.")
         socketio.emit('log', {'message': 'Agent is not currently running.', 'level': 'INFO'})

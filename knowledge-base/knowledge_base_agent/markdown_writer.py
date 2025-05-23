@@ -144,62 +144,57 @@ class MarkdownWriter:
                 temp_kb_item_dir_abs # Absolute path to temp dir for copying
             )
 
-            # 3. Prepare Markdown content
-            markdown_lines = []
-            markdown_lines.append(f"# {item.display_title}") # Changed from item.title
-            markdown_lines.append("")
-            if item.description:
-                markdown_lines.append(f"**Description:** {format_links_in_text(item.description)}")
-                markdown_lines.append("")
+            # 3. Prepare a metadata and media header.
+            # item.markdown_content (from kb_item_generator) will provide the main H1 title and article body.
+            header_lines = []
             
-            markdown_lines.append(f"**Source:** [{item.source_tweet.get('url', 'N/A')}]({item.source_tweet.get('url', '#')})")
+            # Add source, author, and date information
+            header_lines.append(f"**Source:** [{item.source_tweet.get('url', 'N/A')}]({item.source_tweet.get('url', '#')})")
             if item.source_tweet.get('author'):
-                markdown_lines.append(f"**Author:** {item.source_tweet.get('author')}")
+                header_lines.append(f"**Author:** {item.source_tweet.get('author')}")
             if item.source_tweet.get('created_at'):
                  try:
                     dt_obj = datetime.fromisoformat(item.source_tweet['created_at']) if isinstance(item.source_tweet['created_at'], str) else item.source_tweet['created_at']
-                    markdown_lines.append(f"**Original Post Date:** {dt_obj.strftime('%Y-%m-%d %H:%M:%S')}")
+                    header_lines.append(f"**Original Post Date:** {dt_obj.strftime('%Y-%m-%d %H:%M:%S')}")
                  except ValueError:
-                    markdown_lines.append(f"**Original Post Date:** {item.source_tweet.get('created_at')}")
-
-            markdown_lines.append("") # Add a separator line after metadata
+                    header_lines.append(f"**Original Post Date:** {item.source_tweet.get('created_at')}")
             
-            # Add media embeds here, before the main content from item.markdown_content
-            current_media_idx = 0
-            # Iterate over the source media paths to ensure descriptions match original media items
-            for i, original_media_path_str in enumerate(item.source_media_cache_paths): # Changed from item.media_urls
-                if current_media_idx < len(new_media_filenames_in_item_dir):
-                    media_filename_in_item_dir = new_media_filenames_in_item_dir[current_media_idx]
-                    description = item.image_descriptions[i] if i < len(item.image_descriptions) else "Media"
-                    
-                    file_type = "Image" if media_filename_in_item_dir.startswith("image_") else "Video" if media_filename_in_item_dir.startswith("video_") else "Media"
-                    
-                    # Provide a heading for the media section if this is the first piece of media
-                    if current_media_idx == 0:
-                        markdown_lines.append("## Media")
-                        markdown_lines.append("")
-
-                    markdown_lines.append(f"**{file_type} Description:** {format_links_in_text(description if description else 'N/A')}")
-                    # Link to media inside the 'media' subdirectory
-                    markdown_lines.append(f"![{description if description else file_type}]({Path('./media', media_filename_in_item_dir)})") 
-                    markdown_lines.append("")
-                    current_media_idx +=1
-                else:
-                    logging.warning(f"Media file {original_media_path_str} was in item.source_media_cache_paths but not found in copied media list for Markdown generation.")
+            # Add a separator if source/author/date info was added.
+            if header_lines: # Check if any of the above lines were added
+                header_lines.append("") 
             
-            # Ensure there's a blank line after media section if media was added
-            if current_media_idx > 0:
-                markdown_lines.append("")
+            # Add media embeds section if media exists
+            if new_media_filenames_in_item_dir: # Check if media was successfully copied
+                header_lines.append("## Media")
+                header_lines.append("")
+                current_media_idx = 0
+                for i, original_media_path_str in enumerate(item.source_media_cache_paths):
+                    if current_media_idx < len(new_media_filenames_in_item_dir):
+                        media_filename_in_item_dir = new_media_filenames_in_item_dir[current_media_idx]
+                        description = item.image_descriptions[i] if i < len(item.image_descriptions) else "Media"
+                        file_type = "Image" if media_filename_in_item_dir.startswith("image_") else "Video" if media_filename_in_item_dir.startswith("video_") else "Media"
+                        
+                        header_lines.append(f"**{file_type} Description:** {format_links_in_text(description if description else 'N/A')}")
+                        header_lines.append(f"![{description if description else file_type}]({Path('./media', media_filename_in_item_dir)})") 
+                        header_lines.append("")
+                        current_media_idx +=1
+                    else:
+                        # This case should ideally not be hit if logic is correct, but good for logging.
+                        logging.warning(f"Media file {original_media_path_str} mentioned in source_media_cache_paths but not found in new_media_filenames_in_item_dir during Markdown header generation.")
+                
+                # Add a blank line after the media section if it was added and had content.
+                if current_media_idx > 0: # Check if any media items were actually processed and added
+                    header_lines.append("")
 
-            # The main content now comes directly from item.markdown_content, which is already fully structured.
-            # No need to add "## Content" header or re-format.
-            # format_links_in_text is presumably already applied within item.markdown_content generation if needed,
-            # or can be applied to item.markdown_content before it's passed to MarkdownWriter.
-            # For now, assuming item.markdown_content is ready.
-            
-            # Concatenate the metadata/media header with the main content
-            header_content = "\n".join(markdown_lines)
-            final_markdown_content = header_content + "\n" + item.markdown_content # item.markdown_content already has its own newlines.
+            # Construct the header string.
+            metadata_and_media_header = "\n".join(header_lines)
+
+            # The item.markdown_content already contains the H1 title and the full article body.
+            # Prepend the metadata_and_media_header.
+            if metadata_and_media_header.strip(): # If there's actual content in the header
+                final_markdown_content = metadata_and_media_header.strip() + "\n\n" + item.markdown_content.strip()
+            else: # No metadata or media, just use the item's markdown content
+                final_markdown_content = item.markdown_content.strip()
 
             # 4. Write README.md
             readme_path_in_temp_abs = temp_kb_item_dir_abs / "README.md"

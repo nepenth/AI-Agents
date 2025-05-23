@@ -1,7 +1,8 @@
+import threading
 from pathlib import Path
 from typing import Optional
 
-stop_flag = False
+stop_flag = threading.Event()
 _project_root: Optional[Path] = None
 
 def sg_set_project_root(path: Path) -> None:
@@ -19,6 +20,9 @@ def sg_get_project_root() -> Path:
     return _project_root 
 
 def clear_stop_flag() -> None:
-    """Resets the global stop_flag to False."""
-    global stop_flag
-    stop_flag = False 
+    """Resets the global stop_flag, allowing the agent to run."""
+    stop_flag.clear()
+
+def set_stop_flag() -> None:
+    """Sets the global stop_flag, signaling the agent to stop."""
+    stop_flag.set() 
