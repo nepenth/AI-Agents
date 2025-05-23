@@ -486,7 +486,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         updateAgentStatusUI(); // Updates buttons, status text, and disables/enables form controls
 
-        // Set time estimate if provided and agent is running
+        // Restore time estimation if provided and agent is running
+        if (agentIsRunning && data.phase_estimated_completion_times && currentPhaseId) {
+            const phaseEtc = data.phase_estimated_completion_times[currentPhaseId];
+            if (phaseEtc && phaseEtc > 0) {
+                currentPhaseExpectedEndTime = phaseEtc * 1000; // Convert to milliseconds
+                console.log(`Restored time estimation for phase ${currentPhaseId}: ${new Date(currentPhaseExpectedEndTime)}`);
+                startEtcUpdateInterval();
+                updatePhaseEtcDisplay();
+            }
+        }
+        
+        // Set time estimate if provided and agent is running (legacy support)
         if (agentIsRunning && data.time_estimate) {
             const timeEstimateSpans = document.querySelectorAll('#timeEstimatePlan, #timeEstimateLogs');
             timeEstimateSpans.forEach(span => {
@@ -557,14 +568,22 @@ document.addEventListener('DOMContentLoaded', function () {
         let formattedProgressMessage = data.message || '';
         if (data.status === 'active') {
              formattedProgressMessage = data.message || 'Processing...'; // Default for active phase in list
-            if (data.initial_estimated_duration_seconds !== undefined && data.initial_estimated_duration_seconds > 0) {
+            
+            // Use estimated_completion_timestamp directly from backend if available
+            if (data.estimated_completion_timestamp && data.estimated_completion_timestamp > 0) {
+                currentPhaseExpectedEndTime = data.estimated_completion_timestamp * 1000; // Convert to milliseconds
+                console.log(`Phase ${data.phase_id} started. Expected end: ${new Date(currentPhaseExpectedEndTime)}`);
+                startEtcUpdateInterval(); // Start ETC timer
+                updatePhaseEtcDisplay(); // Initial display
+            } else if (data.initial_estimated_duration_seconds !== undefined && data.initial_estimated_duration_seconds > 0) {
+                // Fallback to calculating from initial_estimated_duration_seconds if timestamp not available
                 const phaseStartTime = Date.now();
                 currentPhaseExpectedEndTime = phaseStartTime + (data.initial_estimated_duration_seconds * 1000);
                 console.log(`Phase ${data.phase_id} started. Initial Estimated Duration: ${data.initial_estimated_duration_seconds}s. Expected end: ${new Date(currentPhaseExpectedEndTime)}`);
                 startEtcUpdateInterval(); // Start ETC timer
                 updatePhaseEtcDisplay(); // Initial display
             } else {
-                currentPhaseExpectedEndTime = null; // No historical estimate for this phase
+                currentPhaseExpectedEndTime = null; // No estimate available
                 stopEtcUpdateInterval();
                 const phaseEtcLogsFooter = document.getElementById('phaseEtcLogsFooter');
                 if(phaseEtcLogsFooter) {

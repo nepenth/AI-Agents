@@ -68,7 +68,7 @@ def _ensure_string_from_value(value: Any) -> str:
     """
     if isinstance(value, list):
         # Join list elements, ensuring each is a string, separated by double newlines for paragraphs
-        return "\\n\\n".join(str(item).strip() for item in value if item is not None).strip()
+        return "\n\n".join(str(item).strip() for item in value if item is not None).strip()
     elif value is None:
         return ""
     return str(value).strip()
@@ -322,7 +322,7 @@ def _convert_kb_json_to_markdown(kb_json: Dict[str, Any]) -> str:
             if explanation:
                 lines.append(f"_{explanation}_") 
                 lines.append("")
-            lines.append(f"```{lang}\\n{code}\\n```")
+            lines.append(f"```{lang}\n{code}\n```")
             lines.append("")
 
         for list_data in section.get("lists", []):
@@ -370,7 +370,7 @@ def _convert_kb_json_to_markdown(kb_json: Dict[str, Any]) -> str:
                 lines.append(f"- {ref_str}") # Fallback to just listing it
         lines.append("")
         
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 async def create_knowledge_base_item(
