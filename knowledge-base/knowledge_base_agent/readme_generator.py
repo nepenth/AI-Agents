@@ -11,7 +11,6 @@ from knowledge_base_agent.config import Config
 import json
 import os
 import shutil
-from knowledge_base_agent.pages_generator import generate_github_pages
 from knowledge_base_agent.prompts import LLMPrompts, ReasoningPrompts
 
 
@@ -424,38 +423,17 @@ async def generate_root_readme(
         # Combine all sections
         final_content = "\n".join(static_content)
 
-        # Write to file
-        readme_path = kb_dir / "README.md"
-        async with aiofiles.open(readme_path, "w", encoding="utf-8") as f:
-            await f.write(final_content)
+        # Final validation and saving
+        if not final_content.strip():
+            logging.warning("Generated README content is empty, using fallback content")
+            final_content = "# Knowledge Base\n\nThis knowledge base is currently being updated.\n"
 
-        logging.info("Generated hybrid root README.md")
-
-        # Verify links
-        if not verify_readme_links(final_content, kb_dir):
-            logging.warning("README contains invalid links")
-
-        # Generate GitHub Pages
-        try:
-            await generate_github_pages(kb_dir, http_client, config)
-        except Exception as pages_error:
-            logging.error(f"Failed to generate GitHub Pages: {pages_error}")
-            # Continue with README generation even if Pages generation fails
-
+        await write_readme_file(kb_dir, final_content)
+        logging.info(f"README.md successfully updated at {kb_dir / 'README.md'}")
+        
     except Exception as e:
-        logging.error(f"Failed to generate root README: {e}")
-        # Fall back to fully static generation if anything fails
-        try:
-            content = await generate_static_root_readme(kb_dir, category_manager)
-            readme_path = kb_dir / "README.md"
-            async with aiofiles.open(readme_path, "w", encoding="utf-8") as f:
-                await f.write(content)
-            logging.info("Generated static README as fallback")
-        except Exception as fallback_error:
-            logging.error(f"Failed to generate static README: {fallback_error}")
-            raise MarkdownGenerationError(
-                f"Failed to generate any README: {e}, fallback error: {fallback_error}"
-            )
+        logging.error(f"Failed to regenerate README: {e}", exc_info=True)
+        raise MarkdownGenerationError(f"README generation failed: {str(e)}") from e
 
 
 async def generate_static_root_readme(

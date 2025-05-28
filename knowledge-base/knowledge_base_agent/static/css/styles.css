@@ -925,7 +925,368 @@ html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-completed .ph
 }
 
 html[data-bs-theme="dark"] #agentPhasesList .sub-phase-item.status-error { 
-    background-color: #5e1a1a; 
-    border-left-color: #dc3545; 
-    color: #f5c6cb;
+    background-color: #522;
+    color: #ff6b6b; 
+    border-color: #dc3545 !important; 
+}
+
+/* ==================== KNOWLEDGE BASE VIEWER ==================== */
+
+.knowledge-base-viewer {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow-y: auto;
+    height: calc(100vh - 120px); /* Fill available space minus header/margins */
+    min-height: 70vh; /* Minimum height fallback */
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.knowledge-base-viewer::-webkit-scrollbar {
+    width: 8px;
+}
+
+.knowledge-base-viewer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.knowledge-base-viewer::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.knowledge-base-viewer::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Dark mode styles for knowledge base viewer */
+html[data-bs-theme="dark"] .knowledge-base-viewer {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+html[data-bs-theme="dark"] .knowledge-base-viewer::-webkit-scrollbar-track {
+    background: #404040;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-viewer::-webkit-scrollbar-thumb {
+    background: #666666;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-viewer::-webkit-scrollbar-thumb:hover {
+    background: #777777;
+}
+
+/* ==================== KNOWLEDGE BASE CONTENT STYLING ==================== */
+
+.knowledge-base-content {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content {
+    color: #e0e0e0;
+}
+
+.knowledge-base-content h1,
+.knowledge-base-content h2,
+.knowledge-base-content h3,
+.knowledge-base-content h4,
+.knowledge-base-content h5,
+.knowledge-base-content h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.knowledge-base-content h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid #e1e5e9;
+    padding-bottom: 0.3em;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content h1 {
+    border-bottom-color: #444;
+}
+
+.knowledge-base-content h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px solid #e1e5e9;
+    padding-bottom: 0.3em;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content h2 {
+    border-bottom-color: #444;
+}
+
+.knowledge-base-content h3 {
+    font-size: 1.25rem;
+}
+
+.knowledge-base-content h4 {
+    font-size: 1rem;
+}
+
+.knowledge-base-content p {
+    margin-bottom: 1em;
+}
+
+.knowledge-base-content blockquote {
+    margin: 1em 0;
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content blockquote {
+    color: #8b949e;
+    border-left-color: #30363d;
+}
+
+.knowledge-base-content code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(175, 184, 193, 0.2);
+    border-radius: 6px;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content code {
+    background-color: rgba(110, 118, 129, 0.4);
+}
+
+.knowledge-base-content pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    margin: 1em 0;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content pre {
+    background-color: #161b22;
+}
+
+.knowledge-base-content pre code {
+    display: inline;
+    max-width: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: transparent;
+    border: 0;
+}
+
+/* ==================== IMAGE AND MEDIA STYLING ==================== */
+
+.knowledge-base-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 1em 0;
+    display: block;
+    background-color: #f8f9fa;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content img {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    background-color: #2b2b2b;
+}
+
+/* Center images and give them proper spacing */
+.knowledge-base-content p img {
+    display: block;
+    margin: 1.5em auto;
+    max-width: 100%;
+}
+
+/* Ensure images don't break the flow */
+.knowledge-base-content img:only-child {
+    margin: 1em auto;
+}
+
+/* Handle images with captions */
+.knowledge-base-content figure {
+    margin: 1.5em 0;
+    text-align: center;
+}
+
+.knowledge-base-content figure img {
+    margin-bottom: 0.5em;
+}
+
+.knowledge-base-content figcaption {
+    font-size: 0.9em;
+    color: #6a737d;
+    font-style: italic;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content figcaption {
+    color: #8b949e;
+}
+
+/* ==================== TABLES ==================== */
+
+.knowledge-base-content table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    overflow: auto;
+    display: block;
+    white-space: nowrap;
+}
+
+.knowledge-base-content table th,
+.knowledge-base-content table td {
+    padding: 6px 13px;
+    border: 1px solid #d0d7de;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content table th,
+html[data-bs-theme="dark"] .knowledge-base-content table td {
+    border-color: #30363d;
+}
+
+.knowledge-base-content table th {
+    font-weight: 600;
+    background-color: #f6f8fa;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content table th {
+    background-color: #161b22;
+}
+
+.knowledge-base-content table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content table tr:nth-child(2n) {
+    background-color: #0d1117;
+}
+
+/* ==================== LISTS ==================== */
+
+.knowledge-base-content ul,
+.knowledge-base-content ol {
+    padding-left: 2em;
+    margin: 1em 0;
+}
+
+.knowledge-base-content li {
+    margin: 0.25em 0;
+}
+
+.knowledge-base-content li > p {
+    margin-top: 1em;
+}
+
+.knowledge-base-content li + li {
+    margin-top: 0.25em;
+}
+
+/* ==================== LINKS ==================== */
+
+.knowledge-base-content a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+.knowledge-base-content a:hover {
+    text-decoration: underline;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content a {
+    color: #58a6ff;
+}
+
+/* ==================== HORIZONTAL RULES ==================== */
+
+.knowledge-base-content hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #d0d7de;
+    border: 0;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-content hr {
+    background-color: #21262d;
+}
+
+/* ==================== MEDIA SECTION STYLING ==================== */
+
+.knowledge-base-viewer .media-section {
+    border-top: 2px solid #e1e5e9;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-viewer .media-section {
+    border-top-color: #444;
+}
+
+.knowledge-base-viewer .media-section h4 {
+    color: #24292f;
+    margin-bottom: 1rem;
+}
+
+html[data-bs-theme="dark"] .knowledge-base-viewer .media-section h4 {
+    color: #f0f6fc;
+}
+
+.knowledge-base-viewer .media-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.knowledge-base-viewer .media-card:hover {
+    transform: translateY(-2px);
+}
+
+.knowledge-base-viewer .media-card img,
+.knowledge-base-viewer .media-card video {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.knowledge-base-viewer .media-card img:hover,
+.knowledge-base-viewer .media-card video:hover {
+    opacity: 0.9;
+}
+
+/* ==================== RESPONSIVE DESIGN ==================== */
+
+@media (max-width: 768px) {
+    .knowledge-base-viewer {
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    .knowledge-base-content h1 {
+        font-size: 1.5rem;
+    }
+    
+    .knowledge-base-content h2 {
+        font-size: 1.25rem;
+    }
+    
+    .knowledge-base-content table {
+        font-size: 0.9em;
+    }
+    
+    .knowledge-base-content pre {
+        padding: 12px;
+        font-size: 80%;
+    }
 } 

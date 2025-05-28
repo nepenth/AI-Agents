@@ -82,9 +82,12 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
                 <div class="navbar-nav ms-auto">
-                    <button id="darkModeToggle" class="btn btn-outline-light btn-sm" onclick="toggleDarkMode()">
-                        <i class="bi bi-moon-stars-fill"></i> Toggle Dark Mode
-                    </button>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                        <label class="form-check-label text-light" for="darkModeToggle">
+                            <i class="bi bi-moon-stars-fill me-1"></i>Dark Mode
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -99,7 +102,7 @@
                     <i class="bi bi-gear me-2"></i> Agent
                 </a>
                 <div class="collapse show" id="collapseAgent">
-                    <a class="list-group-item list-group-item-action subcategory-item" href="/" onclick="loadAgentControls(event)">
+                    <a class="list-group-item list-group-item-action subcategory-item active" href="/" onclick="loadAgentControls(event)">
                         <i class="bi bi-play-circle me-2"></i> Run Agent & Live Logs
                     </a>
                     <a class="list-group-item list-group-item-action subcategory-item" href="/logs" onclick="loadLogsPage(event)">

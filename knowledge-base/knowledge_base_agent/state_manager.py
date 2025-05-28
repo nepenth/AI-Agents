@@ -982,17 +982,53 @@ class StateManager:
     async def mark_kb_item_created(
         self, tweet_id: str, kb_item_path_rel_project: str
     ) -> None:
-        """kb_item_path_rel_project is path to README.md relative to project_root."""
+        """
+        Mark a KB item as created with proper validation.
+        kb_item_path_rel_project is path to README.md relative to project_root.
+        
+        This method includes validation to prevent cache corruption.
+        """
         if tweet_id not in self._tweet_cache:
             raise StateError(
                 f"Tweet {tweet_id} not found in cache for KB item creation"
             )
+        
+        # Validate the path exists before storing it
+        if not kb_item_path_rel_project:
+            raise StateError(
+                f"Empty kb_item_path provided for tweet {tweet_id}"
+            )
+        
+        kb_readme_abs_path = self.config.resolve_path_from_project_root(kb_item_path_rel_project)
+        if not kb_readme_abs_path.exists():
+            raise StateError(
+                f"KB item README does not exist at {kb_readme_abs_path} for tweet {tweet_id}"
+            )
+        
+        # Validate the path points to a README.md file
+        if not kb_readme_abs_path.name == "README.md":
+            raise StateError(
+                f"KB item path must point to README.md, got: {kb_item_path_rel_project}"
+            )
+        
+        # Validate the tweet_id appears in the content (basic integrity check)
+        try:
+            with open(kb_readme_abs_path, 'r', encoding='utf-8') as f:
+                content_sample = f.read(2048)
+            if f"status/{tweet_id}" not in content_sample:
+                logging.warning(
+                    f"Tweet ID {tweet_id} not found in README content at {kb_readme_abs_path}. This may indicate a mismatch."
+                )
+        except Exception as e:
+            logging.warning(f"Could not validate content for tweet {tweet_id} at {kb_readme_abs_path}: {e}")
+        
+        # All validations passed, safe to store
         self._tweet_cache[tweet_id].update(
             {"kb_item_path": kb_item_path_rel_project, "kb_item_created": True}
         )
         await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
         logging.debug(
-            f"Marked KB item created for tweet {tweet_id} at {kb_item_path_rel_project} (relative to project root)"
+            f"Marked KB item created for tweet {tweet_id} at {kb_item_path_rel_project} (relative to project root) after validation"
         )
         # DB sync is handled by sync_knowledge_base_to_db or by ContentProcessor after this call.
 
@@ -1148,6 +1184,33 @@ class StateManager:
                 logging.debug(
                     f"Tweet {tweet_id} not found in processed list to mark as unprocessed."
                 )
+
+    async def add_tweets_to_unprocessed(self, tweet_ids: List[str]) -> None:
+        """Add multiple tweets to the unprocessed list."""
+        async with self._lock:
+            newly_added_count = 0
+            current_unprocessed_set = set(self._unprocessed_tweets)
+            
+            for tweet_id in tweet_ids:
+                # Only add if not already processed and not already in unprocessed
+                if (
+                    tweet_id not in self._processed_tweets
+                    and tweet_id not in current_unprocessed_set
+                ):
+                    self._unprocessed_tweets.append(tweet_id)
+                    current_unprocessed_set.add(tweet_id)
+                    newly_added_count += 1
+                    logging.debug(f"Added tweet {tweet_id} to unprocessed list.")
+                elif tweet_id in self._processed_tweets:
+                    logging.debug(f"Tweet {tweet_id} already processed, skipping.")
+                else:
+                    logging.debug(f"Tweet {tweet_id} already in unprocessed list, skipping.")
+            
+            if newly_added_count > 0:
+                await self.save_unprocessed()
+                logging.info(f"Added {newly_added_count} new tweets to unprocessed list.")
+            else:
+                logging.debug("No new tweets to add to unprocessed list.")
 
     async def _validate_tweet_state_comprehensive(
         self, tweet_id: str, tweet_data: Dict[str, Any]
@@ -1953,3 +2016,121 @@ class StateManager:
             await self.initialize()
         logging.debug(f"Returning {len(self._processed_tweets)} processed tweet IDs")
         return list(self._processed_tweets.keys())
+
+    async def validate_cache_consistency(self, tweet_id: str, tweet_data: Dict[str, Any]) -> bool:
+        """
+        Validate cache consistency for a specific tweet to prevent corruption.
+        Returns True if consistent, False if issues found.
+        """
+        try:
+            # Check basic required fields
+            if not isinstance(tweet_data, dict):
+                logging.error(f"Tweet {tweet_id}: cache data is not a dictionary")
+                return False
+            
+            # If kb_item_created is True, validate the path exists and is correct
+            if tweet_data.get('kb_item_created', False):
+                kb_path = tweet_data.get('kb_item_path', '')
+                if not kb_path:
+                    logging.error(f"Tweet {tweet_id}: marked as kb_item_created but no kb_item_path")
+                    return False
+                
+                kb_readme_abs = self.config.resolve_path_from_project_root(kb_path)
+                if not kb_readme_abs.exists():
+                    logging.error(f"Tweet {tweet_id}: kb_item_path {kb_path} does not exist")
+                    return False
+                
+                # Quick content check to ensure this README belongs to this tweet
+                try:
+                    with open(kb_readme_abs, 'r', encoding='utf-8') as f:
+                        content_preview = f.read(1024)
+                    if f"status/{tweet_id}" not in content_preview:
+                        logging.error(f"Tweet {tweet_id}: README at {kb_path} does not contain correct tweet ID")
+                        return False
+                except Exception as e:
+                    logging.error(f"Tweet {tweet_id}: could not read README at {kb_path}: {e}")
+                    return False
+            
+            # Check categories consistency
+            if tweet_data.get('categories_processed', False):
+                categories = tweet_data.get('categories', {})
+                main_cat = categories.get('main_category', '')
+                sub_cat = categories.get('sub_category', '')
+                item_name = categories.get('item_name', '')
+                
+                if not (main_cat and sub_cat and item_name):
+                    logging.error(f"Tweet {tweet_id}: marked as categories_processed but missing category data")
+                    return False
+                
+                # Check for suspicious identical categorizations (common corruption pattern)
+                identical_count = 0
+                for other_id, other_data in self._tweet_cache.items():
+                    if other_id != tweet_id and other_data.get('categories_processed', False):
+                        other_cats = other_data.get('categories', {})
+                        if (other_cats.get('main_category') == main_cat and 
+                            other_cats.get('sub_category') == sub_cat and 
+                            other_cats.get('item_name') == item_name):
+                            identical_count += 1
+                
+                if identical_count > 20:  # Threshold for suspicious identical categorizations
+                    logging.warning(f"Tweet {tweet_id}: suspicious identical categorization pattern detected ({identical_count} duplicates)")
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error validating cache consistency for tweet {tweet_id}: {e}")
+            return False
+
+    async def mark_kb_item_created(
+        self, tweet_id: str, kb_item_path_rel_project: str
+    ) -> None:
+        """
+        Mark a KB item as created with proper validation.
+        kb_item_path_rel_project is path to README.md relative to project_root.
+        
+        This method includes validation to prevent cache corruption.
+        """
+        if tweet_id not in self._tweet_cache:
+            raise StateError(
+                f"Tweet {tweet_id} not found in cache for KB item creation"
+            )
+        
+        # Validate the path exists before storing it
+        if not kb_item_path_rel_project:
+            raise StateError(
+                f"Empty kb_item_path provided for tweet {tweet_id}"
+            )
+        
+        kb_readme_abs_path = self.config.resolve_path_from_project_root(kb_item_path_rel_project)
+        if not kb_readme_abs_path.exists():
+            raise StateError(
+                f"KB item README does not exist at {kb_readme_abs_path} for tweet {tweet_id}"
+            )
+        
+        # Validate the path points to a README.md file
+        if not kb_readme_abs_path.name == "README.md":
+            raise StateError(
+                f"KB item path must point to README.md, got: {kb_item_path_rel_project}"
+            )
+        
+        # Validate the tweet_id appears in the content (basic integrity check)
+        try:
+            with open(kb_readme_abs_path, 'r', encoding='utf-8') as f:
+                content_sample = f.read(2048)
+            if f"status/{tweet_id}" not in content_sample:
+                logging.warning(
+                    f"Tweet ID {tweet_id} not found in README content at {kb_readme_abs_path}. This may indicate a mismatch."
+                )
+        except Exception as e:
+            logging.warning(f"Could not validate content for tweet {tweet_id} at {kb_readme_abs_path}: {e}")
+        
+        # All validations passed, safe to store
+        self._tweet_cache[tweet_id].update(
+            {"kb_item_path": kb_item_path_rel_project, "kb_item_created": True}
+        )
+        await self._atomic_write_json(self._tweet_cache, self.tweet_cache_file)
+        logging.debug(
+            f"Marked KB item created for tweet {tweet_id} at {kb_item_path_rel_project} (relative to project root) after validation"
+        )
+        # DB sync is handled by sync_knowledge_base_to_db or by ContentProcessor after this call.
