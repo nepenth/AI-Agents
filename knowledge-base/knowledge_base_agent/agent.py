@@ -42,7 +42,7 @@ from knowledge_base_agent.models import db
 # Default phase IDs - ensure these match your UI elements' IDs
 DEFAULT_PHASE_IDS = [
     "user_input_parsing",
-    "retrieve_bookmarks",
+    "fetch_bookmarks",
     "content_processing_overall",
     "readme_generation",
     "git_sync"
@@ -393,11 +393,14 @@ class KnowledgeBaseAgent:
             logging.exception("Bookmark fetching or queuing failed.")
             self.socketio_emit_log(f'Bookmark fetching/queuing failed: {e}', 'ERROR')
             self.socketio_emit_phase_update('fetch_bookmarks', 'error', f'Error: {e}')
+            raise  # Re-raise the exception so the main run method can handle it
         finally:
             await bookmark_fetcher.cleanup()
-            completion_message = f'{newly_added_tweet_ids_count} new tweets queued. {len(bookmarks)} bookmarks checked.'
-            self.socketio_emit_phase_update('fetch_bookmarks', 'completed', completion_message)
-            self.socketio_emit_log(f"Bookmark fetching finished. {completion_message}", "INFO")
+            
+        # Only emit completion status if we reach here without exception
+        completion_message = f'{newly_added_tweet_ids_count} new tweets queued. {len(bookmarks)} bookmarks checked.'
+        self.socketio_emit_phase_update('fetch_bookmarks', 'completed', completion_message)
+        self.socketio_emit_log(f"Bookmark fetching finished. {completion_message}", "INFO")
         
         return newly_added_tweet_ids_count
 
@@ -554,8 +557,13 @@ class KnowledgeBaseAgent:
             return {"status": "already_running", "message": "Agent is already running."}
 
         self._is_running = True
+        self._current_run_preferences = preferences  # Store preferences for state restoration
         if self.socketio:
-            self.socketio.emit('agent_status', {'is_running': True})
+            self.socketio.emit('agent_status', {
+                'is_running': True, 
+                'active_run_preferences': asdict(preferences),
+                'plan_statuses': self._plan_statuses
+            })
         clear_stop_flag() # Clear stop flag at the beginning of a run
         self._initialize_plan_statuses(preferences) # Initialize/reset with current preferences
         self.socketio_emit_log("Knowledge Base Agent run started.", "INFO")
@@ -576,22 +584,22 @@ class KnowledgeBaseAgent:
             if stop_flag.is_set(): raise InterruptedError("Run stopped by user after parsing preferences.")
 
             # --- Phase 2: Retrieve New Bookmarks (Optional) ---
-            self.socketio_emit_log(f"DEBUG: Preferences object before accessing skip_fetch_bookmarks: {preferences}", "DEBUG")
-            self.socketio_emit_log(f"DEBUG: Type of preferences: {type(preferences)}", "DEBUG")
-            self.socketio_emit_log(f"DEBUG: Has skip_fetch_bookmarks: {hasattr(preferences, 'skip_fetch_bookmarks')}", "DEBUG")
             if not preferences.skip_fetch_bookmarks:
-                self.socketio_emit_phase_update('retrieve_bookmarks', 'in_progress', 'Fetching new bookmarks...')
+                self.socketio_emit_phase_update('fetch_bookmarks', 'in_progress', 'Fetching new bookmarks...')
                 try:
-                    # Placeholder: Simulate bookmark fetching
-                    # In a real scenario, this would involve API calls, etc.
-                    # For now, assume state_manager.get_unprocessed_tweets() is populated by an external source or previous run.
-                    await asyncio.sleep(1) # Simulate work
-                    self.socketio_emit_log("Simulated fetching new bookmarks.", "INFO")
-                    # This phase might update the list of tweets to be processed by state_manager
-                    self.socketio_emit_phase_update('retrieve_bookmarks', 'completed', 'New bookmarks fetched (simulated).')
+                    # Call the actual bookmark fetching implementation
+                    newly_added_count = await self.fetch_and_queue_bookmarks()
+                    if newly_added_count > 0:
+                        completion_message = f'Added {newly_added_count} new bookmarks to processing queue.'
+                        self.socketio_emit_log(completion_message, "INFO")
+                        self.socketio_emit_phase_update('fetch_bookmarks', 'completed', completion_message)
+                    else:
+                        completion_message = 'No new bookmarks found to queue for processing.'
+                        self.socketio_emit_log(completion_message, "INFO")
+                        self.socketio_emit_phase_update('fetch_bookmarks', 'completed', completion_message)
                 except Exception as e:
                     self.socketio_emit_log(f"Error fetching bookmarks: {e}", "ERROR")
-                    self.socketio_emit_phase_update('retrieve_bookmarks', 'error', f"Error fetching bookmarks: {e}")
+                    self.socketio_emit_phase_update('fetch_bookmarks', 'error', f"Error fetching bookmarks: {e}")
                     stats.error_count +=1 # Generic error for this phase
             else:
                 self.socketio_emit_log("Skipping bookmark fetching due to user preference.", "INFO")
@@ -751,7 +759,10 @@ class KnowledgeBaseAgent:
         finally:
             self._is_running = False
             if self.socketio:
-                self.socketio.emit('agent_status', {'is_running': False})
+                self.socketio.emit('agent_status', {
+                    'is_running': False,
+                    'active_run_preferences': None
+                })
             overall_duration = time.time() - overall_start_time
             self.socketio_emit_log(f"Knowledge Base Agent run finished in {overall_duration:.2f} seconds.", "INFO")
             
@@ -814,7 +825,7 @@ class KnowledgeBaseAgent:
             'stop_flag_status': stop_flag.is_set(),
             'phase_estimated_completion_times': self._phase_estimated_completion_times # Send current ETCs
         }
-        # self.logger.debug(f"Reporting current state: {state}")
+        self.logger.debug(f"Reporting current state - Running: {self._is_running}, Phase: {self._current_phase_id}, Plan items: {len(self._plan_statuses)}")
         return state
 
     def _initialize_plan_statuses(self, preferences: Optional[UserPreferences] = None):
@@ -838,7 +849,7 @@ class KnowledgeBaseAgent:
                 "initial_message": "Waiting to parse user preferences..."
             },
             {
-                "id": "retrieve_bookmarks",
+                "id": "fetch_bookmarks",
                 "name": "Fetch New Bookmarks",
                 "icon": "bi-cloud-download",
                 "initial_status": "skipped" if preferences.skip_fetch_bookmarks else "pending",

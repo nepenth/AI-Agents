@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const darkModeToggle = document.getElementById('darkModeToggle');
     const themeStylesheet = document.getElementById('theme-stylesheet');
 
+    // Main content area - this is where we'll dynamically load different views
+    const mainContentArea = document.querySelector('.main-content .card .card-body');
+
     // Preference form controls
     const controlInputs = {
         skip_fetch_bookmarks: document.getElementById('skipFetchBookmarks'),
@@ -34,6 +37,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let activeRunPreferences = null; // Stores preferences of the current/last run
     let currentPhaseExpectedEndTime = null; // Timestamp when the current phase is expected to end (for ETC)
     let phaseEtcInterval = null; // Interval timer for updating ETC display
+    let currentView = 'agent'; // Track current view: 'agent', 'logs', 'kb-item'
+    let originalAgentContent = null; // Store original agent interface content
 
     // --- Theme Initialization (Dark Mode) ---
     function initializeTheme() {
@@ -72,13 +77,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Log Handling ---
     function addLogMessage(message, level = 'INFO') {
-        if (!liveLogsUl) return;
+        console.log('addLogMessage called with:', { message, level, liveLogsUl: !!liveLogsUl });
+        if (!liveLogsUl) {
+            console.error('liveLogsUl not found - cannot add log message');
+            return;
+        }
+        
+        // Debug: Check if the container is visible
+        const containerStyles = window.getComputedStyle(liveLogsUl);
+        console.log('Log container visibility:', {
+            display: containerStyles.display,
+            visibility: containerStyles.visibility,
+            height: containerStyles.height,
+            overflow: containerStyles.overflow
+        });
+        
         const li = document.createElement('li');
         li.className = `list-group-item log-${level.toLowerCase()}`;
         const timestamp = new Date().toLocaleTimeString();
         li.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> <span class="log-level">[${level}]</span> <span class="log-message">${message}</span>`;
         liveLogsUl.appendChild(li);
         liveLogsUl.scrollTop = liveLogsUl.scrollHeight; // Auto-scroll
+        console.log('Log message added to DOM, total log items:', liveLogsUl.children.length);
     }
 
     if (clearLogsButton) {
@@ -439,23 +459,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    if (runAgentButton) {
-        runAgentButton.addEventListener('click', () => {
-            const preferences = getPreferencesForServer();
-            addLogMessage(`Requesting to run agent with preferences: ${JSON.stringify(preferences)}`, 'INFO');
-            socket.emit('run_agent', { preferences: preferences });
-        });
-    }
-
-    if (stopAgentButton) {
-        stopAgentButton.addEventListener('click', () => {
-            addLogMessage('Requesting to stop agent.', 'WARN');
-            socket.emit('stop_agent');
-        });
-    }
+    // Initial button setup moved to initializeUI function
 
     // --- Socket.IO Event Handlers ---
     socket.on('connect', () => {
+        console.log('SocketIO connected successfully');
         addLogMessage('Connected to server via Socket.IO.', 'INFO');
         // Server will emit 'initial_status_and_git_config' automatically.
     });
@@ -466,14 +474,16 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     socket.on('log', function(data) {
+        console.log('Received log message:', data);
         addLogMessage(data.message, data.level);
     });
 
     socket.on('initial_status_and_git_config', function(data) {
+        console.log("Received initial_status_and_git_config:", data);
         addLogMessage('Received initial agent status and Git config.', 'DEBUG');
         console.log("Initial status and Git config data:", data);
 
-        agentIsRunning = data.agent_is_running;
+        agentIsRunning = data.agent_is_running || data.is_running; // Handle both field names
         currentPhaseId = data.current_phase_id;
         activeRunPreferences = data.active_run_preferences || null;
 
@@ -512,6 +522,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (data.full_plan_statuses) {
             updatePhaseInExecutionPlan(null, null, null, false, data.full_plan_statuses);
         }
+        
+        // Restore current phase details if agent is running
+        if (agentIsRunning && currentPhaseId && data.current_step_in_current_phase_progress_message) {
+            const currentPhaseDetailsBox = document.getElementById('current-phase-details');
+            if (currentPhaseDetailsBox) {
+                let activePhaseName = '';
+                const activePhaseEl = document.querySelector(`[data-phase-id="${currentPhaseId}"] .phase-name`);
+                if (activePhaseEl) activePhaseName = activePhaseEl.textContent.trim() + ": ";
+                currentPhaseDetailsBox.textContent = activePhaseName + data.current_step_in_current_phase_progress_message;
+            }
+        }
+        
+        // Adjust panel heights after initialization
+        setTimeout(adjustPanelHeights, 100);
     });
 
     socket.on('agent_status', function(data) {
@@ -930,7 +954,27 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Handle initialization of all UI components when the DOM loads
     function initializeUI() {
-        // Other UI initialization...
+        console.log('Initializing UI...');
+        
+        // Set up initial button event listeners
+        if (runAgentButton) {
+            runAgentButton.addEventListener('click', () => {
+                console.log('Initial run agent button clicked');
+                const preferences = getPreferencesForServer();
+                console.log('Initial button - Preferences to send:', preferences);
+                addLogMessage(`Requesting to run agent with preferences: ${JSON.stringify(preferences)}`, 'INFO');
+                console.log('Initial button - Emitting run_agent event with data:', { preferences: preferences });
+                socket.emit('run_agent', { preferences: preferences });
+            });
+        }
+
+        if (stopAgentButton) {
+            stopAgentButton.addEventListener('click', () => {
+                console.log('Initial stop agent button clicked');
+                addLogMessage('Requesting to stop agent.', 'WARN');
+                socket.emit('stop_agent');
+            });
+        }
         
         // When media option changes, update LLM and KB Item options to maintain pipeline coherence
         if (controlInputs.force_reprocess_media) {
@@ -982,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         // Restore preferences from localStorage
-        restoreClientPreferences();
+        loadClientPreferences();
     }
     
     // Initializations
@@ -990,6 +1034,27 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeUI(); // Initialize UI components and event handlers
     socket.emit('request_initial_status_and_git_config'); // Request initial state explicitly
     fetchKnowledgeBaseItems(); // Load KB items on page load
+    
+    // Add event delegation for knowledge base item links
+    document.addEventListener('click', function(event) {
+        // Handle knowledge base item links
+        if (event.target.classList.contains('item-link') || event.target.closest('.item-link')) {
+            event.preventDefault();
+            const link = event.target.classList.contains('item-link') ? event.target : event.target.closest('.item-link');
+            const href = link.getAttribute('href');
+            const itemIdMatch = href.match(/\/item\/(\d+)/);
+            
+            if (itemIdMatch) {
+                const itemId = itemIdMatch[1];
+                loadKnowledgeBaseItem(itemId);
+            }
+        }
+    });
+    
+    // Store original agent content on initial load
+    if (currentView === 'agent' && !originalAgentContent && mainContentArea) {
+        originalAgentContent = mainContentArea.innerHTML;
+    }
     
     // Call the adjustment function on page load, window resize, and whenever content changes
     adjustPanelHeights();
@@ -1002,5 +1067,472 @@ document.addEventListener('DOMContentLoaded', function () {
         executionPlanObserver.observe(executionPlanContainer, { childList: true, subtree: true });
     }
 
+    console.log('About to add initial client log message');
     addLogMessage('Client JavaScript initialized.', 'INFO');
+    console.log('Client JavaScript initialization complete');
+
+    // --- Navigation Functions ---
+    window.loadAgentControls = function(event) {
+        if (event) event.preventDefault();
+        
+        console.log('loadAgentControls called, currentView:', currentView);
+        
+        // Store the original content if not already stored
+        if (!originalAgentContent && currentView === 'agent') {
+            originalAgentContent = mainContentArea.innerHTML;
+        }
+        
+        // If we're not currently showing the agent view, restore it
+        if (currentView !== 'agent' && originalAgentContent) {
+            console.log('Restoring agent interface from stored content');
+            mainContentArea.innerHTML = originalAgentContent;
+            currentView = 'agent';
+            
+            // Re-initialize the agent interface
+            setTimeout(() => {
+                initializeAgentInterface();
+                
+                // Update sidebar to show agent controls as active
+                updateSidebarActiveItem(null);
+                
+                // Request current agent status to restore state
+                socket.emit('request_initial_status_and_git_config');
+                
+                addLogMessage('Returned to Agent Controls interface.', 'INFO');
+            }, 100);
+        } else if (currentView === 'agent') {
+            console.log('Already on agent view');
+        } else {
+            console.log('No original agent content stored');
+            // If no original content, reload the page
+            window.location.href = '/';
+        }
+    };
+
+    window.loadLogsPage = function(event) {
+        if (event) event.preventDefault();
+        
+        // Navigate to the logs page
+        window.location.href = '/logs';
+    };
+
+    function initializeAgentInterface() {
+        console.log('Initializing agent interface...');
+        
+        // Re-bind event listeners for the agent interface
+        const newRunButton = document.getElementById('runAgentButton');
+        const newStopButton = document.getElementById('stopAgentButton');
+        const newClearLogsButton = document.getElementById('clearLogsButton');
+        
+        console.log('Agent interface elements found:', {
+            runButton: !!newRunButton,
+            stopButton: !!newStopButton,
+            clearButton: !!newClearLogsButton
+        });
+        
+        if (newRunButton) {
+            // Remove any existing listeners first
+            newRunButton.removeAttribute('data-listener-bound');
+            const newRunButtonClone = newRunButton.cloneNode(true);
+            newRunButton.parentNode.replaceChild(newRunButtonClone, newRunButton);
+            
+            newRunButtonClone.addEventListener('click', () => {
+                console.log('Run agent button clicked');
+                const preferences = getPreferencesForServer();
+                console.log('Preferences to send:', preferences);
+                addLogMessage(`Requesting to run agent with preferences: ${JSON.stringify(preferences)}`, 'INFO');
+                console.log('Emitting run_agent event with data:', { preferences: preferences });
+                socket.emit('run_agent', { preferences: preferences });
+            });
+            newRunButtonClone.setAttribute('data-listener-bound', 'true');
+        }
+        
+        if (newStopButton) {
+            // Remove any existing listeners first
+            newStopButton.removeAttribute('data-listener-bound');
+            const newStopButtonClone = newStopButton.cloneNode(true);
+            newStopButton.parentNode.replaceChild(newStopButtonClone, newStopButton);
+            
+            newStopButtonClone.addEventListener('click', () => {
+                console.log('Stop agent button clicked');
+                addLogMessage('Requesting to stop agent.', 'WARN');
+                socket.emit('stop_agent');
+            });
+            newStopButtonClone.setAttribute('data-listener-bound', 'true');
+        }
+
+        if (newClearLogsButton) {
+            // Remove any existing listeners first
+            newClearLogsButton.removeAttribute('data-listener-bound');
+            const newClearButtonClone = newClearLogsButton.cloneNode(true);
+            newClearLogsButton.parentNode.replaceChild(newClearButtonClone, newClearLogsButton);
+            
+            newClearButtonClone.addEventListener('click', () => {
+                console.log('Clear logs button clicked');
+                const newLiveLogsUl = document.getElementById('liveLogsUl');
+                if (newLiveLogsUl) newLiveLogsUl.innerHTML = '';
+                addLogMessage('Live logs cleared by user.', 'INFO');
+            });
+            newClearButtonClone.setAttribute('data-listener-bound', 'true');
+        }
+
+        // Re-initialize checkbox event listeners for preference changes
+        initializePreferenceHandlers();
+        
+        // Restore agent status and UI state
+        updateAgentStatusUI();
+        
+        // Load saved preferences
+        loadClientPreferences();
+        
+        // Adjust panel heights
+        setTimeout(adjustPanelHeights, 100);
+        
+        console.log('Agent interface initialization complete');
+    }
+
+    function initializePreferenceHandlers() {
+        console.log('Initializing preference handlers...');
+        
+        // Re-get the control inputs after content restoration
+        const newControlInputs = {
+            skip_fetch_bookmarks: document.getElementById('skipFetchBookmarks'),
+            skip_process_content: document.getElementById('skipProcessContent'),
+            skip_readme_generation: document.getElementById('skipReadmeGeneration'),
+            skip_git_push: document.getElementById('skipGitPush'),
+            force_recache_tweets: document.getElementById('forceRecacheTweets'),
+            force_reprocess_media: document.getElementById('forceReprocessMedia'),
+            force_reprocess_llm: document.getElementById('forceReprocessLLM'),
+            force_reprocess_kb_item: document.getElementById('forceReprocessKBItem')
+        };
+
+        console.log('Found preference elements:', Object.keys(newControlInputs).filter(key => newControlInputs[key]));
+
+        // Update the global controlInputs reference
+        Object.assign(controlInputs, newControlInputs);
+
+        // Add change event listeners for preferences
+        Object.values(newControlInputs).forEach(input => {
+            if (input) {
+                // Remove existing listener if any
+                input.removeAttribute('data-listener-bound');
+                const newInput = input.cloneNode(true);
+                input.parentNode.replaceChild(newInput, input);
+                
+                newInput.addEventListener('change', function() {
+                    console.log('Preference changed:', this.id, this.checked);
+                    updateExecutionPlanVisualization(getPreferencesForServer());
+                    saveClientPreferences();
+                });
+                newInput.setAttribute('data-listener-bound', 'true');
+                
+                // Update the global reference
+                const inputName = Object.keys(newControlInputs).find(key => newControlInputs[key] === input);
+                if (inputName) {
+                    controlInputs[inputName] = newInput;
+                }
+            }
+        });
+        
+        console.log('Preference handlers initialized');
+    }
+
+    // Knowledge Base Item Loading Function
+    function loadKnowledgeBaseItem(itemId) {
+        if (!mainContentArea) {
+            console.error('Main content area not found');
+            return;
+        }
+
+        // Store original agent content if not already stored
+        if (!originalAgentContent && currentView === 'agent') {
+            originalAgentContent = mainContentArea.innerHTML;
+        }
+
+        currentView = 'kb-item';
+        mainContentArea.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <button class="btn btn-outline-secondary" onclick="loadAgentControls(event)">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Agent Controls
+                </button>
+                <h5 class="mb-0">Knowledge Base Item</h5>
+            </div>
+            <div class="text-center p-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading knowledge base item...</p>
+            </div>
+        `;
+
+        // Fetch the item data
+        fetch(`/item/${itemId}`, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(item => {
+            renderKnowledgeBaseItem(item);
+        })
+        .catch(error => {
+            console.error('Failed to load knowledge base item:', error);
+            mainContentArea.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button class="btn btn-outline-secondary" onclick="loadAgentControls(event)">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Agent Controls
+                    </button>
+                    <h5 class="mb-0">Knowledge Base Item</h5>
+                </div>
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading">Error Loading Item</h4>
+                    <p>Failed to load the knowledge base item. Please try again.</p>
+                    <hr>
+                    <p class="mb-0">Error: ${error.message}</p>
+                </div>
+            `;
+        });
+    }
+
+    function renderKnowledgeBaseItem(item) {
+        let contentHtml = '';
+        
+        // Use structured JSON data if available, otherwise fall back to HTML content
+        if (item.kb_json_data) {
+            contentHtml = renderStructuredContent(item.kb_json_data, item);
+        } else if (item.content_html) {
+            contentHtml = `
+                <article class="knowledge-base-content">
+                    <header class="mb-4">
+                        <h1>${item.display_title || item.title}</h1>
+                        <p class="text-muted">
+                            Category: ${item.main_category?.replace(/_/g, ' ')} / ${item.sub_category?.replace(/_/g, ' ')}<br>
+                            Last Updated: ${item.last_updated ? new Date(item.last_updated).toLocaleDateString() : 'N/A'}
+                            ${item.source_url ? `| <a href="${item.source_url}" target="_blank">Original Source</a>` : ''}
+                        </p>
+                        <hr>
+                    </header>
+                    <div class="content-body">
+                        ${item.content_html}
+                    </div>
+                </article>
+            `;
+        } else {
+            contentHtml = `
+                <article class="knowledge-base-content">
+                    <div class="alert alert-warning">
+                        <h4>Content Not Available</h4>
+                        <p>The content for this knowledge base item could not be loaded.</p>
+                    </div>
+                </article>
+            `;
+        }
+
+        // Only add media section if media is not already embedded in content
+        // Check if content already contains media elements
+        const hasEmbeddedMedia = item.content_html && (
+            item.content_html.includes('<img') || 
+            item.content_html.includes('<video') ||
+            item.content_html.includes('![')
+        );
+        
+        if (item.media_list && item.media_list.length > 0 && !hasEmbeddedMedia) {
+            contentHtml += `
+                <section class="media-section">
+                    <h4>Associated Media</h4>
+                    <div class="row g-3">
+                        ${item.media_list.map(media => {
+                            // Media should be relative to the item's media directory
+                            const cleanMedia = media.split('/').pop(); // Get filename for display
+                            const mediaUrl = `${item.base_media_url_prefix}/media/${cleanMedia}`;
+                            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(cleanMedia);
+                            const isVideo = /\.(mp4|webm|mov)$/i.test(cleanMedia);
+                            
+                            if (isImage) {
+                                return `
+                                    <div class="col-md-4">
+                                        <div class="card media-card">
+                                            <img src="${mediaUrl}" class="card-img-top" alt="${cleanMedia}" style="max-height: 200px; object-fit: cover;" 
+                                                 onerror="console.error('Failed to load image:', '${mediaUrl}'); this.closest('.col-md-4').style.display='none';">
+                                            <div class="card-body p-2">
+                                                <small class="text-muted">${cleanMedia}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            } else if (isVideo) {
+                                return `
+                                    <div class="col-md-4">
+                                        <div class="card media-card">
+                                            <video controls class="card-img-top" style="max-height: 200px;"
+                                                   onerror="console.error('Failed to load video:', '${mediaUrl}'); this.closest('.col-md-4').style.display='none';">
+                                                <source src="${mediaUrl}" type="video/mp4">
+                                                Your browser does not support the video tag.
+                                            </video>
+                                            <div class="card-body p-2">
+                                                <small class="text-muted">${cleanMedia}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div class="col-md-4">
+                                        <div class="card media-card">
+                                            <div class="card-body">
+                                                <a href="${mediaUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-download me-2"></i>
+                                                    ${cleanMedia}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }).join('')}
+                    </div>
+                </section>
+            `;
+        }
+
+        mainContentArea.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <button class="btn btn-outline-secondary" onclick="loadAgentControls(event)">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Agent Controls
+                </button>
+                <h5 class="mb-0">Knowledge Base Item</h5>
+            </div>
+            <div class="knowledge-base-viewer">
+                ${contentHtml}
+            </div>
+        `;
+
+        // Update page title
+        document.title = `${item.display_title || item.title} - Knowledge Base Agent`;
+        
+        // Update active item in sidebar
+        updateSidebarActiveItem(item.id);
+    }
+
+    function renderStructuredContent(kbData, item) {
+        let html = `
+            <article class="knowledge-base-content">
+                <header class="mb-4">
+                    <h1>${kbData.suggested_title || item.display_title || item.title}</h1>
+                    ${kbData.meta_description ? `<p class="lead text-muted">${kbData.meta_description}</p>` : ''}
+                    <p class="text-muted">
+                        Category: ${item.main_category?.replace(/_/g, ' ')} / ${item.sub_category?.replace(/_/g, ' ')}<br>
+                        Last Updated: ${item.last_updated ? new Date(item.last_updated).toLocaleDateString() : 'N/A'}
+                        ${item.source_url ? `| <a href="${item.source_url}" target="_blank">Original Source</a>` : ''}
+                    </p>
+                    <hr>
+                </header>
+        `;
+
+        if (kbData.introduction) {
+            html += `
+                <section class="mb-4">
+                    <h3>Introduction</h3>
+                    <p>${kbData.introduction}</p>
+                </section>
+            `;
+        }
+
+        if (kbData.sections && kbData.sections.length > 0) {
+            kbData.sections.forEach(section => {
+                html += `<section class="mb-4"><h4>${section.heading}</h4>`;
+                
+                if (section.content_paragraphs && section.content_paragraphs.length > 0) {
+                    section.content_paragraphs.forEach(p => {
+                        html += `<p>${p}</p>`;
+                    });
+                }
+                
+                if (section.code_blocks && section.code_blocks.length > 0) {
+                    section.code_blocks.forEach(cb => {
+                        if (cb.explanation) html += `<p><em>${cb.explanation}</em></p>`;
+                        html += `<pre><code class="language-${cb.language || 'plaintext'}">${cb.code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+                    });
+                }
+                
+                if (section.lists && section.lists.length > 0) {
+                    section.lists.forEach(list => {
+                        html += list.type === 'numbered' ? '<ol>' : '<ul>';
+                        list.items.forEach(li => {
+                            html += `<li>${li}</li>`;
+                        });
+                        html += list.type === 'numbered' ? '</ol>' : '</ul>';
+                    });
+                }
+                
+                if (section.notes_or_tips && section.notes_or_tips.length > 0) {
+                    section.notes_or_tips.forEach(note => {
+                        html += `<blockquote class="blockquote"><p><small>${note}</small></p></blockquote>`;
+                    });
+                }
+                
+                html += '</section>';
+            });
+        }
+
+        if (kbData.key_takeaways && kbData.key_takeaways.length > 0) {
+            html += `
+                <section class="mb-4">
+                    <h3>Key Takeaways</h3>
+                    <ul>
+                        ${kbData.key_takeaways.map(t => `<li>${t}</li>`).join('')}
+                    </ul>
+                </section>
+            `;
+        }
+
+        if (kbData.conclusion) {
+            html += `
+                <section class="mb-4">
+                    <h3>Conclusion</h3>
+                    <p>${kbData.conclusion}</p>
+                </section>
+            `;
+        }
+
+        if (kbData.external_references && kbData.external_references.length > 0) {
+            html += `
+                <section class="mb-4">
+                    <h3>External References</h3>
+                    <ul>
+                        ${kbData.external_references.map(ref => `<li><a href="${ref.url}" target="_blank">${ref.text}</a></li>`).join('')}
+                    </ul>
+                </section>
+            `;
+        }
+
+        html += '</article>';
+        return html;
+    }
+
+    function updateSidebarActiveItem(itemId) {
+        // Remove active class from all KB items
+        document.querySelectorAll('.sidebar .item-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        if (itemId) {
+            // Add active class to the current item
+            const activeLink = document.querySelector(`.sidebar .item-link[href="/item/${itemId}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+        } else {
+            // No item selected, make sure agent controls link is active
+            const agentControlsLink = document.querySelector('.sidebar .list-group-item[href="/"]');
+            if (agentControlsLink) {
+                agentControlsLink.classList.add('active');
+            }
+        }
+    }
 }); 

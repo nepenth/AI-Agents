@@ -19,6 +19,16 @@ class GitSyncHandler:
     async def _configure_git(self) -> None:
         """Configure git with user credentials and initialize if needed."""
         try:
+            # Validate GitHub configuration
+            if not self.config.github_token:
+                raise GitSyncError("GitHub token (GITHUB_TOKEN) is not configured")
+            if not self.config.github_user_name:
+                raise GitSyncError("GitHub user name (GITHUB_USER_NAME) is not configured")
+            if not self.config.github_user_email:
+                raise GitSyncError("GitHub user email (GITHUB_USER_EMAIL) is not configured")
+            if not self.config.github_repo_url:
+                raise GitSyncError("GitHub repository URL (GITHUB_REPO_URL) is not configured")
+            
             if not (self.repo_dir / '.git').exists():
                 self.logger.info(f"No .git directory found at {self.repo_dir}, initializing repository...")
                 self.repo = Repo.init(str(self.repo_dir))

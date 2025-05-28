@@ -46,6 +46,7 @@ class BookmarksFetcher:
     def __init__(self, config: Config):
         self.config = config
         self.timeout = self.config.selenium_timeout * 1000 # Use config value
+        self.login_timeout = getattr(self.config, 'x_login_timeout', 60) * 1000  # Convert to milliseconds
         self.playwright = None
         self.browser = None
         self.context = None
@@ -78,28 +79,88 @@ class BookmarksFetcher:
             
             # Navigate to login page
             logging.info("Navigating to login page...")
-            await self.page.goto('https://twitter.com/login', wait_until="networkidle", timeout=self.timeout)
+            await self.page.goto('https://twitter.com/login', wait_until="networkidle", timeout=self.login_timeout)
             
             # Login
-            await self.page.wait_for_selector(USERNAME_SELECTOR, timeout=self.timeout)
+            await self.page.wait_for_selector(USERNAME_SELECTOR, timeout=self.login_timeout)
             await self.page.type(USERNAME_SELECTOR, self.config.x_username, delay=100)
             await self.page.keyboard.press('Enter')
             await self.page.wait_for_timeout(3000)
 
-            await self.page.wait_for_selector(PASSWORD_SELECTOR, timeout=self.timeout)
+            await self.page.wait_for_selector(PASSWORD_SELECTOR, timeout=self.login_timeout)
             await self.page.type(PASSWORD_SELECTOR, self.config.x_password, delay=100)
             await self.page.keyboard.press('Enter')
             
             logging.info("Login submitted")
             
-            # Add a wait for successful login, e.g., wait for timeline or specific element
-            await self.page.wait_for_url("**/home", timeout=self.timeout) # Wait for redirect to home feed
-            logging.info("Login successful, redirected to home.")
+            # Wait for successful login with multiple possible outcomes
+            try:
+                # Try waiting for home page redirect first (30 seconds max)
+                await self.page.wait_for_url("**/home", timeout=30000)  # Use longer timeout for redirect
+                logging.info("Login successful, redirected to home.")
+            except Exception as redirect_error:
+                logging.warning(f"No redirect to home page within 15s: {redirect_error}")
+                
+                # Check if we're on a 2FA/verification page
+                current_url = self.page.url
+                logging.info(f"Current URL after login attempt: {current_url}")
+                
+                # Check for common post-login scenarios
+                if "challenge" in current_url or "verification" in current_url or "authenticate" in current_url:
+                    raise BookmarksFetchError(
+                        "Login requires additional verification (2FA/CAPTCHA). "
+                        "Please log in manually to X/Twitter in a regular browser first, "
+                        "then try running the agent again."
+                    )
+                elif "suspended" in current_url or "locked" in current_url:
+                    raise BookmarksFetchError(
+                        "Account appears to be suspended or locked. "
+                        "Please check your X/Twitter account status."
+                    )
+                elif "login" in current_url:
+                    # Still on login page - credentials might be wrong
+                    raise BookmarksFetchError(
+                        "Login failed - still on login page. "
+                        "Please check your X_USERNAME and X_PASSWORD in the .env file."
+                    )
+                else:
+                    # Try to continue anyway - might be on a different valid page
+                    logging.warning(f"Login may have succeeded but didn't redirect to home. Current URL: {current_url}")
+                    
+                    # Check if we can find indicators of successful login
+                    try:
+                        # Look for common elements that appear when logged in
+                        await self.page.wait_for_selector('[data-testid="SideNav_AccountSwitcher_Button"]', timeout=5000)
+                        logging.info("Found account switcher - login appears successful")
+                    except:
+                        try:
+                            await self.page.wait_for_selector('a[href="/compose/tweet"]', timeout=5000)
+                            logging.info("Found compose button - login appears successful")
+                        except:
+                            logging.warning("Could not confirm successful login, but continuing anyway...")
             
+        except BookmarksFetchError:
+            # Re-raise BookmarksFetchError with better messages as-is
+            await self.cleanup()
+            raise
         except Exception as e:
             logging.error(f"Browser initialization or login failed: {str(e)}", exc_info=True)
             await self.cleanup()
-            raise BookmarksFetchError(f"Failed to initialize browser or login: {str(e)}") from e
+            
+            # Provide more helpful error messages based on error type
+            error_message = str(e)
+            if "Timeout" in error_message and "home" in error_message:
+                raise BookmarksFetchError(
+                    "Login timeout: X/Twitter did not redirect to home page. "
+                    "This often indicates 2FA/CAPTCHA is required. "
+                    "Try logging into X/Twitter manually in a browser first."
+                ) from e
+            elif "net::ERR_" in error_message or "Navigation" in error_message:
+                raise BookmarksFetchError(
+                    "Network error during login. Check your internet connection and try again."
+                ) from e
+            else:
+                raise BookmarksFetchError(f"Failed to initialize browser or login: {str(e)}") from e
 
     async def fetch_bookmarks(self) -> List[str]:
         """Fetch bookmarks from Twitter, save to JSON, and return a list of tweet IDs."""

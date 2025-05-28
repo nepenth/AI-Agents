@@ -532,6 +532,16 @@ class ContentProcessor:
             
             tweet_data = tweets_data_map[tweet_id]
             try:
+                # Validate cache consistency before processing
+                is_cache_consistent = await self.state_manager.validate_cache_consistency(tweet_id, tweet_data)
+                if not is_cache_consistent:
+                    self.socketio_emit_log(f"Cache consistency validation failed for {tweet_id}, skipping processing", "ERROR")
+                    stats.error_count += 1
+                    kb_item_phase.failed += 1
+                    tweets_data_map[tweet_id]['_kbitem_error'] = "Cache consistency validation failed"
+                    tweets_data_map[tweet_id]['kb_item_created'] = False
+                    continue
+                
                 kb_item_path_rel_project = tweet_data.get('kb_item_path')
                 kb_item_readme_abs_path = self.config.resolve_path_from_project_root(kb_item_path_rel_project) if kb_item_path_rel_project else None
                 kb_item_file_exists = kb_item_readme_abs_path.is_file() if kb_item_readme_abs_path else False
@@ -541,15 +551,41 @@ class ContentProcessor:
                                 
                 if should_run_kb_gen:
                     self.socketio_emit_log(f"Generating KB item structure for {tweet_id}... (Force: {preferences.force_reprocess_kb_item}, Exists&Flagged: {already_created_and_exists})", "DEBUG")
+                    
+                    # Create KB item object (does NOT set paths in cache yet)
                     kb_item_obj: KnowledgeBaseItem = await create_knowledge_base_item(
                         tweet_id=tweet_id, tweet_data=tweet_data, config=self.config,
                         http_client=self.http_client, state_manager=self.state_manager
                     )
+                    
+                    # Actually write to filesystem - this is the critical point
                     kb_item_dir_rel_project, media_paths_rel_kb_item_dir = await self.markdown_writer.write_kb_item(kb_item_obj)
-                    tweet_data['kb_item_path'] = str(kb_item_dir_rel_project / "README.md") # Path relative to project root
+                    
+                    # ONLY set paths in cache AFTER successful filesystem write
+                    readme_path_rel_project = kb_item_dir_rel_project / "README.md"
+                    
+                    # Validate the file actually exists before storing path
+                    readme_abs_path = self.config.resolve_path_from_project_root(str(readme_path_rel_project))
+                    if not readme_abs_path.exists():
+                        raise Exception(f"KB item README was not created at expected path: {readme_abs_path}")
+                    
+                    # Validate the directory structure is correct
+                    expected_categories = (
+                        tweet_data.get('categories', {}).get('main_category', ''),
+                        tweet_data.get('categories', {}).get('sub_category', ''),
+                        tweet_data.get('categories', {}).get('item_name', '')
+                    )
+                    if not all(expected_categories):
+                        raise Exception(f"Invalid categories for path validation: {expected_categories}")
+                    
+                    # NOW it's safe to store in cache
+                    tweet_data['kb_item_path'] = str(readme_path_rel_project)  # Path relative to project root
                     tweet_data['kb_media_paths'] = json.dumps(media_paths_rel_kb_item_dir) # Paths relative to item's dir
                     tweet_data['kb_item_created'] = True
+                    
+                    # Persist to cache immediately after successful creation
                     await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                    
                     kb_item_phase.newly_created_or_updated += 1
                     self.socketio_emit_log(f"KB Item generation complete for {tweet_id}. Path (rel to project): {tweet_data['kb_item_path']}", "INFO")
                     items_successfully_processed_this_run_kbitem += 1  # Track successful KB item generation

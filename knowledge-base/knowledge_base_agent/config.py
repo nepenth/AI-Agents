@@ -49,10 +49,10 @@ class Config(BaseSettings):
     categorization_model_thinking: bool = Field(False, alias="CATEGORIZATION_MODEL_THINKING", description="Whether the categorization model supports reasoning/thinking subroutines")
     
     # GitHub settings
-    github_token: str = Field(..., alias="GITHUB_TOKEN")
-    github_user_name: str = Field(..., alias="GITHUB_USER_NAME")
+    github_token: str = Field(..., alias="GITHUB_TOKEN", min_length=1)
+    github_user_name: str = Field(..., alias="GITHUB_USER_NAME", min_length=1)
     github_repo_url: HttpUrl = Field(..., alias="GITHUB_REPO_URL")
-    github_user_email: str = Field(..., alias="GITHUB_USER_EMAIL")
+    github_user_email: str = Field(..., alias="GITHUB_USER_EMAIL", min_length=1)
     git_enabled: bool = Field(..., alias="GIT_ENABLED")
     
     # File paths (will be resolved to absolute paths)
@@ -100,6 +100,9 @@ class Config(BaseSettings):
     # Browser settings
     selenium_timeout: int = Field(30, alias="SELENIUM_TIMEOUT")
     selenium_headless: bool = Field(True, alias="SELENIUM_HEADLESS")
+    
+    # X/Twitter specific settings
+    x_login_timeout: int = Field(60, alias="X_LOGIN_TIMEOUT", description="Timeout in seconds for X/Twitter login process")
     
     # Content settings
     max_content_length: int = Field(5000, alias="MAX_CONTENT_LENGTH")
@@ -191,6 +194,27 @@ class Config(BaseSettings):
             logging.info(f"GPU memory configuration: {self.gpu_total_memory}MB available for parallel processing")
         else:
             logging.warning("No GPU memory information available (GPU_TOTAL_MEM=0 or not set). Parallel LLM processing will be limited.")
+        
+        # Validate Git configuration if Git is enabled
+        if self.git_enabled:
+            required_git_fields = [
+                ('github_token', 'GITHUB_TOKEN'),
+                ('github_user_name', 'GITHUB_USER_NAME'), 
+                ('github_user_email', 'GITHUB_USER_EMAIL'),
+                ('github_repo_url', 'GITHUB_REPO_URL')
+            ]
+            
+            missing_fields = []
+            for field_name, env_name in required_git_fields:
+                field_value = getattr(self, field_name, None)
+                if not field_value or (isinstance(field_value, str) and not field_value.strip()):
+                    missing_fields.append(env_name)
+            
+            if missing_fields:
+                missing_list = ', '.join(missing_fields)
+                error_msg = f"Git is enabled but required environment variables are missing or empty: {missing_list}"
+                logging.error(error_msg)
+                raise ConfigurationError(error_msg)
         
         return self
     

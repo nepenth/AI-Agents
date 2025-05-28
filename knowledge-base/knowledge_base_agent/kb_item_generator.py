@@ -493,20 +493,12 @@ async def create_knowledge_base_item(
         # ai_generated_item_name is already filesystem-safe from categorization phase.
         # Categories main/sub should also be filesystem safe or normalized by CategoryManager if needed.
         # For this construction, we assume they are.
-        relative_item_dir_path = Path("kb-generated") / str(categories['main_category']) / str(categories['sub_category']) / ai_generated_item_name
-        kb_item_readme_path = relative_item_dir_path / "README.md"
-        kb_item_path_rel_project_root_str = str(kb_item_readme_path)
-
-        target_media_paths_relative_to_item_dir = []
-        if all_media_for_llm_item_object: # This list contains full paths to cached media
-            for i, cache_path_str in enumerate(all_media_for_llm_item_object):
-                cache_path = Path(cache_path_str)
-                # Use the original filename from the cache path for the target item's media directory.
-                # markdown_writer.py will handle copying this file to "media/<target_filename>"
-                target_filename = cache_path.name 
-                target_media_paths_relative_to_item_dir.append(f"media/{target_filename}")
+        # NOTE: We do NOT set the actual kb_item_path here - that's done after successful file creation
         
-        kb_media_paths_rel_item_dir_json_str = json.dumps(target_media_paths_relative_to_item_dir)
+        # Media paths will be determined by MarkdownWriter during actual file copying
+        # MarkdownWriter uses standardized naming (image_1.jpg, video_1.mp4, etc.)
+        # So we leave this empty and let ContentProcessor use the actual returned paths
+        kb_media_paths_rel_item_dir_json_str = json.dumps([])
 
         kb_item = KnowledgeBaseItem(
             display_title=display_title, 
@@ -521,7 +513,7 @@ async def create_knowledge_base_item(
             },
             source_media_cache_paths=all_media_for_llm_item_object,
             kb_media_paths_rel_item_dir=kb_media_paths_rel_item_dir_json_str,
-            kb_item_path_rel_project_root=kb_item_path_rel_project_root_str,
+            kb_item_path_rel_project_root="",  # Will be set by ContentProcessor after successful write
             image_descriptions=all_media_descriptions_for_llm_prompt,
             created_at=current_time,
             last_updated=current_time

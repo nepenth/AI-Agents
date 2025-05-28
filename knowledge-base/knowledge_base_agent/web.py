@@ -86,13 +86,19 @@ class WebSocketHandler(logging.Handler):
             # Avoid recursion by checking if the log message is about WebSocket emission
             if "Sending packet MESSAGE" in record.getMessage() or "emitting event" in record.getMessage():
                 return
+            
+            # Filter out DEBUG logs from the Live Logs display - they should only go to files
+            if record.levelno <= logging.DEBUG:
+                return
+                
             msg = self.format(record)
             
             # Store in recent_logs for new connections
             recent_logs.append({'message': msg, 'level': record.levelname})
             
-            # Emit to connected clients
-            socketio.emit('log', {'message': msg, 'level': record.levelname}, namespace='/')
+            # Emit to connected clients only if socketio is available
+            if socketio:
+                socketio.emit('log', {'message': msg, 'level': record.levelname}, namespace='/')
         except Exception as e:
             print(f"ERROR: Failed to emit log to WebSocket: {e}", file=sys.stderr)
 
@@ -130,7 +136,7 @@ def setup_web_logging(current_config: Config): # Renamed param to avoid conflict
     # Add WebSocketHandler if not already present
     if not any(isinstance(h, WebSocketHandler) for h in root_logger.handlers):
         ws_handler = WebSocketHandler()
-        ws_handler.setLevel(logging.DEBUG)
+        ws_handler.setLevel(logging.INFO)  # Changed from DEBUG to INFO to filter out debug logs from Live Logs
         ws_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(ws_handler)
         logging.debug("WebSocket logging (re)initialized")
@@ -147,7 +153,8 @@ def index():
     all_items = []
     try:
         all_items = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
-        logging.debug(f"Retrieved {len(all_items)} items for index page sidebar.")
+        # Changed from debug to avoid cluttering Live Logs - this happens on every page load
+        # logging.debug(f"Retrieved {len(all_items)} items for index page sidebar.")
     except Exception as e:
         logging.error(f"Error retrieving items for index sidebar: {e}", exc_info=True)
     
@@ -158,18 +165,24 @@ def item_detail(item_id):
     app_config = getattr(current_app, 'config_instance', None)
     if not app_config:
         logging.error("Application configuration not found in item_detail.")
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": "Application configuration not found"}), 500
         return "Application configuration not found.", 500
 
     item = KnowledgeBaseItem.query.get_or_404(item_id)
     
     if not item.file_path:
         logging.error(f"Content file path (file_path) missing for item {item_id}")
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": "KB Item content file path not set"}), 404
         return "Error: KB Item content file path not set.", 404
 
     content_file_abs_path = Path(item.file_path).resolve()
 
     if not content_file_abs_path.exists():
         logging.error(f"Content file does not exist for item {item_id} at path: {content_file_abs_path}")
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": f"KB Item content file not found at {content_file_abs_path}"}), 404
         return f"Error: KB Item content file not found at {content_file_abs_path}.", 404
 
     markdown_content = ""
@@ -178,6 +191,8 @@ def item_detail(item_id):
             markdown_content = f.read()
     except Exception as e:
         logging.error(f"Error reading content file {content_file_abs_path} for item {item_id}: {e}")
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": "Could not read KB Item content file"}), 500
         return "Error: Could not read KB Item content file.", 500
 
     # Try to parse raw_json_content if available for better display
@@ -202,12 +217,17 @@ def item_detail(item_id):
              raise ValueError(f"Content path {content_file_abs_path} is not under KB root {kb_root}.")
 
         relative_readme_path = content_file_abs_path.relative_to(kb_root) 
+        # For KB items, the structure is: category/subcategory/item_name/README.md
+        # So we want just the category/subcategory/item_name part
         relative_item_dir = str(relative_readme_path.parent)
         
     except ValueError as e: 
         logging.error(f"Error deriving relative path for item {item_id}. Content path {content_file_abs_path}, KB root {app_config.knowledge_base_dir}: {e}")
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": f"KB Item path misconfiguration ({e})"}), 500
         return f"Error: KB Item path misconfiguration ({e}).", 500
     
+    # Simplified media URL construction - should point directly to the item's directory
     base_media_url_prefix = f"/kb-media/{relative_item_dir}" if relative_item_dir else "/kb-media"
 
     def replace_media_paths(text, prefix):
@@ -226,6 +246,32 @@ def item_detail(item_id):
         except json.JSONDecodeError:
             logging.error(f"Failed to parse kb_media_paths JSON for item {item_id}: {item.kb_media_paths}")
 
+    # Debug logging to understand the media path structure - changed to debug level
+    logging.debug(f"Item {item_id}: relative_item_dir='{relative_item_dir}', base_media_url_prefix='{base_media_url_prefix}'")
+    logging.debug(f"Item {item_id}: media_list={media_list}")
+
+    # If this is an AJAX request for JSON data, return JSON response
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({
+            'id': item.id,
+            'item_name': item.item_name or item.title,
+            'display_title': item.display_title or item.title,
+            'title': item.title,
+            'main_category': item.main_category,
+            'sub_category': item.sub_category,
+            'description': item.description,
+            'content_html': html_content,
+            'content_markdown': markdown_content,
+            'source_url': item.source_url,
+            'tweet_url': item.source_url,
+            'created_at': item.created_at.isoformat() if item.created_at else None,
+            'last_updated': item.last_updated.isoformat() if item.last_updated else None,
+            'media_list': media_list,
+            'kb_json_data': processed_json_content,
+            'base_media_url_prefix': base_media_url_prefix
+        })
+
+    # Otherwise, render the full page template (for direct navigation)
     return render_template('item_detail.html', 
                            item=item, 
                            content=html_content, 
@@ -274,8 +320,9 @@ async def _run_agent_async_logic(preferences_data: dict):
         if not agent_instance:
             logging.info("Agent instance not found in _run_agent_async_logic, creating a new one.")
             # Ensure app is accessible here. 'app' is global in this file.
-            agent_instance = KnowledgeBaseAgent(app, config)
+            agent_instance = KnowledgeBaseAgent(app, config, socketio=socketio)
         
+        # Ensure socketio is properly assigned
         agent_instance.socketio = socketio
         if agent_instance.content_processor: # Ensure content_processor exists
             agent_instance.content_processor.socketio = socketio
@@ -308,7 +355,8 @@ async def _run_agent_async_logic(preferences_data: dict):
 @socketio.on('request_agent_status')
 def handle_request_agent_status():
     global agent_is_running, current_run_preferences
-    logging.debug(f"Client requested agent status. Current status: {'Running' if agent_is_running else 'Not Running'}")
+    # Changed from debug to avoid cluttering Live Logs - this is called frequently by UI
+    # logging.debug(f"Client requested agent status. Current status: {'Running' if agent_is_running else 'Not Running'}")
     socketio.emit('agent_status', {'is_running': agent_is_running, 'active_run_preferences': current_run_preferences if agent_is_running else None})
 
 @socketio.on('run_agent')
@@ -349,10 +397,10 @@ def run_agent_socket(data: dict):
 
 @socketio.on('stop_agent')
 def handle_stop_agent():
-    logger.info("SocketIO: Received stop_agent request.")
+    logging.info("SocketIO: Received stop_agent request.")
     global agent_instance
     if agent_instance and agent_instance._is_running:
-        logger.info("Setting stop flag via shared_globals...")
+        logging.info("Setting stop flag via shared_globals...")
         sg.set_stop_flag() # <-- NEW
         socketio.emit('log', {'message': 'Stop signal sent to agent. It may take a moment for all operations to cease.', 'level': 'WARN'})
     else:
@@ -585,7 +633,7 @@ def serve_kb_media(category, subcategory, item_name, filename):
         # Security validation - check that the file exists and is within the knowledge base directory
         if not file_path.exists():
             logging.warning(f"Media file not found: {file_path}")
-        return "File not found", 404
+            return "File not found", 404
             
         if not file_path.is_relative_to(kb_root):
             logging.warning(f"Attempted to access file outside knowledge base directory: {file_path}")
@@ -609,6 +657,7 @@ def serve_media(filename):
 # --- FUNCTION TO HANDLE STARTUP SYNC ---
 def run_startup_synchronization(app_instance, loaded_config: Config):
     """Runs StateManager initialization (which includes DB sync) within app context."""
+    global agent_instance
     with app_instance.app_context():
         try:
             logging.info("Attempting StateManager initialization (includes DB sync) on script startup...")
@@ -621,6 +670,21 @@ def run_startup_synchronization(app_instance, loaded_config: Config):
                 finally:
                     loop.close()
                 logging.info("StateManager initialization completed on script startup.")
+                
+                # Initialize agent instance at startup for status queries
+                logging.info("Creating agent instance at startup...")
+                agent_instance = KnowledgeBaseAgent(app_instance, loaded_config, socketio=socketio)
+                
+                # Initialize the agent to ensure it can respond to status queries
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(agent_instance.initialize())
+                    logging.info("Agent instance initialized successfully at startup.")
+                except Exception as e:
+                    logging.error(f"Failed to initialize agent instance at startup: {e}", exc_info=True)
+                finally:
+                    loop.close()
             else:
                 logging.error("Config not provided to startup synchronization. Skipping StateManager initialization.")
         except Exception as e:
@@ -657,7 +721,7 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
     initial_state_payload = {
         'agent_is_running': agent_is_running,
         'active_run_preferences': current_run_preferences if agent_is_running else None,
-        'plan_statuses': {}, 
+        'full_plan_statuses': {},  # Changed from 'plan_statuses' to match client expectation
         'current_phase_id': None,
         'current_step_in_current_phase_progress_message': None,
         # Safely access config attributes using getattr
@@ -670,16 +734,42 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
         'phase_estimated_completion_times': {}
     }
 
-    # Get complete state from agent instance if it exists
+    # Get complete state from agent instance if it exists and agent is running
     if agent_instance and hasattr(agent_instance, 'get_current_state'):
         try:
             agent_state_from_instance = agent_instance.get_current_state()
-            initial_state_payload.update(agent_state_from_instance) 
+            
+            # Map agent's plan_statuses to client's expected full_plan_statuses
+            if 'plan_statuses' in agent_state_from_instance:
+                initial_state_payload['full_plan_statuses'] = agent_state_from_instance['plan_statuses']
+                del agent_state_from_instance['plan_statuses']  # Remove to avoid overwriting
+            
+            # Update payload with agent state
+            initial_state_payload.update(agent_state_from_instance)
+            
+            # Ensure active_run_preferences is set correctly
             if agent_is_running and current_run_preferences:
                 initial_state_payload['active_run_preferences'] = current_run_preferences
-                current_app.logger.info(f"Emitting initial_status_and_git_config to new client with complete agent state")
+            
+            # Add the current step message for detailed progress display
+            if agent_is_running and agent_state_from_instance.get('current_phase_message'):
+                initial_state_payload['current_step_in_current_phase_progress_message'] = agent_state_from_instance['current_phase_message']
+                
+            current_app.logger.info(f"Emitting initial_status_and_git_config to new client with complete agent state. Running: {agent_is_running}, Phase: {initial_state_payload.get('current_phase_id')}, Plan statuses count: {len(initial_state_payload.get('full_plan_statuses', {}))}")
         except Exception as e:
             current_app.logger.error(f"Error getting agent state: {e}")
+    elif not agent_instance:
+        current_app.logger.warning("Agent instance not available during client connection - status queries will be limited")
+    
+    # Send recent log history to new client (but don't overwhelm with too many)
+    if recent_logs:
+        # Send the last 50 log entries to avoid overwhelming the new client
+        recent_logs_list = list(recent_logs)[-50:]
+        current_app.logger.info(f"Sending {len(recent_logs_list)} recent log entries to new client")
+        for log_entry in recent_logs_list:
+            emit('log', log_entry)
+    else:
+        current_app.logger.warning("No recent logs to send to new client")
 
     emit('initial_status_and_git_config', initial_state_payload)
 
@@ -737,6 +827,8 @@ if __name__ == "__main__":
 
     # Run startup synchronization (includes DB sync) IF config was loaded
     if config: # Use the globally assigned config
+        # Setup web logging with SocketIO before running startup sync
+        setup_web_logging(config)
         run_startup_synchronization(app, config)
     else:
         logging.warning("Main: Skipping startup synchronization because config failed to load.")
