@@ -277,9 +277,15 @@ class PhaseManager {
             let statusText = `${processed_count}/${total_count}`;
             
             if (percentage === 100) {
-                statusText = `✓ ${total_count} items`;
+                statusText = `✅ Done (${total_count})`;
+                // Update the visual class to completed
+                phaseElement.classList.remove('status-pending', 'status-active', 'status-skipped', 'status-error');
+                phaseElement.classList.add('status-completed');
             } else {
                 statusText += ` (${percentage}%)`;
+                // Update the visual class to active
+                phaseElement.classList.remove('status-pending', 'status-completed', 'status-skipped', 'status-error');
+                phaseElement.classList.add('status-active');
             }
             
             if (error_count && error_count > 0) {
@@ -287,6 +293,11 @@ class PhaseManager {
             }
             
             statusElement.textContent = statusText;
+        } else if (processed_count === 0 && total_count === 0) {
+            // Phase completed with no items to process
+            statusElement.textContent = '✅ Done';
+            phaseElement.classList.remove('status-pending', 'status-active', 'status-skipped', 'status-error');
+            phaseElement.classList.add('status-completed');
         }
     }
 
