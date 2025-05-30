@@ -11,7 +11,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_from_
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from markdown import markdown
 from .config import Config
-from .models import db, KnowledgeBaseItem
+from .models import db, KnowledgeBaseItem, SubcategorySynthesis
 from .agent import KnowledgeBaseAgent
 from .prompts import UserPreferences
 from .main import load_config, run_agent, cleanup
@@ -102,48 +102,41 @@ class WebSocketHandler(logging.Handler):
         except Exception as e:
             print(f"ERROR: Failed to emit log to WebSocket: {e}", file=sys.stderr)
 
-def setup_main_file_logging(log_path: Path):
-    """Sets up the main file logging handler after config is loaded."""
-    global file_handler # Assuming file_handler is defined globally or managed appropriately
-    
-    # Remove any existing basicConfig handlers if they were set up
-    root_logger = logging.getLogger('')
-    for handler in root_logger.handlers[:]:
-        if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stderr: # Default basicConfig handler
-             if not any(isinstance(h, logging.FileHandler) for h in root_logger.handlers): # Only remove if no file handler yet
-                root_logger.removeHandler(handler)
-        # Or more robustly, clear all and add specific ones if basicConfig was too simple
-
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    logging.getLogger('').addHandler(file_handler)
-    logging.info(f"Main file logging initialized to: {log_path}")
-
 def setup_web_logging(current_config: Config): # Renamed param to avoid conflict with global
     """Configure logging with WebSocket handler using Config."""
     root_logger = logging.getLogger()
-    # Do not clear all handlers here if file handler is already set up and desired
-    # current_config.setup_logging() # This might also set up file logging based on config.log_file
-                                  # We need to ensure it doesn't conflict with log_file_path
-
-    # Ensure file logging based on config.log_file is active if not already from log_file_path
-    # This part needs careful review of Config.setup_logging()
-    # For now, assume Config.setup_logging() handles its own file target if different from initial log_file_path
-    current_config.setup_logging() # Let Config object manage its logging setup
-
-    # Add WebSocketHandler if not already present
-    if not any(isinstance(h, WebSocketHandler) for h in root_logger.handlers):
+    
+    # Store existing WebSocket handler before config.setup_logging() clears handlers
+    existing_ws_handler = None
+    for handler in root_logger.handlers[:]:
+        if isinstance(handler, WebSocketHandler):
+            existing_ws_handler = handler
+            break
+    
+    # Let Config object set up its own file and console logging
+    current_config.setup_logging()
+    
+    # Add back WebSocketHandler if it existed or create new one
+    if existing_ws_handler:
+        root_logger.addHandler(existing_ws_handler)
+        logging.debug("Re-added existing WebSocket logging handler")
+    else:
+        # Add WebSocketHandler if not already present
         ws_handler = WebSocketHandler()
-        ws_handler.setLevel(logging.INFO)  # Changed from DEBUG to INFO to filter out debug logs from Live Logs
+        ws_handler.setLevel(logging.INFO)  # Filter out debug logs from Live Logs display
         ws_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(ws_handler)
-        logging.debug("WebSocket logging (re)initialized")
-    else:
-        logging.debug("WebSocket logging already initialized")
+        logging.debug("Added new WebSocket logging handler")
     
-    root_logger.setLevel(logging.DEBUG) # Ensure root logger level is appropriate
+    # Ensure root logger level allows all messages to reach handlers
+    root_logger.setLevel(logging.DEBUG)
+    
+    # Log the current handler configuration for debugging
+    handler_types = [type(h).__name__ for h in root_logger.handlers]
+    logging.info(f"Logging configured with handlers: {handler_types}")
+    
+    # Test logging to ensure file logging is working
+    logging.info("Web logging setup complete - this message should appear in log file")
 
 @app.route('/', methods=['GET'])
 # Removed POST handling as it's superseded by SocketIO for agent runs
@@ -151,14 +144,16 @@ def index():
     global agent_is_running
     app_config = getattr(current_app, 'config_instance', None) # Get app_config
     all_items = []
+    all_syntheses = []
     try:
         all_items = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
+        all_syntheses = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
         # Changed from debug to avoid cluttering Live Logs - this happens on every page load
         # logging.debug(f"Retrieved {len(all_items)} items for index page sidebar.")
     except Exception as e:
         logging.error(f"Error retrieving items for index sidebar: {e}", exc_info=True)
     
-    return render_template('index.html', running=agent_is_running, items=all_items, current_item_id=None, config=app_config) # Pass app_config
+    return render_template('index.html', running=agent_is_running, items=all_items, syntheses=all_syntheses, current_item_id=None, config=app_config) # Pass app_config
 
 @app.route('/item/<int:item_id>')
 def item_detail(item_id):
@@ -238,6 +233,7 @@ def item_detail(item_id):
     modified_markdown = replace_media_paths(markdown_content, base_media_url_prefix)
     html_content = markdown(modified_markdown, extensions=['fenced_code', 'tables', 'sane_lists', 'md_in_html']) 
     all_items_for_sidebar = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
+    all_syntheses_for_sidebar = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
 
     media_list = []
     if item.kb_media_paths:
@@ -276,6 +272,7 @@ def item_detail(item_id):
                            item=item, 
                            content=html_content, 
                            items=all_items_for_sidebar, 
+                           syntheses=all_syntheses_for_sidebar,
                            current_item_id=item_id,
                            media_list=media_list,
                            kb_json_data=processed_json_content,
@@ -423,12 +420,14 @@ def logs_page():
     """Render the dedicated log viewer page."""
     app_config = getattr(current_app, 'config_instance', None) # Get app_config
     all_items = []  # For sidebar consistency
+    all_syntheses = []  # For sidebar consistency
     try:
         all_items = KnowledgeBaseItem.query.all()
+        all_syntheses = SubcategorySynthesis.query.all()
     except Exception as e:
         logging.error(f"Error retrieving items for logs page sidebar: {e}", exc_info=True)
     # This route just renders the HTML shell; JS will fetch the actual log list/content.
-    return render_template('logs.html', items=all_items, config=app_config) # Pass app_config
+    return render_template('logs.html', items=all_items, syntheses=all_syntheses, config=app_config) # Pass app_config
 
 @app.route('/api/logs', methods=['GET'])
 def api_logs():
@@ -588,6 +587,151 @@ def api_kb_item_detail(item_id):
         logging.error(f"Error fetching KB item {item_id} via API: {e}", exc_info=True)
         return jsonify({'error': 'Failed to fetch knowledge base item'}), 500
 
+# --- Synthesis API Routes ---
+
+@app.route('/api/synthesis', methods=['GET'])
+def api_synthesis_list():
+    """Get list of all synthesis documents."""
+    try:
+        syntheses = SubcategorySynthesis.query.order_by(
+            SubcategorySynthesis.main_category,
+            SubcategorySynthesis.sub_category
+        ).all()
+        
+        synthesis_list = []
+        for synthesis in syntheses:
+            synthesis_data = {
+                'id': synthesis.id,
+                'main_category': synthesis.main_category,
+                'sub_category': synthesis.sub_category,
+                'synthesis_title': synthesis.synthesis_title,
+                'item_count': synthesis.item_count,
+                'created_at': synthesis.created_at.isoformat() if synthesis.created_at else None,
+                'last_updated': synthesis.last_updated.isoformat() if synthesis.last_updated else None,
+                'file_path': synthesis.file_path
+            }
+            synthesis_list.append(synthesis_data)
+        
+        return jsonify(synthesis_list)
+    except Exception as e:
+        logging.error(f"Error fetching synthesis list via API: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch synthesis documents'}), 500
+
+@app.route('/api/synthesis/<int:synthesis_id>', methods=['GET'])
+def api_synthesis_detail(synthesis_id):
+    """Get detailed data for a specific synthesis document."""
+    try:
+        synthesis = SubcategorySynthesis.query.get_or_404(synthesis_id)
+        
+        # Load markdown content if file_path exists
+        content_html = ""
+        content_markdown = ""
+        if synthesis.file_path:
+            file_path = Path(synthesis.file_path)
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content_markdown = f.read()
+                        content_html = markdown(content_markdown, extensions=['fenced_code', 'tables', 'sane_lists', 'md_in_html'])
+                except Exception as e:
+                    logging.error(f"Error reading synthesis file {file_path}: {e}")
+        
+        # Parse raw JSON if available
+        raw_json_data = None
+        if synthesis.raw_json_content:
+            try:
+                raw_json_data = json.loads(synthesis.raw_json_content)
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to parse raw_json_content for synthesis {synthesis_id}: {e}")
+        
+        synthesis_data = {
+            'id': synthesis.id,
+            'main_category': synthesis.main_category,
+            'sub_category': synthesis.sub_category,
+            'synthesis_title': synthesis.synthesis_title,
+            'synthesis_content': synthesis.synthesis_content,
+            'item_count': synthesis.item_count,
+            'created_at': synthesis.created_at.isoformat() if synthesis.created_at else None,
+            'last_updated': synthesis.last_updated.isoformat() if synthesis.last_updated else None,
+            'file_path': synthesis.file_path,
+            'content_html': content_html,
+            'content_markdown': content_markdown,
+            'raw_json_data': raw_json_data
+        }
+        
+        return jsonify(synthesis_data)
+    except Exception as e:
+        logging.error(f"Error fetching synthesis {synthesis_id} via API: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch synthesis document'}), 500
+
+@app.route('/synthesis/<int:synthesis_id>')
+def synthesis_detail(synthesis_id):
+    """Render synthesis document detail page."""
+    try:
+        synthesis = SubcategorySynthesis.query.get_or_404(synthesis_id)
+        
+        # Load markdown content if file_path exists
+        content_html = ""
+        if synthesis.file_path:
+            file_path = Path(synthesis.file_path)
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content_markdown = f.read()
+                        content_html = markdown(content_markdown, extensions=['fenced_code', 'tables', 'sane_lists', 'md_in_html'])
+                except Exception as e:
+                    logging.error(f"Error reading synthesis file {file_path}: {e}")
+                    content_html = f"<p>Error loading content: {e}</p>"
+            else:
+                content_html = "<p>Synthesis file not found on disk.</p>"
+        else:
+            # Fallback to synthesis_content from database
+            content_html = markdown(synthesis.synthesis_content, extensions=['fenced_code', 'tables', 'sane_lists', 'md_in_html'])
+        
+        # Parse raw JSON if available
+        raw_json_data = None
+        if synthesis.raw_json_content:
+            try:
+                raw_json_data = json.loads(synthesis.raw_json_content)
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to parse raw_json_content for synthesis {synthesis_id}: {e}")
+        
+        # Get all items for sidebar (both regular items and syntheses)
+        all_items = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
+        all_syntheses = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
+        
+        app_config = getattr(current_app, 'config_instance', None)
+        
+        # If this is an AJAX request for JSON data, return JSON response
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({
+                'id': synthesis.id,
+                'type': 'synthesis',
+                'synthesis_title': synthesis.synthesis_title,
+                'main_category': synthesis.main_category,
+                'sub_category': synthesis.sub_category,
+                'content_html': content_html,
+                'item_count': synthesis.item_count,
+                'created_at': synthesis.created_at.isoformat() if synthesis.created_at else None,
+                'last_updated': synthesis.last_updated.isoformat() if synthesis.last_updated else None,
+                'raw_json_data': raw_json_data
+            })
+        
+        # Otherwise, render the full page template
+        return render_template('synthesis_detail.html',
+                               synthesis=synthesis,
+                               content=content_html,
+                               items=all_items,
+                               syntheses=all_syntheses,
+                               current_synthesis_id=synthesis_id,
+                               raw_json_data=raw_json_data,
+                               config=app_config)
+    except Exception as e:
+        logging.error(f"Error rendering synthesis detail {synthesis_id}: {e}", exc_info=True)
+        return f"Error loading synthesis: {e}", 500
+
+# --- End Synthesis API Routes ---
+
 # --- End Log Viewer Routes ---
 
 @app.route('/kb-media/<path:path>')
@@ -730,8 +874,10 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
         'git_branch_name': getattr(config, 'git_branch', None) if config else None,
         # Add log history for new client connections
         'log_history': list(recent_logs),
-        # Add time estimation data
-        'phase_estimated_completion_times': {}
+        # Enhanced time estimation data
+        'phase_estimated_completion_times': {},  # Legacy support
+        'dynamic_phase_estimates': {},  # New: Dynamic phase estimates
+        'phase_estimates_timestamp': time.time()  # For cache invalidation
     }
 
     # Get complete state from agent instance if it exists and agent is running
@@ -744,7 +890,7 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
                 initial_state_payload['full_plan_statuses'] = agent_state_from_instance['plan_statuses']
                 del agent_state_from_instance['plan_statuses']  # Remove to avoid overwriting
             
-            # Update payload with agent state
+            # Update payload with agent state including dynamic estimates
             initial_state_payload.update(agent_state_from_instance)
             
             # Ensure active_run_preferences is set correctly
@@ -754,8 +900,10 @@ def handle_connect(auth=None): # Added auth=None to handle potential argument
             # Add the current step message for detailed progress display
             if agent_is_running and agent_state_from_instance.get('current_phase_message'):
                 initial_state_payload['current_step_in_current_phase_progress_message'] = agent_state_from_instance['current_phase_message']
-                
-            current_app.logger.info(f"Emitting initial_status_and_git_config to new client with complete agent state. Running: {agent_is_running}, Phase: {initial_state_payload.get('current_phase_id')}, Plan statuses count: {len(initial_state_payload.get('full_plan_statuses', {}))}")
+            
+            # Log the enhanced state information
+            dynamic_estimates_count = len(agent_state_from_instance.get('dynamic_phase_estimates', {}))
+            current_app.logger.info(f"Emitting initial_status_and_git_config to new client with complete agent state. Running: {agent_is_running}, Phase: {initial_state_payload.get('current_phase_id')}, Plan statuses: {len(initial_state_payload.get('full_plan_statuses', {}))}, Dynamic estimates: {dynamic_estimates_count}")
         except Exception as e:
             current_app.logger.error(f"Error getting agent state: {e}")
     elif not agent_instance:
@@ -799,8 +947,11 @@ if __name__ == "__main__":
             run_timestamp_main = datetime.now().strftime('%Y%m%d_%H%M%S')
             log_file_path_main = log_dir_main / f'agent_web_main_{run_timestamp_main}.log'
             
-            # Setup the main file logging using the path derived from config
-            setup_main_file_logging(log_file_path_main)
+            # Update the config's log_file to use our new timestamp-specific path
+            temp_config.log_file = str(log_file_path_main)
+            
+            # Setup web logging (which calls config.setup_logging internally)
+            setup_web_logging(temp_config)
             logging.info(f"Main: Configuration loaded. Logging to: {log_file_path_main}")
             
             # Assign to global config *after* successful load and initial log setup
@@ -827,8 +978,7 @@ if __name__ == "__main__":
 
     # Run startup synchronization (includes DB sync) IF config was loaded
     if config: # Use the globally assigned config
-        # Setup web logging with SocketIO before running startup sync
-        setup_web_logging(config)
+        # Web logging was already set up during config loading
         run_startup_synchronization(app, config)
     else:
         logging.warning("Main: Skipping startup synchronization because config failed to load.")

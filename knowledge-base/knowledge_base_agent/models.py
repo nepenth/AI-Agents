@@ -22,4 +22,23 @@ class KnowledgeBaseItem(db.Model):
     raw_json_content = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
-        return f'<KnowledgeBaseItem {self.title}>' 
+        return f'<KnowledgeBaseItem {self.title}>'
+
+class SubcategorySynthesis(db.Model):
+    __tablename__ = 'subcategory_synthesis'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    main_category = db.Column(db.String(100), nullable=False)
+    sub_category = db.Column(db.String(100), nullable=False)
+    synthesis_title = db.Column(db.String(255), nullable=False)
+    synthesis_content = db.Column(db.Text, nullable=False)
+    raw_json_content = db.Column(db.Text, nullable=True)
+    item_count = db.Column(db.Integer, nullable=False, default=0)
+    file_path = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+    last_updated = db.Column(db.DateTime, nullable=False)
+    
+    __table_args__ = (db.UniqueConstraint('main_category', 'sub_category'),)
+
+    def __repr__(self):
+        return f'<SubcategorySynthesis {self.main_category}/{self.sub_category}>' 

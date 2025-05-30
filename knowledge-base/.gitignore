@@ -69,3 +69,6 @@ agent.mdc
 # Local DB
 knowledge_base_agent/instance/knowledge_base_agent.db
 *.db
+
+#temporary backups
+*bak

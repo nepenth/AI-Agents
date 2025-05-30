@@ -7,69 +7,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout-clean.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <style>
-        /* Remove the conflicting styles for card heights and overflow */
-        
-        /* Keep these useful styles */
-        .phase-item .phase-icon i, .sub-phase-item .phase-icon i {
-            width: 20px; /* Ensure icons align */
-            text-align: center;
-            margin-right: 5px;
-        }
-        .sub-phases {
-            padding-left: 20px;
-            font-size: 0.9em;
-        }
-        .optional-phase-info {
-            font-size: 0.8em;
-            color: #6c757d;
-            margin-left: 5px;
-        }
-        
-        /* New Execution Plan Styles */
-        .main-phases .phase-item {
-            margin-bottom: 5px;
-            background-color: #f9f9f9;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-        .main-phases .phase-item:hover {
-            background-color: #f0f0f0;
-        }
-        .sub-phases-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        .sub-phase-row {
-            display: flex;
-            gap: 10px;
-        }
-        .sub-phase-item {
-            flex: 1;
-            background-color: #f5f5f5;
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-size: 0.85rem;
-            min-height: 32px;
-            transition: all 0.2s ease;
-        }
-        .sub-phase-item:hover {
-            background-color: #e9e9e9;
-        }
-        
-        /* Status colors */
-        .status-pending { color: #6c757d; border-color: #6c757d !important; }
-        .status-will-run { color: #0d6efd; border-color: #0d6efd !important; }
-        .status-active { color: #198754; border-color: #198754 !important; background-color: #e8f3ee !important; }
-        .status-completed { color: #198754; border-color: #198754 !important; }
-        .status-skipped { color: #6c757d; border-color: #adb5bd !important; text-decoration: line-through; }
-        .status-error { color: #dc3545; border-color: #dc3545 !important; background-color: #f8d7da !important; }
-        .status-interrupted { color: #fd7e14; border-color: #fd7e14 !important; }
-    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
@@ -95,75 +36,9 @@
 
     <div class="container-custom">
         <div class="sidebar">
-            <h5 class="px-3 mb-3">Navigation</h5>
-            <div class="list-group">
-                <!-- Agent Section -->
-                <a class="list-group-item list-group-item-action nav-link-item" data-bs-toggle="collapse" href="#collapseAgent" role="button" aria-expanded="true" aria-controls="collapseAgent">
-                    <i class="bi bi-gear me-2"></i> Agent
-                </a>
-                <div class="collapse show" id="collapseAgent">
-                    <a class="list-group-item list-group-item-action subcategory-item active" href="/" onclick="loadAgentControls(event)">
-                        <i class="bi bi-play-circle me-2"></i> Run Agent & Live Logs
-                    </a>
-                    <a class="list-group-item list-group-item-action subcategory-item" href="/logs" onclick="loadLogsPage(event)">
-                        <i class="bi bi-archive me-2"></i> View Past Logs
-                    </a>
-                </div>
-
-                <!-- Knowledge Base Section -->
-                <a class="list-group-item list-group-item-action nav-link-item d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseKB" role="button" aria-expanded="false" aria-controls="collapseKB">
-                    <span><i class="bi bi-book me-2"></i> Knowledge Base</span>
-                    <span class="badge bg-secondary rounded-pill">{{ items|length }}</span>
-                </a>
-                <div class="collapse" id="collapseKB">
-                    <div class="search-bar p-2">
-                        <input type="text" class="form-control form-control-sm" id="searchKB" placeholder="Search Knowledge Base...">
-                    </div>
-                    <ul class="list-unstyled ps-3"> {# Main category list #}
-                    {% if items %}
-                        {% set categories = items|groupby('main_category')|sort(attribute='grouper') %}
-                        {% for main_category, main_group in categories %}
-                            {# *** Capture outer loop index *** #}
-                            {% set main_cat_index = loop.index %}
-                            <li>
-                                <a href="#collapseCat{{ main_cat_index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseCat{{ main_cat_index }}" class="nav-link sidebar-link d-block">
-                                    {{ main_category|replace('_', ' ')|title }}
-                                </a>
-                                <div class="collapse" id="collapseCat{{ main_cat_index }}">
-                                    <ul class="list-unstyled ps-3"> {# Sub category list #}
-                                    {% set subcategories = main_group|groupby('sub_category')|sort(attribute='grouper') %}
-                                    {% for sub_category, sub_group in subcategories %}
-                                        {# *** Use captured outer index (main_cat_index) and inner index (loop.index) *** #}
-                                        {% set sub_cat_loop_index = loop.index %}
-                                        <li>
-                                            <a href="#collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}" class="nav-link sidebar-link d-block">
-                                                {{ sub_category|replace('_', ' ')|title }}
-                                            </a>
-                                            <div class="collapse" id="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}">
-                                                <ul class="list-unstyled ps-3"> {# Item list #}
-                                                {% for item in sub_group|sort(attribute='title') %}
-                                                    <li>
-                                                        <a href="{{ url_for('item_detail', item_id=item.id) }}" class="nav-link sidebar-link item-link">
-                                                            {{ item.title }}
-                                                        </a>
-                                                    </li>
-                                                {% endfor %}
-                                                </ul>
-                                            </div>
-                                        </li>
-                                    {% endfor %}
-                                    </ul>
-                                </div>
-                            </li>
-                        {% endfor %}
-                    {% else %}
-                        <li class="px-3 py-2 text-muted">No items found.</li>
-                    {% endif %}
-                    </ul>
-                </div>
-                <!-- End Knowledge Base Section -->
-            </div>
+            {% include 'sidebar_content.html' %}
         </div>
+        
         <div class="main-content">
             <div class="col-12 p-0">
                 <!-- Main container card -->
@@ -172,198 +47,154 @@
                         <h5 class="card-title mb-0"><i class="bi bi-robot me-2"></i> Agent Control and Status</h5>
                     </div>
                     <div class="card-body p-3">
-                        <!-- SECTION 1: Agent Execution Preferences -->
-                        <div class="card mb-3">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h6 class="card-title mb-0">Agent Execution Preferences</h6>
-                                <div>
-                                    <button type="button" id="runAgentButton" class="btn btn-primary me-2">Run Agent</button>
-                                    <button type="button" id="stopAgentButton" class="btn btn-secondary" disabled>Stop Agent</button>
-                                </div>
-                            </div>
-                            <div class="card-body py-2">
-                                <form id="agentControlsForm">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-check form-switch mb-1">
-                                                <input class="form-check-input" type="checkbox" id="skipFetchBookmarks" name="skip_fetch_bookmarks">
-                                                <label class="form-check-label" for="skipFetchBookmarks" data-bs-toggle="tooltip" 
-                                                    title="If checked, the agent will not attempt to fetch new bookmarks from Twitter/X.">
-                                                    Skip Fetching New Bookmarks
-                                                </label>
-                                            </div>
-                                            <div class="form-check form-switch mb-1">
-                                                <input class="form-check-input" type="checkbox" id="skipProcessContent" name="skip_process_content">
-                                                <label class="form-check-label" for="skipProcessContent" data-bs-toggle="tooltip"
-                                                    title="If checked, the agent will not process tweets from the queue (caching, LLM, KB item generation).">
-                                                    Skip Processing Content
-                                                </label>
-                                            </div>
-                                            <div class="form-check form-switch mb-1">
-                                                <input class="form-check-input" type="checkbox" id="skipReadmeGeneration" name="skip_readme_generation">
-                                                <label class="form-check-label" for="skipReadmeGeneration" data-bs-toggle="tooltip"
-                                                    title="If checked, README files will not be regenerated unless absolutely necessary (e.g., first run or forced by other options).">
-                                                    Skip README Regeneration
-                                                </label>
-                                            </div>
-                                            <div class="form-check form-switch mb-1">
-                                                <input class="form-check-input" type="checkbox" id="skipGitPush" name="skip_git_push">
-                                                <label class="form-check-label" for="skipGitPush" data-bs-toggle="tooltip"
-                                                    title="If checked, changes will not be pushed to the Git repository, even if Git is enabled globally.">
-                                                    Skip Push to Git
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-check form-switch mb-1">
-                                                <input class="form-check-input" type="checkbox" id="forceRecacheTweets" name="force_recache_tweets">
-                                                <label class="form-check-label" for="forceRecacheTweets" data-bs-toggle="tooltip"
-                                                    title="Forces re-downloading of tweet content and media links, even if already cached. Affects content processing phase.">
-                                                    Force Re-cache Tweet Data
-                                                </label>
-                                            </div>
-
-                                            <!-- Granular force reprocessing options -->
-                                            <div class="ms-4">
-                                                <div class="form-check form-switch mb-1">
-                                                    <input class="form-check-input granular-force" type="checkbox" id="forceReprocessMedia" name="force_reprocess_media">
-                                                    <label class="form-check-label" for="forceReprocessMedia" data-bs-toggle="tooltip"
-                                                        title="Forces re-analyzing media for all items, even if previously processed. This is the longest running phase (12+ hours for many items). Will also trigger all subsequent phases (LLM, KB Item Generation, DB Sync).">
-                                                        Force Re-analyze Media + Subsequent Phases
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-1 ms-3">
-                                                    <input class="form-check-input granular-force" type="checkbox" id="forceReprocessLLM" name="force_reprocess_llm">
-                                                    <label class="form-check-label" for="forceReprocessLLM" data-bs-toggle="tooltip"
-                                                        title="Forces re-categorizing and naming all items using LLM, even if previously processed. Will also regenerate KB items and sync to database.">
-                                                        Force Re-run LLM Processing + Subsequent Phases
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-1 ms-4">
-                                                    <input class="form-check-input granular-force" type="checkbox" id="forceReprocessKBItem" name="force_reprocess_kb_item">
-                                                    <label class="form-check-label" for="forceReprocessKBItem" data-bs-toggle="tooltip"
-                                                        title="Forces regeneration of all KB items, even if previously created. This will rebuild the files in your knowledge base folders and sync to database.">
-                                                        Force Regenerate KB Items + DB Sync
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
+                        <!-- Agent Execution Preferences -->
+                        <div class="preferences-section">
+                            <div class="card mb-3">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="card-title mb-0">Agent Execution Preferences</h6>
+                                    <div>
+                                        <button type="button" id="runAgentButton" class="btn btn-primary me-2">
+                                            <i class="bi bi-play-fill me-1"></i>Run Agent
+                                        </button>
+                                        <button type="button" id="stopAgentButton" class="btn btn-danger" disabled>
+                                            <i class="bi bi-stop-fill me-1"></i>Stop Agent
+                                        </button>
                                     </div>
-                                </form>
+                                </div>
+                                <div class="card-body py-2">
+                                    <div class="d-flex gap-2 justify-content-center">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="setPreset('full_run')">
+                                            <i class="bi bi-play-fill me-1"></i>Full Pipeline Run
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info btn-sm" onclick="setPreset('synthesis_only')">
+                                            <i class="bi bi-journal-text me-1"></i>Synthesis Only
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="setPreset('force_reprocess')">
+                                            <i class="bi bi-arrow-clockwise me-1"></i>Force Reprocess All
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setPreset('clear_all')">
+                                            <i class="bi bi-eraser me-1"></i>Clear All Options
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- MAIN DASHBOARD LAYOUT -->
+                        <!-- DASHBOARD LAYOUT -->
                         <div class="dashboard-layout">
-                            <!-- SECTION 2: Main monitoring panels - Execution Plan and Live Logs side by side -->
+                            <!-- Main panels - side by side -->
                             <div class="dashboard-main-panels">
                                 <!-- Left panel - Agent Execution Plan -->
                                 <div class="execution-plan-panel">
-                                    <div class="card h-100">
-                                        <div class="card-header py-2">
+                                    <div class="card">
+                                        <div class="card-header">
                                             <h6 class="card-title mb-0">Agent Execution Plan</h6>
                                         </div>
-                                        <div class="card-body" id="executionPlanCardBody">
-                                            <div id="executionPlanContainer">
-                                                <!-- Execution plan phases -->
-                                                <div class="main-phases">
-                                                    <!-- Initialization Phase -->
-                                                    <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="initialization">
-                                                        <div class="phase-icon"><i class="bi bi-power"></i></div>
-                                                        <div class="ms-2 phase-name">Initialization</div>
-                                                        <div class="ms-auto phase-status">Pending</div>
-                                                    </div>
-                                                    
-                                                    <!-- Fetch Bookmarks Phase -->
-                                                    <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="fetch_bookmarks">
-                                                        <div class="phase-icon"><i class="bi bi-bookmark-star"></i></div>
-                                                        <div class="ms-2 phase-name">Fetch Bookmarks</div>
-                                                        <div class="ms-auto phase-status">Pending</div>
-                                                    </div>
-                                                    
-                                                    <!-- Content Processing Phase -->
-                                                    <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="content_processing_overall">
-                                                        <div class="phase-icon"><i class="bi bi-file-earmark-text"></i></div>
-                                                        <div class="ms-2 phase-name">Content Processing</div>
-                                                        <div class="ms-auto phase-status">Pending</div>
-                                                    </div>
-                                                    
-                                                    <!-- Content Processing Subphases -->
-                                                    <div id="content-processing-subphases" class="sub-phases-grid ps-4 mb-2">
-                                                        <div class="sub-phase-row">
-                                                            <div class="sub-phase-item status-pending d-flex align-items-center" data-phase-id="subphase_cp_cache">
-                                                                <div class="phase-icon"><i class="bi bi-cloud-download"></i></div>
-                                                                <div class="ms-1 phase-name">Tweet Caching</div>
-                                                                <div class="ms-auto phase-status small">Pending</div>
-                                                            </div>
-                                                            <div class="sub-phase-item status-pending d-flex align-items-center" data-phase-id="subphase_cp_media">
-                                                                <div class="phase-icon"><i class="bi bi-image"></i></div>
-                                                                <div class="ms-1 phase-name">Media Analysis</div>
-                                                                <div class="ms-auto phase-status small">Pending</div>
-                                                            </div>
+                                        <div class="card-body">
+                                            <div class="main-phases">
+                                                <!-- Initialization Phase -->
+                                                <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="initialization" data-phase-state="normal">
+                                                    <div class="phase-icon"><i class="bi bi-power"></i></div>
+                                                    <div class="ms-2 phase-name">Initialization</div>
+                                                    <div class="ms-auto phase-status">Will Run</div>
+                                                </div>
+                                                
+                                                <!-- Fetch Bookmarks Phase -->
+                                                <div class="phase-item status-pending d-flex align-items-center p-2 clickable-phase" data-phase-id="fetch_bookmarks" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                    <div class="phase-icon"><i class="bi bi-bookmark-star"></i></div>
+                                                    <div class="ms-2 phase-name">Fetch Bookmarks</div>
+                                                    <div class="ms-auto phase-status">Will Run</div>
+                                                </div>
+                                                
+                                                <!-- Content Processing Phase -->
+                                                <div class="phase-item status-pending d-flex align-items-center p-2 clickable-phase" data-phase-id="content_processing_overall" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                    <div class="phase-icon"><i class="bi bi-file-earmark-text"></i></div>
+                                                    <div class="ms-2 phase-name">Content Processing</div>
+                                                    <div class="ms-auto phase-status">Will Run</div>
+                                                </div>
+                                                
+                                                <!-- Content Processing Subphases -->
+                                                <div id="content-processing-subphases" class="sub-phases-grid ps-4 mb-2">
+                                                    <div class="sub-phase-row">
+                                                        <div class="sub-phase-item status-pending d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_cache" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                            <div class="phase-icon"><i class="bi bi-cloud-download"></i></div>
+                                                            <div class="ms-1 phase-name">Tweet Caching</div>
+                                                            <div class="ms-auto phase-status small">Will Run</div>
                                                         </div>
-                                                        <div class="sub-phase-row">
-                                                            <div class="sub-phase-item status-pending d-flex align-items-center" data-phase-id="subphase_cp_llm">
-                                                                <div class="phase-icon"><i class="bi bi-diagram-3"></i></div>
-                                                                <div class="ms-1 phase-name">LLM Processing</div>
-                                                                <div class="ms-auto phase-status small">Pending</div>
-                                                            </div>
-                                                            <div class="sub-phase-item status-pending d-flex align-items-center" data-phase-id="subphase_cp_kbitem">
-                                                                <div class="phase-icon"><i class="bi bi-file-earmark-plus"></i></div>
-                                                                <div class="ms-1 phase-name">KB Item Generation</div>
-                                                                <div class="ms-auto phase-status small">Pending</div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="sub-phase-row">
-                                                            <div class="sub-phase-item status-pending d-flex align-items-center" data-phase-id="subphase_cp_db">
-                                                                <div class="phase-icon"><i class="bi bi-database-check"></i></div>
-                                                                <div class="ms-1 phase-name">Database Sync</div>
-                                                                <div class="ms-auto phase-status small">Pending</div>
-                                                            </div>
+                                                        <div class="sub-phase-item status-pending d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_media" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                            <div class="phase-icon"><i class="bi bi-image"></i></div>
+                                                            <div class="ms-1 phase-name">Media Analysis</div>
+                                                            <div class="ms-auto phase-status small">Will Run</div>
                                                         </div>
                                                     </div>
-                                                    
-                                                    <!-- README Generation Phase -->
-                                                    <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="readme_generation">
-                                                        <div class="phase-icon"><i class="bi bi-file-earmark-markdown"></i></div>
-                                                        <div class="ms-2 phase-name">README Generation</div>
-                                                        <div class="ms-auto phase-status">Pending</div>
-                                                    </div>
-                                                    
-                                                    <!-- Git Sync Phase -->
-                                                    <div class="phase-item optional-phase status-pending d-flex align-items-center p-2" data-phase-id="git_sync">
-                                                        <div class="phase-icon"><i class="bi bi-git"></i></div>
-                                                        <div class="ms-2 phase-name">Git Sync</div>
-                                                        <div class="ms-auto">
-                                                            <span class="phase-status">Pending</span>
-                                                            <span class="optional-phase-info text-muted"></span>
+                                                    <div class="sub-phase-row">
+                                                        <div class="sub-phase-item status-pending d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_llm" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                            <div class="phase-icon"><i class="bi bi-diagram-3"></i></div>
+                                                            <div class="ms-1 phase-name">LLM Processing</div>
+                                                            <div class="ms-auto phase-status small">Will Run</div>
+                                                        </div>
+                                                        <div class="sub-phase-item status-pending d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_kbitem" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                            <div class="phase-icon"><i class="bi bi-file-earmark-plus"></i></div>
+                                                            <div class="ms-1 phase-name">KB Item Generation</div>
+                                                            <div class="ms-auto phase-status small">Will Run</div>
                                                         </div>
                                                     </div>
-                                                    
-                                                    <!-- Cleanup Phase -->
-                                                    <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="cleanup">
-                                                        <div class="phase-icon"><i class="bi bi-trash"></i></div>
-                                                        <div class="ms-2 phase-name">Cleanup</div>
-                                                        <div class="ms-auto phase-status">Pending</div>
+                                                    <div class="sub-phase-row">
+                                                        <div class="sub-phase-item status-pending d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_db" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                            <div class="phase-icon"><i class="bi bi-database-check"></i></div>
+                                                            <div class="ms-1 phase-name">Database Sync</div>
+                                                            <div class="ms-auto phase-status small">Will Run</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 
-                                                <div id="current-phase-details" class="mt-3 p-2 border rounded">
-                                                    Agent Idle
+                                                <!-- Synthesis Generation Phase -->
+                                                <div class="phase-item optional-phase status-pending d-flex align-items-center p-2 clickable-phase" data-phase-id="synthesis_generation" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                    <div class="phase-icon"><i class="bi bi-journal-text"></i></div>
+                                                    <div class="ms-2 phase-name">Synthesis Generation</div>
+                                                    <div class="ms-auto">
+                                                        <span class="phase-status">Will Run</span>
+                                                        <span class="optional-phase-info text-muted"></span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- README Generation Phase -->
+                                                <div class="phase-item status-pending d-flex align-items-center p-2 clickable-phase" data-phase-id="readme_generation" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                    <div class="phase-icon"><i class="bi bi-file-earmark-markdown"></i></div>
+                                                    <div class="ms-2 phase-name">README Generation</div>
+                                                    <div class="ms-auto phase-status">Will Run</div>
+                                                </div>
+                                                
+                                                <!-- Git Sync Phase -->
+                                                <div class="phase-item optional-phase status-pending d-flex align-items-center p-2 clickable-phase" data-phase-id="git_sync" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                    <div class="phase-icon"><i class="bi bi-git"></i></div>
+                                                    <div class="ms-2 phase-name">Git Sync</div>
+                                                    <div class="ms-auto">
+                                                        <span class="phase-status">Will Run</span>
+                                                        <span class="optional-phase-info text-muted"></span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Cleanup Phase -->
+                                                <div class="phase-item status-pending d-flex align-items-center p-2" data-phase-id="cleanup" data-phase-state="normal">
+                                                    <div class="phase-icon"><i class="bi bi-trash"></i></div>
+                                                    <div class="ms-2 phase-name">Cleanup</div>
+                                                    <div class="ms-auto phase-status">Will Run</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="card-footer py-1 text-muted small d-flex justify-content-between align-items-center">
-                                            <span>Execution Plan</span> 
-                                            <span><!-- Placeholder if needed for spacing --></span>
+                                        <div class="card-footer">
+                                            <div id="current-phase-details" class="fw-normal text-dark">
+                                                Agent Idle
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Right panel - Live Logs -->
                                 <div class="live-logs-panel">
-                                    <div class="card h-100">
-                                        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
                                             <h6 class="card-title mb-0">Live Logs</h6>
                                             <button class="btn btn-sm btn-outline-secondary" id="clearLogsButton" title="Clear Logs">
                                                 <i class="bi bi-trash"></i> Clear
@@ -374,58 +205,28 @@
                                                 <!-- Logs will appear here -->
                                             </ul>
                                         </div>
-                                        <div class="card-footer py-1 text-muted small d-flex justify-content-between align-items-center">
+                                        <div class="card-footer d-flex justify-content-between align-items-center">
                                             <div>
                                                 <span id="agentRunStatusLogsFooter" class="text-danger">Agent Status: Not Running</span>
                                                 <span id="phaseEtcLogsFooter" style="display: none; margin-left: 10px;">ETC: N/A</span>
                                             </div>
-                                            <span id="logCount">0 Logs</span> <!-- Example: Adding a log count -->
+                                            <span id="logCount">0 Logs</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- SECTION 3: GPU Status at the bottom -->
+                            <!-- GPU Status at the bottom -->
                             <div class="dashboard-gpu-panel">
                                 <div class="card gpu-status-card">
-                                    <div class="card-header py-2">
+                                    <div class="card-header">
                                         <h6 class="card-title mb-0"><i class="bi bi-gpu-card me-2"></i>GPU Status</h6>
                                     </div>
-                                    <div class="card-body py-2">
+                                    <div class="card-body">
                                         <div id="gpuStatsContainer">
-                                            <div class="row g-2">
-                                                <div class="col-md-3">
-                                                    <div class="card mb-1">
-                                                        <div class="card-body py-1">
-                                                            <h6 class="card-title mb-1">GPU Load</h6>
-                                                            <p class="card-text mb-0" id="gpuLoad">N/A</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="card mb-1">
-                                                        <div class="card-body py-1">
-                                                            <h6 class="card-title mb-1">Memory Usage</h6>
-                                                            <p class="card-text mb-0" id="gpuMemory">N/A</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="card mb-1">
-                                                        <div class="card-body py-1">
-                                                            <h6 class="card-title mb-1">Temperature</h6>
-                                                            <p class="card-text mb-0" id="gpuTemperature">N/A</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="card mb-1">
-                                                        <div class="card-body py-1">
-                                                            <h6 class="card-title mb-1">GPU Usage</h6>
-                                                            <p class="card-text mb-0" id="gpuUsage">N/A</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <!-- GPU stats will be populated dynamically -->
+                                            <div class="text-center text-muted">
+                                                <i class="bi bi-hourglass-split"></i> Loading GPU statistics...
                                             </div>
                                         </div>
                                     </div>
@@ -439,11 +240,34 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/phases.js') }}"></script>
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
-    <!-- <script src="{{ url_for('static', filename='js/scripts.js') }}"></script> -->
     <script>
+    // Global functions for HTML onclick handlers
+    function togglePhaseState(phaseElement) {
+        if (window.phaseManager) {
+            window.phaseManager.togglePhaseState(phaseElement, window.agentIsRunning || false);
+        }
+    }
+    
+    function setPreset(presetType) {
+        if (window.phaseManager) {
+            window.phaseManager.applyPreset(presetType);
+            // Save preferences after applying preset
+            if (window.preferencesManager) {
+                window.preferencesManager.saveClientPreferences();
+            }
+        }
+    }
+
     // Tab interface handling
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize modular components
+        if (window.layoutManager) {
+            window.layoutManager.init();
+        }
+        
         // Button to go from empty KB to agent tab
         const goToAgentTabBtn = document.getElementById('goToAgentTabBtn');
         if (goToAgentTabBtn) {

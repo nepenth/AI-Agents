@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}{{ synthesis.synthesis_title }} - Knowledge Base Synthesis{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-lg-3 col-md-4 d-none d-md-block" id="sidebar-container">
+            {% include 'sidebar_content.html' %}
+        </div>
+        <div class="col-lg-9 col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                    <li class="breadcrumb-item">{{ synthesis.main_category.replace('_', ' ') | title }}</li>
+                    <li class="breadcrumb-item">{{ synthesis.sub_category.replace('_', ' ') | title }}</li>
+                    <li class="breadcrumb-item active" aria-current="page">Synthesis</li>
+                </ol>
+            </nav>
+            <hr>
+            
+            <article class="kb-article">
+                <!-- Synthesis document header -->
+                <header class="mb-4">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-lightbulb-fill text-warning me-2" style="font-size: 1.5rem;"></i>
+                        <span class="badge bg-primary">Synthesis Document</span>
+                    </div>
+                    <h1 class="fw-bold">{{ synthesis.synthesis_title }}</h1>
+                    <p class="text-muted">
+                        <small>
+                            Category: {{ synthesis.main_category|replace('_',' ')|title }} / {{ synthesis.sub_category|replace('_',' ')|title }}<br>
+                            Based on {{ synthesis.item_count }} knowledge base items<br>
+                            {% if synthesis.created_at %}Created: {{ synthesis.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC<br>{% endif %}
+                            {% if synthesis.last_updated %}Last Updated: {{ synthesis.last_updated.strftime('%Y-%m-%d %H:%M:%S') }} UTC{% endif %}
+                        </small>
+                    </p>
+                </header>
+
+                <!-- If we have structured JSON content, prefer to use that -->
+                {% if raw_json_data %}
+                    {% if raw_json_data.executive_summary %}
+                        <section class="mb-4">
+                            <h3>Executive Summary</h3>
+                            <div class="alert alert-info">
+                                <p>{{ raw_json_data.executive_summary }}</p>
+                            </div>
+                        </section>
+                    {% endif %}
+
+                    {% if raw_json_data.core_concepts %}
+                        <section class="mb-4">
+                            <h3>Core Concepts</h3>
+                            <ul class="list-group list-group-flush">
+                                {% for concept in raw_json_data.core_concepts %}
+                                    <li class="list-group-item">
+                                        <strong>{{ concept.concept }}</strong>: {{ concept.description }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </section>
+                    {% endif %}
+
+                    {% if raw_json_data.key_insights %}
+                        <section class="mb-4">
+                            <h3>Key Insights</h3>
+                            <div class="row">
+                                {% for insight in raw_json_data.key_insights %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h5 class="card-title">{{ insight.title }}</h5>
+                                                <p class="card-text">{{ insight.description }}</p>
+                                                {% if insight.examples %}
+                                                    <h6 class="card-subtitle mb-2 text-muted">Examples:</h6>
+                                                    <ul class="small">
+                                                        {% for example in insight.examples %}
+                                                            <li>{{ example }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    {% endif %}
+
+                    {% if raw_json_data.patterns_and_trends %}
+                        <section class="mb-4">
+                            <h3>Patterns and Trends</h3>
+                            <div class="accordion" id="patternsAccordion">
+                                {% for pattern in raw_json_data.patterns_and_trends %}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                            <button class="accordion-button{% if not loop.first %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ loop.index }}">
+                                                {{ pattern.title }}
+                                            </button>
+                                        </h2>
+                                        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse{% if loop.first %} show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#patternsAccordion">
+                                            <div class="accordion-body">
+                                                <p>{{ pattern.description }}</p>
+                                                {% if pattern.evidence %}
+                                                    <h6>Evidence:</h6>
+                                                    <ul>
+                                                        {% for evidence in pattern.evidence %}
+                                                            <li>{{ evidence }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    {% endif %}
+
+                    {% if raw_json_data.practical_applications %}
+                        <section class="mb-4">
+                            <h3>Practical Applications</h3>
+                            <div class="row">
+                                {% for application in raw_json_data.practical_applications %}
+                                    <div class="col-lg-4 col-md-6 mb-3">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">{{ application.title }}</h6>
+                                                <p class="card-text small">{{ application.description }}</p>
+                                                {% if application.steps %}
+                                                    <ol class="small">
+                                                        {% for step in application.steps %}
+                                                            <li>{{ step }}</li>
+                                                        {% endfor %}
+                                                    </ol>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    {% endif %}
+
+                    {% if raw_json_data.recommendations %}
+                        <section class="mb-4">
+                            <h3>Recommendations</h3>
+                            <div class="alert alert-success">
+                                <ul class="mb-0">
+                                    {% for recommendation in raw_json_data.recommendations %}
+                                        <li>{{ recommendation }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </section>
+                    {% endif %}
+
+                    {% if raw_json_data.related_topics %}
+                        <section class="mb-4">
+                            <h3>Related Topics</h3>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for topic in raw_json_data.related_topics %}
+                                    <span class="badge bg-secondary">{{ topic }}</span>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    {% endif %}
+                
+                <!-- Fall back to rendered markdown content -->
+                {% else %}
+                    <div class="kb-content">
+                        {{ content | safe }}
+                    </div>
+                {% endif %}
+                
+                <!-- Metadata section -->
+                <hr>
+                <section class="metadata-section">
+                    <h4>Document Information</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Source Items:</strong> {{ synthesis.item_count }} knowledge base entries</p>
+                            <p><strong>Category:</strong> {{ synthesis.main_category|replace('_',' ')|title }}</p>
+                            <p><strong>Subcategory:</strong> {{ synthesis.sub_category|replace('_',' ')|title }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            {% if synthesis.created_at %}
+                                <p><strong>Created:</strong> {{ synthesis.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+                            {% endif %}
+                            {% if synthesis.last_updated %}
+                                <p><strong>Last Updated:</strong> {{ synthesis.last_updated.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+                            {% endif %}
+                            {% if synthesis.file_path %}
+                                <p><strong>File:</strong> <code>{{ synthesis.file_path }}</code></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </section>
+            </article>
+            
+            <hr>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3 mb-3">Back to Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add any synthesis-specific JavaScript here if needed
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips if any
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %} 
