@@ -2,6 +2,10 @@ import subprocess
 import logging
 import json
 
+def celsius_to_fahrenheit(celsius):
+    """Convert Celsius to Fahrenheit."""
+    return (celsius * 9/5) + 32
+
 def get_gpu_stats():
     """
     Fetches GPU statistics using nvidia-smi.
@@ -10,7 +14,7 @@ def get_gpu_stats():
         A list of dictionaries, where each dictionary contains stats for one GPU,
         or None if nvidia-smi is not found or fails.
         Stats include: utilization.gpu, memory.used, memory.total,
-        temperature.gpu, power.draw, clocks.current.graphics, clocks.current.memory.
+        temperature.gpu (in both C and F), power.draw, clocks.current.graphics, clocks.current.memory.
     """
     try:
         # Check if nvidia-smi is available
@@ -42,13 +46,18 @@ def get_gpu_stats():
             if not line.strip(): continue
             values = line.split(', ')
             try:
+                temp_celsius = float(values[5])
+                temp_fahrenheit = celsius_to_fahrenheit(temp_celsius)
+                
                 stats = {
                     'name': values[0].strip(),
                     'index': int(values[1]),
                     'utilization_gpu': float(values[2]),
                     'memory_used': float(values[3]),
                     'memory_total': float(values[4]),
-                    'temperature_gpu': float(values[5]),
+                    'temperature_gpu': temp_celsius,  # Keep original for backward compatibility
+                    'temperature_gpu_celsius': temp_celsius,
+                    'temperature_gpu_fahrenheit': temp_fahrenheit,
                     'power_draw': float(values[6]) if values[6].strip().lower() != '[not supported]' else None,
                     'clocks_graphics': int(values[7]) if values[7].strip().lower() != '[not supported]' else None,
                     'clocks_memory': int(values[8]) if values[8].strip().lower() != '[not supported]' else None,

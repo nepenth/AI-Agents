@@ -232,15 +232,24 @@ document.addEventListener('DOMContentLoaded', function () {
             case 'completed':
                 statusClass = 'status-completed';
                 if (data.total_count !== null && data.total_count > 0) {
-                    statusText = `✅ Completed (${data.total_count})`;
+                    statusText = `✅ Done (${data.total_count})`;
                 } else {
-                    statusText = '✅ Completed';
+                    // Completed with no items - show as Done, not Skipped
+                    statusText = '✅ Done';
                 }
                 break;
                 
             case 'skipped':
                 statusClass = 'status-skipped';
-                statusText = '⏭️ Skipped';
+                // Check if this was actually skipped by user choice or completed with no work
+                if (data.message && (data.message.includes('already') || data.message.includes('no') || data.message.includes('All') || data.total_count === 0)) {
+                    // This is "done" with no work, not actually skipped
+                    statusClass = 'status-completed';
+                    statusText = '✅ Done';
+                } else {
+                    // Actually skipped by user
+                    statusText = '⏭️ Skipped';
+                }
                 break;
                 
             case 'error':
@@ -329,8 +338,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const utilization = gpu.utilization_gpu || 0;
         const memoryUsed = gpu.memory_used || 0;
         const memoryTotal = gpu.memory_total || 1;
-        const temperature = gpu.temperature_gpu || 0;
+        const temperature = gpu.temperature_gpu_fahrenheit || ((gpu.temperature_gpu || 0) * 9/5 + 32);
+        const temperatureCelsius = gpu.temperature_gpu || 0;
         const memoryPercent = (memoryUsed / memoryTotal) * 100;
+        const graphicsFreq = gpu.clocks_graphics || 0;
+        const memoryFreq = gpu.clocks_memory || 0;
         
         return `
             <div class="${colClass}">
@@ -366,16 +378,30 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                         
                         <!-- Temperature -->
-                        <div class="mb-0">
+                        <div class="mb-2">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="small fw-medium">Temperature</span>
-                                <span class="small fw-bold">${temperature}°C</span>
+                                <span class="small fw-bold">${temperature.toFixed(0)}°F</span>
                             </div>
                             <div class="progress" style="height: 6px;">
-                                <div class="progress-bar ${getTemperatureBootstrapClass(temperature)}" 
-                                     style="width: ${getTemperatureBarWidth(temperature)}%"></div>
+                                <div class="progress-bar ${getTemperatureBootstrapClass(temperatureCelsius)}" 
+                                     style="width: ${getTemperatureBarWidth(temperatureCelsius)}%"></div>
                             </div>
                         </div>
+                        
+                        <!-- GPU Frequency -->
+                        ${graphicsFreq > 0 ? `
+                        <div class="mb-0">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-medium">GPU Frequency</span>
+                                <span class="small fw-bold">${graphicsFreq} MHz</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar ${getFrequencyBootstrapClass(graphicsFreq)}" 
+                                     style="width: ${getFrequencyBarWidth(graphicsFreq)}%"></div>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -409,6 +435,19 @@ document.addEventListener('DOMContentLoaded', function () {
         // Tesla P40 max operating temp is around 89°C
         const maxTemp = 90;
         return Math.min((temperature / maxTemp) * 100, 100);
+    }
+
+    function getFrequencyBootstrapClass(frequency) {
+        if (frequency < 1000) return 'bg-success';
+        if (frequency < 2000) return 'bg-warning';
+        if (frequency < 3000) return 'bg-orange';
+        return 'bg-danger';
+    }
+
+    function getFrequencyBarWidth(frequency) {
+        // Assuming a default max frequency of 3000 MHz
+        const maxFreq = 3000;
+        return Math.min((frequency / maxFreq) * 100, 100);
     }
 
     // --- UI Initialization ---
