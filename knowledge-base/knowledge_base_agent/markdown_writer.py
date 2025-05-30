@@ -121,21 +121,56 @@ class MarkdownWriter:
         # self.config.knowledge_base_dir is the absolute path to the KB root (e.g., /path/to/project/kb-generated)
         kb_root_abs = self.config.knowledge_base_dir
         try:
-            # 1. Determine KB item path (directory)
+            # 1. Determine KB item path (directory) with collision detection
             # create_kb_path returns a path relative to the KB root (e.g., main_cat/sub_cat/item_title)
-            kb_item_rel_to_kb_root_path = create_kb_path(
+            base_kb_item_rel_to_kb_root_path = create_kb_path(
                 item.category_info.main_category,
                 item.category_info.sub_category,
                 item.display_title # Changed from item.title
             )
-            # Full absolute path to the KB item directory
-            kb_item_full_dir_path_abs = kb_root_abs / kb_item_rel_to_kb_root_path
+            
+            # Handle path collisions by adding a unique suffix if needed
+            kb_item_rel_to_kb_root_path = base_kb_item_rel_to_kb_root_path
+            collision_counter = 1
+            
+            while True:
+                # Full absolute path to the KB item directory
+                kb_item_full_dir_path_abs = kb_root_abs / kb_item_rel_to_kb_root_path
+                
+                # Check if path already exists and has content
+                if kb_item_full_dir_path_abs.exists():
+                    readme_path = kb_item_full_dir_path_abs / "README.md"
+                    
+                    # If README exists, this is a collision - generate unique path
+                    if readme_path.exists():
+                        logging.warning(f"Path collision detected for '{item.display_title}' at {kb_item_full_dir_path_abs}. Generating unique path.")
+                        
+                        # Create unique path by adding counter suffix
+                        unique_name = f"{base_kb_item_rel_to_kb_root_path.name}-{collision_counter}"
+                        kb_item_rel_to_kb_root_path = base_kb_item_rel_to_kb_root_path.parent / unique_name
+                        collision_counter += 1
+                        
+                        # Safety check to prevent infinite loops
+                        if collision_counter > 100:
+                            raise MarkdownGenerationError(f"Too many path collisions for '{item.display_title}' - check categorization logic")
+                        
+                        continue
+                    else:
+                        # Directory exists but no README - safe to use (might be leftover temp)
+                        break
+                else:
+                    # Path doesn't exist - safe to use
+                    break
 
             unique_temp_suffix = uuid.uuid4().hex[:8]
             temp_kb_item_dir_abs = kb_item_full_dir_path_abs.parent / f"{kb_item_full_dir_path_abs.name}_{unique_temp_suffix}.temp"
             
             await self.dir_manager.ensure_directory(temp_kb_item_dir_abs)
             logging.debug(f"Using temporary directory: {temp_kb_item_dir_abs}")
+
+            # Log if we had to use a unique path due to collision
+            if collision_counter > 1:
+                logging.info(f"Generated unique path for '{item.display_title}': {kb_item_rel_to_kb_root_path} (avoided {collision_counter-1} collisions)")
 
             # 2. Copy media files 
             # item.source_media_cache_paths are paths to cached media, relative to project_root
@@ -188,18 +223,23 @@ class MarkdownWriter:
 
             # 5. Atomically move temp directory to final location
             async with _folder_creation_lock:
+                # With collision detection above, the final path should be available
+                # If it still exists, it might be a race condition, so use fallback naming
                 if kb_item_full_dir_path_abs.exists():
-                    logging.warning(f"Destination folder {kb_item_full_dir_path_abs} exists. Removing before rename.")
-                    try:
-                        shutil.rmtree(kb_item_full_dir_path_abs) 
-                    except OSError as e:
-                        logging.error(f"Error removing existing directory {kb_item_full_dir_path_abs}: {e}")
-                        fallback_temp_name = temp_kb_item_dir_abs.parent / f"{kb_item_full_dir_path_abs.name}_fallback_{uuid.uuid4().hex[:4]}"
-                        temp_kb_item_dir_abs.rename(fallback_temp_name)
-                        raise MarkdownGenerationError(f"Failed to remove existing directory {kb_item_full_dir_path_abs}, temp data saved to {fallback_temp_name}") from e
-
-                temp_kb_item_dir_abs.rename(kb_item_full_dir_path_abs)
-                logging.info(f"Atomically moved {temp_kb_item_dir_abs} to {kb_item_full_dir_path_abs}")
+                    logging.error(f"Unexpected: Final destination {kb_item_full_dir_path_abs} still exists despite collision detection. Using fallback.")
+                    fallback_suffix = uuid.uuid4().hex[:6]
+                    fallback_name = f"{kb_item_full_dir_path_abs.name}-fallback-{fallback_suffix}"
+                    fallback_path = kb_item_full_dir_path_abs.parent / fallback_name
+                    temp_kb_item_dir_abs.rename(fallback_path)
+                    
+                    # Update our tracking variables to reflect the fallback path
+                    kb_item_full_dir_path_abs = fallback_path
+                    kb_item_rel_to_kb_root_path = fallback_path.relative_to(kb_root_abs)
+                    
+                    logging.warning(f"Used fallback path due to race condition: {kb_item_full_dir_path_abs}")
+                else:
+                    temp_kb_item_dir_abs.rename(kb_item_full_dir_path_abs)
+                    logging.info(f"Atomically moved {temp_kb_item_dir_abs} to {kb_item_full_dir_path_abs}")
 
             # 6. Prepare list of copied media paths *relative to kb_root_abs (e.g. kb-generated)*
             # kb_item_rel_to_kb_root_path is like "main_cat/sub_cat/item_title"

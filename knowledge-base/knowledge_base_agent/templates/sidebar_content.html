@@ -1,74 +1,88 @@
 <!-- knowledge_base_agent/templates/sidebar_content.html -->
-<div class="card">
-    <div class="card-header">
-        <h5 class="card-title mb-0">Knowledge Base</h5>
+<h5 class="px-3 mb-3">Navigation</h5>
+<div class="list-group">
+    <!-- Agent Section -->
+    <a class="list-group-item list-group-item-action nav-link-item" data-bs-toggle="collapse" href="#collapseAgent" role="button" aria-expanded="true" aria-controls="collapseAgent">
+        <i class="bi bi-gear me-2"></i> Agent
+    </a>
+    <div class="collapse show" id="collapseAgent">
+        <a class="list-group-item list-group-item-action subcategory-item active" href="/" onclick="loadAgentControls(event)">
+            <i class="bi bi-play-circle me-2"></i> Run Agent & Live Logs
+        </a>
+        <a class="list-group-item list-group-item-action subcategory-item" href="/logs" onclick="loadLogsPage(event)">
+            <i class="bi bi-archive me-2"></i> View Past Logs
+        </a>
     </div>
-    <div class="card-body p-0">
+
+    <!-- Synthesis Section -->
+    <a class="list-group-item list-group-item-action nav-link-item d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseSynthesis" role="button" aria-expanded="false" aria-controls="collapseSynthesis">
+        <span><i class="bi bi-journal-text me-2"></i> Synthesis Documents</span>
+        <span class="badge bg-secondary rounded-pill">{{ syntheses|length if syntheses else 0 }}</span>
+    </a>
+    <div class="collapse" id="collapseSynthesis">
+        <div class="search-bar p-2">
+            <input type="text" class="form-control form-control-sm" id="searchSynthesis" placeholder="Search Synthesis...">
+        </div>
+        <div id="synthesis-list" class="ps-3">
+            <!-- Synthesis documents will be loaded dynamically via JavaScript -->
+            <div class="text-center p-3">
+                <small class="text-muted">Loading synthesis documents...</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Base Section -->
+    <a class="list-group-item list-group-item-action nav-link-item d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseKB" role="button" aria-expanded="false" aria-controls="collapseKB">
+        <span><i class="bi bi-book me-2"></i> Knowledge Base</span>
+        <span class="badge bg-secondary rounded-pill">{{ items|length if items else 0 }}</span>
+    </a>
+    <div class="collapse" id="collapseKB">
+        <div class="search-bar p-2">
+            <input type="text" class="form-control form-control-sm" id="searchKB" placeholder="Search Knowledge Base...">
+        </div>
+        <ul class="list-unstyled ps-3"> {# Main category list #}
         {% if items %}
             {% set categories = items|groupby('main_category')|sort(attribute='grouper') %}
-            <div class="accordion" id="categoryAccordion">
-                {% for main_category, main_items in categories %}
-                    {% set has_current_item = false %}
-                    {% for item in main_items %}
-                        {% if item.id == current_item_id %}
-                            {% set has_current_item = true %}
-                        {% endif %}
-                    {% endfor %}
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="heading{{ loop.index }}">
-                            <button class="accordion-button {% if not has_current_item %}collapsed{% endif %}" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapse{{ loop.index }}" 
-                                    aria-expanded="{% if has_current_item %}true{% else %}false{% endif %}" 
-                                    aria-controls="collapse{{ loop.index }}">
-                                {{ main_category|replace('_', ' ')|title }}
-                            </button>
-                        </h2>
-                        <div id="collapse{{ loop.index }}" 
-                             class="accordion-collapse collapse {% if has_current_item %}show{% endif %}" 
-                             aria-labelledby="heading{{ loop.index }}" 
-                             data-bs-parent="#categoryAccordion">
-                            <div class="accordion-body p-0">
-                                {% set subcategories = main_items|groupby('sub_category')|sort(attribute='grouper') %}
-<div class="list-group list-group-flush">
-                                {% for sub_category, sub_items in subcategories %}
-                                    <div class="list-group-item p-0">
-                                        <div class="d-flex w-100 p-2 bg-light">
-                                            <span class="fw-bold">{{ sub_category|replace('_', ' ')|title }}</span>
-                </div>
-                                        <div class="list-group list-group-flush">
-                                            {% for item in sub_items|sort(attribute='display_title') %}
-                                                <a href="{{ url_for('item_detail', item_id=item.id) }}" 
-                                                   class="list-group-item list-group-item-action {% if item.id == current_item_id %}active{% endif %}"
-                                                   style="padding-left: 1.5rem;">
-                                                    {{ item.display_title }}
-            </a>
-        {% endfor %}
-                                        </div>
-                                    </div>
-                                {% endfor %}
+            {% for main_category, main_group in categories %}
+                {# *** Capture outer loop index *** #}
+                {% set main_cat_index = loop.index %}
+                <li>
+                    <a href="#collapseCat{{ main_cat_index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseCat{{ main_cat_index }}" class="nav-link sidebar-link d-block">
+                        {{ main_category|replace('_', ' ')|title }}
+                    </a>
+                    <div class="collapse" id="collapseCat{{ main_cat_index }}">
+                        <ul class="list-unstyled ps-3"> {# Sub category list #}
+                        {% set subcategories = main_group|groupby('sub_category')|sort(attribute='grouper') %}
+                        {% for sub_category, sub_group in subcategories %}
+                            {# *** Use captured outer index (main_cat_index) and inner index (loop.index) *** #}
+                            {% set sub_cat_loop_index = loop.index %}
+                            <li>
+                                <a href="#collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}" class="nav-link sidebar-link d-block">
+                                    {{ sub_category|replace('_', ' ')|title }}
+                                </a>
+                                <div class="collapse" id="collapseSub{{ main_cat_index }}_{{ sub_cat_loop_index }}">
+                                    <ul class="list-unstyled ps-3"> {# Item list #}
+                                    {% for item in sub_group|sort(attribute='title') %}
+                                        <li>
+                                            <a href="{{ url_for('item_detail', item_id=item.id) }}" class="nav-link sidebar-link item-link">
+                                                {{ item.title }}
+                                            </a>
+                                        </li>
+                                    {% endfor %}
+                                    </ul>
                                 </div>
-                            </div>
-                        </div>
+                            </li>
+                        {% endfor %}
+                        </ul>
                     </div>
-                {% endfor %}
-            </div>
-    {% else %}
-            <div class="p-3 text-muted">
-                <p>No knowledge base items found.</p>
-                <p>Run the agent to generate knowledge base content from tweets.</p>
-            </div>
-    {% endif %}
+                </li>
+            {% endfor %}
+        {% else %}
+            <li class="px-3 py-2 text-muted">No items found.</li>
+        {% endif %}
+        </ul>
     </div>
+    <!-- End Knowledge Base Section -->
 </div>
 
-<h5 class="px-3 mt-4 mb-3">Agent & Logs</h5>
-<div class="list-group list-group-flush">
-    <a class="list-group-item list-group-item-action" href="{{ url_for('index') }}">
-        <i class="bi bi-play-circle me-2"></i> Run Agent
-    </a>
-    <a class="list-group-item list-group-item-action" href="{{ url_for('logs_page') }}">
-        <i class="bi bi-archive me-2"></i> View Logs
-    </a>
-</div> 
+<!-- Remove the duplicate content below --> 

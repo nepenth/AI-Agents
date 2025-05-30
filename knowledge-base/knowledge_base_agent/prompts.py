@@ -13,16 +13,18 @@ class UserPreferences:
     Defines user preferences for an agent run, controlling which phases are executed
     and whether certain operations should be forced.
     """
-    run_mode: str = "full_pipeline"  # Options: 'full_pipeline', 'fetch_only', 'git_sync_only'
+    run_mode: str = "full_pipeline"  # Options: 'full_pipeline', 'fetch_only', 'git_sync_only', 'synthesis_only'
     
     # Skip flags, primarily for 'full_pipeline' mode
     skip_fetch_bookmarks: bool = False  # If True, fetching new bookmarks is skipped.
     skip_process_content: bool = False # If True, processing of queued/selected content is skipped.
     skip_readme_generation: bool = True  # If True, README regeneration is skipped unless other conditions force it (e.g., new items and no skip flag). (Default True as README regen is not always desired)
     skip_git_push: bool = False         # If True, Git push is skipped. (Default False to enable pushing if git is configured)
+    skip_synthesis_generation: bool = False  # If True, synthesis generation is skipped.
 
     # Force flags
     force_recache_tweets: bool = False     # If True, forces re-downloading of tweet data during content processing.
+    force_regenerate_synthesis: bool = False  # If True, forces regeneration of existing synthesis documents.
     
     # Granular force flags for content processing phases
     force_reprocess_media: bool = False    # If True, forces re-analyzing media even if already processed
@@ -32,6 +34,11 @@ class UserPreferences:
     # Legacy/combined flag - maintained for backward compatibility
     # When set to True, it will activate all the granular force flags above
     force_reprocess_content: bool = False  # If True, forces reprocessing all content phases
+
+    # Synthesis configuration
+    synthesis_mode: str = "comprehensive"  # Options: 'comprehensive', 'technical_deep_dive', 'practical_guide'
+    synthesis_min_items: int = 3           # Minimum items required for synthesis generation
+    synthesis_max_items: int = 50          # Maximum items to include in single synthesis
 
     def __post_init__(self):
         # Convert string 'on'/'off' (typically from HTML forms) to boolean for flag fields.
@@ -48,11 +55,13 @@ class UserPreferences:
             'skip_process_content',
             'skip_readme_generation',
             'skip_git_push',
+            'skip_synthesis_generation',
             'force_recache_tweets',
             'force_reprocess_content',
             'force_reprocess_media',
             'force_reprocess_llm', 
-            'force_reprocess_kb_item'
+            'force_reprocess_kb_item',
+            'force_regenerate_synthesis'
         ]
 
         for flag_name in bool_flags:
@@ -338,6 +347,114 @@ Respond ONLY with a single, valid JSON object that strictly adheres to the schem
 This category contains {total_cat_items} items across {len(active_subcats)} subcategories: {', '.join(sub.replace('_', ' ').title() for sub in active_subcats)}.
 Keep it concise and informative. Focus on the type of technical knowledge or domain this category covers."""
 
+    @staticmethod
+    def get_synthesis_generation_prompt_standard(main_category: str, sub_category: str, kb_items_content: str, synthesis_mode: str = "comprehensive") -> str:
+        """Generate a synthesis prompt for standard models"""
+        mode_instructions = {
+            "comprehensive": "Create a comprehensive synthesis that covers all major patterns, concepts, and insights.",
+            "technical_deep_dive": "Focus on deep technical analysis, architectural patterns, and expert-level implementation details.",
+            "practical_guide": "Emphasize practical applications, real-world use cases, and actionable guidance."
+        }
+        
+        mode_instruction = mode_instructions.get(synthesis_mode, mode_instructions["comprehensive"])
+        
+        return f"""You are a senior technical architect and domain expert tasked with creating a synthesis document for the subcategory '{sub_category}' within the '{main_category}' domain.
+
+**Synthesis Mode**: {synthesis_mode} - {mode_instruction}
+
+**Input Knowledge Base Items Content**:
+---
+{kb_items_content}
+---
+
+**Task**: Create a comprehensive synthesis document that extracts higher-level patterns, insights, and consolidated knowledge from the provided knowledge base items. This synthesis should provide value beyond the individual items by identifying connections, common patterns, and deeper insights.
+
+**Response Format**: Respond ONLY with a valid JSON object following this exact schema:
+
+```json
+{{
+  "synthesis_title": "string (A compelling, specific title that captures the essence of this subcategory's knowledge domain)",
+  "executive_summary": "string (2-3 paragraph overview of the subcategory's scope, key themes, and value proposition)",
+  "core_concepts": [
+    {{
+      "concept_name": "string (Name of fundamental concept)",
+      "description": "string (Clear explanation of the concept and its importance)",
+      "examples": ["string (Specific examples from the knowledge base items)"]
+    }}
+  ],
+  "technical_patterns": [
+    {{
+      "pattern_name": "string (Name of identified technical pattern)",
+      "description": "string (Description of the pattern and when to use it)",
+      "implementation_notes": "string (Technical considerations for implementation)",
+      "related_items": ["string (References to specific knowledge base items that demonstrate this pattern)"]
+    }}
+  ],
+  "key_insights": [
+    "string (Important insights that emerge from analyzing multiple items together)"
+  ],
+  "implementation_considerations": [
+    {{
+      "area": "string (Area of consideration, e.g., 'Performance', 'Security', 'Scalability')",
+      "considerations": ["string (Specific considerations for this area)"]
+    }}
+  ],
+  "advanced_topics": [
+    "string (Advanced concepts for expert-level understanding)"
+  ],
+  "knowledge_gaps": [
+    "string (Areas where additional knowledge would be valuable)"
+  ],
+  "cross_references": [
+    {{
+      "item_title": "string (Title of related knowledge base item)",
+      "relevance": "string (How this item relates to the synthesis themes)"
+    }}
+  ]
+}}
+```
+
+**Guidelines**:
+- Extract patterns that appear across multiple knowledge base items
+- Identify conceptual hierarchies from basic to advanced
+- Maintain expert-level technical accuracy and depth
+- Include practical implementation guidance
+- Highlight connections between different approaches or techniques
+- Identify areas where the knowledge could be expanded
+
+Respond ONLY with the JSON object."""
+
+    @staticmethod
+    def get_synthesis_markdown_generation_prompt_standard(synthesis_json: str, main_category: str, sub_category: str, item_count: int) -> str:
+        """Generate markdown content from synthesis JSON for standard models"""
+        return f"""Convert the following synthesis JSON into well-formatted markdown content for a '{sub_category}' synthesis document.
+
+**Synthesis JSON**:
+{synthesis_json}
+
+**Context**: This synthesis represents knowledge from {item_count} items in the {main_category}/{sub_category} subcategory.
+
+**Requirements**:
+- Create properly formatted markdown with clear headings and sections
+- Use appropriate markdown syntax (headers, lists, code blocks where relevant, etc.)
+- Ensure the content flows logically from overview to detailed analysis
+- Include a metadata footer showing source item count and last updated timestamp
+- Make the content engaging and valuable for technical professionals
+
+**Format the markdown following this structure**:
+1. Title (# level)
+2. Executive Summary 
+3. Core Concepts
+4. Technical Patterns
+5. Key Insights
+6. Implementation Considerations
+7. Advanced Topics
+8. Knowledge Gaps & Future Exploration
+9. Related Resources (cross-references)
+10. Metadata footer
+
+Respond with ONLY the markdown content, no additional text or explanations."""
+
 class ReasoningPrompts:
     """
     Defines prompts specifically for models that support reasoning like Cogito.
@@ -454,4 +571,138 @@ class ReasoningPrompts:
                        f"{', '.join(sub.replace('_', ' ').title() for sub in active_subcats)}. "
                        f"Think about what unifies these subcategories and what value they provide to technical users. "
                        f"Keep your description concise, informative, and under 160 characters. Focus on the specific technical domain or area of expertise this category represents."
+        }
+
+    @staticmethod
+    def get_synthesis_generation_prompt(main_category: str, sub_category: str, kb_items_content: str, synthesis_mode: str = "comprehensive") -> Dict[str, str]:
+        """Generate a synthesis prompt for reasoning models"""
+        mode_instructions = {
+            "comprehensive": "Create a comprehensive synthesis that covers all major patterns, concepts, and insights.",
+            "technical_deep_dive": "Focus on deep technical analysis, architectural patterns, and expert-level implementation details.",
+            "practical_guide": "Emphasize practical applications, real-world use cases, and actionable guidance."
+        }
+        
+        mode_instruction = mode_instructions.get(synthesis_mode, mode_instructions["comprehensive"])
+        
+        return {
+            "role": "user",
+            "content": (
+                f"You are a principal software engineer, technical architect, and domain expert tasked with creating a comprehensive synthesis document for the subcategory '{sub_category}' within the '{main_category}' domain.\n\n"
+                
+                f"**Synthesis Mode**: {synthesis_mode} - {mode_instruction}\n\n"
+                
+                f"**Input Knowledge Base Items Content**:\n"
+                f"---\n{kb_items_content}\n---\n\n"
+                
+                "**Your Mission**: Create a synthesis document that transcends the individual knowledge base items by:\n"
+                "- Identifying overarching patterns and architectural principles\n"
+                "- Extracting deep technical insights that emerge from cross-analysis\n"
+                "- Recognizing conceptual hierarchies and knowledge progressions\n"
+                "- Highlighting practical implementation strategies and trade-offs\n"
+                "- Connecting disparate concepts into a cohesive understanding\n\n"
+                
+                "**Think step-by-step**:\n"
+                "1. First, analyze the knowledge base items to understand the breadth and depth of the subcategory\n"
+                "2. Identify common patterns, themes, and technical approaches\n"
+                "3. Extract insights that only become apparent when considering multiple items together\n"
+                "4. Organize the synthesis to provide both foundational understanding and advanced insights\n"
+                "5. Consider what gaps exist and what additional knowledge would be valuable\n\n"
+                
+                "**Response Format**: Respond ONLY with a valid JSON object following this exact schema:\n\n"
+                
+                "```json\n"
+                "{\n"
+                '  "synthesis_title": "string (A compelling, specific title that captures the essence of this subcategory\'s knowledge domain)",\n'
+                '  "executive_summary": "string (2-3 paragraph overview of the subcategory\'s scope, key themes, and value proposition for technical professionals)",\n'
+                '  "core_concepts": [\n'
+                '    {\n'
+                '      "concept_name": "string (Name of fundamental concept)",\n'
+                '      "description": "string (Clear explanation of the concept and its importance in this domain)",\n'
+                '      "examples": ["string (Specific examples from the knowledge base items that illustrate this concept)"]\n'
+                '    }\n'
+                '  ],\n'
+                '  "technical_patterns": [\n'
+                '    {\n'
+                '      "pattern_name": "string (Name of identified technical pattern or architectural approach)",\n'
+                '      "description": "string (Description of the pattern, when to use it, and its benefits)",\n'
+                '      "implementation_notes": "string (Technical considerations, trade-offs, and implementation guidance)",\n'
+                '      "related_items": ["string (References to specific knowledge base items that demonstrate this pattern)"]\n'
+                '    }\n'
+                '  ],\n'
+                '  "key_insights": [\n'
+                '    "string (Important insights that emerge from analyzing multiple items together - insights that wouldn\'t be apparent from individual items alone)"\n'
+                '  ],\n'
+                '  "implementation_considerations": [\n'
+                '    {\n'
+                '      "area": "string (Area of consideration, e.g., \'Performance\', \'Security\', \'Scalability\', \'Maintainability\')",\n'
+                '      "considerations": ["string (Specific considerations, best practices, or warnings for this area)"]\n'
+                '    }\n'
+                '  ],\n'
+                '  "advanced_topics": [\n'
+                '    "string (Advanced concepts, cutting-edge techniques, or expert-level considerations for deep practitioners)"\n'
+                '  ],\n'
+                '  "knowledge_gaps": [\n'
+                '    "string (Areas where additional knowledge would be valuable, emerging trends, or under-explored aspects)"\n'
+                '  ],\n'
+                '  "cross_references": [\n'
+                '    {\n'
+                '      "item_title": "string (Title of related knowledge base item)",\n'
+                '      "relevance": "string (How this item relates to the synthesis themes and what specific value it provides)"\n'
+                '    }\n'
+                '  ]\n'
+                "}\n"
+                "```\n\n"
+                
+                "**Quality Standards**:\n"
+                "- Maintain expert-level technical accuracy and depth\n"
+                "- Provide actionable insights for senior engineers and architects\n"
+                "- Connect theoretical concepts to practical implementation\n"
+                "- Identify patterns that span multiple knowledge base items\n"
+                "- Highlight emerging trends and future considerations\n\n"
+                
+                "Think deeply about the relationships between concepts, the evolution of techniques in this domain, and what a principal engineer would find most valuable. Respond ONLY with the JSON object."
+            )
+        }
+
+    @staticmethod
+    def get_synthesis_markdown_generation_prompt(synthesis_json: str, main_category: str, sub_category: str, item_count: int) -> Dict[str, str]:
+        """Generate markdown content from synthesis JSON for reasoning models"""
+        return {
+            "role": "user",
+            "content": (
+                f"Transform the following synthesis JSON into compelling, well-structured markdown content for the '{sub_category}' synthesis document.\n\n"
+                
+                f"**Synthesis JSON**:\n{synthesis_json}\n\n"
+                
+                f"**Context**: This synthesis represents expert-level analysis of knowledge from {item_count} items in the {main_category}/{sub_category} subcategory.\n\n"
+                
+                "**Your Task**: Create markdown content that:\n"
+                "- Flows logically from high-level overview to detailed technical analysis\n"
+                "- Uses appropriate markdown syntax for maximum readability\n"
+                "- Maintains the technical depth while being accessible to senior engineers\n"
+                "- Provides clear navigation through complex technical concepts\n"
+                "- Includes proper formatting for code examples, lists, and technical details\n\n"
+                
+                "**Required Structure**:\n"
+                "1. **Title** (# level) - Make it compelling and specific\n"
+                "2. **Executive Summary** - Clear overview of scope and value\n"
+                "3. **Core Concepts** - Fundamental principles with examples\n"
+                "4. **Technical Patterns** - Architectural approaches and implementations\n"
+                "5. **Key Insights** - Cross-cutting insights from multiple sources\n"
+                "6. **Implementation Considerations** - Practical guidance by domain area\n"
+                "7. **Advanced Topics** - Expert-level concepts and cutting-edge techniques\n"
+                "8. **Knowledge Gaps & Future Exploration** - Areas for expansion\n"
+                "9. **Related Resources** - Cross-references with relevance explanations\n"
+                "10. **Metadata Footer** - Source count, category info, and timestamp\n\n"
+                
+                "**Formatting Guidelines**:\n"
+                "- Use `##` for major sections, `###` for subsections\n"
+                "- Create bulleted or numbered lists for clarity\n"
+                "- Use `**bold**` for emphasis on key concepts\n"
+                "- Use `code blocks` for technical terms and examples\n"
+                "- Include horizontal rules (`---`) to separate major sections\n"
+                "- Add a professional metadata footer with generation details\n\n"
+                
+                "Think about how a principal engineer would want to consume this information - make it scannable, actionable, and technically rigorous. Respond with ONLY the markdown content."
+            )
         } 

@@ -68,6 +68,19 @@ class KnowledgeBaseItem:
     created_at: datetime
     last_updated: datetime
 
+@dataclass
+class SubcategorySynthesis:
+    """Represents a synthesized learning document for a subcategory."""
+    main_category: str
+    sub_category: str
+    synthesis_title: str
+    synthesis_content: str
+    raw_json_content: str
+    item_count: int
+    file_path: Optional[str]
+    created_at: datetime
+    last_updated: datetime
+
 class ProcessingStats:
     """Statistics for content processing."""
     def __init__(self, start_time: datetime):

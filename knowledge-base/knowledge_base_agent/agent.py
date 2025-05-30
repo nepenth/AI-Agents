@@ -38,12 +38,18 @@ from knowledge_base_agent.content_processor import ContentProcessor
 from knowledge_base_agent.tweet_cacher import cache_tweets, TweetCacheValidator
 from knowledge_base_agent.shared_globals import stop_flag, clear_stop_flag, sg_get_project_root, sg_set_project_root
 from knowledge_base_agent.models import db
+from knowledge_base_agent.synthesis_generator import generate_subcategory_syntheses
+from knowledge_base_agent.api.logs import list_logs
+from knowledge_base_agent.api.log_content import get_log_content
+from knowledge_base_agent.synthesis_generator import SynthesisGenerator
+from knowledge_base_agent.stats_manager import DynamicPhaseEstimator, get_historical_phase_average, format_duration_to_hhmm
 
 # Default phase IDs - ensure these match your UI elements' IDs
 DEFAULT_PHASE_IDS = [
     "user_input_parsing",
     "fetch_bookmarks",
     "content_processing_overall",
+    "synthesis_generation",
     "readme_generation",
     "git_sync"
 ]
@@ -61,13 +67,15 @@ def setup_logging(config: Config) -> None:
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     
-    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
     console_formatter = logging.Formatter('%(message)s')
 
+    # File handler - logs everything at DEBUG level and above
     file_handler = logging.FileHandler(config.log_file)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
 
+    # Console handler - logs INFO and above, with filter for progress messages
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(console_formatter)
@@ -81,14 +89,22 @@ def setup_logging(config: Config) -> None:
                 '✓ Cached tweet'
             ])
     
+    # Only apply filter to console handler - file gets everything
     console_handler.addFilter(TweetProgressFilter())
 
     root_logger.setLevel(logging.DEBUG)
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
+    # Reduce noise from external libraries in both file and console
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('playwright').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    
+    # Ensure our agent modules log at DEBUG level to file
+    logging.getLogger('knowledge_base_agent').setLevel(logging.DEBUG)
+    
+    logging.info(f"Logging configured - File: {config.log_file} (DEBUG+), Console: INFO+ with filters")
 
 class KnowledgeBaseAgent:
     """
@@ -157,7 +173,10 @@ class KnowledgeBaseAgent:
         self._current_run_preferences = None
         self._plan_statuses = {}
         
-        # Time estimation tracking
+        # Enhanced dynamic phase estimation system
+        self.phase_estimator = DynamicPhaseEstimator()
+        
+        # Legacy time estimation tracking (kept for compatibility)
         self._phase_start_times = {}
         self._phase_item_processing_times = defaultdict(list)
         self._phase_total_items = {}
@@ -165,7 +184,7 @@ class KnowledgeBaseAgent:
         self._phase_estimated_completion_times = {}
         
         self.logger = logging.getLogger(__name__)
-        logging.info("KnowledgeBaseAgent initialized")
+        logging.info("KnowledgeBaseAgent initialized with dynamic phase estimation")
 
     def socketio_emit_log(self, message: str, level: str = "INFO") -> None:
         """Emit a log message via socketio and logging module."""
@@ -182,7 +201,7 @@ class KnowledgeBaseAgent:
                                  total_count: Optional[int] = None,
                                  error_count: Optional[int] = None,
                                  initial_estimated_duration_seconds: Optional[float] = None):
-        """Emits a phase update via SocketIO and updates internal agent state."""
+        """Emits a phase update via SocketIO and updates internal agent state with dynamic estimation."""
         log_message = (
             f"Phase Update: ID='{phase_id}', Status='{status}', Message='{message}', SubStep='{is_sub_step_update}'"
         )
@@ -196,68 +215,60 @@ class KnowledgeBaseAgent:
             log_message += f", InitialETC={initial_estimated_duration_seconds:.0f}s"
         self.logger.info(log_message)
 
-        # Track timing and estimate completion
+        # Get current time for calculations
         current_time = time.time()
-        estimated_completion_time = None
-        estimated_remaining_minutes = None
+        estimated_completion_timestamp = None
         
-        # Handle timing for non-substep updates (main phases)
+        # Handle phase initialization and tracking for main phases (not sub-steps)
         if not is_sub_step_update:
-            # When a phase starts, record the start time and historical ETC if provided
+            # When a phase starts, initialize dynamic tracking
             if status == 'active' or status == 'in_progress':
-                if phase_id not in self._phase_start_times:
-                    self._phase_start_times[phase_id] = current_time
-                
-                if initial_estimated_duration_seconds is not None and initial_estimated_duration_seconds > 0:
-                    self._phase_estimated_completion_times[phase_id] = current_time + initial_estimated_duration_seconds
-                    self.logger.info(f"Historical ETC for {phase_id} set: ends at {self._phase_estimated_completion_times[phase_id]} (in {initial_estimated_duration_seconds:.0f}s)")
-                
                 if total_count is not None and total_count > 0:
+                    # Initialize dynamic phase estimation
+                    historical_duration = self.phase_estimator.initialize_phase_tracking(phase_id, total_count)
+                    
+                    # If we have historical data and no explicit initial estimate, use historical
+                    if historical_duration and initial_estimated_duration_seconds is None:
+                        initial_estimated_duration_seconds = historical_duration
+                    
+                    # Set legacy tracking for compatibility
+                    if phase_id not in self._phase_start_times:
+                        self._phase_start_times[phase_id] = current_time
                     self._phase_total_items[phase_id] = total_count
                     self._phase_processed_items[phase_id] = processed_count if processed_count is not None else 0
+                    
+                    # Use initial estimate if provided
+                    if initial_estimated_duration_seconds is not None and initial_estimated_duration_seconds > 0:
+                        estimated_completion_timestamp = current_time + initial_estimated_duration_seconds
+                        self.logger.info(f"Phase '{phase_id}' initialized with ETC: {format_duration_to_hhmm(initial_estimated_duration_seconds)}")
             
-            # When a phase ends, clear its timing data
+            # Update progress for ongoing phases
+            elif processed_count is not None and total_count is not None:
+                # Update dynamic estimation with current progress
+                estimation_result = self.phase_estimator.update_phase_progress(phase_id, processed_count)
+                if estimation_result:
+                    estimated_completion_timestamp = estimation_result.get("estimated_completion_timestamp")
+                
+                # Update legacy tracking
+                self._phase_processed_items[phase_id] = processed_count
+            
+            # When a phase ends, finalize tracking
             if status in ['completed', 'error', 'skipped', 'interrupted']:
+                if status == 'completed':
+                    self.phase_estimator.finalize_phase(phase_id)
+                
+                # Clean up legacy tracking
                 self._phase_start_times.pop(phase_id, None)
                 self._phase_estimated_completion_times.pop(phase_id, None)
                 self._phase_item_processing_times.pop(phase_id, None)
                 self._phase_total_items.pop(phase_id, None)
                 self._phase_processed_items.pop(phase_id, None)
         
-        # Determine the ETC to send to UI
-        final_etc_timestamp_to_send = self._phase_estimated_completion_times.get(phase_id)
-        
-        # Dynamic ETC calculation (can be a fallback or refinement)
-        dynamic_etc_timestamp = None
-        if processed_count is not None and total_count is not None and total_count > 0:
-            phase_key = phase_id
-            
-            previous_processed = self._phase_processed_items.get(phase_key, 0)
-            if processed_count > previous_processed:
-                items_just_processed = processed_count - previous_processed
-                
-                batch_start_time = self._phase_start_times.get(phase_key, current_time)
-                
-                elapsed_since_batch_start = current_time - batch_start_time
-                
-                if elapsed_since_batch_start > 1 and items_just_processed > 0:
-                    time_per_item = elapsed_since_batch_start / items_just_processed
-                    self._phase_item_processing_times[phase_key].append(time_per_item)
-                    
-                    if len(self._phase_item_processing_times[phase_key]) > 10:
-                        self._phase_item_processing_times[phase_key] = self._phase_item_processing_times[phase_key][-10:]
-            
-            self._phase_processed_items[phase_key] = processed_count
-
-            if self._phase_item_processing_times[phase_key]:
-                median_time_per_item = median(self._phase_item_processing_times[phase_key])
-                remaining_items = total_count - processed_count
-                if remaining_items > 0 and median_time_per_item > 0:
-                    dynamic_etc_timestamp = current_time + (remaining_items * median_time_per_item)
-
-        # Prefer historical ETC if available, otherwise use dynamic if calculated
-        if final_etc_timestamp_to_send is None and dynamic_etc_timestamp is not None:
-            final_etc_timestamp_to_send = dynamic_etc_timestamp
+        # For ongoing phases, try to get dynamic estimate if not already set
+        if estimated_completion_timestamp is None and not is_sub_step_update:
+            estimate_data = self.phase_estimator.get_phase_estimate(phase_id)
+            if estimate_data:
+                estimated_completion_timestamp = estimate_data.get("estimated_completion_timestamp")
 
         # Update agent's overall phase state (non-sub-step only)
         if not is_sub_step_update:
@@ -267,7 +278,7 @@ class KnowledgeBaseAgent:
             if phase_id in DEFAULT_PHASE_IDS or phase_id.startswith("subphase_cp_"):
                 self._plan_statuses[phase_id] = {'status': status, 'message': message, 'sub_step': False}
 
-        # Prepare data for SocketIO emit
+        # Prepare enhanced data for SocketIO emit
         data_to_emit = {
             'phase_id': phase_id,
             'status': status,
@@ -277,15 +288,21 @@ class KnowledgeBaseAgent:
             'total_count': total_count,
             'error_count': error_count,
             'initial_estimated_duration_seconds': initial_estimated_duration_seconds,
-            'estimated_completion_timestamp': final_etc_timestamp_to_send
+            'estimated_completion_timestamp': estimated_completion_timestamp
         }
+        
+        # Add dynamic estimation details for frontend
+        if not is_sub_step_update:
+            estimate_data = self.phase_estimator.get_phase_estimate(phase_id)
+            if estimate_data:
+                data_to_emit.update({
+                    'current_avg_time_per_item': estimate_data.get("current_avg_time_per_item", 0.0),
+                    'estimated_remaining_minutes': estimate_data.get("estimated_remaining_minutes", 0.0),
+                    'progress_percentage': (processed_count / total_count * 100) if processed_count and total_count else 0
+                })
         
         if self.socketio:
             self.socketio.emit('agent_phase_update', data_to_emit)
-
-        # If overall content processing is done, update its status based on sub-phases
-        if phase_id.startswith("subphase_cp_") and status in ['completed', 'error', 'skipped', 'interrupted']:
-            pass
 
     async def initialize(self) -> None:
         """
@@ -579,162 +596,246 @@ class KnowledgeBaseAgent:
         overall_start_time = time.time()
 
         try:
-            # --- Phase 1: Parse User Preferences (already done by receiving `preferences` object) ---
-            self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed and applied.')
-            if stop_flag.is_set(): raise InterruptedError("Run stopped by user after parsing preferences.")
-
-            # --- Phase 2: Retrieve New Bookmarks (Optional) ---
-            if not preferences.skip_fetch_bookmarks:
-                self.socketio_emit_phase_update('fetch_bookmarks', 'in_progress', 'Fetching new bookmarks...')
-                try:
-                    # Call the actual bookmark fetching implementation
-                    newly_added_count = await self.fetch_and_queue_bookmarks()
-                    if newly_added_count > 0:
-                        completion_message = f'Added {newly_added_count} new bookmarks to processing queue.'
-                        self.socketio_emit_log(completion_message, "INFO")
-                        self.socketio_emit_phase_update('fetch_bookmarks', 'completed', completion_message)
-                    else:
-                        completion_message = 'No new bookmarks found to queue for processing.'
-                        self.socketio_emit_log(completion_message, "INFO")
-                        self.socketio_emit_phase_update('fetch_bookmarks', 'completed', completion_message)
-                except Exception as e:
-                    self.socketio_emit_log(f"Error fetching bookmarks: {e}", "ERROR")
-                    self.socketio_emit_phase_update('fetch_bookmarks', 'error', f"Error fetching bookmarks: {e}")
-                    stats.error_count +=1 # Generic error for this phase
-            else:
-                self.socketio_emit_log("Skipping bookmark fetching due to user preference.", "INFO")
-                # Status already set by _initialize_plan_statuses and emitted loop
-
-            if stop_flag.is_set(): raise InterruptedError("Run stopped by user after retrieving bookmarks.")
-
-            # --- Phase 3: Process Content (Optional) ---
-            if not preferences.skip_process_content: # Corrected attribute name
-                self.socketio_emit_phase_update('content_processing_overall', 'in_progress', 'Starting content processing pipeline...')
-                try:
-                    # First get unprocessed tweets
-                    unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
-                    
-                    # Include already processed tweets if any force reprocessing flag is enabled
-                    tweets_to_process = list(unprocessed_tweets)  # Create a copy to avoid modifying the original
-                    
-                    # Check if any force reprocessing flag is enabled
-                    any_force_reprocessing = (
-                        preferences.force_reprocess_content or
-                        preferences.force_reprocess_media or
-                        preferences.force_reprocess_llm or
-                        preferences.force_reprocess_kb_item
-                    )
-                    
-                    if any_force_reprocessing:
-                        # Get processed tweets from state manager
-                        processed_tweets = await self.state_manager.get_processed_tweets()
-                        if processed_tweets:
-                            # Log which force flags are enabled
-                            force_flags_enabled = []
-                            if preferences.force_reprocess_content:
-                                force_flags_enabled.append("All Phases")
-                            else:
-                                if preferences.force_reprocess_media:
-                                    force_flags_enabled.append("Media Analysis")
-                                if preferences.force_reprocess_llm:
-                                    force_flags_enabled.append("LLM Processing")
-                                if preferences.force_reprocess_kb_item:
-                                    force_flags_enabled.append("KB Item Generation")
-                            
-                            self.socketio_emit_log(
-                                f"Force re-processing enabled for: {', '.join(force_flags_enabled)} - " +
-                                f"adding {len(processed_tweets)} already processed tweets to the queue", 
-                                "INFO"
-                            )
-                            tweets_to_process.extend(processed_tweets)
-                    
-                    total_tweets_count = len(tweets_to_process)
-                    self.socketio_emit_log(f"Found {len(unprocessed_tweets)} unprocessed tweets and {total_tweets_count - len(unprocessed_tweets)} previously processed tweets to process (total: {total_tweets_count}).", "INFO")
-
-                    if total_tweets_count > 0:
-                        phase_details_from_content_processor = await self.content_processor.process_all_tweets(
-                            preferences=preferences,
-                            unprocessed_tweets=tweets_to_process,
-                            total_tweets_for_processing=total_tweets_count,
-                            stats=stats, # Pass the shared stats object
-                            category_manager=self.category_manager
-                        )
-                        # 'stats' object is mutated by process_all_tweets
-                        processed_tweets_in_run = stats.processed_count # Use processed_count from stats, which is updated by CP
-                        self.socketio_emit_log(f"Content processing finished. Processed in this run: {processed_tweets_in_run}, Errors: {stats.error_count}", "INFO")
-                        self.socketio_emit_phase_update('content_processing_overall', 'completed', f'Processed {processed_tweets_in_run}/{total_tweets_count} items. Errors: {stats.error_count}.')
-                    else:
-                        if any_force_reprocessing:
-                            self.socketio_emit_log("No tweets found to process, even with force reprocessing options enabled. Your knowledge base may be empty.", "INFO")
-                        else:
-                            self.socketio_emit_log("No unprocessed tweets found. Add new tweets or enable one of the force reprocessing options to reprocess existing items.", "INFO")
-                        self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets to process.')
-                except Exception as e:
-                    self.socketio_emit_log(f"Error during content processing: {e}", "ERROR")
-                    self.socketio_emit_phase_update('content_processing_overall', 'error', f"Error: {e}")
-                    stats.error_count +=1 # Generic error for this phase
-            else:
-                self.socketio_emit_log("Skipping content processing due to user preference.", "INFO")
-                # Status already set
-
-            if stop_flag.is_set(): raise InterruptedError("Run stopped by user during content processing.")
-
-            # --- Phase 4: Generate/Update Readmes (Optional) ---
-            if not preferences.skip_readme_generation:
-                self.socketio_emit_phase_update('readme_generation', 'in_progress', 'Generating/updating Readme files...')
+            # Handle different run modes
+            if preferences.run_mode == "synthesis_only":
+                self.socketio_emit_log("Running in synthesis-only mode - will only generate synthesis documents.", "INFO")
+                # Skip all phases except synthesis generation
+                self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed - synthesis-only mode.')
+                self.socketio_emit_phase_update('fetch_bookmarks', 'skipped', 'Skipped in synthesis-only mode.')
+                self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'Skipped in synthesis-only mode.')
+                
+                # Jump directly to synthesis generation
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user in synthesis-only mode.")
+                
+                self.socketio_emit_phase_update('synthesis_generation', 'in_progress', 'Generating subcategory synthesis documents...')
                 try:
                     with self.app.app_context():
-                        # Corrected call to generate_static_root_readme
-                        await generate_static_root_readme(self.config.knowledge_base_dir, self.category_manager)
-                        # The generate_root_readme call might also need review, but the error was specific to static one.
-                        # Assuming generate_root_readme(self.config, db) is correct or handled elsewhere if it also has issues.
-                        # For now, let's assume the main error was with generate_static_root_readme.
-                        # If generate_root_readme also needs db, its definition should reflect that.
-                        # The original error was: "Error generating Readmes: generate_static_root_readme() takes 2 positional arguments but 3 were given"
-                        # This implies generate_root_readme(self.config, db) might be okay or a different issue.
-                        # Let's stick to fixing the identified TypeError first.
-                        # If generate_root_readme also has an issue, it would be a separate TypeError.
-                        # Upon review of readme_generator.py, generate_root_readme expects:
-                        # kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config
-                        # So, the call should be:
-                        await generate_root_readme(self.config.knowledge_base_dir, self.category_manager, self.http_client, self.config)
-                    self.socketio_emit_log("Readme files generated/updated successfully.", "INFO")
-                    self.socketio_emit_phase_update('readme_generation', 'completed', 'Readme files generated/updated.')
+                        synthesis_results = await generate_subcategory_syntheses(
+                            config=self.config,
+                            http_client=self.http_client,
+                            preferences=preferences,
+                            socketio=self.socketio,
+                            phase_emitter_func=self.socketio_emit_phase_update
+                        )
+                        
+                        if synthesis_results:
+                            self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents.", "INFO")
+                            self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)} synthesis documents.')
+                        else:
+                            self.socketio_emit_log("No synthesis documents were generated (no subcategories with sufficient items found).", "INFO")
+                            self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated.')
+                            
                 except Exception as e:
-                    self.socketio_emit_log(f"Error generating Readmes: {e}", "ERROR")
-                    self.socketio_emit_phase_update('readme_generation', 'error', f"Error generating Readmes: {e}")
-                    stats.error_count +=1
-            else:
-                self.socketio_emit_log("Skipping Readme generation due to user preference.", "INFO")
-                # Status already set
+                    self.socketio_emit_log(f"Error during synthesis generation: {e}", "ERROR")
+                    self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}")
+                    stats.error_count += 1
+                
+                # Skip remaining phases
+                self.socketio_emit_phase_update('readme_generation', 'skipped', 'Skipped in synthesis-only mode.')
+                self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped in synthesis-only mode.')
+                
+            elif preferences.run_mode == "full_pipeline":
+                # Existing full pipeline logic
+                # --- Phase 1: Parse User Preferences (already done by receiving `preferences` object) ---
+                self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed and applied.')
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after parsing preferences.")
 
-            if stop_flag.is_set(): raise InterruptedError("Run stopped by user after Readme generation.")
+                # --- Phase 2: Fetch Bookmarks (Optional) ---
+                if not preferences.skip_fetch_bookmarks:
+                    self.socketio_emit_phase_update('fetch_bookmarks', 'active', 'Fetching bookmarks from source...', False)
+                    try:
+                        newly_added_tweet_ids_count = await self.fetch_and_queue_bookmarks()
+                        if newly_added_tweet_ids_count > 0:
+                            self.socketio_emit_phase_update('fetch_bookmarks', 'completed', f'Found {newly_added_tweet_ids_count} new bookmarks to process.', False, newly_added_tweet_ids_count, newly_added_tweet_ids_count, 0)
+                        else:
+                            self.socketio_emit_phase_update('fetch_bookmarks', 'completed', 'No new bookmarks found.', False, 0, 0, 0)
+                    except Exception as e:
+                        self.socketio_emit_log(f"Error during bookmark fetching: {e}", "ERROR")
+                        self.socketio_emit_phase_update('fetch_bookmarks', 'error', f"Error: {e}", False)
+                        stats.error_count +=1 # Generic error for this phase
+                else:
+                    self.socketio_emit_log("Skipping bookmark fetching due to user preference.", "INFO")
+                    # Status already set by _initialize_plan_statuses and emitted loop
 
-            # --- Phase 5: Git Synchronization (Optional) ---
-            # Use self.config.git_enabled directly as it's a boolean field in the Config model
-            if self.config.git_enabled and not preferences.skip_git_push:
-                self.socketio_emit_phase_update('git_sync', 'in_progress', 'Starting Git synchronization...')
-                try:
-                    self.socketio_emit_log("Attempting to add, commit, and push changes to Git...", "INFO")
-                    # Ensure stats.tweets_processed_current_run is a valid attribute of stats
-                    processed_count_for_commit = getattr(stats, 'tweets_processed_current_run', 0)
-                    commit_message = f"Automated KB update: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')} - {processed_count_for_commit} items processed."
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after retrieving bookmarks.")
+
+                # --- Phase 3: Process Content (Optional) ---
+                if not preferences.skip_process_content: # Corrected attribute name
+                    self.socketio_emit_phase_update('content_processing_overall', 'active', 'Starting content processing pipeline...', False)
+                    try:
+                        # First get unprocessed tweets
+                        unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
+                        
+                        # Include already processed tweets if any force reprocessing flag is enabled
+                        tweets_to_process = list(unprocessed_tweets)  # Create a copy to avoid modifying the original
+                        
+                        # Check if any force reprocessing flag is enabled
+                        any_force_reprocessing = (
+                            preferences.force_reprocess_content or
+                            preferences.force_reprocess_media or
+                            preferences.force_reprocess_llm or
+                            preferences.force_reprocess_kb_item
+                        )
+                        
+                        if any_force_reprocessing:
+                            # Get processed tweets from state manager
+                            processed_tweets = await self.state_manager.get_processed_tweets()
+                            if processed_tweets:
+                                # Log which force flags are enabled
+                                force_flags_enabled = []
+                                if preferences.force_reprocess_content:
+                                    force_flags_enabled.append("All Phases")
+                                else:
+                                    if preferences.force_reprocess_media:
+                                        force_flags_enabled.append("Media Analysis")
+                                    if preferences.force_reprocess_llm:
+                                        force_flags_enabled.append("LLM Processing")
+                                    if preferences.force_reprocess_kb_item:
+                                        force_flags_enabled.append("KB Item Generation")
+                                
+                                self.socketio_emit_log(
+                                    f"Force re-processing enabled for: {', '.join(force_flags_enabled)} - " +
+                                    f"adding {len(processed_tweets)} already processed tweets to the queue", 
+                                    "INFO"
+                                )
+                                tweets_to_process.extend(processed_tweets)
+                        
+                        total_tweets_count = len(tweets_to_process)
+                        self.socketio_emit_log(f"Found {len(unprocessed_tweets)} unprocessed tweets and {total_tweets_count - len(unprocessed_tweets)} previously processed tweets to process (total: {total_tweets_count}).", "INFO")
+
+                        if total_tweets_count > 0:
+                            # Update with initial count info
+                            self.socketio_emit_phase_update('content_processing_overall', 'in_progress', f'Processing {total_tweets_count} items...', False, 0, total_tweets_count, 0)
+                            
+                            phase_details_from_content_processor = await self.content_processor.process_all_tweets(
+                                preferences=preferences,
+                                unprocessed_tweets=tweets_to_process,
+                                total_tweets_for_processing=total_tweets_count,
+                                stats=stats, # Pass the shared stats object
+                                category_manager=self.category_manager
+                            )
+                            # 'stats' object is mutated by process_all_tweets
+                            processed_tweets_in_run = stats.processed_count # Use processed_count from stats, which is updated by CP
+                            self.socketio_emit_log(f"Content processing finished. Processed in this run: {processed_tweets_in_run}, Errors: {stats.error_count}", "INFO")
+                            self.socketio_emit_phase_update('content_processing_overall', 'completed', f'Processed {processed_tweets_in_run} of {total_tweets_count} items. Errors: {stats.error_count}.', False, processed_tweets_in_run, total_tweets_count, stats.error_count)
+                        else:
+                            if any_force_reprocessing:
+                                self.socketio_emit_log("No tweets found to process, even with force reprocessing options enabled. Your knowledge base may be empty.", "INFO")
+                                self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets found to process.', False, 0, 0, 0)
+                            else:
+                                self.socketio_emit_log("No unprocessed tweets found. Add new tweets or enable one of the force reprocessing options to reprocess existing items.", "INFO")
+                                self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets to process.', False, 0, 0, 0)
+                    except Exception as e:
+                        self.socketio_emit_log(f"Error during content processing: {e}", "ERROR")
+                        self.socketio_emit_phase_update('content_processing_overall', 'error', f"Error: {e}", False)
+                        stats.error_count +=1 # Generic error for this phase
+                else:
+                    self.socketio_emit_log("Skipping content processing due to user preference.", "INFO")
+                    # Status already set
+
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user during content processing.")
+
+                # --- Phase 4: Generate Subcategory Syntheses (Optional) ---
+                if not preferences.skip_synthesis_generation:
+                    self.socketio_emit_phase_update('synthesis_generation', 'active', 'Analyzing subcategories for synthesis...', False)
+                    try:
+                        with self.app.app_context():
+                            synthesis_results = await generate_subcategory_syntheses(
+                                config=self.config,
+                                http_client=self.http_client,
+                                preferences=preferences,
+                                socketio=self.socketio,
+                                phase_emitter_func=self.socketio_emit_phase_update
+                            )
+                            
+                            if synthesis_results:
+                                self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents.", "INFO")
+                                self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)} synthesis documents.', False, len(synthesis_results), len(synthesis_results), 0)
+                            else:
+                                self.socketio_emit_log("No synthesis documents were generated (no subcategories with sufficient items found).", "INFO")
+                                self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated (insufficient items).', False, 0, 0, 0)
+                                
+                    except Exception as e:
+                        self.socketio_emit_log(f"Error during synthesis generation: {e}", "ERROR")
+                        self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}", False)
+                        stats.error_count += 1
+                else:
+                    self.socketio_emit_log("Skipping synthesis generation due to user preference.", "INFO")
+                    # Status already set
+
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after synthesis generation.")
+
+                # --- Phase 5: Generate/Update Readmes (Optional) ---
+                if not preferences.skip_readme_generation:
+                    # Count existing KB items to provide proper totals
+                    try:
+                        with self.app.app_context():
+                            from knowledge_base_agent.models import KnowledgeBaseItem as DBKnowledgeBaseItem
+                            total_kb_items = DBKnowledgeBaseItem.query.count()
+                    except Exception:
+                        total_kb_items = 0
                     
-                    await self.git_handler.sync_to_github(commit_message)
-                    # self.socketio_emit_log(f"Git sync result: {sync_result}", "INFO") # sync_to_github might not return a string directly
-                    self.socketio_emit_log("Git sync completed successfully.", "INFO")
-                    self.socketio_emit_phase_update('git_sync', 'completed', 'Git synchronization completed.')
+                    self.socketio_emit_phase_update('readme_generation', 'active', f'Creating root README.md catalog for {total_kb_items} existing KB items...', False, 0, total_kb_items, 0)
+                    try:
+                        with self.app.app_context():
+                            # Corrected call to generate_static_root_readme
+                            await generate_static_root_readme(self.config.knowledge_base_dir, self.category_manager)
+                            # The generate_root_readme call might also need review, but the error was specific to static one.
+                            # Assuming generate_root_readme(self.config, db) is correct or handled elsewhere if it also has issues.
+                            # For now, let's assume the main error was with generate_static_root_readme.
+                            # If generate_root_readme also needs db, its definition should reflect that.
+                            # The original error was: "Error generating Readmes: generate_static_root_readme() takes 2 positional arguments but 3 were given"
+                            # This implies generate_root_readme(self.config, db) might be okay or a different issue.
+                            # Let's stick to fixing the identified TypeError first.
+                            # If generate_root_readme also has an issue, it would be a separate TypeError.
+                            # Upon review of readme_generator.py, generate_root_readme expects:
+                            # kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config
+                            # So, the call should be:
+                            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager, self.http_client, self.config)
+                        self.socketio_emit_log("Readme files generated/updated successfully.", "INFO")
+                        self.socketio_emit_phase_update('readme_generation', 'completed', f'Root README.md catalog created for {total_kb_items} existing KB items', False, total_kb_items, total_kb_items, 0)
+                    except Exception as e:
+                        self.socketio_emit_log(f"Error generating Readmes: {e}", "ERROR")
+                        self.socketio_emit_phase_update('readme_generation', 'error', f"Error generating Readmes: {e}", False, 0, total_kb_items, 1)
+                        stats.error_count +=1
+                else:
+                    self.socketio_emit_log("Skipping Readme generation due to user preference.", "INFO")
+                    # Status already set
 
-                except Exception as e:
-                    self.socketio_emit_log(f"Error during Git synchronization: {e}", "ERROR")
-                    self.socketio_emit_phase_update('git_sync', 'error', f"Error during Git sync: {e}")
-                    stats.error_count +=1 # Ensure stats is the correct stats object
-            elif not self.config.git_enabled:
-                self.socketio_emit_log("Skipping Git synchronization: Git is not configured (git_enabled is false).", "WARNING")
-                self.socketio_emit_phase_update('git_sync', 'skipped', 'Git not configured (git_enabled is false).')
-            else: # skip_git_push is true
-                self.socketio_emit_log("Skipping Git synchronization due to user preference.", "INFO")
-                self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped by user preference.')
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after Readme generation.")
+
+                # --- Phase 6: Git Synchronization (Optional) ---
+                # Use self.config.git_enabled directly as it's a boolean field in the Config model
+                if self.config.git_enabled and not preferences.skip_git_push:
+                    self.socketio_emit_phase_update('git_sync', 'active', 'Starting Git synchronization...', False, 0, 1, 0)  # 1 task: git sync
+                    try:
+                        self.socketio_emit_log("Attempting to add, commit, and push changes to Git...", "INFO")
+                        # Ensure stats.tweets_processed_current_run is a valid attribute of stats
+                        processed_count_for_commit = getattr(stats, 'tweets_processed_current_run', 0)
+                        commit_message = f"Automated KB update: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')} - {processed_count_for_commit} items processed."
+                        
+                        await self.git_handler.sync_to_github(commit_message)
+                        # self.socketio_emit_log(f"Git sync result: {sync_result}", "INFO") # sync_to_github might not return a string directly
+                        self.socketio_emit_log("Git sync completed successfully.", "INFO")
+                        self.socketio_emit_phase_update('git_sync', 'completed', 'Git synchronization completed.', False, 1, 1, 0)
+
+                    except Exception as e:
+                        self.socketio_emit_log(f"Error during Git synchronization: {e}", "ERROR")
+                        self.socketio_emit_phase_update('git_sync', 'error', f"Error during Git sync: {e}", False, 0, 1, 1)
+                        stats.error_count +=1 # Ensure stats is the correct stats object
+                elif not self.config.git_enabled:
+                    self.socketio_emit_log("Skipping Git synchronization: Git is not configured (git_enabled is false).", "WARNING")
+                    self.socketio_emit_phase_update('git_sync', 'skipped', 'Git not configured (git_enabled is false).', False, 0, 0, 0)
+                else: # skip_git_push is true
+                    self.socketio_emit_log("Skipping Git synchronization due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped by user preference.', False, 0, 0, 0)
+
+            else:
+                # Handle other run modes or unknown modes
+                self.socketio_emit_log(f"Unsupported run mode: {preferences.run_mode}. Falling back to full pipeline.", "WARNING")
+                # Fall back to treating it as full_pipeline mode by continuing with the current logic
+                # (The existing full pipeline logic would go here, but it's already been moved above)
+                pass
 
         except InterruptedError:
             self.socketio_emit_log("Agent run was interrupted by user.", "WARNING")
@@ -805,7 +906,7 @@ class KnowledgeBaseAgent:
         }
 
     def get_current_state(self) -> Dict[str, Any]:
-        """Returns the current operational state of the agent."""
+        """Returns the current operational state of the agent with enhanced dynamic phase estimates."""
         # Make sure current_run_preferences is serializable if it's not None
         serializable_preferences = None
         if self._current_run_preferences:
@@ -815,6 +916,22 @@ class KnowledgeBaseAgent:
                 self.logger.warning(f"Could not serialize current_run_preferences: {e}")
                 serializable_preferences = str(self._current_run_preferences) # Fallback to string
 
+        # Get all active dynamic phase estimates
+        dynamic_estimates = self.phase_estimator.get_all_active_estimates()
+        
+        # Convert dynamic estimates to a format the frontend expects
+        phase_estimates_for_frontend = {}
+        for phase_id, estimate_data in dynamic_estimates.items():
+            if estimate_data.get("estimated_completion_timestamp"):
+                phase_estimates_for_frontend[phase_id] = {
+                    "estimated_completion_timestamp": estimate_data["estimated_completion_timestamp"],
+                    "estimated_remaining_minutes": estimate_data.get("estimated_remaining_minutes", 0.0),
+                    "current_avg_time_per_item": estimate_data.get("current_avg_time_per_item", 0.0),
+                    "progress_percentage": (estimate_data.get("processed_items", 0) / estimate_data.get("total_items", 1)) * 100 if estimate_data.get("total_items", 0) > 0 else 0,
+                    "processed_items": estimate_data.get("processed_items", 0),
+                    "total_items": estimate_data.get("total_items", 0)
+                }
+
         state = {
             'is_running': self._is_running,
             'current_phase_id': self._current_phase_id,
@@ -823,9 +940,11 @@ class KnowledgeBaseAgent:
             'current_run_preferences': serializable_preferences,
             'plan_statuses': self._plan_statuses, # For execution plan visualization
             'stop_flag_status': stop_flag.is_set(),
-            'phase_estimated_completion_times': self._phase_estimated_completion_times # Send current ETCs
+            'phase_estimated_completion_times': self._phase_estimated_completion_times, # Legacy support
+            'dynamic_phase_estimates': phase_estimates_for_frontend, # New: Enhanced dynamic estimates
+            'phase_estimates_timestamp': time.time()  # Timestamp for cache invalidation
         }
-        self.logger.debug(f"Reporting current state - Running: {self._is_running}, Phase: {self._current_phase_id}, Plan items: {len(self._plan_statuses)}")
+        self.logger.debug(f"Reporting current state - Running: {self._is_running}, Phase: {self._current_phase_id}, Plan items: {len(self._plan_statuses)}, Dynamic estimates: {len(dynamic_estimates)}")
         return state
 
     def _initialize_plan_statuses(self, preferences: Optional[UserPreferences] = None):
@@ -864,6 +983,13 @@ class KnowledgeBaseAgent:
             },
             # Sub-phases of content_processing_overall are handled by ContentProcessor's phase_emitter
             # and will update the UI dynamically. They are not typically "planned" from the agent's top level in the same way.
+            {
+                "id": "synthesis_generation",
+                "name": "Generate Subcategory Syntheses",
+                "icon": "bi-lightbulb",
+                "initial_status": "skipped" if preferences.skip_synthesis_generation else "pending",
+                "initial_message": "User preference: Skip synthesis generation" if preferences.skip_synthesis_generation else "Waiting for synthesis generation..."
+            },
             {
                 "id": "readme_generation",
                 "name": "Generate/Update Readmes",

@@ -14,6 +14,20 @@ import shutil
 from knowledge_base_agent.prompts import LLMPrompts, ReasoningPrompts
 
 
+async def write_readme_file(kb_dir: Path, content: str) -> None:
+    """Write README content to the knowledge base directory."""
+    readme_path = kb_dir / "README.md"
+    
+    # Ensure the directory exists
+    kb_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Write the content
+    async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
+        await f.write(content)
+    
+    logging.info(f"Successfully wrote README.md to {readme_path}")
+
+
 async def generate_root_readme(
     kb_dir: Path,
     category_manager: CategoryManager,
@@ -21,7 +35,10 @@ async def generate_root_readme(
     config: Config,
 ) -> None:
     """Generate a hybrid README.md using both static generation and LLM enhancement."""
-    logging.info(f"Generating root README for knowledge base at {kb_dir}...")
+    logging.info(f"Creating root README.md catalog for knowledge base at {kb_dir}...")
+    
+    # Set a large timeout for this operation since it may involve LLM calls
+    operation_timeout = 300
     try:
         kb_items = []
         tweet_cache = {}
@@ -158,7 +175,7 @@ async def generate_root_readme(
                     continue
 
         logging.info(
-            f"Validated {len(kb_items)} KB items (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)]) if tweet_cache else 0})"
+            f"Cataloged {len(kb_items)} existing KB items for README generation (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)]) if tweet_cache else 0})"
         )
 
         # Log item names for debugging
@@ -440,7 +457,7 @@ async def generate_static_root_readme(
     kb_dir: Path, category_manager: CategoryManager
 ) -> str:
     """Fallback method to generate a static root README.md with enhanced styling."""
-    logging.info(f"Generating static root README for {kb_dir}...")
+    logging.info(f"Creating static root README.md catalog for {kb_dir}...")
     kb_items = []
 
     for root, dirs, files in os.walk(kb_dir):
@@ -526,7 +543,7 @@ async def generate_static_root_readme(
                         }
                     )
 
-    logging.info(f"Found {len(kb_items)} KB items for static README")
+    logging.info(f"Found {len(kb_items)} existing KB items to catalog in static README")
 
     categories = {}
     for item in kb_items:
