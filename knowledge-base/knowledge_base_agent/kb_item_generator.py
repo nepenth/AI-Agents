@@ -304,39 +304,65 @@ def _convert_kb_json_to_markdown(kb_json: Dict[str, Any]) -> str:
         lines.append("")
 
     for section in kb_json.get("sections", []):
-        heading_val = section.get("heading", "Section")
-        heading = _ensure_string_from_value(heading_val)
-        lines.append(f"## {heading}")
-        lines.append("")
-
-        for paragraph_val in section.get("content_paragraphs", []):
-            paragraph = _ensure_string_from_value(paragraph_val)
-            lines.append(paragraph)
+        try:
+            # Validate section is a dictionary
+            if not isinstance(section, dict):
+                logging.warning(f"Unexpected section type: {type(section)} - {section}, skipping")
+                continue
+                
+            heading_val = section.get("heading", "Section")
+            heading = _ensure_string_from_value(heading_val)
+            lines.append(f"## {heading}")
             lines.append("")
 
-        for code_block in section.get("code_blocks", []):
-            lang = _ensure_string_from_value(code_block.get("language", "plain_text"))
-            code = _ensure_string_from_value(code_block.get("code", ""))
-            explanation_val = code_block.get("explanation", "")
-            explanation = _ensure_string_from_value(explanation_val)
-            if explanation:
-                lines.append(f"_{explanation}_") 
+            for paragraph_val in section.get("content_paragraphs", []):
+                paragraph = _ensure_string_from_value(paragraph_val)
+                lines.append(paragraph)
                 lines.append("")
-            lines.append(f"```{lang}\n{code}\n```")
-            lines.append("")
 
-        for list_data in section.get("lists", []):
-            list_type = _ensure_string_from_value(list_data.get("type", "bulleted"))
-            prefix = "-" if list_type == "bulleted" else "1."
-            for item_val in list_data.get("items", []):
-                item_text = _ensure_string_from_value(item_val)
-                lines.append(f"{prefix} {item_text}")
-            lines.append("")
-        
-        for note_val in section.get("notes_or_tips", []):
-            note = _ensure_string_from_value(note_val)
-            lines.append(f"> **Note/Tip:** {note}") 
-            lines.append("")
+            for code_block in section.get("code_blocks", []):
+                if not isinstance(code_block, dict):
+                    logging.warning(f"Unexpected code_block type: {type(code_block)} - {code_block}, skipping")
+                    continue
+                    
+                lang = _ensure_string_from_value(code_block.get("language", "plain_text"))
+                code = _ensure_string_from_value(code_block.get("code", ""))
+                explanation_val = code_block.get("explanation", "")
+                explanation = _ensure_string_from_value(explanation_val)
+                if explanation:
+                    lines.append(f"_{explanation}_") 
+                    lines.append("")
+                lines.append(f"```{lang}\n{code}\n```")
+                lines.append("")
+
+            for list_data in section.get("lists", []):
+                # Handle case where list_data might be a string instead of a dict
+                if isinstance(list_data, str):
+                    # If it's just a string, treat it as a simple bulleted list item
+                    lines.append(f"- {list_data}")
+                    lines.append("")
+                    continue
+                elif not isinstance(list_data, dict):
+                    # Skip if it's neither string nor dict
+                    logging.warning(f"Unexpected list_data type in section: {type(list_data)} - {list_data}")
+                    continue
+                
+                list_type = _ensure_string_from_value(list_data.get("type", "bulleted"))
+                prefix = "-" if list_type == "bulleted" else "1."
+                for item_val in list_data.get("items", []):
+                    item_text = _ensure_string_from_value(item_val)
+                    lines.append(f"{prefix} {item_text}")
+                lines.append("")
+            
+            for note_val in section.get("notes_or_tips", []):
+                note = _ensure_string_from_value(note_val)
+                lines.append(f"> **Note/Tip:** {note}") 
+                lines.append("")
+                
+        except Exception as e:
+            logging.error(f"Error processing section {section.get('heading', 'Unknown')}: {e}")
+            # Continue processing other sections
+            continue
 
     takeaways_list = kb_json.get("key_takeaways", [])
     if takeaways_list: # Ensure it's actually a list before iterating
@@ -365,9 +391,16 @@ def _convert_kb_json_to_markdown(kb_json: Dict[str, Any]) -> str:
                 text = _ensure_string_from_value(text_val)
                 url = _ensure_string_from_value(url_val)
                 lines.append(f"- [{text}]({url})")
-            else: # Handle case where ref might not be a dict
+            elif isinstance(ref, str): # Handle case where ref is just a string (URL or text)
                 ref_str = _ensure_string_from_value(ref)
-                lines.append(f"- {ref_str}") # Fallback to just listing it
+                if ref_str.startswith(('http://', 'https://')):
+                    lines.append(f"- [{ref_str}]({ref_str})")
+                else:
+                    lines.append(f"- {ref_str}")
+            else: # Handle any other unexpected types
+                logging.warning(f"Unexpected reference type in external_references: {type(ref)} - {ref}")
+                ref_str = str(ref)
+                lines.append(f"- {ref_str}")
         lines.append("")
         
     return "\n".join(lines)
