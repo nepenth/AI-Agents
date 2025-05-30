@@ -176,14 +176,14 @@ class StreamlinedContentProcessor:
         if plan.should_skip_phase:
             self.socketio_emit_log(f"Skipping cache phase - all {plan.already_complete_count} tweets already cached", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_caching', 'skipped', 
+                self.phase_emitter_func('subphase_cp_cache', 'skipped', 
                                        f'All {plan.already_complete_count} tweets already cached')
             return
 
         self.socketio_emit_log(f"Cache phase: processing {plan.needs_processing_count} tweets, {plan.already_complete_count} already complete", "INFO")
         
         if self.phase_emitter_func:
-            self.phase_emitter_func('subphase_cp_caching', 'active', 
+            self.phase_emitter_func('subphase_cp_cache', 'active', 
                                    f'Caching {plan.needs_processing_count} tweets...')
 
         try:
@@ -199,12 +199,12 @@ class StreamlinedContentProcessor:
 
             self.socketio_emit_log(f"✅ Tweet caching completed for {plan.needs_processing_count} tweets", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_caching', 'completed', 
+                self.phase_emitter_func('subphase_cp_cache', 'completed', 
                                        f'Cached {plan.needs_processing_count} tweets')
         except Exception as e:
             self.socketio_emit_log(f"Error in Tweet Caching: {e}", "ERROR")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_caching', 'error', f'Caching failed: {e}')
+                self.phase_emitter_func('subphase_cp_cache', 'error', f'Caching failed: {e}')
             stats.error_count += 1
 
     async def _execute_media_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], preferences, stats):
