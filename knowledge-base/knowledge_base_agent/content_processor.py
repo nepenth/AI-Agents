@@ -409,6 +409,18 @@ class StreamlinedContentProcessor:
                 tweet_data = tweets_data_map[tweet_id]
                 self.socketio_emit_log(f"Generating KB item for tweet {tweet_id} ({i+1}/{plan.needs_processing_count})", "DEBUG")
                 
+                # Update progress when starting to process this item
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'subphase_cp_kbitem', 
+                        'active', 
+                        f'Generating KB item for tweet {tweet_id}...',
+                        False,
+                        i,  # Current index shows item being processed (0-based)
+                        plan.needs_processing_count,
+                        stats.error_count
+                    )
+                
                 # Create KB item object
                 kb_item_obj: KnowledgeBaseItem = await create_knowledge_base_item(
                     tweet_id=tweet_id, tweet_data=tweet_data, config=self.config,
@@ -431,6 +443,18 @@ class StreamlinedContentProcessor:
                 
                 await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                 items_successfully_processed += 1
+                
+                # Update progress when completing this item
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'subphase_cp_kbitem', 
+                        'active', 
+                        f'Completed KB item for tweet {tweet_id}',
+                        False,
+                        i + 1,  # Completed items count
+                        plan.needs_processing_count,
+                        stats.error_count
+                    )
                 
                 self.socketio_emit_log(f"KB item generation complete for {tweet_id}. Path: {tweet_data['kb_item_path']}", "INFO")
                 
@@ -502,10 +526,34 @@ class StreamlinedContentProcessor:
                 tweet_data = tweets_data_map[tweet_id]
                 self.socketio_emit_log(f"Syncing tweet {tweet_id} to database ({i+1}/{plan.needs_processing_count})", "DEBUG")
                 
+                # Update progress when starting to process this item
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'subphase_cp_db', 
+                        'active', 
+                        f'Syncing tweet {tweet_id} to database...',
+                        False,
+                        i,  # Current index shows item being processed (0-based)
+                        plan.needs_processing_count,
+                        stats.error_count
+                    )
+                
                 await self._sync_to_db(tweet_id, tweet_data, category_manager)
                 tweet_data['db_synced'] = True
                 await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                 items_successfully_processed += 1
+                
+                # Update progress when completing this item
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'subphase_cp_db', 
+                        'active', 
+                        f'Completed database sync for tweet {tweet_id}',
+                        False,
+                        i + 1,  # Completed items count
+                        plan.needs_processing_count,
+                        stats.error_count
+                    )
                 
                 self.socketio_emit_log(f"Database sync complete for {tweet_id}", "INFO")
                 
