@@ -72,3 +72,9 @@ knowledge_base_agent/instance/knowledge_base_agent.db
 
 #temporary backups
 *bak
+
+# Video FIles
+.mp4
+.avi
+.mkv
+.mov

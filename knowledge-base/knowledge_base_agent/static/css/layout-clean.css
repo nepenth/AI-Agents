@@ -220,6 +220,11 @@
     border-left: 4px solid #ffc107;
 }
 
+/* Make the text of the status message itself orange for skipped items */
+.status-skipped .phase-status {
+    color: #ffc107 !important; /* Matches the border color of skipped items, added !important */
+}
+
 .status-error {
     background-color: #f8d7da;
     border-left: 4px solid #dc3545;
@@ -235,7 +240,32 @@
 .gpu-frequency-bar {
     height: 6px;
     border-radius: 3px;
-    transition: all 0.3s ease;
+}
+
+/* GPU card specific styling for better spacing and alignment */
+.gpu-status-card .card-body {
+    padding: 0.75rem;
+}
+
+.gpu-status-card .progress {
+    margin-bottom: 0.25rem;
+}
+
+.gpu-status-card .d-flex.justify-content-between.align-items-center {
+    line-height: 1.2; /* Adjust line height for compact look */
+}
+
+.gpu-status-card .small.fw-medium, .gpu-status-card .small.fw-bold {
+    font-size: 0.8rem; /* Slightly smaller font for compact display */
+}
+
+.execution-plan-panel .phase-status.small {
+    font-size: 0.8em; /* Ensure sub-phase status text is smaller */
+}
+
+.optional-phase-info {
+    font-size: 0.8em;
+    margin-left: 5px;
 }
 
 /* Additional Bootstrap color class */
@@ -252,11 +282,6 @@
 .status-completed .phase-status {
     color: #388e3c;
     font-weight: 600;
-}
-
-.status-skipped .phase-status {
-    color: #f57c00;
-    font-weight: 500;
 }
 
 .status-error .phase-status {

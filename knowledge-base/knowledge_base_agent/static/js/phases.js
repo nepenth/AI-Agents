@@ -20,6 +20,14 @@ class PhaseManager {
             cleanup: 'normal'
         };
 
+        this.subPhaseIds = [
+            'subphase_cp_cache',
+            'subphase_cp_media',
+            'subphase_cp_llm',
+            'subphase_cp_kbitem',
+            'subphase_cp_db'
+        ];
+
         this.phaseStateMapping = {
             initialization: {
                 normal: { label: 'Will Run', class: 'status-will-run phase-always-run' },
@@ -109,10 +117,34 @@ class PhaseManager {
         
         this.phaseStates[phaseId] = newState;
         phaseElement.setAttribute('data-phase-state', newState);
-        
         this.updatePhaseVisualState(phaseElement, phaseId, newState);
-        
         console.log(`PhaseManager: Phase ${phaseId} state changed to: ${newState}`);
+
+        // If content_processing_overall is changed, update its sub-phases
+        if (phaseId === 'content_processing_overall') {
+            const subPhaseNewState = (newState === 'skip') ? 'skip' : 'normal'; // Or 'force' if main is forced?
+            this.subPhaseIds.forEach(subId => {
+                const subPhaseElement = document.querySelector(`[data-phase-id="${subId}"]`);
+                if (subPhaseElement) {
+                    this.phaseStates[subId] = subPhaseNewState;
+                    subPhaseElement.setAttribute('data-phase-state', subPhaseNewState);
+                    this.updatePhaseVisualState(subPhaseElement, subId, subPhaseNewState);
+                    console.log(`PhaseManager: Sub-phase ${subId} state changed to: ${subPhaseNewState} due to parent.`);
+                }
+            });
+        }
+        // If a sub-phase is changed and parent is 'skip', revert parent to 'normal'
+        else if (this.subPhaseIds.includes(phaseId) && this.phaseStates.content_processing_overall === 'skip'){
+            if (newState !== 'skip') { // if sub-phase is set to normal or force
+                const parentPhaseElement = document.querySelector(`[data-phase-id="content_processing_overall"]`);
+                if (parentPhaseElement) {
+                    this.phaseStates.content_processing_overall = 'normal';
+                    parentPhaseElement.setAttribute('data-phase-state', 'normal');
+                    this.updatePhaseVisualState(parentPhaseElement, 'content_processing_overall', 'normal');
+                    console.log(`PhaseManager: Parent phase content_processing_overall set to normal due to sub-phase ${phaseId} change.`);
+                }
+            }
+        }
     }
 
     /**
@@ -186,7 +218,7 @@ class PhaseManager {
             'subphase_cp_kbitem': 'KB Item Generation',
             'subphase_cp_db': 'Database Sync',
             'synthesis_generation': 'Synthesis Generation',
-            'readme_generation': 'README Generation',
+            'readme_generation': 'Root README Generation',
             'git_sync': 'Git Synchronization',
             'cleanup': 'Cleanup'
         };

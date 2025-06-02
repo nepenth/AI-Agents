@@ -381,7 +381,8 @@ class KnowledgeBaseAgent:
                     self.socketio_emit_log(f"Invalid tweet URL in bookmark: {bookmark_url}", "WARNING")
                     continue
                 
-                is_processed = await self.state_manager.is_tweet_processed(tweet_id)
+                processing_state = await self.state_manager.get_processing_state(tweet_id)
+                is_processed = processing_state.get("fully_processed", False)
                 in_unprocessed_queue = tweet_id in await self.state_manager.get_unprocessed_tweets()
 
                 if not is_processed and not in_unprocessed_queue:
@@ -454,7 +455,8 @@ class KnowledgeBaseAgent:
                     continue
                 
                 # Check if already processed or in unprocessed queue
-                is_processed = await self.state_manager.is_tweet_processed(tweet_id)
+                processing_state = await self.state_manager.get_processing_state(tweet_id)
+                is_processed = processing_state.get("fully_processed", False)
                 in_unprocessed_queue = tweet_id in await self.state_manager.get_unprocessed_tweets() # Assuming this returns a set/list
 
                 if not is_processed and not in_unprocessed_queue:
@@ -773,30 +775,44 @@ class KnowledgeBaseAgent:
                             from knowledge_base_agent.models import KnowledgeBaseItem as DBKnowledgeBaseItem
                             total_kb_items = DBKnowledgeBaseItem.query.count()
                     except Exception:
-                        total_kb_items = 0
+                        total_kb_items = 0 # Default if DB query fails
                     
-                    self.socketio_emit_phase_update('readme_generation', 'active', f'Creating root README.md catalog for {total_kb_items} existing KB items...', False, 0, total_kb_items, 0)
+                    # For README generation, the number of "items" to process is 1 (the single root README file)
+                    # The total_kb_items is context for the message, not the count of work items for this specific phase.
+                    self.socketio_emit_phase_update(
+                        'readme_generation', 
+                        'active', 
+                        f'Root README Generation - Creating root README.md catalog based on {total_kb_items} existing KB items...',
+                        False, # is_sub_step_update
+                        0,     # processed_count (starts at 0 for 1 item)
+                        1,     # total_count (1 README file to generate)
+                        0      # error_count
+                    )
                     try:
                         with self.app.app_context():
-                            # Corrected call to generate_static_root_readme
-                            await generate_static_root_readme(self.config.knowledge_base_dir, self.category_manager)
-                            # The generate_root_readme call might also need review, but the error was specific to static one.
-                            # Assuming generate_root_readme(self.config, db) is correct or handled elsewhere if it also has issues.
-                            # For now, let's assume the main error was with generate_static_root_readme.
-                            # If generate_root_readme also needs db, its definition should reflect that.
-                            # The original error was: "Error generating Readmes: generate_static_root_readme() takes 2 positional arguments but 3 were given"
-                            # This implies generate_root_readme(self.config, db) might be okay or a different issue.
-                            # Let's stick to fixing the identified TypeError first.
-                            # If generate_root_readme also has an issue, it would be a separate TypeError.
-                            # Upon review of readme_generator.py, generate_root_readme expects:
-                            # kb_dir: Path, category_manager: CategoryManager, http_client: HTTPClient, config: Config
-                            # So, the call should be:
+                            # ... (existing readme generation calls)
                             await generate_root_readme(self.config.knowledge_base_dir, self.category_manager, self.http_client, self.config)
                         self.socketio_emit_log("Readme files generated/updated successfully.", "INFO")
-                        self.socketio_emit_phase_update('readme_generation', 'completed', f'Root README.md catalog created for {total_kb_items} existing KB items', False, total_kb_items, total_kb_items, 0)
+                        self.socketio_emit_phase_update(
+                            'readme_generation', 
+                            'completed', 
+                            f'Root README.md catalog created based on {total_kb_items} existing KB items',
+                            False, # is_sub_step_update
+                            1,     # processed_count (1 item completed)
+                            1,     # total_count (1 item total)
+                            0      # error_count
+                        )
                     except Exception as e:
                         self.socketio_emit_log(f"Error generating Readmes: {e}", "ERROR")
-                        self.socketio_emit_phase_update('readme_generation', 'error', f"Error generating Readmes: {e}", False, 0, total_kb_items, 1)
+                        self.socketio_emit_phase_update(
+                            'readme_generation', 
+                            'error', 
+                            f'Error generating Readmes: {e}',
+                            False, # is_sub_step_update
+                            0,     # processed_count
+                            1,     # total_count
+                            1      # error_count
+                        )
                         stats.error_count +=1
                 else:
                     self.socketio_emit_log("Skipping Readme generation due to user preference.", "INFO")
@@ -805,6 +821,7 @@ class KnowledgeBaseAgent:
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after Readme generation.")
 
                 # --- Phase 6: Git Synchronization (Optional) ---
+
                 # Use self.config.git_enabled directly as it's a boolean field in the Config model
                 if self.config.git_enabled and not preferences.skip_git_push:
                     self.socketio_emit_phase_update('git_sync', 'active', 'Starting Git synchronization...', False, 0, 1, 0)  # 1 task: git sync
@@ -814,8 +831,8 @@ class KnowledgeBaseAgent:
                         processed_count_for_commit = getattr(stats, 'tweets_processed_current_run', 0)
                         commit_message = f"Automated KB update: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')} - {processed_count_for_commit} items processed."
                         
-                        await self.git_handler.sync_to_github(commit_message)
-                        # self.socketio_emit_log(f"Git sync result: {sync_result}", "INFO") # sync_to_github might not return a string directly
+                        self.git_handler.sync_to_github(commit_message) # Changed to sync call
+                        
                         self.socketio_emit_log("Git sync completed successfully.", "INFO")
                         self.socketio_emit_phase_update('git_sync', 'completed', 'Git synchronization completed.', False, 1, 1, 0)
 
@@ -896,7 +913,7 @@ class KnowledgeBaseAgent:
                 self.socketio.emit('agent_run_completed', completion_data)
             
             if self.http_client:
-                await self.http_client.close()
+                await self.http_client.close() # This remains async as http_client.close is async
             
         return {
             "status": "completed" if stats.error_count == 0 else "completed_with_errors",
@@ -970,7 +987,7 @@ class KnowledgeBaseAgent:
             {
                 "id": "fetch_bookmarks",
                 "name": "Fetch New Bookmarks",
-                "icon": "bi-cloud-download",
+                "icon": "bi-bookmark-star",
                 "initial_status": "skipped" if preferences.skip_fetch_bookmarks else "pending",
                 "initial_message": "User preference: Skip fetching new bookmarks" if preferences.skip_fetch_bookmarks else "Waiting to fetch new bookmarks..."
             },
@@ -992,10 +1009,10 @@ class KnowledgeBaseAgent:
             },
             {
                 "id": "readme_generation",
-                "name": "Generate/Update Readmes",
+                "name": "Root README Generation",
                 "icon": "bi-file-earmark-text",
                 "initial_status": "skipped" if preferences.skip_readme_generation else "pending",
-                "initial_message": "User preference: Skip Readme generation" if preferences.skip_readme_generation else "Waiting for Readme generation..."
+                "initial_message": "User preference: Skip Readme generation" if preferences.skip_readme_generation else "Waiting for Root README generation..."
             },
             {
                 "id": "git_sync",
@@ -1030,7 +1047,8 @@ class KnowledgeBaseAgent:
                         self.socketio_emit_log(f"Failed to fetch and cache tweet {tweet_id} for single processing.", "ERROR")
                         raise ContentProcessingError(f"Failed to fetch/cache tweet {tweet_id}.")
 
-                is_processed = await self.state_manager.is_tweet_processed(tweet_id)
+                processing_state = await self.state_manager.get_processing_state(tweet_id)
+                is_processed = processing_state.get("fully_processed", False)
                 unprocessed_queue = await self.state_manager.get_unprocessed_tweets()
                 
                 if not is_processed and tweet_id not in unprocessed_queue:
@@ -1061,7 +1079,7 @@ class KnowledgeBaseAgent:
                         await self.regenerate_readme()
                     if effective_prefs.git_push and self.config.git_enabled:
                         self.socketio_emit_log(f"Attempting Git sync after single tweet processing for {tweet_id}...", "INFO")
-                        await self.git_handler.sync_to_github(f"Update/add KB item for tweet {tweet_id}")
+                        self.git_handler.sync_to_github(f"Update/add KB item for tweet {tweet_id}") # Changed to sync call
                         self.socketio_emit_log(f"Git sync successful for tweet {tweet_id}.", "INFO")
                 else:
                     self.socketio_emit_log(f"Single tweet processing for {tweet_id} completed, but KB item was not reported as created/updated by content_processor. Check logs.", "ERROR")
@@ -1108,7 +1126,7 @@ class KnowledgeBaseAgent:
                 )
                 async with aiofiles.open(readme_path, 'w', encoding='utf-8') as f:
                     await f.write(content)
-                logging.info("Generated static README as fallback")
+                logging.info("Generated static README as fallback.")
                 self.socketio_emit_log("Static README generated as fallback.", "INFO")
                 
         except Exception as e:

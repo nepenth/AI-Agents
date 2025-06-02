@@ -16,7 +16,7 @@ from pathlib import Path
 from .config import Config
 from .http_client import HTTPClient
 from .models import KnowledgeBaseItem, SubcategorySynthesis, db
-from .types import SubcategorySynthesis
+from .types import SubcategorySynthesis as SubcategorySynthesisType
 from .prompts import LLMPrompts, ReasoningPrompts, UserPreferences
 from .file_utils import async_write_text
 from .naming_utils import normalize_name_for_filesystem
@@ -35,7 +35,7 @@ class SynthesisGenerator:
         preferences: UserPreferences,
         socketio=None,
         phase_emitter_func=None
-    ) -> List[SubcategorySynthesis]:
+    ) -> List[SubcategorySynthesisType]:
         """Generate synthesis documents for all subcategories with knowledge base items."""
         
         self.logger.info("Starting subcategory synthesis generation")
@@ -123,7 +123,7 @@ class SynthesisGenerator:
         main_category: str,
         sub_category: str,
         preferences: UserPreferences
-    ) -> Optional[SubcategorySynthesis]:
+    ) -> Optional[SubcategorySynthesisType]:
         """Create a comprehensive synthesis document for a subcategory."""
         
         try:
@@ -330,7 +330,7 @@ class SynthesisGenerator:
         synthesis_json: str,
         synthesis_markdown: str,
         item_count: int
-    ) -> Optional[SubcategorySynthesis]:
+    ) -> Optional[SubcategorySynthesisType]:
         """Write synthesis document to filesystem and database."""
         
         try:
@@ -392,7 +392,7 @@ class SynthesisGenerator:
             db.session.commit()
             
             # Create dataclass object
-            synthesis_obj = SubcategorySynthesis(
+            synthesis_obj = SubcategorySynthesisType(
                 main_category=main_category,
                 sub_category=sub_category,
                 synthesis_title=synthesis_title,
@@ -419,7 +419,7 @@ async def generate_subcategory_syntheses(
     preferences: UserPreferences,
     socketio=None,
     phase_emitter_func=None
-) -> List[SubcategorySynthesis]:
+) -> List[SubcategorySynthesisType]:
     """
     Convenience function to generate synthesis documents for all subcategories.
     
