@@ -35,34 +35,62 @@ class SynthesisGenerator:
         preferences: UserPreferences,
         socketio=None,
         phase_emitter_func=None
-    ) -> List[SubcategorySynthesisType]:
-        """Generate synthesis documents for all subcategories with knowledge base items."""
-        
+    ) -> Tuple[List[SubcategorySynthesisType], int, int]:
+        """Generate synthesis documents for all subcategories with knowledge base items.
+        Returns a list of generated synthesis objects, the count of eligible subcategories, and errors.
+        """
         self.logger.info("Starting subcategory synthesis generation")
+
+        subcategories_with_counts = self._get_subcategories_with_items(preferences.synthesis_min_items)
+        num_eligible_subcategories = len(subcategories_with_counts)
         
+        # Emit initial main phase update
         if phase_emitter_func:
-            phase_emitter_func("synthesis_generation", "Analyzing subcategories for synthesis", "in_progress")
-        
-        # Get all subcategories with items
-        subcategories = self._get_subcategories_with_items(preferences.synthesis_min_items)
-        
-        if not subcategories:
+            if num_eligible_subcategories > 0:
+                phase_emitter_func(
+                    "synthesis_generation",
+                    f"Processing {num_eligible_subcategories} subcategories for synthesis.",
+                    "in_progress",
+                    is_sub_step_update=False,
+                    processed_count=0,
+                    total_count=num_eligible_subcategories,
+                    error_count=0
+                )
+            else:
+                phase_emitter_func(
+                    "synthesis_generation",
+                    "No subcategories eligible for synthesis.",
+                    "completed", 
+                    is_sub_step_update=False,
+                    processed_count=0,
+                    total_count=0,
+                    error_count=0
+                )
+
+        if not subcategories_with_counts:
             self.logger.info("No subcategories found with sufficient items for synthesis")
-            return []
-        
-        self.logger.info(f"Found {len(subcategories)} subcategories eligible for synthesis")
+            return [], 0, 0 # MODIFIED: return eligible_count and error_count
+
+        self.logger.info(f"Found {num_eligible_subcategories} subcategories eligible for synthesis")
         
         synthesis_results = []
+        processed_success_count = 0
+        error_count_internal = 0
         
-        for i, (main_category, sub_category, item_count) in enumerate(subcategories):
+        for i, (main_category, sub_category, item_count) in enumerate(subcategories_with_counts):
+            # Consider adding stop_flag check here if it becomes available globally or via preferences
             try:
                 self.logger.info(f"Generating synthesis for {main_category}/{sub_category} ({item_count} items)")
                 
                 if phase_emitter_func:
                     phase_emitter_func(
                         "synthesis_generation", 
-                        f"Generating synthesis for {main_category}/{sub_category} ({i+1}/{len(subcategories)})",
-                        "in_progress"
+                        f"Synthesizing: {main_category}/{sub_category} ({i+1}/{num_eligible_subcategories})",
+                        "in_progress", # Keep main phase 'in_progress'
+                        is_sub_step_update=True, # Mark as sub-step
+                        processed_count=processed_success_count,
+                        total_count=num_eligible_subcategories,
+                        error_count=error_count_internal
                     )
                 
                 # Check if synthesis already exists and force regeneration is not set
@@ -86,20 +114,30 @@ class SynthesisGenerator:
                 if synthesis:
                     synthesis_results.append(synthesis)
                     self.logger.info(f"Successfully generated synthesis for {main_category}/{sub_category}")
+                    processed_success_count +=1
+                else: # _create_synthesis_document returned None
+                    error_count_internal += 1
                 
             except Exception as e:
                 self.logger.error(f"Error generating synthesis for {main_category}/{sub_category}: {e}", exc_info=True)
+                error_count_internal += 1
+                if phase_emitter_func:
+                    phase_emitter_func(
+                        "synthesis_generation",
+                        f"Error for {main_category}/{sub_category}: {str(e)[:100]}...",
+                        "in_progress", # Keep main phase 'in_progress'
+                        is_sub_step_update=True,
+                        processed_count=processed_success_count,
+                        total_count=num_eligible_subcategories,
+                        error_count=error_count_internal
+                    )
                 continue
         
-        if phase_emitter_func:
-            phase_emitter_func(
-                "synthesis_generation", 
-                f"Completed synthesis generation for {len(synthesis_results)} subcategories",
-                "completed"
-            )
+        # Agent.py will emit the final 'completed' or 'error' status for the main phase
+        # This function now just returns the detailed counts.
         
-        self.logger.info(f"Synthesis generation completed. Generated {len(synthesis_results)} synthesis documents")
-        return synthesis_results
+        self.logger.info(f"Synthesis generation sub-process finished. Success: {len(synthesis_results)}, Eligible: {num_eligible_subcategories}, Errors: {error_count_internal}")
+        return synthesis_results, num_eligible_subcategories, error_count_internal # MODIFIED: return counts
     
     def _get_subcategories_with_items(self, min_items: int) -> List[Tuple[str, str, int]]:
         """Get all subcategories that have at least min_items knowledge base items."""
@@ -214,28 +252,47 @@ class SynthesisGenerator:
         """Generate synthesis JSON using LLM."""
         
         try:
-            if self.config.text_model_thinking:
-                # Use reasoning model with chat interface
+            # Determine the base model for synthesis (defaults to text_model if not set in config)
+            base_synthesis_model_name = self.config.synthesis_model 
+
+            model_name_to_use = base_synthesis_model_name
+            if self.config.enable_synthesis_thinking: # Use the new boolean flag for synthesis
+                if isinstance(self.config.synthesis_thinking_model_name, str) and self.config.synthesis_thinking_model_name:
+                    model_name_to_use = self.config.synthesis_thinking_model_name # Use the new string field for synthesis thinking model name
+                    self.logger.info(f"Using dedicated synthesis thinking model: {model_name_to_use}")
+                else:
+                    self.logger.warning(
+                        "Config 'enable_synthesis_thinking' is True, but 'synthesis_thinking_model_name' is not set or invalid. "
+                        f"Falling back to base synthesis model: {base_synthesis_model_name} for JSON generation."
+                    )
+            else:
+                self.logger.info(f"Using standard synthesis model: {model_name_to_use}")
+            
+            if not isinstance(model_name_to_use, str) or not model_name_to_use:
+                 self.logger.error(f"No valid LLM model name configured for synthesis JSON generation. Final attempted model: '{model_name_to_use}'")
+                 return None
+
+            # self.config.text_model_thinking determines API style (chat vs. generate)
+            if self.config.text_model_thinking: 
                 messages = [
                     ReasoningPrompts.get_system_message(),
                     ReasoningPrompts.get_synthesis_generation_prompt(
                         main_category, sub_category, kb_items_content, synthesis_mode
                     )
                 ]
-                
+                self.logger.debug(f"Attempting synthesis JSON generation with model {model_name_to_use} via /chat endpoint.")
                 response = await self.http_client.ollama_chat(
-                    model=self.config.categorization_model_thinking or self.config.categorization_model,
+                    model=model_name_to_use, 
                     messages=messages,
                     timeout=self.config.content_generation_timeout
                 )
             else:
-                # Use standard model
                 prompt = LLMPrompts.get_synthesis_generation_prompt_standard(
                     main_category, sub_category, kb_items_content, synthesis_mode
                 )
-                
+                self.logger.debug(f"Attempting synthesis JSON generation with model {model_name_to_use} via /generate endpoint.")
                 response = await self.http_client.ollama_generate(
-                    model=self.config.categorization_model,
+                    model=model_name_to_use, 
                     prompt=prompt,
                     timeout=self.config.content_generation_timeout
                 )
@@ -287,28 +344,47 @@ class SynthesisGenerator:
         """Generate synthesis markdown from JSON."""
         
         try:
+            # Determine the base model for synthesis (defaults to text_model if not set in config)
+            base_synthesis_model_name = self.config.synthesis_model
+
+            model_name_to_use = base_synthesis_model_name
+            if self.config.enable_synthesis_thinking: # Use the new boolean flag for synthesis
+                if isinstance(self.config.synthesis_thinking_model_name, str) and self.config.synthesis_thinking_model_name:
+                    model_name_to_use = self.config.synthesis_thinking_model_name # Use the new string field for synthesis thinking model name
+                    self.logger.info(f"Using dedicated synthesis thinking model for markdown: {model_name_to_use}")
+                else:
+                    self.logger.warning(
+                        "Config 'enable_synthesis_thinking' is True, but 'synthesis_thinking_model_name' is not set or invalid. "
+                        f"Falling back to base synthesis model: {base_synthesis_model_name} for markdown generation."
+                    )
+            else:
+                self.logger.info(f"Using standard synthesis model for markdown: {model_name_to_use}")
+
+            if not isinstance(model_name_to_use, str) or not model_name_to_use:
+                 self.logger.error(f"No valid LLM model name configured for synthesis markdown generation. Final attempted model: '{model_name_to_use}'")
+                 return None
+
+            # self.config.text_model_thinking determines API style (chat vs. generate)
             if self.config.text_model_thinking:
-                # Use reasoning model
                 messages = [
                     ReasoningPrompts.get_system_message(),
                     ReasoningPrompts.get_synthesis_markdown_generation_prompt(
                         synthesis_json, main_category, sub_category, item_count
                     )
                 ]
-                
+                self.logger.debug(f"Attempting synthesis markdown generation with model {model_name_to_use} via /chat endpoint.")
                 response = await self.http_client.ollama_chat(
-                    model=self.config.categorization_model_thinking or self.config.categorization_model,
+                    model=model_name_to_use, 
                     messages=messages,
                     timeout=self.config.content_generation_timeout
                 )
             else:
-                # Use standard model
                 prompt = LLMPrompts.get_synthesis_markdown_generation_prompt_standard(
                     synthesis_json, main_category, sub_category, item_count
                 )
-                
+                self.logger.debug(f"Attempting synthesis markdown generation with model {model_name_to_use} via /generate endpoint.")
                 response = await self.http_client.ollama_generate(
-                    model=self.config.categorization_model,
+                    model=model_name_to_use, 
                     prompt=prompt,
                     timeout=self.config.content_generation_timeout
                 )
@@ -355,7 +431,7 @@ class SynthesisGenerator:
                 f.write(synthesis_markdown)
             
             # Get relative path from project root
-            relative_file_path = synthesis_file_path.relative_to(self.config.PROJECT_ROOT)
+            relative_file_path = synthesis_file_path.relative_to(self.config.project_root)
             
             # Create or update database entry
             now = datetime.now()
@@ -419,7 +495,7 @@ async def generate_subcategory_syntheses(
     preferences: UserPreferences,
     socketio=None,
     phase_emitter_func=None
-) -> List[SubcategorySynthesisType]:
+) -> Tuple[List[SubcategorySynthesisType], int, int]:
     """
     Convenience function to generate synthesis documents for all subcategories.
     
@@ -431,7 +507,10 @@ async def generate_subcategory_syntheses(
         phase_emitter_func: Optional function for emitting phase updates
         
     Returns:
-        List of generated synthesis documents
+        Tuple containing:
+            - List of generated synthesis documents
+            - Count of eligible subcategories
+            - Count of errors
     """
     
     generator = SynthesisGenerator(config, http_client)

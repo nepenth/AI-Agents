@@ -592,14 +592,17 @@ def api_kb_item_detail(item_id):
 @app.route('/api/synthesis', methods=['GET'])
 def api_synthesis_list():
     """Get list of all synthesis documents."""
+    logging.info("API call received: /api/synthesis")
     try:
         syntheses = SubcategorySynthesis.query.order_by(
             SubcategorySynthesis.main_category,
             SubcategorySynthesis.sub_category
         ).all()
         
+        logging.info(f"Found {len(syntheses)} synthesis documents in the database.")
+        
         synthesis_list = []
-        for synthesis in syntheses:
+        for i, synthesis in enumerate(syntheses):
             synthesis_data = {
                 'id': synthesis.id,
                 'main_category': synthesis.main_category,
@@ -611,7 +614,9 @@ def api_synthesis_list():
                 'file_path': synthesis.file_path
             }
             synthesis_list.append(synthesis_data)
+            # logging.debug(f"Prepared synthesis data for item {i}: {synthesis_data.get('synthesis_title')}") # Too verbose for INFO
         
+        logging.info(f"Successfully prepared {len(synthesis_list)} synthesis documents for API response.")
         return jsonify(synthesis_list)
     except Exception as e:
         logging.error(f"Error fetching synthesis list via API: {e}", exc_info=True)
@@ -620,8 +625,10 @@ def api_synthesis_list():
 @app.route('/api/synthesis/<int:synthesis_id>', methods=['GET'])
 def api_synthesis_detail(synthesis_id):
     """Get detailed data for a specific synthesis document."""
+    logging.info(f"API call received: /api/synthesis/{synthesis_id}")
     try:
         synthesis = SubcategorySynthesis.query.get_or_404(synthesis_id)
+        logging.info(f"Found synthesis document ID {synthesis_id}: {synthesis.synthesis_title}")
         
         # Load markdown content if file_path exists
         content_html = ""

@@ -609,10 +609,11 @@ class KnowledgeBaseAgent:
                 # Jump directly to synthesis generation
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user in synthesis-only mode.")
                 
-                self.socketio_emit_phase_update('synthesis_generation', 'in_progress', 'Generating subcategory synthesis documents...')
+                # SynthesisGenerator will now emit the initial 'in_progress' with total counts
+                # self.socketio_emit_phase_update('synthesis_generation', 'in_progress', 'Generating subcategory synthesis documents...') # Removed this line
                 try:
                     with self.app.app_context():
-                        synthesis_results = await generate_subcategory_syntheses(
+                        synthesis_results, eligible_count, error_count = await generate_subcategory_syntheses( # MODIFIED: Capture all return values
                             config=self.config,
                             http_client=self.http_client,
                             preferences=preferences,
@@ -620,16 +621,22 @@ class KnowledgeBaseAgent:
                             phase_emitter_func=self.socketio_emit_phase_update
                         )
                         
-                        if synthesis_results:
-                            self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents.", "INFO")
-                            self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)} synthesis documents.')
-                        else:
+                        stats.kb_items_created += len(synthesis_results) # Assuming synthesis counts as a type of "created item" for stats
+                        stats.error_count += error_count
+
+                        if error_count > 0:
+                            self.socketio_emit_log(f"Synthesis generation completed with {error_count} errors. Successfully generated {len(synthesis_results)} out of {eligible_count} eligible subcategories.", "WARNING")
+                            self.socketio_emit_phase_update('synthesis_generation', 'error', f'Finished with {error_count} errors. Generated {len(synthesis_results)}/{eligible_count}.', False, len(synthesis_results), eligible_count, error_count)
+                        elif eligible_count > 0:
+                            self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents for {eligible_count} subcategories.", "INFO")
+                            self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)}/{eligible_count} synthesis documents.', False, len(synthesis_results), eligible_count, 0)
+                        else: # No eligible subcategories
                             self.socketio_emit_log("No synthesis documents were generated (no subcategories with sufficient items found).", "INFO")
-                            self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated.')
+                            self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated (0 eligible).', False, 0, 0, 0)
                             
                 except Exception as e:
                     self.socketio_emit_log(f"Error during synthesis generation: {e}", "ERROR")
-                    self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}")
+                    self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}") # Total counts might be unknown if exception is early
                     stats.error_count += 1
                 
                 # Skip remaining phases
@@ -739,10 +746,11 @@ class KnowledgeBaseAgent:
 
                 # --- Phase 4: Generate Subcategory Syntheses (Optional) ---
                 if not preferences.skip_synthesis_generation:
-                    self.socketio_emit_phase_update('synthesis_generation', 'active', 'Analyzing subcategories for synthesis...', False)
+                    # SynthesisGenerator will now emit the initial 'in_progress' with total counts
+                    # self.socketio_emit_phase_update('synthesis_generation', 'active', 'Analyzing subcategories for synthesis...', False) # Removed this line
                     try:
                         with self.app.app_context():
-                            synthesis_results = await generate_subcategory_syntheses(
+                            synthesis_results, eligible_count, error_count = await generate_subcategory_syntheses( # MODIFIED: Capture all return values
                                 config=self.config,
                                 http_client=self.http_client,
                                 preferences=preferences,
@@ -750,16 +758,22 @@ class KnowledgeBaseAgent:
                                 phase_emitter_func=self.socketio_emit_phase_update
                             )
                             
-                            if synthesis_results:
-                                self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents.", "INFO")
-                                self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)} synthesis documents.', False, len(synthesis_results), len(synthesis_results), 0)
-                            else:
+                            stats.kb_items_created += len(synthesis_results) # Count these as "created items" for overall stats
+                            stats.error_count += error_count # Add errors from synthesis to overall
+
+                            if error_count > 0:
+                                self.socketio_emit_log(f"Synthesis generation completed with {error_count} errors. Successfully generated {len(synthesis_results)} out of {eligible_count} eligible subcategories.", "WARNING")
+                                self.socketio_emit_phase_update('synthesis_generation', 'error', f'Finished with {error_count} errors. Generated {len(synthesis_results)}/{eligible_count}.', False, len(synthesis_results), eligible_count, error_count)
+                            elif eligible_count > 0:
+                                self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents for {eligible_count} subcategories.", "INFO")
+                                self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)}/{eligible_count} synthesis documents.', False, len(synthesis_results), eligible_count, 0)
+                            else: # No eligible subcategories
                                 self.socketio_emit_log("No synthesis documents were generated (no subcategories with sufficient items found).", "INFO")
-                                self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated (insufficient items).', False, 0, 0, 0)
+                                self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated (0 eligible).', False, 0, 0, 0)
                                 
                     except Exception as e:
                         self.socketio_emit_log(f"Error during synthesis generation: {e}", "ERROR")
-                        self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}", False)
+                        self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}", False) # Total counts might be unknown if exception is early
                         stats.error_count += 1
                 else:
                     self.socketio_emit_log("Skipping synthesis generation due to user preference.", "INFO")

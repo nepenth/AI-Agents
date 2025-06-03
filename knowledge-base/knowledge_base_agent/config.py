@@ -46,7 +46,13 @@ class Config(BaseSettings):
     gpu_total_memory: int = Field(0, alias="GPU_TOTAL_MEM", description="Total GPU memory available in MB for parallelization decisions")
     num_gpus_available: int = Field(1, alias="NUM_GPUS_AVAILABLE", description="Number of GPUs available for parallel processing")
     text_model_thinking: bool = Field(False, alias="TEXT_MODEL_THINKING", description="Whether the text model supports reasoning/thinking subroutines (e.g., Cogito)")
-    categorization_model_thinking: bool = Field(False, alias="CATEGORIZATION_MODEL_THINKING", description="Whether the categorization model supports reasoning/thinking subroutines")
+    enable_categorization_thinking: bool = Field(False, alias="ENABLE_CATEGORIZATION_THINKING", description="Whether to use a specific thinking model for categorization and synthesis tasks")
+    categorization_thinking_model_name: Optional[str] = Field(None, alias="CATEGORIZATION_THINKING_MODEL_NAME", description="The name of the thinking model to use for categorization/synthesis if enable_categorization_thinking is true")
+    
+    # New fields specifically for Synthesis model configuration
+    synthesis_model: Optional[str] = Field(None, alias="SYNTHESIS_MODEL", description="Dedicated model for synthesis generation, defaults to text_model if not set")
+    enable_synthesis_thinking: bool = Field(False, alias="ENABLE_SYNTHESIS_THINKING", description="Whether to use a specific thinking model for synthesis tasks")
+    synthesis_thinking_model_name: Optional[str] = Field(None, alias="SYNTHESIS_THINKING_MODEL_NAME", description="The name of the thinking model to use for synthesis if enable_synthesis_thinking is true")
     
     # GitHub settings
     github_token: str = Field(..., alias="GITHUB_TOKEN", min_length=1)
@@ -188,6 +194,11 @@ class Config(BaseSettings):
         if not self.categorization_model:
             self.categorization_model = self.text_model
             logging.info(f"No specific CATEGORIZATION_MODEL set. Using TEXT_MODEL ({self.text_model}) for categorization.")
+        
+        # If synthesis_model is empty, use text_model
+        if not self.synthesis_model:
+            self.synthesis_model = self.text_model
+            logging.info(f"No specific SYNTHESIS_MODEL set. Using TEXT_MODEL ({self.text_model}) for synthesis.")
         
         # Log GPU memory information
         if self.gpu_total_memory > 0:
