@@ -428,6 +428,91 @@ class PhaseManager {
 
         return prefs;
     }
+
+    applyActiveRunPreferencesToUI(activePrefs) {
+        if (!activePrefs || Object.keys(activePrefs).length === 0) {
+            console.log('PhaseManager: No active run preferences from server to apply.');
+            return;
+        }
+        console.log('PhaseManager: Applying active run preferences to UI from server:', activePrefs);
+
+        const preferenceToPhaseMapping = {
+            'fetch_bookmarks': { skipKey: 'skip_fetch_bookmarks' },
+            'content_processing_overall': { skipKey: 'skip_process_content' },
+            'subphase_cp_cache': { forceKey: 'force_recache_tweets', parentPhaseId: 'content_processing_overall' },
+            'subphase_cp_media': { forceKey: 'force_reprocess_media', parentPhaseId: 'content_processing_overall' },
+            'subphase_cp_llm': { forceKey: 'force_reprocess_llm', parentPhaseId: 'content_processing_overall' },
+            'subphase_cp_kbitem': { forceKey: 'force_reprocess_kb_item', parentPhaseId: 'content_processing_overall' },
+            'subphase_cp_db': { parentPhaseId: 'content_processing_overall' }, // No direct skip/force, depends on parent
+            'synthesis_generation': { skipKey: 'skip_synthesis_generation', forceKey: 'force_regenerate_synthesis' },
+            'readme_generation': { skipKey: 'skip_readme_generation' }, // Assuming force for readme is not a direct pref
+            'git_sync': { skipKey: 'skip_git_push' }
+        };
+
+        const isContentProcessingSkipped = activePrefs.skip_process_content === true;
+
+        Object.keys(this.phaseStates).forEach(phaseId => {
+            const phaseElement = document.querySelector(`[data-phase-id="${phaseId}"]`);
+            if (!phaseElement) {
+                return;
+            }
+
+            const mappingConfig = preferenceToPhaseMapping[phaseId];
+            let targetState = 'normal'; 
+
+            if (phaseId === 'initialization' || phaseId === 'cleanup') {
+                targetState = 'normal'; // These are always normal for config purposes
+            } else if (mappingConfig) {
+                if (mappingConfig.parentPhaseId === 'content_processing_overall' && isContentProcessingSkipped) {
+                    targetState = 'skip';
+                } else {
+                    if (mappingConfig.skipKey && activePrefs[mappingConfig.skipKey] === true) {
+                        targetState = 'skip';
+                    }
+                    if (targetState !== 'skip' && mappingConfig.forceKey && activePrefs[mappingConfig.forceKey] === true) {
+                        targetState = 'force';
+                    }
+                }
+            }
+
+            // Apply the determined state
+            if (this.phaseStates[phaseId] !== targetState) {
+                console.log(`PhaseManager: Phase ${phaseId}: current UI state ${this.phaseStates[phaseId]}, server activePref suggests ${targetState}. Updating.`);
+                this.phaseStates[phaseId] = targetState;
+                phaseElement.setAttribute('data-phase-state', targetState);
+                this.updatePhaseVisualState(phaseElement, phaseId, targetState); // Corrected call
+            }
+        });
+        
+        // After all individual states are set, ensure parent phase visual is consistent
+        // This is especially for content_processing_overall if its subphases were individually forced
+        // but the parent itself was not set to skip.
+        const parentOverallElement = document.querySelector('[data-phase-id="content_processing_overall"]');
+        if (parentOverallElement && !isContentProcessingSkipped) {
+            let allSubphasesSkipped = true;
+            let anySubphaseForced = false;
+            this.subPhaseIds.forEach(subId => {
+                if (this.phaseStates[subId] !== 'skip') allSubphasesSkipped = false;
+                if (this.phaseStates[subId] === 'force') anySubphaseForced = true;
+            });
+
+            // If all subphases ended up skipped (e.g. individually by some logic not covered) 
+            // and parent is not 'skip' by direct pref, it makes sense to ensure it's normal or reflects force.
+            // The main 'content_processing_overall' skip is handled by `isContentProcessingSkipped`.
+            // If any sub-phase is 'force', the parent 'content_processing_overall' could also reflect a 'force' state if desired,
+            // or remain 'normal' if it's just a container.
+            // For now, if it wasn't skipped by preference, and any sub-phase is forced, 
+            // we ensure the parent is at least 'normal' or 'force' if that preference existed directly for it.
+            let overallTargetState = activePrefs.skip_process_content ? 'skip' : (activePrefs.force_reprocess_content ? 'force' : 'normal');
+            if (this.phaseStates.content_processing_overall !== overallTargetState) {
+                 this.phaseStates.content_processing_overall = overallTargetState;
+                 parentOverallElement.setAttribute('data-phase-state', overallTargetState);
+                 this.updatePhaseVisualState(parentOverallElement, 'content_processing_overall', overallTargetState);
+            }
+        }
+
+        console.log('PhaseManager: Finished applying active run preferences to UI. New phaseStates:', JSON.parse(JSON.stringify(this.phaseStates)));
+    }
 }
 
 // Export singleton instance

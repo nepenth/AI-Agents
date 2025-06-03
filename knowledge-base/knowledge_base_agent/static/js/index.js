@@ -91,8 +91,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (clearLogsButton) {
         clearLogsButton.addEventListener('click', () => {
             if (liveLogsUl) {
-                liveLogsUl.innerHTML = '';
-                addLogMessage('Live logs cleared by user.', 'INFO');
+                liveLogsUl.innerHTML = ''; // Clear visually immediately
+                socket.emit('clear_server_logs'); // Ask server to clear its log history
+                // The server will emit a confirmation log message
             }
         });
     }
@@ -164,6 +165,13 @@ document.addEventListener('DOMContentLoaded', function () {
         activeRunPreferences = data.active_run_preferences || null;
 
         updateAgentStatusUI();
+
+        if (agentIsRunning && activeRunPreferences && window.phaseManager && typeof window.phaseManager.applyActiveRunPreferencesToUI === 'function') {
+            console.log('Agent is running with preferences, applying to UI:', activeRunPreferences);
+            window.phaseManager.applyActiveRunPreferencesToUI(activeRunPreferences);
+        } else if (agentIsRunning && activeRunPreferences) {
+            console.warn('phaseManager.applyActiveRunPreferencesToUI function not found. UI may not reflect active preferences.');
+        }
         
         // Ensure DOM structure is correct - NO MORE MOVING ELEMENTS AROUND
         // The current-phase-details should stay exactly where it is in HTML

@@ -938,6 +938,15 @@ def handle_request_initial_status_and_git_config():
     current_app.logger.info("'request_initial_status_and_git_config' event received. Re-emitting current state.")
     handle_connect() # Re-run connect logic to send current state
 
+@socketio.on('clear_server_logs')
+def handle_clear_server_logs():
+    global recent_logs
+    count = len(recent_logs)
+    recent_logs.clear()
+    logging.info(f"Server-side recent_logs (last {count} entries) cleared by user request.")
+    # Emit a log message back to the client to confirm and to be added to the (now empty) UI log display
+    socketio.emit('log', {'message': 'Log history cleared by user.', 'level': 'INFO'})
+
 if __name__ == "__main__":
     # Load configuration first
     temp_config = None
