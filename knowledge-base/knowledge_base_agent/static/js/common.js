@@ -93,6 +93,10 @@ $(document).ready(function() {
                   loadMainContent('/knowledge_base'); // Load KB main page
              } else if (targetUrl === '/logs') {
                   loadMainContent('/logs'); // Load Logs page
+             } else if (targetUrl === '/syntheses') {
+                  loadMainContent('/syntheses'); // Load Syntheses list page
+             } else if (targetUrl.startsWith('/synthesis/')) {
+                  loadMainContent(targetUrl); // Load specific synthesis page
              } else {
                   console.warn(`Unhandled sidebar link clicked: ${targetUrl}`);
              }

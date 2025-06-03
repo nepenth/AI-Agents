@@ -621,8 +621,10 @@ class KnowledgeBaseAgent:
                             phase_emitter_func=self.socketio_emit_phase_update
                         )
                         
-                        stats.kb_items_created += len(synthesis_results) # Assuming synthesis counts as a type of "created item" for stats
-                        stats.error_count += error_count
+                        if not hasattr(stats, 'kb_items_created'):
+                            stats.kb_items_created = 0 # Initialize if not present
+                        stats.kb_items_created += len(synthesis_results) # Count these as "created items" for overall stats
+                        stats.error_count += error_count # Add errors from synthesis to overall
 
                         if error_count > 0:
                             self.socketio_emit_log(f"Synthesis generation completed with {error_count} errors. Successfully generated {len(synthesis_results)} out of {eligible_count} eligible subcategories.", "WARNING")
@@ -758,6 +760,8 @@ class KnowledgeBaseAgent:
                                 phase_emitter_func=self.socketio_emit_phase_update
                             )
                             
+                            if not hasattr(stats, 'kb_items_created'):
+                                stats.kb_items_created = 0 # Initialize if not present
                             stats.kb_items_created += len(synthesis_results) # Count these as "created items" for overall stats
                             stats.error_count += error_count # Add errors from synthesis to overall
 
