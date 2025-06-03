@@ -947,6 +947,26 @@ def handle_clear_server_logs():
     # Emit a log message back to the client to confirm and to be added to the (now empty) UI log display
     socketio.emit('log', {'message': 'Log history cleared by user.', 'level': 'INFO'})
 
+@app.route('/syntheses')
+def syntheses_list_page():
+    """Render the page that will list all synthesis documents."""
+    app_config = getattr(current_app, 'config_instance', None)
+    # For sidebar consistency, we pass items and syntheses, though this page primarily lists syntheses.
+    all_kb_items = [] 
+    all_syntheses_sidebar = [] 
+    try:
+        all_kb_items = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
+        all_syntheses_sidebar = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
+    except Exception as e:
+        logging.error(f"Error retrieving items for syntheses_list_page sidebar: {e}", exc_info=True)
+    
+    # This route simply renders the HTML shell.
+    # JavaScript within syntheses_list.html will fetch data from /api/synthesis to populate the list.
+    return render_template('syntheses_list.html', 
+                           items=all_kb_items, 
+                           syntheses=all_syntheses_sidebar, 
+                           config=app_config)
+
 if __name__ == "__main__":
     # Load configuration first
     temp_config = None

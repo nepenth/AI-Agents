@@ -49,8 +49,8 @@ class SynthesisGenerator:
             if num_eligible_subcategories > 0:
                 phase_emitter_func(
                     "synthesis_generation",
-                    f"Processing {num_eligible_subcategories} subcategories for synthesis.",
                     "in_progress",
+                    f"Processing {num_eligible_subcategories} subcategories for synthesis.",
                     is_sub_step_update=False,
                     processed_count=0,
                     total_count=num_eligible_subcategories,
@@ -59,8 +59,8 @@ class SynthesisGenerator:
             else:
                 phase_emitter_func(
                     "synthesis_generation",
+                    "completed",
                     "No subcategories eligible for synthesis.",
-                    "completed", 
                     is_sub_step_update=False,
                     processed_count=0,
                     total_count=0,
