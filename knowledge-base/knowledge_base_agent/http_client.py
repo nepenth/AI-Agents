@@ -271,6 +271,69 @@ class HTTPClient:
                 logging.error(f"Unexpected error in ollama_chat with model {model}: {str(e)}", exc_info=True)
                 raise AIError(f"Failed to generate text with Ollama chat: {str(e)}")
             
+    async def ollama_embed(
+        self,
+        model: str,
+        prompt: str,
+        timeout: Optional[int] = None
+    ) -> List[float]:
+        """
+        Generate embeddings using Ollama's /api/embeddings endpoint.
+
+        Args:
+            model: The embedding model to use.
+            prompt: The text to embed.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            List[float]: The generated embedding vector.
+
+        Raises:
+            AIError: If the API request fails.
+        """
+        request_timeout = timeout or self.timeout
+        async with self._semaphore:
+            await self.ensure_session()
+            try:
+                api_endpoint = f"{self.base_url}/api/embeddings"
+                logging.debug(f"Sending Ollama embedding request to {api_endpoint} for model {model}")
+
+                payload = {
+                    "model": model,
+                    "prompt": prompt
+                }
+
+                start_time = time.time()
+                async with self.session.post(
+                    api_endpoint,
+                    json=payload,
+                    timeout=request_timeout
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logging.error(f"Ollama embedding API error: {response.status} - {error_text}")
+                        raise AIError(f"Ollama embedding API returned status {response.status}")
+
+                    result = await response.json()
+                    elapsed = time.time() - start_time
+                    
+                    embedding = result.get("embedding")
+                    if not embedding:
+                        raise AIError("Empty embedding from Ollama API")
+
+                    logging.debug(f"Received embedding of dimension {len(embedding)} in {elapsed:.2f}s. Model: {model}")
+                    return embedding
+
+            except asyncio.TimeoutError:
+                logging.error(f"Ollama embedding request timed out after {request_timeout} seconds for model {model}")
+                raise AIError(f"Embedding request timed out after {request_timeout} seconds")
+            except aiohttp.ClientError as e:
+                logging.error(f"HTTP client error with Ollama embeddings: {str(e)} for model {model}")
+                raise AIError(f"HTTP client error for embeddings: {str(e)}")
+            except Exception as e:
+                logging.error(f"Unexpected error in ollama_embed with model {model}: {str(e)}", exc_info=True)
+                raise AIError(f"Failed to generate embeddings with Ollama: {str(e)}")
+
     async def __aenter__(self):
         await self.initialize()
         return self

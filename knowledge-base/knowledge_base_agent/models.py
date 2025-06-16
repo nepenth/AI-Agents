@@ -29,8 +29,9 @@ class SubcategorySynthesis(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     main_category = db.Column(db.String(100), nullable=False)
-    sub_category = db.Column(db.String(100), nullable=False)
+    sub_category = db.Column(db.String(100), nullable=True)
     synthesis_title = db.Column(db.String(255), nullable=False)
+    synthesis_short_name = db.Column(db.String(50), nullable=True)
     synthesis_content = db.Column(db.Text, nullable=False)
     raw_json_content = db.Column(db.Text, nullable=True)
     item_count = db.Column(db.Integer, nullable=False, default=0)
@@ -38,7 +39,28 @@ class SubcategorySynthesis(db.Model):
     created_at = db.Column(db.DateTime, nullable=False)
     last_updated = db.Column(db.DateTime, nullable=False)
     
-    __table_args__ = (db.UniqueConstraint('main_category', 'sub_category'),)
+    __table_args__ = (
+        db.UniqueConstraint('main_category', 'sub_category', name='uq_main_sub_category'),
+    )
 
     def __repr__(self):
-        return f'<SubcategorySynthesis {self.main_category}/{self.sub_category}>' 
+        if self.sub_category:
+            return f'<SubcategorySynthesis {self.main_category}/{self.sub_category}>'
+        return f'<MainCategorySynthesis {self.main_category}>'
+
+class Embedding(db.Model):
+    __tablename__ = 'embedding'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, nullable=False)
+    document_type = db.Column(db.String(50), nullable=False) # 'kb_item' or 'synthesis'
+    embedding = db.Column(db.LargeBinary, nullable=False)
+    model = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False)
+    
+    __table_args__ = (
+        db.Index('idx_embedding_doc_type_id', 'document_type', 'document_id'),
+    )
+
+    def __repr__(self):
+        return f'<Embedding for {self.document_type} {self.document_id}>' 

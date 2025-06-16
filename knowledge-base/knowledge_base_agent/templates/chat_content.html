@@ -1,0 +1,35 @@
+<!-- knowledge_base_agent/templates/chat_content.html -->
+<div class="page-content-wrapper">
+    <div class="col-12 p-0">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-chat-dots me-2"></i> Agent Chat</h5>
+                <div class="chat-model-selector-container">
+                    <label for="chat-model-selector-page" class="form-label">Chat Model:</label>
+                    <select id="chat-model-selector-page" class="form-control form-control-sm"></select>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="chat-page-container" class="chat-page-container">
+                    <div id="chat-history-page" class="chat-history">
+                        <!-- Chat messages will be appended here -->
+                         <div class="chat-message assistant-message">
+                            <p>Hello! How can I help you query the knowledge base today?</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <form id="chat-form-page" class="chat-form">
+                            <textarea id="chat-input-page" class="form-control" placeholder="Ask a question about the knowledge base..." rows="3"></textarea>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </form>
+                        <div id="chat-typing-indicator-page" class="typing-indicator" style="display: none;">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

@@ -2,8 +2,11 @@ import re
 import uuid
 import logging
 import requests
-from typing import Optional
+from typing import Optional, Any
 from pathlib import Path
+
+from .http_client import HTTPClient
+from .prompts import LLMPrompts
 
 def validate_directory_name(name: str, max_length: int = 50) -> bool:
     if len(name) > max_length:
@@ -121,3 +124,41 @@ def fix_invalid_name(
 
     # If all attempts fail, return a fallback based on the snippet.
     return fallback_snippet_based_name(snippet)
+
+async def generate_short_name(
+    http_client: HTTPClient,
+    name: str,
+    is_main_category: bool = False
+) -> str:
+    """
+    Generates a short, UI-friendly name for a category or sub-category using an LLM.
+    """
+    try:
+        system_prompt = LLMPrompts.get_short_name_generation_prompt()
+        
+        user_message = (
+            f"Please generate a short, catchy, and UI-friendly name (2-3 words, max 25 characters) for the "
+            f"{'main category' if is_main_category else 'sub-category'}: '{name}'"
+        )
+
+        llm_response = await http_client.send_llm_request(
+            # Using text model for this simple task
+            model=http_client.config.text_model, 
+            system_prompt=system_prompt,
+            user_message=user_message,
+            temperature=0.7,
+            max_tokens=20,
+        )
+        
+        if llm_response and llm_response.get("success"):
+            short_name = llm_response.get("content", "").strip().replace('"', '')
+            if 1 < len(short_name) <= 25:
+                return short_name
+
+        logging.warning(f"Failed to generate a valid short name for '{name}'. Using a normalized version as fallback.")
+        return normalize_name_for_filesystem(name, 25)
+
+    except Exception as e:
+        logging.error(f"Error generating short name for '{name}': {e}", exc_info=True)
+        # Fallback to a normalized version of the original name
+        return normalize_name_for_filesystem(name, 25)

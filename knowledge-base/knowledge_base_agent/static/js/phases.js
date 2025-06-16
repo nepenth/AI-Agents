@@ -17,8 +17,12 @@ class PhaseManager {
             synthesis_generation: 'normal',
             readme_generation: 'normal',
             git_sync: 'normal',
-            cleanup: 'normal'
+            cleanup: 'normal',
+            embedding_generation: 'normal'
         };
+        
+        // Restore saved phase states from localStorage
+        this.restorePhaseStates();
 
         this.subPhaseIds = [
             'subphase_cp_cache',
@@ -84,8 +88,59 @@ class PhaseManager {
             },
             cleanup: {
                 normal: { label: 'Will Run', class: 'status-will-run phase-always-run' },
+            },
+            embedding_generation: {
+                normal: { label: 'Will Run', class: 'status-will-run' },
+                skip: { label: '(Skipped)', class: 'status-skipped phase-state-skip' },
+                force: { label: 'Force Regenerate', class: 'status-will-run phase-state-force' }
             }
         };
+    }
+
+    /**
+     * Save current phase states to localStorage
+     */
+    savePhaseStates() {
+        try {
+            localStorage.setItem('phaseManagerStates', JSON.stringify(this.phaseStates));
+        } catch (e) {
+            console.warn('PhaseManager: Failed to save phase states to localStorage:', e);
+        }
+    }
+
+    /**
+     * Restore phase states from localStorage
+     */
+    restorePhaseStates() {
+        try {
+            const savedStates = localStorage.getItem('phaseManagerStates');
+            if (savedStates) {
+                const parsedStates = JSON.parse(savedStates);
+                // Only restore valid phase IDs that exist in current setup
+                Object.keys(parsedStates).forEach(phaseId => {
+                    if (this.phaseStates.hasOwnProperty(phaseId)) {
+                        this.phaseStates[phaseId] = parsedStates[phaseId];
+                    }
+                });
+                console.log('PhaseManager: Restored phase states from localStorage:', this.phaseStates);
+            }
+        } catch (e) {
+            console.warn('PhaseManager: Failed to restore phase states from localStorage:', e);
+        }
+    }
+
+    /**
+     * Apply saved phase states to UI elements
+     */
+    applyStateToUI() {
+        Object.keys(this.phaseStates).forEach(phaseId => {
+            const phaseElement = document.querySelector(`[data-phase-id="${phaseId}"]`);
+            if (phaseElement) {
+                const state = this.phaseStates[phaseId];
+                phaseElement.setAttribute('data-phase-state', state);
+                this.updatePhaseVisualState(phaseElement, phaseId, state);
+            }
+        });
     }
 
     /**
@@ -118,18 +173,20 @@ class PhaseManager {
         this.phaseStates[phaseId] = newState;
         phaseElement.setAttribute('data-phase-state', newState);
         this.updatePhaseVisualState(phaseElement, phaseId, newState);
+        this.savePhaseStates(); // Save state changes
         console.log(`PhaseManager: Phase ${phaseId} state changed to: ${newState}`);
 
-        // If content_processing_overall is changed, update its sub-phases
+        // Only handle parent-child relationships for content processing phases
         if (phaseId === 'content_processing_overall') {
-            const subPhaseNewState = (newState === 'skip') ? 'skip' : 'normal'; // Or 'force' if main is forced?
+            // When content_processing_overall is changed, update its sub-phases
+            const subPhaseNewState = (newState === 'skip') ? 'skip' : 'normal';
             this.subPhaseIds.forEach(subId => {
                 const subPhaseElement = document.querySelector(`[data-phase-id="${subId}"]`);
                 if (subPhaseElement) {
                     this.phaseStates[subId] = subPhaseNewState;
                     subPhaseElement.setAttribute('data-phase-state', subPhaseNewState);
                     this.updatePhaseVisualState(subPhaseElement, subId, subPhaseNewState);
-                    console.log(`PhaseManager: Sub-phase ${subId} state changed to: ${subPhaseNewState} due to parent.`);
+                    console.log(`PhaseManager: Sub-phase ${subId} state changed to: ${subPhaseNewState} due to parent content_processing_overall.`);
                 }
             });
         }
@@ -158,6 +215,7 @@ class PhaseManager {
         if (!stateConfig) {
             console.warn(`PhaseManager: No valid stateConfig found for phase ${phaseId} state ${state}. Defaulting visuals if possible.`);
             if (phaseElement) {
+                // Remove all status and phase-state classes
                 phaseElement.className = phaseElement.className.replace(/status-\w+|phase-state-\w+/g, '');
                 phaseElement.classList.add('status-will-run');
                 const statusElement = phaseElement.querySelector('.phase-status');
@@ -168,6 +226,7 @@ class PhaseManager {
         
         const statusElement = phaseElement.querySelector('.phase-status');
         
+        // Remove existing status-* and phase-state-* classes while preserving others
         let baseClasses = [];
         phaseElement.classList.forEach(cls => {
             if (!cls.startsWith('status-') && !cls.startsWith('phase-state-')) {
@@ -176,15 +235,22 @@ class PhaseManager {
         });
         phaseElement.className = baseClasses.join(' ');
 
+        // Apply new classes from state config
         if (stateConfig.class) {
             stateConfig.class.split(' ').forEach(cls => {
-                if (cls) phaseElement.classList.add(cls);
+                if (cls.trim()) phaseElement.classList.add(cls.trim());
             });
         }
         
+        // Apply phase state class for CSS styling
+        phaseElement.classList.add(`phase-state-${state}`);
+        
+        // Update status text
         if (statusElement) {
             statusElement.textContent = stateConfig.label;
         }
+        
+        console.log(`PhaseManager: Updated visual state for ${phaseId} to ${state}, classes: ${phaseElement.className}`);
     }
 
     /**
@@ -220,7 +286,8 @@ class PhaseManager {
             'synthesis_generation': 'Synthesis Generation',
             'readme_generation': 'Root README Generation',
             'git_sync': 'Git Synchronization',
-            'cleanup': 'Cleanup'
+            'cleanup': 'Cleanup',
+            'embedding_generation': 'Embedding Generation'
         };
         
         const displayName = phaseNameMap[phaseId] || phaseName;
@@ -334,6 +401,67 @@ class PhaseManager {
     }
 
     /**
+     * Update phase status based on status string from backend
+     */
+    updatePhaseStatus(phaseId, status, message) {
+        const phaseElement = document.querySelector(`[data-phase-id="${phaseId}"]`);
+        if (!phaseElement) {
+            console.warn(`PhaseManager: Phase element not found for ${phaseId}`);
+            return;
+        }
+        
+        const statusElement = phaseElement.querySelector('.phase-status');
+        if (!statusElement) {
+            console.warn(`PhaseManager: Status element not found for ${phaseId}`);
+            return;
+        }
+        
+        // Remove all status classes first
+        phaseElement.classList.remove('status-pending', 'status-active', 'status-completed', 'status-skipped', 'status-error', 'status-interrupted');
+        
+        // Update visual state based on status
+        switch (status) {
+            case 'active':
+            case 'in_progress':
+                phaseElement.classList.add('status-active');
+                statusElement.textContent = '⚡ Running';
+                console.log(`PhaseManager: Set ${phaseId} to active`);
+                break;
+                
+            case 'completed':
+                phaseElement.classList.add('status-completed');
+                statusElement.textContent = '✅ Done';
+                console.log(`PhaseManager: Set ${phaseId} to completed`);
+                break;
+                
+            case 'skipped':
+                phaseElement.classList.add('status-skipped');
+                statusElement.textContent = '⏭️ Skipped';
+                console.log(`PhaseManager: Set ${phaseId} to skipped`);
+                break;
+                
+            case 'error':
+                phaseElement.classList.add('status-error');
+                statusElement.textContent = '❌ Error';
+                console.log(`PhaseManager: Set ${phaseId} to error`);
+                break;
+                
+            case 'interrupted':
+                phaseElement.classList.add('status-interrupted');
+                statusElement.textContent = '⏸️ Stopped';
+                console.log(`PhaseManager: Set ${phaseId} to interrupted`);
+                break;
+                
+            case 'pending':
+            default:
+                phaseElement.classList.add('status-pending');
+                statusElement.textContent = 'Will Run';
+                console.log(`PhaseManager: Set ${phaseId} to pending/default`);
+                break;
+        }
+    }
+
+    /**
      * Apply preset configuration
      */
     applyPreset(presetType) {
@@ -360,6 +488,15 @@ class PhaseManager {
                     }
                 });
                 this.phaseStates.synthesis_generation = 'normal';
+                break;
+                
+            case 'embedding_only':
+                Object.keys(this.phaseStates).forEach(phaseId => {
+                    if (phaseId !== 'initialization' && phaseId !== 'cleanup' && phaseId !== 'embedding_generation') {
+                        this.phaseStates[phaseId] = 'skip';
+                    }
+                });
+                this.phaseStates.embedding_generation = 'normal';
                 break;
                 
             case 'force_reprocess':
@@ -394,6 +531,9 @@ class PhaseManager {
                 }
             }
         });
+        
+        // Save the updated states
+        this.savePhaseStates();
     }
 
     /**

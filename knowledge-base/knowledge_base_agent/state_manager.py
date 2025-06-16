@@ -511,6 +511,25 @@ class StateManager:
             await self.initialize()
         return list(self._unprocessed_tweets)
 
+    async def get_processed_tweets(self) -> List[str]:
+        """Get the list of processed tweet IDs."""
+        if not self._initialized:
+            await self.initialize()
+        return list(self._processed_tweets.keys())
+
+    async def add_tweets_to_unprocessed(self, tweet_ids: List[str]) -> None:
+        """Add tweet IDs to the unprocessed list."""
+        async with self._lock:
+            if not self._initialized:
+                await self.initialize()
+            
+            for tweet_id in tweet_ids:
+                if tweet_id not in self._unprocessed_tweets:
+                    self._unprocessed_tweets.append(tweet_id)
+            
+            await self._save_state_files()
+            logging.info(f"Added {len(tweet_ids)} tweets to unprocessed list")
+
     async def get_processing_state(self, tweet_id: str) -> Dict[str, bool]:
         """Get processing state for a tweet."""
         tweet_data = await self.get_tweet(tweet_id)

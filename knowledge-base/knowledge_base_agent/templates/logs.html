@@ -81,36 +81,38 @@
             </div>
         </div>
         <div class="main-content">
-            <h2>View Past Agent Logs</h2>
-            <div class="card log-viewer-card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Select Log File</h5>
-                    <div>
-                        <button id="refreshLogListBtn" class="btn btn-sm btn-outline-secondary me-2" title="Refresh List">
-                            <i class="bi bi-arrow-clockwise"></i> Refresh
-                        </button>
-                        <button id="deleteAllLogsBtn" class="btn btn-sm btn-outline-danger" title="Delete All Logs">
-                            <i class="bi bi-trash"></i> Delete All Logs
-                        </button>
+            <div class="page-content-wrapper">
+                <h2>View Past Agent Logs</h2>
+                <div class="card log-viewer-card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Select Log File</h5>
+                        <div>
+                            <button id="refreshLogListBtn" class="btn btn-sm btn-outline-secondary me-2" title="Refresh List">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                            <button id="deleteAllLogsBtn" class="btn btn-sm btn-outline-danger" title="Delete All Logs">
+                                <i class="bi bi-trash"></i> Delete All Logs
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                         <div class="input-group">
+                            <select class="form-select" id="log-file-select">
+                                <option value="" selected>Loading log files...</option>
+                            </select>
+                            <button class="btn btn-custom" type="button" id="load-log-button">Load Log</button>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body">
-                     <div class="input-group">
-                        <select class="form-select" id="log-file-select">
-                            <option value="" selected>Loading log files...</option>
-                        </select>
-                        <button class="btn btn-custom" type="button" id="load-log-button">Load Log</button>
-                    </div>
-                </div>
-            </div>
 
-            <div class="card log-content-card">
-                 <div class="card-header">
-                    <h5 class="card-title mb-0" id="log-content-header">Log Content</h5>
-                 </div>
-                 <div class="card-body">
-                     <pre class="log-content-area" id="log-content-area">Select a log file to view its content.</pre>
-                 </div>
+                <div class="card log-content-card">
+                     <div class="card-header">
+                        <h5 class="card-title mb-0" id="log-content-header">Log Content</h5>
+                     </div>
+                     <div class="card-body">
+                         <pre class="log-content-area" id="log-content-area">Select a log file to view its content.</pre>
+                     </div>
+                </div>
             </div>
         </div>
     </div>

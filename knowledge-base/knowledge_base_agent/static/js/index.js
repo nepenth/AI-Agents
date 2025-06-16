@@ -6,40 +6,45 @@
 document.addEventListener('DOMContentLoaded', function () {
     const socket = io();
 
-    // UI Elements
-    const liveLogsUl = document.getElementById('liveLogsUl');
-    const clearLogsButton = document.getElementById('clearLogsButton');
-    const runAgentButton = document.getElementById('runAgentButton');
-    const stopAgentButton = document.getElementById('stopAgentButton');
-    const darkModeToggle = document.getElementById('darkModeToggle');
+    // Cached DOM Elements - query once, use everywhere
+    const DOM = {
+        liveLogsUl: document.getElementById('liveLogsUl'),
+        clearLogsButton: document.getElementById('clearLogsButton'),
+        runAgentButton: document.getElementById('runAgentButton'),
+        stopAgentButton: document.getElementById('stopAgentButton'),
+        darkModeToggle: document.getElementById('darkModeToggle'),
+        mainContentArea: document.getElementById('main-content-area'),
+        logCount: document.getElementById('logCount'),
+        agentRunStatusLogsFooter: document.getElementById('agentRunStatusLogsFooter'),
+        gpuStatsContainer: document.getElementById('gpuStatsContainer'),
+        chatWidget: document.getElementById('chat-widget')
+    };
 
-    // State variables
-    let agentIsRunning = false;
-    let currentPhaseId = null;
-    let activeRunPreferences = null;
-
-    // Make agentIsRunning available globally for phase manager
-    window.agentIsRunning = agentIsRunning;
-
-    function initializeDefaultPhaseVisuals() {
-        if (window.phaseManager) {
-            console.log('index.js: Initializing default phase visuals to "Will Run"');
-            Object.keys(window.phaseManager.phaseStates).forEach(phaseId => {
-                const phaseElement = document.querySelector(`[data-phase-id="${phaseId}"]`);
-                if (phaseElement) {
-                    // Set default state to normal, which maps to "Will Run"
-                    window.phaseManager.phaseStates[phaseId] = 'normal'; 
-                    phaseElement.setAttribute('data-phase-state', 'normal');
-                    window.phaseManager.updatePhaseVisualState(phaseElement, phaseId, 'normal');
-                }
-            });
+    // Centralized state management
+    const appState = {
+        agentIsRunning: false,
+        currentPhaseId: null,
+        activeRunPreferences: null,
+        gpuStatsInterval: null,
+        
+        setAgentRunning(isRunning) {
+            this.agentIsRunning = isRunning;
+            window.agentIsRunning = isRunning; // Keep global in sync
+            updateAgentStatusUI();
+        },
+        
+        setCurrentPhase(phaseId) {
+            this.currentPhaseId = phaseId;
+        },
+        
+        setActivePreferences(preferences) {
+            this.activeRunPreferences = preferences;
         }
-    }
+    };
 
-    // --- Theme Initialization (Dark Mode) ---
+    // --- Theme Management ---
     function initializeTheme() {
-        const darkModeToggleInput = document.getElementById('darkModeToggle');
-        if (!darkModeToggleInput) return;
+        if (!DOM.darkModeToggle) return;
 
         let preferredTheme = 'light';
         try {
@@ -55,9 +60,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         document.documentElement.setAttribute('data-bs-theme', preferredTheme);
-        darkModeToggleInput.checked = (preferredTheme === 'dark');
+        DOM.darkModeToggle.checked = (preferredTheme === 'dark');
 
-        darkModeToggleInput.addEventListener('change', function () {
+        DOM.darkModeToggle.addEventListener('change', function () {
             const newTheme = this.checked ? 'dark' : 'light';
             document.documentElement.setAttribute('data-bs-theme', newTheme);
             saveClientPreferences();
@@ -66,59 +71,51 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log(`Theme initialized to: ${preferredTheme}`);
     }
 
-    // --- Log Handling ---
+    // --- Log Management ---
     function addLogMessage(message, level = 'INFO') {
-        if (!liveLogsUl) return;
+        if (!DOM.liveLogsUl) return;
         
         const li = document.createElement('li');
         li.className = `list-group-item log-${level.toLowerCase()}`;
         const timestamp = new Date().toLocaleTimeString();
         li.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> <span class="log-level">[${level}]</span> <span class="log-message">${message}</span>`;
-        liveLogsUl.appendChild(li);
-        liveLogsUl.scrollTop = liveLogsUl.scrollHeight;
+        DOM.liveLogsUl.appendChild(li);
+        DOM.liveLogsUl.scrollTop = DOM.liveLogsUl.scrollHeight;
         
         updateLogCount();
     }
 
     function updateLogCount() {
-        const logCountElement = document.getElementById('logCount');
-        if (logCountElement && liveLogsUl) {
-            const count = liveLogsUl.children.length;
-            logCountElement.textContent = `${count} Log${count !== 1 ? 's' : ''}`;
+        if (DOM.logCount && DOM.liveLogsUl) {
+            const count = DOM.liveLogsUl.children.length;
+            DOM.logCount.textContent = `${count} Log${count !== 1 ? 's' : ''}`;
         }
     }
 
-    if (clearLogsButton) {
-        clearLogsButton.addEventListener('click', () => {
-            if (liveLogsUl) {
-                liveLogsUl.innerHTML = ''; // Clear visually immediately
-                socket.emit('clear_server_logs'); // Ask server to clear its log history
-                // The server will emit a confirmation log message
-            }
-        });
+    function clearLogs() {
+        if (DOM.liveLogsUl) {
+            DOM.liveLogsUl.innerHTML = '';
+            socket.emit('clear_server_logs');
+        }
     }
 
-    // --- Agent Status UI ---
+    // --- Agent Status Management ---
     function updateAgentStatusUI() {
-        const isRunning = agentIsRunning || (activeRunPreferences && activeRunPreferences.is_running);
-        
-        // Update global state for phase manager
-        window.agentIsRunning = isRunning;
+        const isRunning = appState.agentIsRunning;
         
         // Update Run/Stop buttons
-        if (runAgentButton) runAgentButton.disabled = isRunning;
-        if (stopAgentButton) stopAgentButton.disabled = !isRunning;
+        if (DOM.runAgentButton) DOM.runAgentButton.disabled = isRunning;
+        if (DOM.stopAgentButton) DOM.stopAgentButton.disabled = !isRunning;
         
-        // Update agent run status display in logs footer
-        const agentRunStatusLogsFooter = document.getElementById('agentRunStatusLogsFooter');
-        if (agentRunStatusLogsFooter) {
-            agentRunStatusLogsFooter.textContent = isRunning ? 'Agent Status: Running' : 'Agent Status: Not Running';
-            agentRunStatusLogsFooter.classList.remove('text-danger', 'text-success');
-            agentRunStatusLogsFooter.classList.add(isRunning ? 'text-success' : 'text-danger');
+        // Update status display
+        if (DOM.agentRunStatusLogsFooter) {
+            DOM.agentRunStatusLogsFooter.textContent = isRunning ? 'Agent Status: Running' : 'Agent Status: Not Running';
+            DOM.agentRunStatusLogsFooter.classList.remove('text-danger', 'text-success');
+            DOM.agentRunStatusLogsFooter.classList.add(isRunning ? 'text-success' : 'text-danger');
         }
     }
 
-    // --- Preferences Handling ---
+    // --- Preferences Management ---
     function saveClientPreferences() {
         if (!window.phaseManager) return;
         
@@ -134,178 +131,30 @@ document.addEventListener('DOMContentLoaded', function () {
             force_reprocess_llm: phaseStates.subphase_cp_llm === 'force',
             force_reprocess_kb_item: phaseStates.subphase_cp_kbitem === 'force',
             force_regenerate_synthesis: phaseStates.synthesis_generation === 'force',
-            darkMode: document.getElementById('darkModeToggle')?.checked || false
+            darkMode: DOM.darkModeToggle?.checked || false
         };
         localStorage.setItem('agentClientPreferences', JSON.stringify(clientPrefs));
     }
 
-    // Make preferences available globally
-    window.preferencesManager = { saveClientPreferences };
-
-    // --- Socket.IO Event Handlers ---
-    socket.on('connect', () => {
-        console.log('SocketIO connected successfully');
-        addLogMessage('Connected to server via Socket.IO.', 'INFO');
-    });
-
-    socket.on('disconnect', () => {
-        addLogMessage('Disconnected from server.', 'WARN');
-    });
-
-    socket.on('log', function(data) {
-        addLogMessage(data.message, data.level);
-    });
-
-    socket.on('initial_status_and_git_config', function(data) {
-        console.log("Received initial_status_and_git_config:", data);
-        addLogMessage('Received initial agent status and Git config.', 'DEBUG');
-
-        agentIsRunning = data.agent_is_running || data.is_running;
-        currentPhaseId = data.current_phase_id;
-        activeRunPreferences = data.active_run_preferences || null;
-
-        updateAgentStatusUI();
-
-        if (agentIsRunning && activeRunPreferences && window.phaseManager && typeof window.phaseManager.applyActiveRunPreferencesToUI === 'function') {
-            console.log('Agent is running with preferences, applying to UI:', activeRunPreferences);
-            window.phaseManager.applyActiveRunPreferencesToUI(activeRunPreferences);
-        } else if (agentIsRunning && activeRunPreferences) {
-            console.warn('phaseManager.applyActiveRunPreferencesToUI function not found. UI may not reflect active preferences.');
-        }
-        
-        // Ensure DOM structure is correct - NO MORE MOVING ELEMENTS AROUND
-        // The current-phase-details should stay exactly where it is in HTML
-    });
-
-    socket.on('agent_status', function(data) {
-        console.log("Agent status update:", data);
-        agentIsRunning = data.is_running;
-        activeRunPreferences = data.active_run_preferences || null;
-        updateAgentStatusUI();
-    });
-
-    socket.on('agent_phase_update', function(data) {
-        console.log('Phase update received:', data);
-        addLogMessage(`Phase update: ${data.phase_id} - ${data.status} - ${data.message}`, 'INFO');
-        currentPhaseId = data.phase_id;
-        
-        // Update visual status of the phase in execution plan
-        updatePhaseVisualStatus(data.phase_id, data.status, data);
-        
-        // Use phase manager for detailed updates
+    // --- Phase Management Integration ---
+    function initializePhaseManager() {
         if (window.phaseManager) {
-            window.phaseManager.updateCurrentPhaseDetails(
-                data.phase_id, 
-                data.message || '', 
-                data.processed_count, 
-                data.total_count, 
-                data.error_count
-            );
-            // Also update the execution plan status directly
-            window.phaseManager.updatePhaseExecutionStatus(
-                data.phase_id,
-                data.processed_count,
-                data.total_count,
-                data.error_count
-            );
-        }
-    });
-
-    // Enhanced phase visual status update function
-    function updatePhaseVisualStatus(phaseId, status, data) {
-        const phaseElement = document.querySelector(`[data-phase-id="${phaseId}"]`);
-        if (!phaseElement) return;
-        
-        const statusElement = phaseElement.querySelector('.phase-status');
-        if (!statusElement) return;
-        
-        // Remove existing status classes
-        phaseElement.classList.remove('status-pending', 'status-active', 'status-completed', 'status-skipped', 'status-error');
-        
-        let statusText = '';
-        let statusClass = '';
-        
-        switch (status) {
-            case 'active':
-            case 'in_progress':
-                statusClass = 'status-active';
-                if (data.processed_count !== null && data.total_count !== null) {
-                    const percentage = Math.round((data.processed_count / data.total_count) * 100);
-                    statusText = `${data.processed_count}/${data.total_count} (${percentage}%)`;
-                } else {
-                    statusText = '🔄 Running...';
-                }
-                break;
-                
-            case 'completed':
-                statusClass = 'status-completed';
-                if (data.total_count !== null && data.total_count > 0) {
-                    statusText = `✅ Done (${data.total_count})`;
-                } else {
-                    // Completed with no items - show as Done, not Skipped
-                    statusText = '✅ Done';
-                }
-                break;
-                
-            case 'skipped':
-                statusClass = 'status-skipped';
-                // Check if this was actually skipped by user choice or completed with no work
-                if (data.message && (data.message.includes('already') || data.message.includes('no') || data.message.includes('All') || data.total_count === 0)) {
-                    // This is "done" with no work, not actually skipped
-                    statusClass = 'status-completed';
-                    statusText = '✅ Done';
-                } else {
-                    // Actually skipped by user
-                    statusText = '⏭️ Skipped';
-                }
-                break;
-                
-            case 'error':
-                statusClass = 'status-error';
-                statusText = '❌ Error';
-                break;
-                
-            case 'pending':
-            default:
-                statusClass = 'status-pending';
-                if (data.total_count !== null && data.total_count > 0) {
-                    statusText = `Will Run (${data.total_count})`;
-                } else {
-                    statusText = 'Will Run';
-                }
-                break;
-        }
-        
-        phaseElement.classList.add(statusClass);
-        statusElement.textContent = statusText;
-        
-        // Add progress indication for active phases
-        if (status === 'active' || status === 'in_progress') {
-            phaseElement.style.background = 'linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%)';
-        } else {
-            phaseElement.style.background = '';
+            console.log('index.js: Initializing phase manager integration');
+            window.phaseManager.restorePhaseStates();
+            window.phaseManager.applyStateToUI();
         }
     }
 
-    socket.on('agent_run_completed', function(data) {
-        addLogMessage(`Agent run completed. Summary: ${data.summary_message}`, 'INFO');
-        agentIsRunning = data.is_running;
-        updateAgentStatusUI();
-        currentPhaseId = null;
-        activeRunPreferences = null;
-    });
-
-    socket.on('gpu_stats_update', function(data) {
-        updateGPUStats(data);
-    });
-
-    // Enhanced GPU Stats Update Function
+    // --- GPU Stats Management ---
     function updateGPUStats(data) {
-        const container = document.getElementById('gpuStatsContainer');
-        if (!container) return;
+        console.log('updateGPUStats called with data:', data);
+        if (!DOM.gpuStatsContainer) {
+            console.error('gpuStatsContainer element not found');
+            return;
+        }
 
         if (data.error) {
-            container.innerHTML = `
+            DOM.gpuStatsContainer.innerHTML = `
                 <div class="text-center text-danger">
                     <i class="bi bi-exclamation-triangle"></i> ${data.error}
                 </div>
@@ -314,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (!data.gpus || data.gpus.length === 0) {
-            container.innerHTML = `
+            DOM.gpuStatsContainer.innerHTML = `
                 <div class="text-center text-muted">
                     <i class="bi bi-info-circle"></i> No GPU data available
                 </div>
@@ -326,11 +175,9 @@ document.addEventListener('DOMContentLoaded', function () {
         let html = '';
         
         if (data.gpus.length === 1) {
-            // Single GPU - use full width
             const gpu = data.gpus[0];
             html = createCompactGPUCard(gpu, 0, 'col-12');
         } else {
-            // Multiple GPUs - side by side
             html = '<div class="row g-3">';
             data.gpus.forEach((gpu, index) => {
                 const colClass = data.gpus.length === 2 ? 'col-md-6' : 'col-md-4';
@@ -339,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function () {
             html += '</div>';
         }
         
-        container.innerHTML = html;
+        DOM.gpuStatsContainer.innerHTML = html;
     }
 
     function createCompactGPUCard(gpu, index, colClass) {
@@ -350,7 +197,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const temperatureCelsius = gpu.temperature_gpu || 0;
         const memoryPercent = (memoryUsed / memoryTotal) * 100;
         const graphicsFreq = gpu.clocks_graphics || 0;
-        const memoryFreq = gpu.clocks_memory || 0;
         
         return `
             <div class="${colClass}">
@@ -368,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="small fw-bold">${utilization.toFixed(1)}%</span>
                             </div>
                             <div class="progress" style="height: 6px;">
-                                <div class="progress-bar ${getUtilizationBootstrapClass(utilization)}" 
+                                <div class="progress-bar ${getUtilizationClass(utilization)}" 
                                      style="width: ${utilization}%"></div>
                             </div>
                         </div>
@@ -380,7 +226,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="small fw-bold">${(memoryUsed/1024).toFixed(1)}/${(memoryTotal/1024).toFixed(1)} GB</span>
                             </div>
                             <div class="progress" style="height: 6px;">
-                                <div class="progress-bar ${getMemoryBootstrapClass(memoryPercent)}" 
+                                <div class="progress-bar ${getMemoryClass(memoryPercent)}" 
                                      style="width: ${memoryPercent}%"></div>
                             </div>
                         </div>
@@ -392,20 +238,20 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="small fw-bold">${temperature.toFixed(0)}°F</span>
                             </div>
                             <div class="progress" style="height: 6px;">
-                                <div class="progress-bar ${getTemperatureBootstrapClass(temperatureCelsius)}" 
+                                <div class="progress-bar ${getTemperatureClass(temperatureCelsius)}" 
                                      style="width: ${getTemperatureBarWidth(temperatureCelsius)}%"></div>
                             </div>
                         </div>
                         
-                        <!-- GPU Frequency -->
                         ${graphicsFreq > 0 ? `
+                        <!-- GPU Frequency -->
                         <div class="mb-0">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="small fw-medium">GPU Frequency</span>
                                 <span class="small fw-bold">${graphicsFreq} MHz</span>
                             </div>
                             <div class="progress" style="height: 6px;">
-                                <div class="progress-bar ${getFrequencyBootstrapClass(graphicsFreq)}" 
+                                <div class="progress-bar ${getFrequencyClass(graphicsFreq)}" 
                                      style="width: ${getFrequencyBarWidth(graphicsFreq)}%"></div>
                             </div>
                         </div>
@@ -416,22 +262,22 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
     }
 
-    function getUtilizationBootstrapClass(utilization) {
+    // GPU Stats Helper Functions
+    function getUtilizationClass(utilization) {
         if (utilization < 25) return 'bg-success';
         if (utilization < 50) return 'bg-warning';
         if (utilization < 80) return 'bg-orange';
         return 'bg-danger';
     }
 
-    function getMemoryBootstrapClass(memoryPercent) {
+    function getMemoryClass(memoryPercent) {
         if (memoryPercent < 50) return 'bg-success';
         if (memoryPercent < 70) return 'bg-warning';
         if (memoryPercent < 90) return 'bg-orange';
         return 'bg-danger';
     }
 
-    function getTemperatureBootstrapClass(temperature) {
-        // Tesla P40 temperature ranges
+    function getTemperatureClass(temperature) {
         if (temperature < 40) return 'bg-info';
         if (temperature < 60) return 'bg-success';
         if (temperature < 75) return 'bg-warning';
@@ -440,12 +286,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function getTemperatureBarWidth(temperature) {
-        // Tesla P40 max operating temp is around 89°C
         const maxTemp = 90;
         return Math.min((temperature / maxTemp) * 100, 100);
     }
 
-    function getFrequencyBootstrapClass(frequency) {
+    function getFrequencyClass(frequency) {
         if (frequency < 1000) return 'bg-success';
         if (frequency < 2000) return 'bg-warning';
         if (frequency < 3000) return 'bg-orange';
@@ -453,42 +298,303 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function getFrequencyBarWidth(frequency) {
-        // Assuming a default max frequency of 3000 MHz
         const maxFreq = 3000;
         return Math.min((frequency / maxFreq) * 100, 100);
     }
 
-    // --- UI Initialization ---
-    function initializeUI() {
-        console.log('Initializing main UI...');
+    function refreshGPUStats() {
+        console.log("refreshGPUStats called");
+        console.log("Socket status:", socket ? (socket.connected ? 'connected' : 'disconnected') : 'undefined');
         
-        if (runAgentButton) {
-            runAgentButton.addEventListener('click', () => {
-                if (window.phaseManager) {
-                    const preferences = window.phaseManager.getServerPreferences();
-                    addLogMessage(`Requesting to run agent...`, 'INFO');
-                    socket.emit('run_agent', { preferences: preferences });
+        if (!DOM.gpuStatsContainer) {
+            console.log("GPU container not found");
+            return;
+        }
+        
+        if (socket && socket.connected) {
+            console.log("Emitting request_gpu_stats via SocketIO");
+            socket.emit('request_gpu_stats');
+            
+            // Fallback to REST if no response in 2 seconds
+            setTimeout(() => {
+                if (DOM.gpuStatsContainer && DOM.gpuStatsContainer.innerHTML.includes('Loading GPU statistics')) {
+                    console.log("SocketIO didn't respond, falling back to REST API");
+                    fetchGPUStatsREST();
                 }
+            }, 2000);
+        } else {
+            console.log("SocketIO not connected, using REST API fallback");
+            fetchGPUStatsREST();
+        }
+    }
+
+    async function fetchGPUStatsREST() {
+        try {
+            const response = await fetch('/api/gpu-stats');
+            if (response.ok) {
+                const data = await response.json();
+                updateGPUStats(data);
+            } else {
+                const errorData = await response.json();
+                updateGPUStats({error: errorData.error || 'Failed to fetch GPU stats'});
+            }
+        } catch (error) {
+            console.error('Error fetching GPU stats via REST:', error);
+            updateGPUStats({error: 'Network error fetching GPU stats'});
+        }
+    }
+
+    function startGPUStatsMonitoring() {
+        // Clear any existing interval
+        if (appState.gpuStatsInterval) {
+            clearInterval(appState.gpuStatsInterval);
+        }
+        
+        // Set up periodic refresh every 10 seconds
+        appState.gpuStatsInterval = setInterval(() => {
+            if (DOM.gpuStatsContainer) {
+                refreshGPUStats();
+            }
+        }, 10000);
+    }
+
+    // --- Event Handling ---
+    function initializeEventHandlers() {
+        if (!DOM.mainContentArea) return;
+
+        // Use single delegated event handler for all clicks
+        DOM.mainContentArea.addEventListener('click', (event) => {
+            const target = event.target;
+
+            if (target.matches('#runAgentButton')) {
+                handleRunAgent();
+            } else if (target.matches('#stopAgentButton')) {
+                handleStopAgent();
+            } else if (target.matches('#clearLogsButton')) {
+                clearLogs();
+            }
+        });
+    }
+
+    function handleRunAgent() {
+        console.log('Run Agent button clicked');
+        if (window.phaseManager) {
+            const preferences = window.phaseManager.getServerPreferences();
+            console.log('Sending agent run request with preferences:', preferences);
+            addLogMessage(`Requesting to run agent...`, 'INFO');
+            socket.emit('run_agent', { preferences: preferences });
+        } else {
+            console.error('PhaseManager not found - using default preferences');
+            addLogMessage('PhaseManager not found - using default preferences', 'WARNING');
+            const defaultPrefs = {
+                run_mode: 'full_pipeline',
+                skip_fetch_bookmarks: false,
+                skip_process_content: false,
+                skip_synthesis_generation: false,
+                skip_embedding_generation: false,
+                skip_readme_generation: false,
+                skip_git_push: false,
+                force_recache_tweets: false,
+                force_reprocess_media: false,
+                force_reprocess_llm: false,
+                force_reprocess_kb_item: false,
+                force_regenerate_synthesis: false,
+                force_regenerate_embeddings: false
+            };
+            socket.emit('run_agent', { preferences: defaultPrefs });
+        }
+    }
+
+    function handleStopAgent() {
+        addLogMessage('Requesting to stop agent.', 'WARN');
+        socket.emit('stop_agent');
+    }
+
+    // --- Chat Widget Management ---
+    function initializeChatWidget() {
+        if (!DOM.chatWidget) return;
+
+        const chatHeader = DOM.chatWidget.querySelector('.chat-widget-header');
+        const chatBody = DOM.chatWidget.querySelector('.chat-widget-body');
+        const toggleIcon = DOM.chatWidget.querySelector('.chat-toggle-icon');
+
+        if (chatHeader) {
+            chatHeader.addEventListener('click', () => {
+                DOM.chatWidget.classList.toggle('chat-widget-open');
+                const isOpen = DOM.chatWidget.classList.contains('chat-widget-open');
+                chatBody.style.display = isOpen ? 'flex' : 'none';
+                
+                // Update toggle icon
+                if (toggleIcon) {
+                    toggleIcon.textContent = isOpen ? '-' : '+';
+                }
+                
+                console.log(`Chat widget ${isOpen ? 'opened' : 'minimized'}`);
             });
         }
 
-        if (stopAgentButton) {
-            stopAgentButton.addEventListener('click', () => {
-                addLogMessage('Requesting to stop agent.', 'WARN');
-                socket.emit('stop_agent');
-            });
+        if (window.initializeChat) {
+            window.initializeChat();
         }
     }
-    
-    // Initialize everything
-    initializeDefaultPhaseVisuals();
-    initializeTheme();
-    initializeUI();
-    socket.emit('request_initial_status_and_git_config');
-    
-    // Initial log message
-    addLogMessage('Client JavaScript initialized.', 'INFO');
-    setTimeout(updateLogCount, 100);
-    
-    console.log('Main application initialization complete');
+
+    // --- Socket.IO Event Handlers ---
+    socket.on('connect', () => {
+        console.log('SocketIO connected successfully');
+        addLogMessage('Connected to server via Socket.IO.', 'INFO');
+        
+        // Request GPU stats when connection is established
+        setTimeout(() => {
+            console.log('Requesting initial GPU stats on SocketIO connect');
+            socket.emit('request_gpu_stats');
+        }, 100);
+    });
+
+    socket.on('disconnect', () => {
+        addLogMessage('Disconnected from server.', 'WARN');
+    });
+
+    socket.on('log', function(data) {
+        addLogMessage(data.message, data.level);
+    });
+
+    socket.on('initial_status_and_git_config', function(data) {
+        console.log("Received initial_status_and_git_config:", data);
+        addLogMessage('Received initial agent status and Git config.', 'DEBUG');
+
+        appState.setAgentRunning(data.agent_is_running || data.is_running);
+        appState.setCurrentPhase(data.current_phase_id);
+        appState.setActivePreferences(data.active_run_preferences || null);
+
+        if (appState.agentIsRunning && appState.activeRunPreferences && window.phaseManager && typeof window.phaseManager.applyActiveRunPreferencesToUI === 'function') {
+            console.log('Agent is running with preferences, applying to UI:', appState.activeRunPreferences);
+            window.phaseManager.applyActiveRunPreferencesToUI(appState.activeRunPreferences);
+        } else if (appState.agentIsRunning && appState.activeRunPreferences) {
+            console.warn('phaseManager.applyActiveRunPreferencesToUI function not found. UI may not reflect active preferences.');
+        }
+    });
+
+    socket.on('agent_status', function(data) {
+        console.log("Agent status update:", data);
+        appState.setAgentRunning(data.is_running);
+        appState.setActivePreferences(data.active_run_preferences || null);
+    });
+
+    socket.on('phase_update', function(data) {
+        console.log('Phase update received:', data);
+        addLogMessage(`Phase update: ${data.phase_id} - ${data.status} - ${data.message}`, 'INFO');
+        appState.setCurrentPhase(data.phase_id);
+        
+        // Use phase manager for updates (single point of truth)
+        if (window.phaseManager) {
+            // Update the bottom status message
+            window.phaseManager.updateCurrentPhaseDetails(
+                data.phase_id, 
+                data.message || '', 
+                data.processed_count, 
+                data.total_count, 
+                data.error_count
+            );
+            
+            // Update the phase status in the execution plan
+            window.phaseManager.updatePhaseStatus(
+                data.phase_id,
+                data.status,
+                data.message
+            );
+            
+            // If we have progress counts, also update progress display
+            if (data.processed_count !== null && data.processed_count !== undefined) {
+                window.phaseManager.updatePhaseExecutionStatus(
+                    data.phase_id,
+                    data.processed_count,
+                    data.total_count,
+                    data.error_count
+                );
+            }
+        }
+    });
+
+    socket.on('agent_run_completed', function(data) {
+        addLogMessage(`Agent run completed. Summary: ${data.summary_message}`, 'INFO');
+        appState.setAgentRunning(data.is_running);
+        appState.setCurrentPhase(null);
+        appState.setActivePreferences(null);
+    });
+
+    socket.on('gpu_stats', function(data) {
+        updateGPUStats(data);
+    });
+
+    socket.on('gpu_stats_update', function(data) {
+        updateGPUStats(data);
+    });
+
+    // --- Dynamic Components Reinitialization (for SPA navigation) ---
+    function reinitializeDynamicComponents() {
+        console.log("Re-initializing dynamic components...");
+        
+        // Update DOM cache for new elements
+        DOM.gpuStatsContainer = document.getElementById('gpuStatsContainer');
+        
+        // Refresh GPU stats if container exists
+        if (DOM.gpuStatsContainer) {
+            refreshGPUStats();
+        }
+        
+        // Re-initialize chat widget
+        initializeChatWidget();
+        
+        // Re-initialize logs page if we're on logs page
+        if (document.getElementById('log-file-select')) {
+            console.log('Logs page detected, initializing logs functionality');
+            if (window.initializeLogsPage) {
+                setTimeout(() => window.initializeLogsPage(), 100);
+            }
+        }
+        
+        // Re-initialize phase manager if available
+        if (window.phaseManager) {
+            window.phaseManager.restorePhaseStates();
+            window.phaseManager.applyStateToUI();
+        }
+    }
+
+    // --- Global Exports ---
+    window.preferencesManager = { saveClientPreferences };
+    window.reinitializeDynamicComponents = reinitializeDynamicComponents;
+    window.refreshGPUStats = refreshGPUStats;
+
+    // --- Application Initialization ---
+    function initializeApplication() {
+        console.log('Initializing main application...');
+        
+        // Initialize core systems
+        initializeTheme();
+        initializeEventHandlers();
+        initializePhaseManager();
+        initializeChatWidget();
+        
+        // Request initial status
+        socket.emit('request_initial_status_and_git_config');
+        
+        // Start GPU monitoring with backup
+        setTimeout(() => {
+            if (DOM.gpuStatsContainer && DOM.gpuStatsContainer.innerHTML.includes('Loading GPU statistics')) {
+                console.log('Backup GPU stats request');
+                refreshGPUStats();
+            }
+        }, 2000);
+        
+        startGPUStatsMonitoring();
+        
+        // Initial log setup
+        addLogMessage('Client JavaScript initialized.', 'INFO');
+        setTimeout(updateLogCount, 100);
+        
+        console.log('Main application initialization complete');
+    }
+
+    // Start the application
+    initializeApplication();
 }); 

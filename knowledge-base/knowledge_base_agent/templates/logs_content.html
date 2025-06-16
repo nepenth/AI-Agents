@@ -1,0 +1,44 @@
+<!-- knowledge_base_agent/templates/logs_content.html -->
+<div class="page-content-wrapper">
+    <div class="col-12 p-0">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-journal-text me-2"></i> Past Agent Logs</h5>
+            </div>
+            <div class="card-body">
+                <div class="card log-viewer-card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">Select Log File</h6>
+                        <div>
+                            <button id="refreshLogListBtn" class="btn btn-sm btn-outline-secondary me-2" title="Refresh List">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                            <button id="deleteAllLogsBtn" class="btn btn-sm btn-outline-danger" title="Delete All Logs">
+                                <i class="bi bi-trash"></i> Delete All Logs
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                         <div class="input-group">
+                            <select class="form-select" id="log-file-select">
+                                <option value="" selected>Loading log files...</option>
+                            </select>
+                            <button class="btn btn-primary" type="button" id="load-log-button">Load Log</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card log-content-card">
+                     <div class="card-header">
+                        <h6 class="card-title mb-0" id="log-content-header">Log Content</h6>
+                     </div>
+                     <div class="card-body">
+                         <pre class="log-content-area" id="log-content-area" style="max-height: 400px; overflow-y: auto; font-size: 0.85rem;">Select a log file to view its content.</pre>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+ 

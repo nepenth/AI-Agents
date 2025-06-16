@@ -16,12 +16,8 @@ from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
 # Load environment variables
 load_dotenv()
 
-# Configure logging to our main log file.
-logging.basicConfig(
-    filename='agent_program.log',
-    level=logging.DEBUG,  # DEBUG for detailed logs
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Note: Logging is now configured by the main application, not here
+# This removes the hardcoded agent_program.log file creation
 
 # Constants and selectors
 LOGIN_URL = "https://x.com/login"

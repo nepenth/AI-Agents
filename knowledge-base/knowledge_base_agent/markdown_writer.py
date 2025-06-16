@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any, AsyncGenerator, Tuple # Added Tupl
 from knowledge_base_agent.exceptions import MarkdownGenerationError
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager, create_kb_path # create_kb_path uses safe_directory_name
-from knowledge_base_agent.types import KnowledgeBaseItem
+from knowledge_base_agent.custom_types import KnowledgeBaseItem
 
 _folder_creation_lock = asyncio.Lock()
 
