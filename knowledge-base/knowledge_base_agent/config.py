@@ -2,7 +2,7 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings
 from pydantic import HttpUrl, Field, field_validator, model_validator
 from knowledge_base_agent.exceptions import ConfigurationError
@@ -41,6 +41,9 @@ class Config(BaseSettings):
     ollama_url: HttpUrl = Field(..., alias="OLLAMA_URL")
     vision_model: str = Field(..., alias="VISION_MODEL")
     text_model: str = Field(..., alias="TEXT_MODEL")
+    embedding_model: str = Field(..., alias="EMBEDDING_MODEL", description="The model to use for generating embeddings.")
+    chat_model: Optional[str] = Field(None, alias="CHAT_MODEL", description="Dedicated model for chat, defaults to text_model if not set")
+    available_chat_models: List[str] = Field([], alias="AVAILABLE_CHAT_MODELS", description="JSON array of chat models available for selection in the UI.")
     fallback_model: str = Field(..., alias="FALLBACK_MODEL")
     categorization_model: str = Field("", alias="CATEGORIZATION_MODEL", description="Dedicated model for AI categorization, defaults to text_model if not set")
     gpu_total_memory: int = Field(0, alias="GPU_TOTAL_MEM", description="Total GPU memory available in MB for parallelization decisions")
@@ -53,6 +56,7 @@ class Config(BaseSettings):
     synthesis_model: Optional[str] = Field(None, alias="SYNTHESIS_MODEL", description="Dedicated model for synthesis generation, defaults to text_model if not set")
     enable_synthesis_thinking: bool = Field(False, alias="ENABLE_SYNTHESIS_THINKING", description="Whether to use a specific thinking model for synthesis tasks")
     synthesis_thinking_model_name: Optional[str] = Field(None, alias="SYNTHESIS_THINKING_MODEL_NAME", description="The name of the thinking model to use for synthesis if enable_synthesis_thinking is true")
+    synthesis_min_sub_syntheses: int = Field(2, alias="SYNTHESIS_MIN_SUB_SYNTHESES", description="Minimum number of subcategory syntheses required before generating a main category synthesis")
     
     # GitHub settings
     github_token: str = Field(..., alias="GITHUB_TOKEN", min_length=1)
@@ -70,7 +74,7 @@ class Config(BaseSettings):
     processed_tweets_file_rel: Path = Field(..., alias="PROCESSED_TWEETS_FILE")
     media_cache_dir_rel: Path = Field(..., alias="MEDIA_CACHE_DIR")
     tweet_cache_file_rel: Path = Field(..., alias="TWEET_CACHE_FILE")
-    log_file_rel: Path = Field(..., alias="LOG_FILE") # Can include {timestamp}
+    log_file_rel: Path = Field(default_factory=lambda: Path("logs/agent_{timestamp}.log"), alias="LOG_FILE") # Can include {timestamp}
     unprocessed_tweets_file_rel: Path = Field(..., alias="UNPROCESSED_TWEETS_FILE")
     log_dir_rel: Path = Field(..., alias="LOG_DIR")
 
@@ -93,6 +97,7 @@ class Config(BaseSettings):
     
     # Logging and performance
     log_level: str = Field("DEBUG", alias="LOG_LEVEL")
+    log_format: str = Field("%(asctime)s - %(levelname)s - %(message)s", alias="LOG_FORMAT")
     max_pool_size: int = Field(1, alias="MAX_POOL_SIZE")
     rate_limit_requests: int = Field(100, alias="RATE_LIMIT_REQUESTS")
     rate_limit_period: int = Field(
@@ -194,6 +199,11 @@ class Config(BaseSettings):
         if not self.categorization_model:
             self.categorization_model = self.text_model
             logging.info(f"No specific CATEGORIZATION_MODEL set. Using TEXT_MODEL ({self.text_model}) for categorization.")
+        
+        # If chat_model is empty, use text_model
+        if not self.chat_model:
+            self.chat_model = self.text_model
+            logging.info(f"No specific CHAT_MODEL set. Using TEXT_MODEL ({self.text_model}) for chat.")
         
         # If synthesis_model is empty, use text_model
         if not self.synthesis_model:
@@ -306,27 +316,16 @@ class Config(BaseSettings):
             PROJECT_ROOT = project_root_path
             logging.info(f"PROJECT_ROOT explicitly set to: {PROJECT_ROOT}")
         else:
-            # Ensure get_project_root is called to infer if not provided
-            # This will use the inferred root if PROJECT_ROOT is still None
             if PROJECT_ROOT is None:
-                PROJECT_ROOT = get_project_root() # Infer if not set
+                PROJECT_ROOT = get_project_root()
             logging.info(f"Using project_root: {PROJECT_ROOT}")
 
-        load_dotenv(dotenv_path= Path(PROJECT_ROOT) / ".env" if PROJECT_ROOT else ".env")
-        
-        # Logging before full config setup might be basic
-        logging.info("Loading environment variables for Config...")
-        
-        # Construct with project_root passed explicitly to avoid factory if already known
-        # Pydantic will use the default_factory for project_root if not passed.
-        # If project_root_path is passed here, it should directly initialize the field.
-        
-        instance = cls(project_root=PROJECT_ROOT) # Pass the determined project_root
-        
-        # The resolve_paths model_validator will handle resolving and creating directories
-        # instance.ensure_directories() # Call after paths are resolved
+        # Drop inherited AVAILABLE_CHAT_MODELS env var so Pydantic Settings can read the JSON array from .env
+        os.environ.pop("AVAILABLE_CHAT_MODELS", None)
+        logging.info("Loading environment variables for Config via Pydantic .env settings file")
 
-        return instance
+        # Instantiate and return the settings; Pydantic will JSON-decode AVAILABLE_CHAT_MODELS
+        return cls(project_root=PROJECT_ROOT)
 
     def get_relative_path(self, absolute_path: Path) -> Path:
         """Converts an absolute path to a path relative to the project root."""
@@ -337,75 +336,3 @@ class Config(BaseSettings):
     def resolve_path_from_project_root(self, relative_path: Path | str) -> Path:
         """Resolves a path relative to the project root to an absolute path."""
         return (self.project_root / relative_path).resolve()
-
-async def load_config(project_root_override: Optional[Path] = None) -> Config:
-    """
-    Loads environment variables, initializes the Config object, 
-    sets up directories, and configures logging.
-    PROJECT_ROOT is crucial and needs to be determined correctly.
-    """
-    global PROJECT_ROOT
-    
-    determined_project_root: Optional[Path] = None
-
-    if project_root_override:
-        determined_project_root = project_root_override.resolve()
-        logging.info(f"Using provided project root override: {determined_project_root}")
-    else:
-        # Try to determine from environment variable first
-        env_project_root = os.getenv("KNOWLEDGE_BASE_PROJECT_ROOT")
-        if env_project_root:
-            determined_project_root = Path(env_project_root).resolve()
-            logging.info(f"Using KNOWLEDGE_BASE_PROJECT_ROOT env var: {determined_project_root}")
-        else:
-            # Fallback to inferring (e.g., for local dev without .env in parent or specific run contexts)
-            # This inference is a bit fragile; explicit setting is better.
-            try:
-                # Assuming config.py is in knowledge_base_agent/
-                # Then project root is parent of knowledge_base_agent/
-                inferred_root = Path(__file__).resolve().parent.parent
-                # Check for a common marker like .env or the main package folder
-                if (inferred_root / ".env").exists() or \
-                   (inferred_root / "knowledge_base_agent").is_dir() or \
-                   (inferred_root / "pyproject.toml").exists(): # Added pyproject.toml as another marker
-                    determined_project_root = inferred_root
-                    logging.info(f"Inferred project root: {determined_project_root}")
-                else: # Last resort CWD
-                    determined_project_root = Path(os.getcwd()).resolve()
-                    logging.warning(f"Could not reliably infer project root. Defaulting to CWD: {determined_project_root}. Ensure scripts are run from project root or KNOWLEDGE_BASE_PROJECT_ROOT is set.")
-            except Exception as e:
-                logging.error(f"Error during project root inference: {e}. Defaulting to CWD.")
-                determined_project_root = Path(os.getcwd()).resolve()
-
-    if not determined_project_root:
-        # This should not happen if logic above is sound, but as a safeguard
-        raise ConfigurationError("Project root could not be determined. Please set KNOWLEDGE_BASE_PROJECT_ROOT environment variable or run from the project's root directory.")
-
-    PROJECT_ROOT = determined_project_root
-    logging.info(f"Final PROJECT_ROOT set to: {PROJECT_ROOT}")
-
-    # Load .env file from the determined project root
-    dotenv_path = PROJECT_ROOT / ".env"
-    if dotenv_path.exists():
-        load_dotenv(dotenv_path=dotenv_path, override=True)
-        logging.info(f"Loaded .env file from: {dotenv_path}")
-    else:
-        logging.warning(f".env file not found at {dotenv_path}. Relying on environment variables or defaults.")
-
-    try:
-        # Pydantic will use PROJECT_ROOT via get_project_root factory for the project_root field
-        # if it's not explicitly passed or found in env vars for `project_root` itself.
-        # The Config model will handle path resolutions based on this.
-        config_instance = Config() 
-        
-        # Ensure directories (like log_dir, data_dir etc.) are created based on resolved paths
-        config_instance.ensure_directories()
-        
-        # Setup logging based on the loaded configuration
-        config_instance.setup_logging() 
-        
-        logging.info("Configuration loaded and logging configured successfully.")
-        return config_instance
-    except Exception as e:
-        logging.exception("Failed to initialize Config object or setup.")
-        raise ConfigurationError(f"Configuration loading failed: {e}") from e

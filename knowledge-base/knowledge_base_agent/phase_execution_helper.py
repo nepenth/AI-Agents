@@ -19,6 +19,8 @@ class ProcessingPhase(Enum):
     LLM = "llm"
     KB_ITEM = "kb_item"
     DB_SYNC = "db_sync"
+    SYNTHESIS = "synthesis"
+    EMBEDDING = "embedding"
 
 
 @dataclass
@@ -95,20 +97,33 @@ class PhaseExecutionHelper:
         tweets_already_complete = []
         tweets_ineligible = []
         
-        for tweet_id, tweet_data in tweets_data_map.items():
-            # Check if tweet is eligible for this phase
-            if not self._is_tweet_eligible_for_phase(phase, tweet_data):
-                tweets_ineligible.append(tweet_id)
-                continue
-            
-            # Check if tweet needs processing for this phase
-            if self._does_tweet_need_processing(phase, tweet_data, force_flags):
-                tweets_needing_processing.append(tweet_id)
+        # Global phases are handled differently
+        if phase in [ProcessingPhase.SYNTHESIS, ProcessingPhase.EMBEDDING]:
+            # For global phases, we don't iterate per tweet.
+            # We just check the force flag. If not forced, we assume it doesn't need processing
+            # unless a more sophisticated check is implemented later.
+            # The 'tweets' lists will be empty, which is fine.
+            if self._does_tweet_need_processing(phase, {}, force_flags):
+                 # We can use a dummy entry to indicate the phase should run.
+                 tweets_needing_processing.append("global_phase")
             else:
-                tweets_already_complete.append(tweet_id)
-        
-        total_eligible = len(tweets_needing_processing) + len(tweets_already_complete)
-        
+                 tweets_already_complete.append("global_phase")
+            total_eligible = 1
+        else:
+            for tweet_id, tweet_data in tweets_data_map.items():
+                # Check if tweet is eligible for this phase
+                if not self._is_tweet_eligible_for_phase(phase, tweet_data):
+                    tweets_ineligible.append(tweet_id)
+                    continue
+                
+                # Check if tweet needs processing for this phase
+                if self._does_tweet_need_processing(phase, tweet_data, force_flags):
+                    tweets_needing_processing.append(tweet_id)
+                else:
+                    tweets_already_complete.append(tweet_id)
+            
+            total_eligible = len(tweets_needing_processing) + len(tweets_already_complete)
+
         return PhaseExecutionPlan(
             phase=phase,
             total_eligible_tweets=total_eligible,
@@ -162,7 +177,12 @@ class PhaseExecutionHelper:
                 tweet_data.get('item_name_suggestion') and
                 tweet_data.get('kb_item_path')
             )
-        
+
+        # Global phases are not per-tweet, so they are not eligible in a per-tweet context.
+        # The create_phase_execution_plan handles them separately.
+        if phase in [ProcessingPhase.SYNTHESIS, ProcessingPhase.EMBEDDING]:
+            return False
+
         return False
     
     def _does_tweet_need_processing(
@@ -206,7 +226,18 @@ class PhaseExecutionHelper:
             force_kb = force_flags.get('force_reprocess_kb_item', False)  # KB regeneration implies DB re-sync
             db_synced = tweet_data.get('db_synced', False)
             return force_kb or not db_synced
-        
+
+        if phase == ProcessingPhase.SYNTHESIS:
+            force_synthesis = force_flags.get('force_regenerate_synthesis', False)
+            # This is a global phase. It needs processing if forced.
+            # A more complex check could see if new items have been added since last run.
+            return force_synthesis
+
+        if phase == ProcessingPhase.EMBEDDING:
+            force_embedding = force_flags.get('force_regenerate_embeddings', False)
+            # This is a global phase. It needs processing if forced.
+            return force_embedding
+
         return False
     
     def get_phase_dependencies(self, phase: ProcessingPhase) -> List[ProcessingPhase]:
@@ -216,7 +247,9 @@ class PhaseExecutionHelper:
             ProcessingPhase.MEDIA: [ProcessingPhase.CACHE],
             ProcessingPhase.LLM: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA],
             ProcessingPhase.KB_ITEM: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA, ProcessingPhase.LLM],
-            ProcessingPhase.DB_SYNC: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA, ProcessingPhase.LLM, ProcessingPhase.KB_ITEM]
+            ProcessingPhase.DB_SYNC: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA, ProcessingPhase.LLM, ProcessingPhase.KB_ITEM],
+            ProcessingPhase.SYNTHESIS: [ProcessingPhase.DB_SYNC], # Depends on all items being in DB
+            ProcessingPhase.EMBEDDING: [ProcessingPhase.SYNTHESIS] # Depends on synthesis also being generated
         }
         return dependencies.get(phase, [])
     
@@ -253,6 +286,9 @@ class PhaseExecutionHelper:
             if not tweet_data.get('kb_item_path'):
                 missing.append('kb_item_path')
         
+        # Prerequisites for global phases would be checked differently, not per-tweet.
+        # This function is per-tweet, so we can't validate SYNTHESIS or EMBEDDING here effectively.
+        
         return missing
     
     def analyze_processing_state(self, tweets_data_map: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
@@ -282,6 +318,10 @@ class PhaseExecutionHelper:
         
         # Count completion for each phase
         for phase in ProcessingPhase:
+            # Global phases are not tracked per tweet, so we can't count them here.
+            if phase in [ProcessingPhase.SYNTHESIS, ProcessingPhase.EMBEDDING]:
+                continue
+
             completed_count = 0
             for tweet_data in tweets_data_map.values():
                 if self._is_phase_complete(phase, tweet_data):
@@ -334,4 +374,8 @@ class PhaseExecutionHelper:
             return tweet_data.get('kb_item_created', False)
         elif phase == ProcessingPhase.DB_SYNC:
             return tweet_data.get('db_synced', False)
-        return False 
+        # Global phases' completion status is not stored per tweet.
+        # This would need to be checked via a different mechanism.
+        elif phase in [ProcessingPhase.SYNTHESIS, ProcessingPhase.EMBEDDING]:
+            return False # Placeholder
+        return False

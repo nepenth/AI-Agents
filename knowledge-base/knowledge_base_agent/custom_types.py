@@ -69,11 +69,12 @@ class KnowledgeBaseItem:
     last_updated: datetime
 
 @dataclass
-class SubcategorySynthesis:
-    """Represents a synthesized learning document for a subcategory."""
+class Synthesis:
+    """Represents a synthesized learning document for a category or subcategory."""
     main_category: str
-    sub_category: str
+    sub_category: Optional[str]  # Null for main category synthesis
     synthesis_title: str
+    synthesis_short_name: Optional[str] # For UI navigation
     synthesis_content: str
     raw_json_content: str
     item_count: int

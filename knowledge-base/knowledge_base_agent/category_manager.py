@@ -32,7 +32,7 @@ from typing import Dict, List, Set, Optional, Any, Tuple
 from knowledge_base_agent.exceptions import CategoryError, ConfigurationError, StorageError, AIError
 from knowledge_base_agent.file_utils import async_json_load, async_json_dump
 from knowledge_base_agent.path_utils import PathNormalizer, DirectoryManager
-from knowledge_base_agent.types import CategoryInfo
+from knowledge_base_agent.custom_types import CategoryInfo
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
 from datetime import datetime

@@ -19,7 +19,7 @@ import math
 from statistics import mean, median
 from collections import defaultdict
 
-from knowledge_base_agent.config import Config, load_config
+from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import AgentError, MarkdownGenerationError
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
@@ -27,7 +27,7 @@ from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
 from knowledge_base_agent.markdown_writer import MarkdownWriter
 from knowledge_base_agent.readme_generator import generate_root_readme, generate_static_root_readme
 from knowledge_base_agent.category_manager import CategoryManager
-from knowledge_base_agent.types import TweetData, KnowledgeBaseItem
+from knowledge_base_agent.custom_types import TweetData, KnowledgeBaseItem
 from knowledge_base_agent.prompts import UserPreferences, load_user_preferences
 from knowledge_base_agent.progress import ProcessingStats, PhaseDetail
 from knowledge_base_agent.content_processor import ContentProcessingError
@@ -38,11 +38,15 @@ from knowledge_base_agent.content_processor import ContentProcessor
 from knowledge_base_agent.tweet_cacher import cache_tweets, TweetCacheValidator
 from knowledge_base_agent.shared_globals import stop_flag, clear_stop_flag, sg_get_project_root, sg_set_project_root
 from knowledge_base_agent.models import db
-from knowledge_base_agent.synthesis_generator import generate_subcategory_syntheses
+from knowledge_base_agent.synthesis_generator import generate_syntheses
 from knowledge_base_agent.api.logs import list_logs
 from knowledge_base_agent.api.log_content import get_log_content
 from knowledge_base_agent.synthesis_generator import SynthesisGenerator
 from knowledge_base_agent.stats_manager import DynamicPhaseEstimator, get_historical_phase_average, format_duration_to_hhmm
+from knowledge_base_agent.embedding_manager import EmbeddingManager
+from knowledge_base_agent.content_processor import StreamlinedContentProcessor
+from knowledge_base_agent.phase_execution_helper import PhaseExecutionHelper
+from knowledge_base_agent.chat_manager import ChatManager
 
 # Default phase IDs - ensure these match your UI elements' IDs
 DEFAULT_PHASE_IDS = [
@@ -50,6 +54,7 @@ DEFAULT_PHASE_IDS = [
     "fetch_bookmarks",
     "content_processing_overall",
     "synthesis_generation",
+    "embedding_generation",
     "readme_generation",
     "git_sync"
 ]
@@ -64,47 +69,9 @@ def setup_logging(config: Config) -> None:
     Args:
         config (Config): Configuration object containing logging settings, such as log file path.
     """
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    
-    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
-    console_formatter = logging.Formatter('%(message)s')
-
-    # File handler - logs everything at DEBUG level and above
-    file_handler = logging.FileHandler(config.log_file)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(file_formatter)
-
-    # Console handler - logs INFO and above, with filter for progress messages
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(console_formatter)
-    
-    class TweetProgressFilter(logging.Filter):
-        def filter(self, record):
-            msg = record.getMessage()
-            return not any(x in msg for x in [
-                'Caching data for',
-                'Tweet caching completed',
-                '✓ Cached tweet'
-            ])
-    
-    # Only apply filter to console handler - file gets everything
-    console_handler.addFilter(TweetProgressFilter())
-
-    root_logger.setLevel(logging.DEBUG)
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-    # Reduce noise from external libraries in both file and console
-    logging.getLogger('httpx').setLevel(logging.WARNING)
-    logging.getLogger('playwright').setLevel(logging.WARNING)
-    logging.getLogger('urllib3').setLevel(logging.WARNING)
-    
-    # Ensure our agent modules log at DEBUG level to file
-    logging.getLogger('knowledge_base_agent').setLevel(logging.DEBUG)
-    
-    logging.info(f"Logging configured - File: {config.log_file} (DEBUG+), Console: INFO+ with filters")
+    # Note: Logging is configured by the main application, not here.
+    # This function is kept for compatibility but does not set up duplicate handlers.
+    pass
 
 class KnowledgeBaseAgent:
     """
@@ -154,13 +121,15 @@ class KnowledgeBaseAgent:
         self.state_manager = StateManager(config)
         self.category_manager = CategoryManager(config, http_client=self.http_client)
         self.socketio = socketio
-        self.content_processor = ContentProcessor(
-            config=config,
-            http_client=self.http_client,
-            state_manager=self.state_manager,
-            socketio=socketio,
-            phase_emitter_func=self.socketio_emit_phase_update
-        )
+        # Debug: Log socketio initialization
+        if socketio:
+            logging.info(f"Agent initialized WITH socketio: {type(socketio).__name__}")
+        else:
+            logging.warning("Agent initialized WITHOUT socketio - real-time updates will not work")
+        self.phase_execution_helper = PhaseExecutionHelper()
+        self.content_processor: Optional[StreamlinedContentProcessor] = None
+        self.chat_manager: Optional[ChatManager] = None
+        self.embedding_manager: Optional[EmbeddingManager] = None
         self._processing_lock = asyncio.Lock()
         self.git_handler = GitSyncHandler(config)
         self.stats = ProcessingStats(start_time=datetime.now())
@@ -168,7 +137,7 @@ class KnowledgeBaseAgent:
         self.tweet_processor = TweetCacheValidator(config)
         self._is_running = False
         self._current_phase_id = None
-        self._current_phase_message = None
+        self._current_phase_message = "Idle"
         self._current_phase_status = None
         self._current_run_preferences = None
         self._plan_statuses = {}
@@ -184,13 +153,19 @@ class KnowledgeBaseAgent:
         self._phase_estimated_completion_times = {}
         
         self.logger = logging.getLogger(__name__)
-        logging.info("KnowledgeBaseAgent initialized with dynamic phase estimation")
+        self.logger.info("KnowledgeBaseAgent initialized with dynamic phase estimation")
 
     def socketio_emit_log(self, message: str, level: str = "INFO") -> None:
         """Emit a log message via socketio and logging module."""
         logging.log(getattr(logging, level.upper(), logging.INFO), message)
+        
         if self.socketio:
-            self.socketio.emit('log', {'message': message, 'level': level.upper()})
+            try:
+                self.socketio.emit('log', {'message': message, 'level': level.upper()})
+            except Exception as e:
+                logging.error(f"Failed to emit log via socketio: {e}")
+        else:
+            logging.warning("socketio_emit_log called but self.socketio is None")
 
     def socketio_emit_phase_update(self, 
                                  phase_id: str, 
@@ -213,7 +188,7 @@ class KnowledgeBaseAgent:
             log_message += f", Errors={error_count}"
         if initial_estimated_duration_seconds is not None:
             log_message += f", InitialETC={initial_estimated_duration_seconds:.0f}s"
-        self.logger.info(log_message)
+        logging.info(log_message)
 
         # Get current time for calculations
         current_time = time.time()
@@ -240,7 +215,7 @@ class KnowledgeBaseAgent:
                     # Use initial estimate if provided
                     if initial_estimated_duration_seconds is not None and initial_estimated_duration_seconds > 0:
                         estimated_completion_timestamp = current_time + initial_estimated_duration_seconds
-                        self.logger.info(f"Phase '{phase_id}' initialized with ETC: {format_duration_to_hhmm(initial_estimated_duration_seconds)}")
+                        logging.info(f"Phase '{phase_id}' initialized with ETC: {format_duration_to_hhmm(initial_estimated_duration_seconds)}")
             
             # Update progress for ongoing phases
             elif processed_count is not None and total_count is not None:
@@ -302,49 +277,53 @@ class KnowledgeBaseAgent:
                 })
         
         if self.socketio:
-            self.socketio.emit('agent_phase_update', data_to_emit)
+            try:
+                self.socketio.emit('phase_update', data_to_emit)
+            except Exception as e:
+                logging.error(f"Failed to emit phase_update via socketio: {e}")
+        else:
+            logging.warning(f"socketio_emit_phase_update called for {phase_id} but self.socketio is None")
 
     async def initialize(self) -> None:
+        """Initialize or re-initialize agent components."""
+        if self._initialized:
+            self.logger.info("Agent already initialized. Skipping re-initialization.")
+            return
+
+        self.logger.info("Initializing agent components...")
+        
+        # Initialize the streamlined content processor
+        self.content_processor = StreamlinedContentProcessor(
+            config=self.config,
+            http_client=self.http_client,
+            state_manager=self.state_manager,
+            markdown_writer=MarkdownWriter(self.config),
+            category_manager=self.category_manager,
+            socketio=self.socketio,
+            phase_emitter_func=self.socketio_emit_phase_update
+        )
+        
+        # Initialize EmbeddingManager
+        self.embedding_manager = EmbeddingManager(
+            config=self.config,
+            http_client=self.http_client
+        )
+
+        # Initialize ChatManager
+        if self.embedding_manager:
+            self.chat_manager = ChatManager(
+                config=self.config,
+                http_client=self.http_client,
+                embedding_manager=self.embedding_manager
+            )
+
+        await self.state_manager.initialize()
+        self._initialized = True
+        self.logger.info("Agent initialization complete.")
+
+    async def fetch_and_queue_bookmarks(self, preferences: UserPreferences) -> int:
         """
-        Initialize all components and ensure directory structure.
-
-        This method sets up the necessary directories and initializes the state and category managers.
-        It ensures that the agent is ready to process content.
-
-        Raises:
-            AgentError: If initialization fails due to directory creation or component setup issues.
-        """
-        self.socketio_emit_log("Agent initialization process started.", "INFO")
-        try:
-            self.socketio_emit_log("Creating required directories...", "DEBUG")
-            self.config.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
-            self.config.data_processing_dir.mkdir(parents=True, exist_ok=True)
-            self.config.media_cache_dir.mkdir(parents=True, exist_ok=True)
-            
-            self.socketio_emit_log("Initializing state manager...", "DEBUG")
-            await self.state_manager.initialize()
-            
-            self.socketio_emit_log("Initializing category manager...", "DEBUG")
-            await self.category_manager.initialize()
-            
-            if self.socketio and self.content_processor:
-                if not self.content_processor.socketio:
-                    self.content_processor.socketio = self.socketio
-                if self.content_processor.phase_emitter_func != self.socketio_emit_phase_update:
-                    self.content_processor.phase_emitter_func = self.socketio_emit_phase_update
-
-            self._initialized = True
-            self.socketio_emit_log("Agent initialization complete.", "INFO")
-        except Exception as e:
-            logging.exception(f"Agent initialization failed: {str(e)}")
-            self.socketio_emit_log(f"Agent initialization failed: {str(e)}", "ERROR")
-            self.socketio_emit_phase_update('initialization', 'error', f'Initialization failed: {str(e)}')
-            raise AgentError(f"Failed to initialize agent: {str(e)}") from e
-
-    async def fetch_and_queue_bookmarks(self) -> int:
-        """
-        Fetches bookmarks and adds new, unprocessed tweet IDs to the state manager's queue.
-        Does not trigger full processing on its own.
+        Fetches bookmarks and adds them to the processing queue.
 
         Returns:
             int: The number of new tweet IDs added to the unprocessed queue.
@@ -406,6 +385,7 @@ class KnowledgeBaseAgent:
                 final_msg = "No new unique tweets found in bookmarks to add to the queue."
                 logging.info(final_msg)
                 self.socketio_emit_log(final_msg, "INFO")
+                self.socketio_emit_log("BOOKMARK FETCH RESULT: No new bookmarks were found. This could mean: 1) All bookmarks are already processed, 2) No bookmarks exist, or 3) Bookmark fetching encountered an issue.", "INFO")
 
         except Exception as e:
             logging.exception("Bookmark fetching or queuing failed.")
@@ -578,11 +558,20 @@ class KnowledgeBaseAgent:
         self._is_running = True
         self._current_run_preferences = preferences  # Store preferences for state restoration
         if self.socketio:
-            self.socketio.emit('agent_status', {
-                'is_running': True, 
-                'active_run_preferences': asdict(preferences),
-                'plan_statuses': self._plan_statuses
-            })
+            try:
+                self.socketio.emit('agent_status', {
+                    'is_running': True, 
+                    'active_run_preferences': asdict(preferences),
+                    'plan_statuses': self._plan_statuses
+                })
+            except Exception as e:
+                self.logger.error(f"Failed to emit agent_status: {e}")
+                # Try with simplified data
+                self.socketio.emit('agent_status', {
+                    'is_running': True, 
+                    'active_run_preferences': str(preferences),
+                    'plan_statuses': {}
+                })
         clear_stop_flag() # Clear stop flag at the beginning of a run
         self._initialize_plan_statuses(preferences) # Initialize/reset with current preferences
         self.socketio_emit_log("Knowledge Base Agent run started.", "INFO")
@@ -601,50 +590,28 @@ class KnowledgeBaseAgent:
             # Handle different run modes
             if preferences.run_mode == "synthesis_only":
                 self.socketio_emit_log("Running in synthesis-only mode - will only generate synthesis documents.", "INFO")
-                # Skip all phases except synthesis generation
                 self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed - synthesis-only mode.')
                 self.socketio_emit_phase_update('fetch_bookmarks', 'skipped', 'Skipped in synthesis-only mode.')
                 self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'Skipped in synthesis-only mode.')
                 
-                # Jump directly to synthesis generation
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user in synthesis-only mode.")
+                await self.generate_synthesis(preferences)
                 
-                # SynthesisGenerator will now emit the initial 'in_progress' with total counts
-                # self.socketio_emit_phase_update('synthesis_generation', 'in_progress', 'Generating subcategory synthesis documents...') # Removed this line
-                try:
-                    with self.app.app_context():
-                        synthesis_results, eligible_count, error_count = await generate_subcategory_syntheses( # MODIFIED: Capture all return values
-                            config=self.config,
-                            http_client=self.http_client,
-                            preferences=preferences,
-                            socketio=self.socketio,
-                            phase_emitter_func=self.socketio_emit_phase_update
-                        )
-                        
-                        if not hasattr(stats, 'kb_items_created'):
-                            stats.kb_items_created = 0 # Initialize if not present
-                        stats.kb_items_created += len(synthesis_results) # Count these as "created items" for overall stats
-                        stats.error_count += error_count # Add errors from synthesis to overall
-
-                        if error_count > 0:
-                            self.socketio_emit_log(f"Synthesis generation completed with {error_count} errors. Successfully generated {len(synthesis_results)} out of {eligible_count} eligible subcategories.", "WARNING")
-                            self.socketio_emit_phase_update('synthesis_generation', 'error', f'Finished with {error_count} errors. Generated {len(synthesis_results)}/{eligible_count}.', False, len(synthesis_results), eligible_count, error_count)
-                        elif eligible_count > 0:
-                            self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents for {eligible_count} subcategories.", "INFO")
-                            self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)}/{eligible_count} synthesis documents.', False, len(synthesis_results), eligible_count, 0)
-                        else: # No eligible subcategories
-                            self.socketio_emit_log("No synthesis documents were generated (no subcategories with sufficient items found).", "INFO")
-                            self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated (0 eligible).', False, 0, 0, 0)
-                            
-                except Exception as e:
-                    self.socketio_emit_log(f"Error during synthesis generation: {e}", "ERROR")
-                    self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}") # Total counts might be unknown if exception is early
-                    stats.error_count += 1
-                
-                # Skip remaining phases
                 self.socketio_emit_phase_update('readme_generation', 'skipped', 'Skipped in synthesis-only mode.')
                 self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped in synthesis-only mode.')
                 
+            elif preferences.run_mode == "embedding_only":
+                self.socketio_emit_log("Running in embedding-only mode.", "INFO")
+                self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed - embedding-only mode.')
+                self.socketio_emit_phase_update('fetch_bookmarks', 'skipped', 'Skipped in embedding-only mode.')
+                self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'Skipped in embedding-only mode.')
+                self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped in embedding-only mode.')
+                self.socketio_emit_phase_update('readme_generation', 'skipped', 'Skipped in embedding-only mode.')
+                self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped in embedding-only mode.')
+
+                await self.generate_embeddings(preferences)
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user in embedding-only mode.")
+
             elif preferences.run_mode == "full_pipeline":
                 # Existing full pipeline logic
                 # --- Phase 1: Parse User Preferences (already done by receiving `preferences` object) ---
@@ -655,11 +622,12 @@ class KnowledgeBaseAgent:
                 if not preferences.skip_fetch_bookmarks:
                     self.socketio_emit_phase_update('fetch_bookmarks', 'active', 'Fetching bookmarks from source...', False)
                     try:
-                        newly_added_tweet_ids_count = await self.fetch_and_queue_bookmarks()
+                        newly_added_tweet_ids_count = await self.fetch_and_queue_bookmarks(preferences)
                         if newly_added_tweet_ids_count > 0:
                             self.socketio_emit_phase_update('fetch_bookmarks', 'completed', f'Found {newly_added_tweet_ids_count} new bookmarks to process.', False, newly_added_tweet_ids_count, newly_added_tweet_ids_count, 0)
                         else:
                             self.socketio_emit_phase_update('fetch_bookmarks', 'completed', 'No new bookmarks found.', False, 0, 0, 0)
+                            self.socketio_emit_log("BOOKMARK FETCH RESULT: No new bookmarks were found. This could mean: 1) All bookmarks are already processed, 2) No bookmarks exist, or 3) Bookmark fetching encountered an issue.", "INFO")
                     except Exception as e:
                         self.socketio_emit_log(f"Error during bookmark fetching: {e}", "ERROR")
                         self.socketio_emit_phase_update('fetch_bookmarks', 'error', f"Error: {e}", False)
@@ -676,6 +644,7 @@ class KnowledgeBaseAgent:
                     try:
                         # First get unprocessed tweets
                         unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
+                        self.socketio_emit_log(f"Found {len(unprocessed_tweets)} unprocessed tweets in queue", "INFO")
                         
                         # Include already processed tweets if any force reprocessing flag is enabled
                         tweets_to_process = list(unprocessed_tweets)  # Create a copy to avoid modifying the original
@@ -710,6 +679,8 @@ class KnowledgeBaseAgent:
                                     "INFO"
                                 )
                                 tweets_to_process.extend(processed_tweets)
+                            else:
+                                self.socketio_emit_log("Force re-processing enabled but no processed tweets found", "INFO")
                         
                         total_tweets_count = len(tweets_to_process)
                         self.socketio_emit_log(f"Found {len(unprocessed_tweets)} unprocessed tweets and {total_tweets_count - len(unprocessed_tweets)} previously processed tweets to process (total: {total_tweets_count}).", "INFO")
@@ -730,137 +701,54 @@ class KnowledgeBaseAgent:
                             self.socketio_emit_log(f"Content processing finished. Processed in this run: {processed_tweets_in_run}, Errors: {stats.error_count}", "INFO")
                             self.socketio_emit_phase_update('content_processing_overall', 'completed', f'Processed {processed_tweets_in_run} of {total_tweets_count} items. Errors: {stats.error_count}.', False, processed_tweets_in_run, total_tweets_count, stats.error_count)
                         else:
-                            if any_force_reprocessing:
-                                self.socketio_emit_log("No tweets found to process, even with force reprocessing options enabled. Your knowledge base may be empty.", "INFO")
-                                self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets found to process.', False, 0, 0, 0)
+                            self.socketio_emit_log("No tweets to process - the system has no unprocessed tweets and no force reprocessing flags are enabled.", "INFO")
+                            self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets to process')
+                            
+                            # Check if we have any tweets in the system at all
+                            all_tweets = await self.state_manager.get_all_tweets()
+                            if len(all_tweets) == 0:
+                                self.socketio_emit_log("SYSTEM STATE: No tweets found in the system. You may need to run bookmark fetching first to add tweets to the processing queue.", "WARNING")
                             else:
-                                self.socketio_emit_log("No unprocessed tweets found. Add new tweets or enable one of the force reprocessing options to reprocess existing items.", "INFO")
-                                self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets to process.', False, 0, 0, 0)
+                                processed_tweets = await self.state_manager.get_processed_tweets()
+                                self.socketio_emit_log(f"SYSTEM STATE: Found {len(all_tweets)} total tweets in cache, {len(processed_tweets)} are already processed. Try enabling force reprocessing flags or run bookmark fetching to add new tweets.", "INFO")
                     except Exception as e:
                         self.socketio_emit_log(f"Error during content processing: {e}", "ERROR")
                         self.socketio_emit_phase_update('content_processing_overall', 'error', f"Error: {e}", False)
-                        stats.error_count +=1 # Generic error for this phase
+                        stats.error_count += 1
                 else:
                     self.socketio_emit_log("Skipping content processing due to user preference.", "INFO")
-                    # Status already set
+                    # Status already set by _initialize_plan_statuses and emitted loop
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user during content processing.")
 
-                # --- Phase 4: Generate Subcategory Syntheses (Optional) ---
+                # --- Phase 4: Synthesis Generation (Optional) ---
                 if not preferences.skip_synthesis_generation:
-                    # SynthesisGenerator will now emit the initial 'in_progress' with total counts
-                    # self.socketio_emit_phase_update('synthesis_generation', 'active', 'Analyzing subcategories for synthesis...', False) # Removed this line
-                    try:
-                        with self.app.app_context():
-                            synthesis_results, eligible_count, error_count = await generate_subcategory_syntheses( # MODIFIED: Capture all return values
-                                config=self.config,
-                                http_client=self.http_client,
-                                preferences=preferences,
-                                socketio=self.socketio,
-                                phase_emitter_func=self.socketio_emit_phase_update
-                            )
-                            
-                            if not hasattr(stats, 'kb_items_created'):
-                                stats.kb_items_created = 0 # Initialize if not present
-                            stats.kb_items_created += len(synthesis_results) # Count these as "created items" for overall stats
-                            stats.error_count += error_count # Add errors from synthesis to overall
-
-                            if error_count > 0:
-                                self.socketio_emit_log(f"Synthesis generation completed with {error_count} errors. Successfully generated {len(synthesis_results)} out of {eligible_count} eligible subcategories.", "WARNING")
-                                self.socketio_emit_phase_update('synthesis_generation', 'error', f'Finished with {error_count} errors. Generated {len(synthesis_results)}/{eligible_count}.', False, len(synthesis_results), eligible_count, error_count)
-                            elif eligible_count > 0:
-                                self.socketio_emit_log(f"Successfully generated {len(synthesis_results)} synthesis documents for {eligible_count} subcategories.", "INFO")
-                                self.socketio_emit_phase_update('synthesis_generation', 'completed', f'Generated {len(synthesis_results)}/{eligible_count} synthesis documents.', False, len(synthesis_results), eligible_count, 0)
-                            else: # No eligible subcategories
-                                self.socketio_emit_log("No synthesis documents were generated (no subcategories with sufficient items found).", "INFO")
-                                self.socketio_emit_phase_update('synthesis_generation', 'completed', 'No synthesis documents generated (0 eligible).', False, 0, 0, 0)
-                                
-                    except Exception as e:
-                        self.socketio_emit_log(f"Error during synthesis generation: {e}", "ERROR")
-                        self.socketio_emit_phase_update('synthesis_generation', 'error', f"Error: {e}", False) # Total counts might be unknown if exception is early
-                        stats.error_count += 1
+                    await self.generate_synthesis(preferences)
                 else:
                     self.socketio_emit_log("Skipping synthesis generation due to user preference.", "INFO")
-                    # Status already set
-
+                    self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped by user preference.')
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after synthesis generation.")
 
-                # --- Phase 5: Generate/Update Readmes (Optional) ---
-                if not preferences.skip_readme_generation:
-                    # Count existing KB items to provide proper totals
-                    try:
-                        with self.app.app_context():
-                            from knowledge_base_agent.models import KnowledgeBaseItem as DBKnowledgeBaseItem
-                            total_kb_items = DBKnowledgeBaseItem.query.count()
-                    except Exception:
-                        total_kb_items = 0 # Default if DB query fails
-                    
-                    # For README generation, the number of "items" to process is 1 (the single root README file)
-                    # The total_kb_items is context for the message, not the count of work items for this specific phase.
-                    self.socketio_emit_phase_update(
-                        'readme_generation', 
-                        'active', 
-                        f'Root README Generation - Creating root README.md catalog based on {total_kb_items} existing KB items...',
-                        False, # is_sub_step_update
-                        0,     # processed_count (starts at 0 for 1 item)
-                        1,     # total_count (1 README file to generate)
-                        0      # error_count
-                    )
-                    try:
-                        with self.app.app_context():
-                            # ... (existing readme generation calls)
-                            await generate_root_readme(self.config.knowledge_base_dir, self.category_manager, self.http_client, self.config)
-                        self.socketio_emit_log("Readme files generated/updated successfully.", "INFO")
-                        self.socketio_emit_phase_update(
-                            'readme_generation', 
-                            'completed', 
-                            f'Root README.md catalog created based on {total_kb_items} existing KB items',
-                            False, # is_sub_step_update
-                            1,     # processed_count (1 item completed)
-                            1,     # total_count (1 item total)
-                            0      # error_count
-                        )
-                    except Exception as e:
-                        self.socketio_emit_log(f"Error generating Readmes: {e}", "ERROR")
-                        self.socketio_emit_phase_update(
-                            'readme_generation', 
-                            'error', 
-                            f'Error generating Readmes: {e}',
-                            False, # is_sub_step_update
-                            0,     # processed_count
-                            1,     # total_count
-                            1      # error_count
-                        )
-                        stats.error_count +=1
+                # --- Phase 5: Embedding Generation (Optional) ---
+                if not preferences.skip_embedding_generation:
+                    await self.generate_embeddings(preferences)
                 else:
-                    self.socketio_emit_log("Skipping Readme generation due to user preference.", "INFO")
-                    # Status already set
+                    self.socketio_emit_log("Skipping embedding generation due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('embedding_generation', 'skipped', 'Skipped by user preference.')
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after embedding generation.")
 
-                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after Readme generation.")
+                # --- Phase 6: README Generation (Optional) ---
+                if not preferences.skip_readme_generation:
+                    await self.regenerate_readme()
+                else:
+                    self.socketio_emit_log("Skipping README generation due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('readme_generation', 'skipped', 'Skipped by user preference.', False, 0, 0, 0)
 
-                # --- Phase 6: Git Synchronization (Optional) ---
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after README generation.")
 
-                # Use self.config.git_enabled directly as it's a boolean field in the Config model
-                if self.config.git_enabled and not preferences.skip_git_push:
-                    self.socketio_emit_phase_update('git_sync', 'active', 'Starting Git synchronization...', False, 0, 1, 0)  # 1 task: git sync
-                    try:
-                        self.socketio_emit_log("Attempting to add, commit, and push changes to Git...", "INFO")
-                        # Ensure stats.tweets_processed_current_run is a valid attribute of stats
-                        processed_count_for_commit = getattr(stats, 'tweets_processed_current_run', 0)
-                        commit_message = f"Automated KB update: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')} - {processed_count_for_commit} items processed."
-                        
-                        self.git_handler.sync_to_github(commit_message) # Changed to sync call
-                        
-                        self.socketio_emit_log("Git sync completed successfully.", "INFO")
-                        self.socketio_emit_phase_update('git_sync', 'completed', 'Git synchronization completed.', False, 1, 1, 0)
-
-                    except Exception as e:
-                        self.socketio_emit_log(f"Error during Git synchronization: {e}", "ERROR")
-                        self.socketio_emit_phase_update('git_sync', 'error', f"Error during Git sync: {e}", False, 0, 1, 1)
-                        stats.error_count +=1 # Ensure stats is the correct stats object
-                elif not self.config.git_enabled:
-                    self.socketio_emit_log("Skipping Git synchronization: Git is not configured (git_enabled is false).", "WARNING")
-                    self.socketio_emit_phase_update('git_sync', 'skipped', 'Git not configured (git_enabled is false).', False, 0, 0, 0)
+                # --- Phase 7: Git Sync (Optional) ---
+                if not preferences.skip_git_push:
+                    await self.sync_changes()
                 else: # skip_git_push is true
                     self.socketio_emit_log("Skipping Git synchronization due to user preference.", "INFO")
                     self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped by user preference.', False, 0, 0, 0)
@@ -1024,6 +912,13 @@ class KnowledgeBaseAgent:
                 "icon": "bi-lightbulb",
                 "initial_status": "skipped" if preferences.skip_synthesis_generation else "pending",
                 "initial_message": "User preference: Skip synthesis generation" if preferences.skip_synthesis_generation else "Waiting for synthesis generation..."
+            },
+            {
+                "id": "embedding_generation",
+                "name": "Generate Embeddings",
+                "icon": "bi-gpu-card", # Example icon
+                "initial_status": "skipped" if preferences.skip_embedding_generation else "pending",
+                "initial_message": "User preference: Skip embedding generation" if preferences.skip_embedding_generation else "Waiting for embedding generation..."
             },
             {
                 "id": "readme_generation",
@@ -1273,6 +1168,77 @@ class KnowledgeBaseAgent:
                     self.socketio.emit('progress', {'processed': stats.processed_count, 'total': total_tweets, 'errors': stats.error_count, 'skipped': stats.skipped_count, 'current_item_id': tweet_id, 'status_message': f'Error processing {tweet_id}'})
                 continue
 
+    async def generate_synthesis(self, preferences: UserPreferences) -> None:
+        """Generates synthesis documents for all eligible subcategories."""
+        
+        # Check if we have access to Flask app context (required for database operations)
+        if not self.app:
+            self.logger.info("Skipping synthesis generation - no Flask app context available (running in subprocess mode)")
+            self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped - no database access in subprocess mode')
+            return
+        
+        # The generate_subcategory_syntheses function is designed to be called directly
+        # and handles its own logging and phase updates.
+        try:
+            with self.app.app_context():
+                syntheses, eligible_count, error_count = await generate_syntheses(
+                    self.config,
+                    self.http_client,
+                    preferences,
+                    self.socketio,
+                    self.socketio_emit_phase_update
+                )
+        except RuntimeError as e:
+            if "Working outside of application context" in str(e):
+                self.logger.info("Skipping synthesis generation - no Flask app context available")
+                self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped - database context not available')
+                return
+            else:
+                raise
+        
+        if error_count > 0:
+            self.logger.warning(f"Synthesis generation completed with {error_count} errors.")
+        else:
+            self.logger.info("Synthesis generation completed successfully.")
+            
+        # The final phase status ('completed' or 'error') will be emitted by the execute_phase wrapper
+        # based on whether this function raises an exception or not.
+
+    async def generate_embeddings(self, preferences: UserPreferences) -> None:
+        """Generates embeddings for all knowledge base items."""
+        if not self.embedding_manager:
+            self.logger.warning("Embedding manager not initialized, skipping embedding generation.")
+            self.socketio_emit_phase_update('embedding_generation', 'skipped', 'Embedding manager not initialized')
+            return
+            
+        # Check if we have access to Flask app context (required for database operations)
+        if not self.app:
+            self.logger.info("Skipping embedding generation - no Flask app context available (running in subprocess mode)")
+            self.socketio_emit_phase_update('embedding_generation', 'skipped', 'Skipped - no database access in subprocess mode')
+            return
+        
+        try:
+            with self.app.app_context():
+                await self.embedding_manager.generate_all_embeddings(
+                    force_regenerate=preferences.force_regenerate_embeddings,
+                    phase_emitter_func=self.socketio_emit_phase_update
+                )
+        except RuntimeError as e:
+            if "Working outside of application context" in str(e):
+                self.logger.info("Skipping embedding generation - no Flask app context available")
+                self.socketio_emit_phase_update('embedding_generation', 'skipped', 'Skipped - database context not available')
+                return
+            else:
+                raise
+
+    async def handle_chat_query(self, query: str, model: Optional[str] = None) -> Dict[str, Any]:
+        """Handles a chat query from the user."""
+        if not self.chat_manager:
+            self.logger.error("Chat manager is not initialized.")
+            return {"error": "Chat functionality is not available."}
+        
+        return await self.chat_manager.handle_chat_query(query, model=model)
+
 class InterruptedError(Exception):
-    """Custom exception for when the agent run is stopped by the user."""
+    """Custom exception for when processing is interrupted by the stop flag."""
     pass

@@ -23,7 +23,7 @@ from knowledge_base_agent.exceptions import ContentProcessingError, KnowledgeBas
 from knowledge_base_agent.tweet_cacher import cache_tweets
 from knowledge_base_agent.media_processor import process_media
 from knowledge_base_agent.markdown_writer import MarkdownWriter
-from knowledge_base_agent.types import KnowledgeBaseItem
+from knowledge_base_agent.custom_types import KnowledgeBaseItem
 from knowledge_base_agent.phase_execution_helper import PhaseExecutionHelper, ProcessingPhase, PhaseExecutionPlan
 import aiofiles
 import asyncio
@@ -56,15 +56,17 @@ class StreamlinedContentProcessor:
     All phase planning is handled by PhaseExecutionHelper.
     """
     
-    def __init__(self, config=None, http_client=None, state_manager=None, socketio=None, phase_emitter_func=None):
+    def __init__(self, config=None, http_client=None, state_manager=None, 
+                 markdown_writer=None, category_manager=None,
+                 socketio=None, phase_emitter_func=None):
         self.config = config
         self.http_client = http_client
         self.state_manager = state_manager
         self.socketio = socketio
         self.phase_emitter_func = phase_emitter_func
         self.text_model = self.http_client.config.text_model
-        self.category_manager = CategoryManager(config, http_client=http_client)
-        self.markdown_writer = MarkdownWriter(config)
+        self.category_manager = category_manager
+        self.markdown_writer = markdown_writer
         
         # Initialize phase execution helper
         self.phase_helper = PhaseExecutionHelper()

@@ -1,205 +1,145 @@
 # Knowledge Base Agent 🤖📚
 
-An intelligent, AI-powered agent designed to automatically build and
-maintain a structured technical knowledge base from Twitter/X bookmarks.
-The agent fetches tweets, processes their content using advanced AI
-models, organizes them into a hierarchical Markdown-based repository,
-and synchronizes the output with GitHub for version control and
-collaboration.
+An intelligent, AI-powered agent designed to automatically build, maintain, and interact with a structured technical knowledge base from Twitter/X bookmarks. The agent features a dynamic, single-page web interface to control the processing pipeline, view logs, and chat with your generated knowledge base using a Retrieval-Augmented Generation (RAG) model.
 
 ------------------------------------------------------------------------
 
 ## Key Features ✨
 
-### Enhanced Migration System
-- **Folder Name Correction**: Automatic renaming of knowledge base items to match tweet_cache.json entries
-- **Dry-run Mode**: Safe simulation of migration operations (`--dry-run` flag)
-- **Force Mode**: Override safety checks for incomplete matches (`--force` flag)
-- **Atomic Operations**: Temporary directory strategy for safe folder renames
-- **Tweet Cache Synchronization**: Automatic updates to `kb_item_path` references
-
-### Automated Content Processing
-- **AI-Driven Analysis**: Leverages Ollama models for text categorization and media description generation
-- **Media Handling**: Downloads and processes images, generating descriptive captions using vision models
-- **Tweet Processing**: Extracts text, media, and metadata from Twitter/X bookmarks for structured storage
-
-### Intelligent Organization
-- **Hierarchical Structure**: Organizes content into a three-level system (main category > subcategory > item)
-- **Dynamic Categorization**: Uses AI to suggest and validate categories based on content
-- **Name Sanitization**: Ensures filesystem-safe directory names with `safe_directory_name()`
-- **Consistency Checks**: Validation of tweet_cache.json paths post-migration
+-   **Single-Page Web UI**: A modern, responsive web interface for controlling the agent, monitoring its status in real-time, viewing generated content, and interacting with the chat. Built with Flask, SocketIO, and a dynamic AJAX-driven frontend.
+-   **Conversational AI Chat (RAG)**: Ask questions about your knowledge base in natural language. The agent uses a RAG pipeline with ChromaDB and Ollama to provide contextually accurate answers based on your documents.
+-   **Automated Content Pipeline**: Fetches Twitter/X bookmarks, processes text and media, and generates structured, categorized Markdown articles.
+-   **AI-Driven Analysis**: Leverages local Ollama models for content categorization, media description, knowledge extraction, and synthesis.
+-   **Pluggable Processing Phases**: Control the agent's workflow with toggleable phases, including fetching, content processing, synthesis, embedding generation, and Git synchronization.
+-   **Synthesis Generation**: Automatically creates high-level synthesis documents that consolidate insights from multiple knowledge base items within a subcategory.
+-   **Vector Search**: Generates and stores embeddings for all content in a ChromaDB vector database, enabling powerful semantic search for the RAG pipeline.
 
 ------------------------------------------------------------------------
 
 ## Core Functionality
 
-### 1. Bookmark Ingestion
-
--   Fetches Twitter/X bookmarks using Playwright for headless browser
-    automation.
--   Parses tweet URLs and IDs, caching data to avoid reprocessing.
-
-### 2. Content Extraction & Processing
-
--   Extracts tweet text, metadata, and media (images).
--   Uses AI models (e.g., LLaVA for vision, Mistral for text) to analyze
-    content.
--   Generates summaries and descriptions for inclusion in the knowledge
-    base.
-
-### 3. Knowledge Organization
-
--   Categorizes content into main categories and subcategories using
-    AI-driven analysis.
--   Creates a directory structure:
-    `KNOWLEDGE_BASE_DIR/<main_category>/<sub_category>/<item_name>`.
--   Writes Markdown files (`README.md` or `content.md`) with processed
-    content and media.
-
-### 4. Index Generation
-
--   Builds a root `README.md` with:
-
--   -   Overview statistics (total items, categories, media).
-    -   Navigation links to categories and subcategories.
-    -   Recent updates and detailed category tables.
-
-### 5. Synchronization
-
--   Commits changes to a GitHub repository for version control and
-    sharing.
+1.  **Bookmark Ingestion**: Fetches Twitter/X bookmarks using Playwright for headless browser automation, parsing tweet URLs and IDs.
+2.  **Content Processing**: A multi-phase pipeline that:
+    -   **Caches** tweet data.
+    -   **Processes Media**: Downloads images and generates descriptions with vision models.
+    -   **Categorizes**: Uses LLMs to assign a main category and subcategory.
+    -   **Generates KB Items**: Creates detailed Markdown articles from tweet content.
+    -   **Syncs to Database**: Saves all generated content and metadata to a local SQLite database.
+3.  **Synthesis Generation**: Analyzes all items within a category to generate a consolidated summary document.
+4.  **Embedding Generation**: Creates vector embeddings for all knowledge base items and syntheses using a configurable embedding model and stores them in ChromaDB.
+5.  **Conversational RAG**: The `ChatManager` uses the generated embeddings to retrieve relevant context from the vector store and generate informed answers to user queries via an LLM.
+6.  **Git Synchronization**: Automatically commits the generated knowledge base to a GitHub repository for version control and sharing.
 
 ------------------------------------------------------------------------
 
 ## Technical Requirements
 
-### Prerequisites
-
 -   **Python**: 3.8 or higher.
--   **Ollama**: For AI inference (text and vision models).
--   **Playwright**: For fetching Twitter/X bookmarks via headless
-    browser.
+-   **Ollama**: For local AI model inference (text, vision, and embedding models).
+-   **Playwright**: For fetching Twitter/X bookmarks.
 -   **Git**: For repository synchronization.
+-   **Node.js/npm**: For installing frontend dependencies (if any are added).
 
 ### Core Dependencies
 
-Listed in `requirements.txt`:
-
--   `aiofiles`: Asynchronous file operations.
--   `playwright`: Web scraping and automation.
--   `pathlib`: File system path handling.
--   Additional libraries for HTTP requests, logging, and JSON handling.
+Listed in `requirements.txt`. Key libraries include:
+-   `flask` & `flask-socketio`: Web framework and real-time communication.
+-   `sqlalchemy`: Database ORM.
+-   `pydantic`: Configuration management.
+-   `chromadb`: Vector store for RAG.
+-   `playwright`: Web automation.
+-   `requests`, `aiohttp`: HTTP clients.
 
 ------------------------------------------------------------------------
 
 ## Installation
 
 1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/yourusername/knowledge-base-agent.git
+    cd knowledge-base-agent
+    ```
 
-        git clone https://github.com/yourusername/knowledge-base-agent.git
-        cd knowledge-base-agent
-
-2.  **Install Dependencies**:
-
-        python -m pip install -r requirements.txt
-        python -m playwright install
+2.  **Set up Python Environment & Install Dependencies**:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    playwright install
+    ```
 
 3.  **Set Up Ollama**:
     -   Install Ollama (see [Ollama documentation](https://ollama.ai/)).
-
-    -   Ensure the text model (e.g., `llama3.3:70b-instruct-q4_0`) and
-        vision model (e.g., `llava:latest`) are pulled:
-
-            ollama pull llama3.3:70b-instruct-q4_0
-            ollama pull llava:latest
+    -   Pull the required models. The defaults are configured in your `.env` file. For example:
+        ```bash
+        ollama pull llama3.1:70b-instruct-q4_0  # Text/Chat Model
+        ollama pull mxbai-embed-large           # Embedding Model
+        ollama pull llava:latest                # Vision Model
+        ```
 
 4.  **Configure Environment Variables**:
-    -   Create a `.env` file in the project root (see [Environment
-        Variables](#environment-variables) below).
-
-    -   Example `.env`:
-
-            OLLAMA_URL=http://localhost:11434
-            TEXT_MODEL=llama3.3:70b-instruct-q4_0
-            VISION_MODEL=llava:latest
-            GITHUB_TOKEN=your_personal_access_token
-            GITHUB_REPO_URL=https://github.com/yourusername/your-knowledge-base.git
-            KNOWLEDGE_BASE_DIR=kb-generated
+    -   Copy the `.env.example` file to `.env` and customize it with your settings.
+        ```bash
+        cp .env.example .env
+        ```
+    -   Update the variables in the `.env` file, especially `OLLAMA_URL`, `GITHUB_TOKEN`, and `GITHUB_REPO_URL`.
 
 ------------------------------------------------------------------------
 
 ## Usage
 
-### Running the Agent
+### Running the Agent Web UI
 
-Run the agent interactively:
+The primary way to use the agent is through its web interface.
 
-    python -m knowledge_base_agent.main
+1.  **Start the Ollama Server** (in a separate terminal):
+    ```bash
+    ollama serve
+    ```
 
--   **Prompts**:
-    -   \"Fetch new bookmarks? (y/n)\": Updates bookmarks if `y`.
-    -   \"Re-review previously processed tweets? (y/n)\": Reprocesses
-        cached tweets if `y`.
--   **Output**: Logs processing steps and a summary of results.
+2.  **Launch the Web Application**:
+    ```bash
+    # Option 1: Direct module execution
+    python -m knowledge_base_agent.web
+    
+    # Option 2: Using virtual environment (recommended)
+    venv/bin/python -m knowledge_base_agent.web
+    
+    # Option 3: Using systemctl (if configured)
+    systemctl restart knowledge-base-agent
+    ```
 
-### Example Workflow
-
-1.  Start Ollama server:
-
-        ollama serve
-
-2.  Run the agent:
-
-        python -m knowledge_base_agent.main
-
-3.  Respond to prompts (e.g., `n` for no bookmarks update, `n` for no
-    reprocessing).
-
-4.  Check `KNOWLEDGE_BASE_DIR` for generated Markdown files and GitHub
-    for synced changes.
+3.  **Access the UI**:
+    -   Open your web browser and navigate to `http://localhost:5000`.
+    -   From the "Agent Control" dashboard, you can select which processing phases to run and click "Run Agent".
+    -   Use the sidebar to navigate to the "Chat" page to interact with your knowledge base, or to "View Past Logs".
 
 ------------------------------------------------------------------------
 
 ## Environment Variables
 
-### Required Variables
+Create a `.env` file in the project root to configure the agent.
 
-  Variable            Description                                 Example Value
-  ------------------- ------------------------------------------- ------------------------------------
-  `OLLAMA_URL`        URL of the Ollama server for AI inference   `http://localhost:11434`
-  `GITHUB_TOKEN`      GitHub Personal Access Token for sync       `ghp_yourtoken`
-  `GITHUB_REPO_URL`   URL of the target GitHub repository         `https://github.com/user/repo.git`
+### Core Configuration
 
-### Optional Variables
+| Variable              | Description                                                              | Example Value                                  |
+| --------------------- | ------------------------------------------------------------------------ | ---------------------------------------------- |
+| `OLLAMA_URL`          | URL of the Ollama server for AI inference.                               | `http://localhost:11434`                       |
+| `TEXT_MODEL`          | Default text model for categorization and content generation.            | `llama3.1:70b-instruct-q4_0`                   |
+| `VISION_MODEL`        | Vision model for generating image descriptions.                          | `llava:latest`                                 |
+| `CHAT_MODEL`          | The model used for the conversational RAG chat.                          | `llama3.1:70b-instruct-q4_0`                   |
+| `EMBEDDING_MODEL`     | The model used to generate embeddings for the vector store.              | `mxbai-embed-large`                            |
+| `KNOWLEDGE_BASE_DIR`  | Directory for the generated Markdown knowledge base.                     | `kb-generated`                                 |
 
-  Variable                    Description                                 Default Value                    Usage
-  --------------------------- ------------------------------------------- -------------------------------- ---------------------------------------
-  `TEXT_MODEL`                Ollama text model for categorization        `mistral:latest`                 Text analysis and Markdown generation
-  `VISION_MODEL`              Ollama vision model for media description   `llava:latest`                   Image analysis
-  `KNOWLEDGE_BASE_DIR`        Directory for generated knowledge base      `kb-generated`                   Output location for Markdown files
-  `DATA_PROCESSING_DIR`       Directory for temporary processing files    `data`                           Cache and state storage
-  `MEDIA_CACHE_DIR`           Directory for downloaded media              `data/media_cache`               Media storage
-  `PROCESSED_TWEETS_FILE`     File for tracking processed tweets          `data/processed_tweets.json`     State management
-  `UNPROCESSED_TWEETS_FILE`   File for unprocessed tweet IDs              `data/unprocessed_tweets.json`   State management
-  `TWEET_CACHE_FILE`          File for cached tweet data                  `data/tweet_cache.json`          Caching for efficiency
-  `BOOKMARKS_FILE`            File for storing fetched bookmarks          `data/bookmarks.json`            Bookmark storage
-  `LOG_FILE`                  Log file location                           `logs/kb_agent.log`              Detailed logging
-  `GITHUB_USER_NAME`          GitHub username for commit authorship       None (required if syncing)       Git commit metadata
-  `GITHUB_USER_EMAIL`         GitHub email for commit authorship          None (required if syncing)       Git commit metadata
-  `REGENERATE_ROOT_README`    Force regeneration of root README           `false`                          Triggers README rebuild
-  `REPROCESS_MEDIA`           Reprocess media even if cached              `false`                          Forces media reanalysis
-  `REPROCESS_CATEGORIES`      Reprocess categories even if cached         `false`                          Forces recategorization
-  `REPROCESS_KB_ITEMS`        Rebuild KB items even if created            `false`                          Forces KB item regeneration
-  `FORCE_UPDATE`              Force update of cached tweets               `false`                          Overrides cache for tweet data
-  `MAX_CONTENT_LENGTH`        Max length for processed content            `5000`                           Limits content size in Markdown
-  `BATCH_SIZE`                Number of tweets processed per batch        `1`                              Controls processing concurrency
-  `SYNC_TO_GITHUB`            Enable GitHub synchronization               `true`                           Toggles GitHub sync
+### GitHub Synchronization (Optional)
 
-### Notes
-
--   Variables are loaded via the `Config` class in `config.py` (assumed
-    based on your code structure).
--   Missing required variables will raise errors during initialization.
+| Variable              | Description                                        | Example Value                                |
+| --------------------- | -------------------------------------------------- | -------------------------------------------- |
+| `SYNC_TO_GITHUB`      | Set to `true` to enable GitHub synchronization.    | `true`                                       |
+| `GITHUB_TOKEN`        | GitHub Personal Access Token for repository push.  | `ghp_yourtoken`                              |
+| `GITHUB_REPO_URL`     | URL of the target GitHub repository.               | `https://github.com/user/your-kb-repo.git`   |
+| `GITHUB_USER_NAME`    | GitHub username for commit authorship.             | `yourusername`                               |
+| `GITHUB_USER_EMAIL`   | GitHub email for commit authorship.                | `your@email.com`                             |
 
 ------------------------------------------------------------------------
 
@@ -207,145 +147,114 @@ Run the agent interactively:
 
 ### Core Components
 
--   **`KnowledgeBaseAgent`**: Orchestrates the pipeline, managing
-    initialization, processing, and syncing.
--   **`ContentProcessor`**: Executes the five-phase processing pipeline
-    (cache, media, categories, KB creation, README generation).
--   **`StateManager`**: Tracks processed/unprocessed tweets and caches
-    data atomically.
--   **`CategoryManager`**: Manages category hierarchy and validation.
--   **`MarkdownWriter`**: Writes Markdown files for tweets and KB items.
--   **`HTTPClient`**: Interfaces with Ollama for AI inference.
--   **`GitSyncHandler`**: Handles GitHub repository synchronization.
--   **`BookmarksFetcher`**: Uses Playwright to fetch Twitter/X
-    bookmarks.
+-   **`web.py`**: Flask application server that handles HTTP requests, WebSocket connections (SocketIO), and serves the frontend UI.
+-   **`KnowledgeBaseAgent`**: The central orchestrator that manages the processing pipeline based on user preferences from the UI.
+-   **`StreamlinedContentProcessor`**: Executes the main content processing phases (caching, media, categorization, etc.).
+-   **`ChatManager`**: Manages the RAG pipeline for the conversational AI chat.
+-   **`EmbeddingManager`**: Handles embedding generation and interaction with the ChromaDB vector store.
+-   **`StateManager`**: Tracks the state of all processed and unprocessed items.
+-   **`HTTPClient`**: A robust client for interfacing with the Ollama API.
+-   **Frontend (`templates/` & `static/`)**: A set of Jinja2 templates, JavaScript files (`layout.js`, `chat.js`, etc.), and CSS that create the SPA-like user experience.
 
 ### Processing Pipeline
 
-1.  **Tweet Cache Initialization**: Fetches and caches tweet data.
-2.  **Media Processing**: Downloads and analyzes images.
-3.  **Category Processing**: Assigns categories using AI.
-4.  **Knowledge Base Creation**: Generates Markdown files and
-    directories.
-5.  **README Generation**: Updates the root `README.md`.
+The agent's workflow is broken down into distinct, controllable phases:
+1.  **Initialization**: Sets up all components.
+2.  **Fetch Bookmarks**: Gets the latest bookmarks from Twitter/X.
+3.  **Content Processing**: The core multi-step process of creating knowledge base articles.
+4.  **Synthesis Generation**: Creates summary documents from existing articles.
+5.  **Embedding Generation**: Populates the vector database for semantic search.
+6.  **README Generation**: Updates the main README of the knowledge base repository.
+7.  **Git Sync**: Pushes all changes to GitHub.
 
 ### Flow Diagram
 
-``` mermaid
+```mermaid
 graph TD
-    A[Bookmarks] --> B(KnowledgeBaseAgent)
-    B --> C[Fetch Tweets]
-    C --> D[ContentProcessor]
-    D --> E[Phase 1: Cache Tweets]
-    E --> F[Phase 2: Process Media]
-    F --> G[Phase 3: Categorize]
-    G --> H[Phase 4: Create KB Items]
-    H --> I[Phase 5: Generate README]
-    I --> J[GitSyncHandler]
-    J --> K[GitHub Repository]
+    subgraph "Frontend (Browser)"
+        UI[Web Interface]
+    end
+
+    subgraph "Backend (Server)"
+        WebApp[web.py]
+        Agent[KnowledgeBaseAgent]
+        ChatMgr[ChatManager]
+    end
+    
+    subgraph "AI & Data Stores"
+        Ollama[Ollama Models]
+        DB[SQLite Database]
+        VectorDB[ChromaDB]
+    end
+
+    UI <-->|HTTP/SocketIO| WebApp
+    WebApp -->|Controls| Agent
+    WebApp -->|Queries| ChatMgr
+    
+    Agent -->|Processes| DB
+    Agent -->|Embeds via| Ollama
+    Agent -->|Stores in| VectorDB
+
+    ChatMgr -->|Retrieves from| VectorDB
+    ChatMgr -->|Generates via| Ollama
+    ChatMgr -->|Responds to| WebApp
 ```
 
 ------------------------------------------------------------------------
 
-## Knowledge Base Structure
+## Troubleshooting
 
-    kb-generated/
-    ├── README.md              # Root index with navigation
-    ├── programming/           # Main category
-    │   ├── python/            # Subcategory
-    │   │   ├── cool-script/   # Item
-    │   │   │   ├── README.md  # Item content
-    │   │   │   └── image_1.jpg# Media file
-    │   │   └── another-topic/
-    │   └── javascript/
-    └── machine_learning/
+### Common Issues and Solutions
 
-------------------------------------------------------------------------
+#### Agent Not Starting / Empty Debug Logs
+- **Issue**: Agent process starts but no logs appear, or debug logs are empty
+- **Solution**: Check that environment variables `LOG_FILE` and `LOG_DIR` are set correctly in `.env`
+- **Debug**: Look for agent debug logs in `logs/agent_debug_[PID].log` and error logs in `logs/agent_error_[PID].log`
 
-## Configuration Details
+#### Chat Widget Not Minimizing
+- **Issue**: Chat popup doesn't minimize when clicking the minus button
+- **Solution**: This has been fixed in recent updates. Ensure JavaScript is enabled and refresh the page.
 
-### Example `.env`
+#### Past Logs Page Not Loading Log Files
+- **Issue**: Logs page shows "Found X log file(s)" but dropdown is empty
+- **Solution**: This has been resolved. The page now properly populates the dropdown with available log files.
 
-    OLLAMA_URL=http://localhost:11434
-    TEXT_MODEL=llama3.3:70b-instruct-q4_0
-    VISION_MODEL=llava:latest
-    GITHUB_TOKEN=ghp_yourtoken
-    GITHUB_USER_NAME=yourusername
-    GITHUB_USER_EMAIL=your@email.com
-    GITHUB_REPO_URL=https://github.com/yourusername/your-knowledge-base.git
-    KNOWLEDGE_BASE_DIR=kb-generated
-    DATA_PROCESSING_DIR=data
-    SYNC_TO_GITHUB=true
-    REGENERATE_ROOT_README=true
+#### Live Logs Too Cluttered
+- **Issue**: Live logs window shows too many GPU stats and debug messages
+- **Solution**: Recent updates have filtered out noisy messages. Live logs now only show important INFO+ level messages.
 
-### Customizing Categories
+#### Database Shows 0 Knowledge Base Items
+- **Issue**: Sidebar shows 0 items even when database has content
+- **Solution**: Check that the Flask app is using the correct database path. The system now uses `instance/knowledge_base.db` consistently.
 
-Modify categorization logic in `CategoryManager` or provide a
-`categories.json` (if implemented) to define custom categories.
+#### Import Errors During Agent Run
+- **Issue**: Agent subprocess fails with import errors
+- **Solution**: The system now properly configures Python paths in subprocesses. Check `logs/agent_import_error_[PID].log` for details.
 
-------------------------------------------------------------------------
+### Debug Information
 
-## Advanced Usage
+The system creates detailed debug logs in the `logs/` directory:
+- `agent_debug_[PID].log`: Full subprocess execution log
+- `agent_import_error_[PID].log`: Import failure details
+- `agent_error_[PID].log`: Runtime error information
+- `web.log`: Main web server log
 
-### Force Regeneration
+### Performance Notes
 
--   Set `REGENERATE_ROOT_README=true` to rebuild the root README.
--   Use `REPROCESS_*` flags to reprocess specific components.
-
-### Maintenance Commands
-
-While not explicitly coded as CLI commands, you can simulate these via
-environment variables:
-
-    # Regenerate README
-    REGENERATE_ROOT_README=true python -m knowledge_base_agent.main
-
-    # Reprocess all tweets
-    FORCE_UPDATE=true python -m knowledge_base_agent.main
-
-------------------------------------------------------------------------
-
-## Error Handling & Recovery
-
--   **Retries**: HTTPClient retries failed requests (max 5 attempts,
-    500s timeout).
--   **Logging**: Detailed logs in `LOG_FILE` (e.g.,
-    `logs/kb_agent.log`).
--   **State Recovery**: Atomic writes prevent partial state corruption.
--   **Manual Reset**: Delete `PROCESSED_TWEETS_FILE` or
-    `TWEET_CACHE_FILE` to reset state (backup first!).
+- **GPU Requirements**: The system works best with CUDA-compatible GPUs for faster AI model inference
+- **Memory Usage**: LLM processing can be memory-intensive. Monitor system resources during runs
+- **Disk Space**: Generated knowledge base and media files can accumulate over time
 
 ------------------------------------------------------------------------
 
 ## Security Considerations
 
--   **Secrets**: Store sensitive data (e.g., `GITHUB_TOKEN`) in `.env`,
-    excluded from Git via `.gitignore`.
--   **Sanitization**: Markdown cells escape special characters; media
-    files are validated for type.
--   **Permissions**: Ensure write access to `KNOWLEDGE_BASE_DIR` and
-    `DATA_PROCESSING_DIR`.
-
-------------------------------------------------------------------------
-
-## Contributing
-
-1.  Fork the repository.
-2.  Create a feature branch: `git checkout -b feature/your-feature`.
-3.  Make changes, adhering to PEP 8 and adding tests.
-4.  Run tests: `pytest` (if tests exist).
-5.  Submit a pull request with a clear description.
+-   **Secrets**: Store sensitive data (e.g., `GITHUB_TOKEN`) in the `.env` file, which is excluded from Git via `.gitignore`.
+-   **File System Access**: The agent writes to the `KNOWLEDGE_BASE_DIR` and `data` directories. Ensure the process has appropriate permissions.
+-   **Dependencies**: Regularly audit and update dependencies to patch security vulnerabilities.
 
 ------------------------------------------------------------------------
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-------------------------------------------------------------------------
-
-## Acknowledgments
-
--   **Ollama**: Powers text and vision AI capabilities.
--   **Playwright**: Enables robust bookmark fetching.
--   **xAI**: Inspiration for this agent (Grok 3 context).
+MIT License - see the `LICENSE` file for details.

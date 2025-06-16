@@ -6,7 +6,7 @@ from knowledge_base_agent.exceptions import StorageError, ContentProcessingError
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.state_manager import StateManager
-from knowledge_base_agent.types import KnowledgeBaseItem, CategoryInfo
+from knowledge_base_agent.custom_types import KnowledgeBaseItem, CategoryInfo
 from knowledge_base_agent.category_manager import CategoryManager
 import copy
 from mimetypes import guess_type

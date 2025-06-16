@@ -1,0 +1,25 @@
+<div class="page-content-wrapper">
+    <div class="chat-page-container">
+        <div class="chat-header">
+            <h3>Agent Chat</h3>
+            <div class="chat-model-selector-container">
+                <label for="chat-model-selector-page">Chat Model:</label>
+                <select id="chat-model-selector-page" class="form-control form-control-sm"></select>
+            </div>
+        </div>
+        <div id="chat-history-page" class="chat-history">
+            <!-- Chat messages will be appended here -->
+        </div>
+        <div class="chat-input-container">
+            <form id="chat-form-page" class="chat-form">
+                <textarea id="chat-input-page" class="form-control" placeholder="Ask a question about the knowledge base..." rows="3"></textarea>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send"></i>
+                </button>
+            </form>
+            <div id="chat-typing-indicator-page" class="typing-indicator" style="display: none;">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </div>
+</div> 

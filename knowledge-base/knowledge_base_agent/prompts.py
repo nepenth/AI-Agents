@@ -13,7 +13,7 @@ class UserPreferences:
     Defines user preferences for an agent run, controlling which phases are executed
     and whether certain operations should be forced.
     """
-    run_mode: str = "full_pipeline"  # Options: 'full_pipeline', 'fetch_only', 'git_sync_only', 'synthesis_only'
+    run_mode: str = "full_pipeline"  # Options: 'full_pipeline', 'fetch_only', 'git_sync_only', 'synthesis_only', 'embedding_only'
     
     # Skip flags, primarily for 'full_pipeline' mode
     skip_fetch_bookmarks: bool = False  # If True, fetching new bookmarks is skipped.
@@ -21,10 +21,12 @@ class UserPreferences:
     skip_readme_generation: bool = True  # If True, README regeneration is skipped unless other conditions force it (e.g., new items and no skip flag). (Default True as README regen is not always desired)
     skip_git_push: bool = False         # If True, Git push is skipped. (Default False to enable pushing if git is configured)
     skip_synthesis_generation: bool = False  # If True, synthesis generation is skipped.
+    skip_embedding_generation: bool = False # If True, embedding generation is skipped.
 
     # Force flags
     force_recache_tweets: bool = False     # If True, forces re-downloading of tweet data during content processing.
     force_regenerate_synthesis: bool = False  # If True, forces regeneration of existing synthesis documents.
+    force_regenerate_embeddings: bool = False # If True, forces regeneration of embeddings.
     
     # Granular force flags for content processing phases
     force_reprocess_media: bool = False    # If True, forces re-analyzing media even if already processed
@@ -56,12 +58,14 @@ class UserPreferences:
             'skip_readme_generation',
             'skip_git_push',
             'skip_synthesis_generation',
+            'skip_embedding_generation',
             'force_recache_tweets',
             'force_reprocess_content',
             'force_reprocess_media',
             'force_reprocess_llm', 
             'force_reprocess_kb_item',
-            'force_regenerate_synthesis'
+            'force_regenerate_synthesis',
+            'force_regenerate_embeddings'
         ]
 
         for flag_name in bool_flags:
@@ -206,6 +210,32 @@ class LLMPrompts:
             "}\n"
             "```\n"
             "Respond ONLY with the JSON object."
+        )
+    
+    @staticmethod
+    def get_chat_prompt() -> str:
+        """
+        Returns the system prompt for the chat functionality.
+        """
+        return (
+            "You are a helpful AI assistant for a personal knowledge base. "
+            "Your role is to answer user questions based *only* on the provided context from the knowledge base. "
+            "Be concise, accurate, and helpful. If the context does not contain the answer, "
+            "state that the information is not available in the knowledge base. "
+            "Do not make up information. "
+            "When you use information from a source, cite it at the end of the sentence like this: [Source: Title of Document]."
+        )
+    
+    @staticmethod
+    def get_short_name_generation_prompt() -> str:
+        """
+        Returns the system prompt for generating a short name for a category.
+        """
+        return (
+            "You are a master at creating concise, catchy, and user-friendly names. "
+            "Your task is to generate a short name (2-3 words, max 25 characters) for a given category name. "
+            "The name should be suitable for a UI navigation bar. Do not use underscores or special characters. "
+            "Respond with ONLY the generated name."
         )
     
     @staticmethod
@@ -454,6 +484,75 @@ Respond ONLY with the JSON object."""
 10. Metadata footer
 
 Respond with ONLY the markdown content, no additional text or explanations."""
+
+    @staticmethod
+    def get_main_category_synthesis_prompt() -> str:
+        """Generate a synthesis prompt for main categories (aggregating subcategory syntheses)"""
+        return (
+            "You are a senior technical architect and domain expert tasked with creating a high-level synthesis document "
+            "for a main category by analyzing and consolidating insights from multiple subcategory syntheses. "
+            "Your goal is to identify overarching patterns, cross-cutting themes, and strategic insights that emerge "
+            "when viewing the subcategories as a cohesive domain.\n\n"
+            
+            "**Your Task**: Create a comprehensive main category synthesis that:\n"
+            "- Identifies domain-wide patterns and architectural principles\n"
+            "- Extracts strategic insights that span multiple subcategories\n"
+            "- Recognizes technology evolution trends and emerging practices\n"
+            "- Highlights interconnections between different subcategory areas\n"
+            "- Provides executive-level technical guidance for the entire domain\n\n"
+            
+            "**Response Format**: Respond ONLY with a valid JSON object following this exact schema:\n\n"
+            
+            "```json\n"
+            "{\n"
+            '  "synthesis_title": "string (A compelling title that captures the essence of this main category domain)",\n'
+            '  "executive_summary": "string (2-3 paragraph strategic overview of the main category scope, key themes, and value for technical leaders)",\n'
+            '  "domain_patterns": [\n'
+            '    {\n'
+            '      "pattern_name": "string (Name of cross-cutting domain pattern)",\n'
+            '      "description": "string (Description of the pattern and its strategic importance)",\n'
+            '      "subcategories": ["string (List of subcategories where this pattern appears)"]\n'
+            '    }\n'
+            '  ],\n'
+            '  "strategic_insights": [\n'
+            '    "string (High-level insights about technology trends, architectural evolution, or strategic considerations)"\n'
+            '  ],\n'
+            '  "technology_evolution": [\n'
+            '    {\n'
+            '      "trend": "string (Name of technology trend or evolution)",\n'
+            '      "impact": "string (Strategic impact on the domain)",\n'
+            '      "evidence": ["string (Evidence from subcategories supporting this trend)"]\n'
+            '    }\n'
+            '  ],\n'
+            '  "cross_category_connections": [\n'
+            '    {\n'
+            '      "connection": "string (Description of how subcategories interconnect)",\n'
+            '      "involved_subcategories": ["string (List of connected subcategories)"],\n'
+            '      "strategic_value": "string (Why this connection matters strategically)"\n'
+            '    }\n'
+            '  ],\n'
+            '  "executive_recommendations": [\n'
+            '    "string (Strategic recommendations for technical leaders based on domain analysis)"\n'
+            '  ],\n'
+            '  "emerging_opportunities": [\n'
+            '    "string (Opportunities for innovation or improvement identified across the domain)"\n'
+            '  ],\n'
+            '  "knowledge_priorities": [\n'
+            '    "string (Priority areas for further knowledge development in this domain)"\n'
+            '  ]\n'
+            "}\n"
+            "```\n\n"
+            
+            "**Quality Standards**:\n"
+            "- Focus on strategic and architectural insights rather than implementation details\n"
+            "- Identify patterns that only become visible when analyzing multiple subcategories together\n"
+            "- Provide value to CTOs, principal engineers, and technical architects\n"
+            "- Connect technical trends to business and strategic implications\n"
+            "- Highlight areas where the domain is evolving or where innovation opportunities exist\n\n"
+            
+            "Think at the level of a principal engineer or CTO analyzing a technical domain. "
+            "Respond ONLY with the JSON object."
+        )
 
 class ReasoningPrompts:
     """

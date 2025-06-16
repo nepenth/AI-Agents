@@ -59,14 +59,19 @@ html[data-bs-theme="dark"] .sidebar {
 }
 
 .main-content {
-    padding: 10px;
-    /* margin-left: 280px; Not needed if sidebar is part of the flex flow */
-    /* height: calc(100vh - 56px); Let flex control it */
+    flex-grow: 1;
+    padding: 20px;
+    height: 100vh;
     overflow-y: auto;
-    /* width: calc(100% - 280px); Let flex control it */
-    flex-grow: 1; /* Allow main-content to take remaining horizontal space */
-    display: flex; /* Make main-content a flex container for its children */
-    flex-direction: column;
+}
+
+body > .container-custom > .main-content {
+    padding-top: 86px; /* 66px for navbar + 20px padding */
+}
+
+/* Ensure that any container fluid inside main content doesn't add extra top padding */
+.main-content .container-fluid {
+    padding-top: 0; /* Remove any default padding */
 }
 
 .main-content > .col-12 {
@@ -257,39 +262,83 @@ html[data-bs-theme="dark"] .clickable-phase:hover:not(.phase-always-run) { /* Ex
 
 /* ==================== PHASE STATE STYLES ==================== */
 
-.phase-state-skip .phase-name { /* Apply strikethrough ONLY to the phase name */
-    text-decoration: line-through;
-    opacity: 0.7;
+/* Default 'normal' state - Will Run - Blue */
+.phase-state-normal {
+    color: #0d6efd !important;
+    border-color: #0d6efd !important;
 }
 
-.phase-state-skip .phase-status::after {
-    content: ""; /* Remove the CSS-generated "(Skipped)" text */
+.phase-state-normal .phase-name {
+    color: #0d6efd;
+    font-weight: normal;
+    text-decoration: none;
+}
+
+.phase-state-normal .phase-status {
+    color: #0d6efd;
+}
+
+/* Skip state - Orange/Muted with strikethrough */
+.phase-state-skip {
+    color: #fd7e14 !important;
+    border-color: #fd7e14 !important;
+}
+
+.phase-state-skip .phase-name {
+    text-decoration: line-through;
+    opacity: 0.7;
+    color: #fd7e14;
+}
+
+.phase-state-skip .phase-status {
+    color: #fd7e14;
+}
+
+/* Force state - Bold Blue */
+.phase-state-force {
+    color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    font-weight: bold;
+}
+
+.phase-state-force .phase-name {
+    font-weight: bold;
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.phase-state-force .phase-status {
+    color: #0d6efd;
+    font-weight: bold;
 }
 
 /* Adjust sub-phase visibility and appearance based on parent */
-.phase-state-skip ~ #content-processing-subphases .sub-phase-item .phase-status {
-    /* If Content Processing Overall is skipped, sub-phases also reflect this */
+[data-phase-id="content_processing_overall"].phase-state-skip ~ #content-processing-subphases .sub-phase-item .phase-status {
+    /* Only if Content Processing Overall specifically is skipped, sub-phases also reflect this */
     content: "(Skipped)"; 
     text-decoration: none; /* No double strikethrough */
-    color: #6c757d;
+    color: #fd7e14;
 }
 
 #content-processing-subphases .phase-state-skip .phase-name {
     /* Individual sub-phase skipped */
     text-decoration: line-through;
+    color: #fd7e14;
 }
 
-.phase-state-force .phase-name {
-    font-weight: bold;
-    color: #fd7e14; /* Keep color for visibility */
-    text-decoration: none; /* No strikethrough for force */
+/* Dark mode adjustments */
+html[data-bs-theme="dark"] .phase-state-force .phase-name,
+html[data-bs-theme="dark"] .phase-state-force .phase-status {
+    color: #4fc3f7;
 }
 
-.phase-state-force .phase-status::after {
-    content: ""; /* Remove the CSS-generated "(Force)" text, JS handles it */
+html[data-bs-theme="dark"] .phase-state-normal .phase-name,
+html[data-bs-theme="dark"] .phase-state-normal .phase-status {
+    color: #4fc3f7;
 }
 
-html[data-bs-theme="dark"] .phase-state-force .phase-name {
+html[data-bs-theme="dark"] .phase-state-skip .phase-name,
+html[data-bs-theme="dark"] .phase-state-skip .phase-status {
     color: #ffc107;
 }
 
