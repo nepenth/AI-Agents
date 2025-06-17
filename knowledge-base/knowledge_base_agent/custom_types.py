@@ -81,6 +81,13 @@ class Synthesis:
     file_path: Optional[str]
     created_at: datetime
     last_updated: datetime
+    
+    # New fields for dependency tracking
+    content_hash: Optional[str] = None  # SHA256 hash of source content
+    is_stale: bool = False  # Whether synthesis is out of date
+    last_item_update: Optional[datetime] = None  # Latest update time from source KB items
+    needs_regeneration: bool = False  # Explicitly marked for regen
+    dependency_item_ids: Optional[str] = None  # JSON array of KB item IDs this synthesis depends on
 
 class ProcessingStats:
     """Statistics for content processing."""

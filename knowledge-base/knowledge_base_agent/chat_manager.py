@@ -32,60 +32,56 @@ class ChatManager:
             # 1. Find similar documents
             similar_docs = await self.embedding_manager.find_similar_documents(query, top_k=5)
 
-            # 2. Prepare context for the LLM
-            context = "\n".join([f"Source: {doc['source']}\nContent: {doc['content']}" for doc in similar_docs])
+            # 2. Prepare context from relevant documents
+            if similar_docs:
+                context_sections = []
+                for doc in similar_docs:
+                    doc_title = doc.get('title', 'Unknown')
+                    doc_content = doc.get('content', '')
+                    if doc_content:
+                        context_sections.append(f"Source: {doc_title}\nContent: {doc_content}")
+                
+                context = "\n\n---\n\n".join(context_sections)
+            else:
+                context = "No relevant information found in the knowledge base."
             
-            # 3. Generate response using the LLM
-            prompt = LLMPrompts.get_chat_prompt()
+            # 3. Construct the full user message with query and context
+            system_prompt = LLMPrompts.get_chat_prompt()
+            user_message = f"""Query: {query}
+
+Relevant Knowledge Base Context:
+{context}
+
+Please answer the query based on the provided context from the knowledge base. If the context doesn't contain relevant information, state that the information is not available in the knowledge base."""
+
+            # 4. Generate response using the LLM
+            target_model = model or self.chat_model or self.text_model
             
-            # Use the specified model, or the default chat model from config
-            target_model = model or self.chat_model
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ]
 
             response_text = await self.http_client.ollama_chat(
                 model=target_model,
-                messages=[{"role": "user", "content": prompt}]
+                messages=messages,
+                temperature=0.3,  # Lower temperature for more focused responses
+                top_p=0.9
             )
 
-            # 4. Format and return the response
+            # 5. Format and return the response
             return {
                 "response": response_text,
                 "sources": [
                     {
-                        "id": doc.get("doc_id"),
-                        "type": doc.get("doc_type"),
-                        "source": doc.get("source"),
-                        "title": doc.get("title")
+                        "id": doc.get("id"),
+                        "type": doc.get("type", "item"),
+                        "title": doc.get("title", "Unknown"),
+                        "score": doc.get("score", 0.0)
                     }
-                    for doc in similar_docs
+                    for doc in similar_docs[:3]  # Limit sources to top 3
                 ]
             }
         except Exception as e:
-            logging.error(f"Error handling chat query: {e}", exc_info=True)
-            return {"error": "An error occurred while processing your query."}
-
-    async def _generate_llm_response(self, query: str, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Generate a response from the LLM based on the query and documents."""
-        
-        system_prompt = LLMPrompts.get_chat_prompt()
-        
-        context_str = "\n\n---\n\n".join(
-            [f"**Source: {doc['title']}**\n{doc['content']}" for doc in documents]
-        )
-        
-        user_message = (
-            f"**User Query:**\n{query}\n\n"
-            f"**Relevant Documents from Knowledge Base:**\n{context_str}"
-        )
-
-        llm_response = await self.http_client.send_llm_request(
-            model=self.config.chat_model or self.config.text_model,
-            system_prompt=system_prompt,
-            user_message=user_message,
-            temperature=0.2,
-            max_tokens=1500
-        )
-        
-        if not llm_response or not llm_response.get("success"):
-            raise Exception("LLM request failed or returned empty content.")
-            
-        return llm_response
+            self.logger.error(f"Error handling chat query: {e}", exc_info=True)
+            return {"error": "An error occurred while processing your query. Please try again."}

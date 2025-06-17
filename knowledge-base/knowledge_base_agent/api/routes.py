@@ -20,11 +20,53 @@ def get_chat_models():
 
 @bp.route('/chat', methods=['POST'])
 def chat():
-    # This is a placeholder for handling chat interactions via API.
-    # The primary interaction is via WebSockets, but this can be used for stateless queries.
-    data = request.json
-    # In a real implementation, you'd process the message and return a response.
-    return jsonify({"response": f"You said: {data.get('message')}", "sources": []})
+    """Handle chat interactions via API using the knowledge base agent."""
+    try:
+        data = request.json
+        query = data.get('message') or data.get('query')  # Support both parameter names
+        model = data.get('model')
+        
+        if not query:
+            return jsonify({"error": "No query provided"}), 400
+            
+        # Get the agent from the current app's config
+        app_config = current_app.config.get('APP_CONFIG')
+        if not app_config:
+            return jsonify({"error": "Application configuration not available"}), 500
+            
+        # Import and create agent components
+        from ..agent import KnowledgeBaseAgent
+        from ..http_client import HTTPClient
+        from ..embedding_manager import EmbeddingManager
+        from ..chat_manager import ChatManager
+        import asyncio
+        
+        # Create HTTP client and embedding manager
+        http_client = HTTPClient(app_config)
+        embedding_manager = EmbeddingManager(app_config, http_client)
+        chat_manager = ChatManager(app_config, http_client, embedding_manager)
+        
+        # Process the chat query asynchronously
+        async def process_chat():
+            try:
+                await http_client.initialize()
+                # EmbeddingManager doesn't have an initialize method, it's ready to use
+                response = await chat_manager.handle_chat_query(query, model)
+                return response
+            finally:
+                await http_client.close()  # Use close() instead of cleanup()
+        
+        # Run the async chat processing
+        response = asyncio.run(process_chat())
+        
+        if "error" in response:
+            return jsonify(response), 500
+            
+        return jsonify(response)
+        
+    except Exception as e:
+        current_app.logger.error(f"Chat API error: {e}", exc_info=True)
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @bp.route('/preferences', methods=['POST'])
 def save_preferences():

@@ -6,26 +6,13 @@
 document.addEventListener('DOMContentLoaded', function () {
     const socket = io();
 
-    // Cached DOM Elements - query once, use everywhere
-    const DOM = {
-        liveLogsUl: document.getElementById('liveLogsUl'),
-        clearLogsButton: document.getElementById('clearLogsButton'),
-        runAgentButton: document.getElementById('runAgentButton'),
-        stopAgentButton: document.getElementById('stopAgentButton'),
-        darkModeToggle: document.getElementById('darkModeToggle'),
-        mainContentArea: document.getElementById('main-content-area'),
-        logCount: document.getElementById('logCount'),
-        agentRunStatusLogsFooter: document.getElementById('agentRunStatusLogsFooter'),
-        gpuStatsContainer: document.getElementById('gpuStatsContainer'),
-        chatWidget: document.getElementById('chat-widget')
-    };
-
     // Centralized state management
     const appState = {
         agentIsRunning: false,
         currentPhaseId: null,
         activeRunPreferences: null,
         gpuStatsInterval: null,
+        currentLogs: [], // Store current logs for restoration
         
         setAgentRunning(isRunning) {
             this.agentIsRunning = isRunning;
@@ -42,8 +29,25 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    // Function to get current DOM elements (refreshed each time)
+    function getDOMElements() {
+        return {
+            liveLogsUl: document.getElementById('liveLogsUl'),
+            clearLogsButton: document.getElementById('clearLogsButton'),
+            runAgentButton: document.getElementById('runAgentButton'),
+            stopAgentButton: document.getElementById('stopAgentButton'),
+            darkModeToggle: document.getElementById('darkModeToggle'),
+            mainContentArea: document.getElementById('main-content-area'),
+            logCount: document.getElementById('logCount'),
+            agentRunStatusLogsFooter: document.getElementById('agentRunStatusLogsFooter'),
+            gpuStatsContainer: document.getElementById('gpuStatsContainer'),
+            chatWidget: document.getElementById('chat-widget')
+        };
+    }
+
     // --- Theme Management ---
     function initializeTheme() {
+        const DOM = getDOMElements();
         if (!DOM.darkModeToggle) return;
 
         let preferredTheme = 'light';
@@ -73,6 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Log Management ---
     function addLogMessage(message, level = 'INFO') {
+        const DOM = getDOMElements();
         if (!DOM.liveLogsUl) return;
         
         const li = document.createElement('li');
@@ -82,10 +87,35 @@ document.addEventListener('DOMContentLoaded', function () {
         DOM.liveLogsUl.appendChild(li);
         DOM.liveLogsUl.scrollTop = DOM.liveLogsUl.scrollHeight;
         
+        // Store in app state for restoration
+        appState.currentLogs.push({message, level, timestamp});
+        if (appState.currentLogs.length > 400) {
+            appState.currentLogs.shift(); // Keep only recent logs
+        }
+        
+        updateLogCount();
+    }
+
+    function restoreLogsToUI() {
+        const DOM = getDOMElements();
+        if (!DOM.liveLogsUl) return;
+        
+        console.log(`Restoring ${appState.currentLogs.length} logs to UI`);
+        DOM.liveLogsUl.innerHTML = ''; // Clear existing logs
+        
+        appState.currentLogs.forEach(logEntry => {
+            const li = document.createElement('li');
+            li.className = `list-group-item log-${logEntry.level.toLowerCase()}`;
+            li.innerHTML = `<span class="log-timestamp">[${logEntry.timestamp}]</span> <span class="log-level">[${logEntry.level}]</span> <span class="log-message">${logEntry.message}</span>`;
+            DOM.liveLogsUl.appendChild(li);
+        });
+        
+        DOM.liveLogsUl.scrollTop = DOM.liveLogsUl.scrollHeight;
         updateLogCount();
     }
 
     function updateLogCount() {
+        const DOM = getDOMElements();
         if (DOM.logCount && DOM.liveLogsUl) {
             const count = DOM.liveLogsUl.children.length;
             DOM.logCount.textContent = `${count} Log${count !== 1 ? 's' : ''}`;
@@ -93,14 +123,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function clearLogs() {
+        const DOM = getDOMElements();
         if (DOM.liveLogsUl) {
             DOM.liveLogsUl.innerHTML = '';
+            appState.currentLogs = []; // Clear stored logs
             socket.emit('clear_server_logs');
+            updateLogCount();
         }
     }
 
     // --- Agent Status Management ---
     function updateAgentStatusUI() {
+        const DOM = getDOMElements();
         const isRunning = appState.agentIsRunning;
         
         // Update Run/Stop buttons
@@ -120,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!window.phaseManager) return;
         
         const phaseStates = window.phaseManager.phaseStates;
+        const DOM = getDOMElements();
         const clientPrefs = {
             skip_fetch_bookmarks: phaseStates.fetch_bookmarks === 'skip',
             skip_process_content: phaseStates.content_processing_overall === 'skip',
@@ -145,9 +180,33 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // --- Agent Control Panel Detection and State Restoration ---
+    function isOnAgentControlPanel() {
+        return document.getElementById('liveLogsUl') !== null;
+    }
+
+    function requestCurrentStateIfNeeded() {
+        if (isOnAgentControlPanel()) {
+            console.log('Agent control panel detected, requesting current state');
+            // Request current status and logs
+            socket.emit('request_initial_status_and_git_config');
+            socket.emit('request_initial_logs');
+            
+            // Restore logs from memory (but server logs will override if available)
+            if (appState.currentLogs.length > 0) {
+                restoreLogsToUI();
+            }
+            
+            // Update UI with current state
+            updateAgentStatusUI();
+            initializePhaseManager();
+        }
+    }
+
     // --- GPU Stats Management ---
     function updateGPUStats(data) {
         console.log('updateGPUStats called with data:', data);
+        const DOM = getDOMElements();
         if (!DOM.gpuStatsContainer) {
             console.error('gpuStatsContainer element not found');
             return;
@@ -306,6 +365,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log("refreshGPUStats called");
         console.log("Socket status:", socket ? (socket.connected ? 'connected' : 'disconnected') : 'undefined');
         
+        const DOM = getDOMElements();
         if (!DOM.gpuStatsContainer) {
             console.log("GPU container not found");
             return;
@@ -352,6 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Set up periodic refresh every 10 seconds
         appState.gpuStatsInterval = setInterval(() => {
+            const DOM = getDOMElements();
             if (DOM.gpuStatsContainer) {
                 refreshGPUStats();
             }
@@ -360,6 +421,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Event Handling ---
     function initializeEventHandlers() {
+        const DOM = getDOMElements();
         if (!DOM.mainContentArea) return;
 
         // Use single delegated event handler for all clicks
@@ -412,6 +474,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Chat Widget Management ---
     function initializeChatWidget() {
+        const DOM = getDOMElements();
         if (!DOM.chatWidget) return;
 
         const chatHeader = DOM.chatWidget.querySelector('.chat-widget-header');
@@ -442,6 +505,9 @@ document.addEventListener('DOMContentLoaded', function () {
     socket.on('connect', () => {
         console.log('SocketIO connected successfully');
         addLogMessage('Connected to server via Socket.IO.', 'INFO');
+        
+        // Request current state when socket connects
+        requestCurrentStateIfNeeded();
         
         // Request GPU stats when connection is established
         setTimeout(() => {
@@ -474,6 +540,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    socket.on('initial_logs', function(data) {
+        console.log("Received initial_logs:", data);
+        if (data.logs && Array.isArray(data.logs)) {
+            // Convert server logs to our format and store them
+            appState.currentLogs = data.logs.map(log => ({
+                message: log.message,
+                level: log.level,
+                timestamp: new Date().toLocaleTimeString() // Use current time for display
+            }));
+            
+            // Restore logs to UI if we're on the agent control panel
+            if (isOnAgentControlPanel()) {
+                restoreLogsToUI();
+            }
+        }
+    });
+
     socket.on('agent_status', function(data) {
         console.log("Agent status update:", data);
         appState.setAgentRunning(data.is_running);
@@ -485,8 +568,17 @@ document.addEventListener('DOMContentLoaded', function () {
         addLogMessage(`Phase update: ${data.phase_id} - ${data.status} - ${data.message}`, 'INFO');
         appState.setCurrentPhase(data.phase_id);
         
+        // Debug: Check if phaseManager exists
+        if (!window.phaseManager) {
+            console.error('ERROR: window.phaseManager is not available when phase_update received');
+            return;
+        }
+        
+        // Debug: Log what we're about to call
+        console.log(`Calling phaseManager.updatePhaseStatus(${data.phase_id}, ${data.status}, ${data.message})`);
+        
         // Use phase manager for updates (single point of truth)
-        if (window.phaseManager) {
+        try {
             // Update the bottom status message
             window.phaseManager.updateCurrentPhaseDetails(
                 data.phase_id, 
@@ -512,6 +604,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     data.error_count
                 );
             }
+            
+            console.log(`Successfully processed phase update for ${data.phase_id}`);
+        } catch (error) {
+            console.error('Error processing phase update:', error);
         }
     });
 
@@ -530,14 +626,29 @@ document.addEventListener('DOMContentLoaded', function () {
         updateGPUStats(data);
     });
 
+    socket.on('logs_cleared', function() {
+        console.log('Received logs_cleared event from server');
+        appState.currentLogs = [];
+        const DOM = getDOMElements();
+        if (DOM.liveLogsUl) {
+            DOM.liveLogsUl.innerHTML = '';
+            updateLogCount();
+        }
+    });
+
     // --- Dynamic Components Reinitialization (for SPA navigation) ---
     function reinitializeDynamicComponents() {
         console.log("Re-initializing dynamic components...");
         
-        // Update DOM cache for new elements
-        DOM.gpuStatsContainer = document.getElementById('gpuStatsContainer');
+        // Re-initialize core systems for new page content
+        initializeTheme();
+        initializeEventHandlers();
+        
+        // Check if we're on agent control panel and restore state
+        requestCurrentStateIfNeeded();
         
         // Refresh GPU stats if container exists
+        const DOM = getDOMElements();
         if (DOM.gpuStatsContainer) {
             refreshGPUStats();
         }
@@ -580,6 +691,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Start GPU monitoring with backup
         setTimeout(() => {
+            const DOM = getDOMElements();
             if (DOM.gpuStatsContainer && DOM.gpuStatsContainer.innerHTML.includes('Loading GPU statistics')) {
                 console.log('Backup GPU stats request');
                 refreshGPUStats();
