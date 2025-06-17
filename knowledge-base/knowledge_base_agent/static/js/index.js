@@ -147,6 +147,18 @@ document.addEventListener('DOMContentLoaded', function () {
             DOM.agentRunStatusLogsFooter.classList.remove('text-danger', 'text-success');
             DOM.agentRunStatusLogsFooter.classList.add(isRunning ? 'text-success' : 'text-danger');
         }
+        
+        // Show/hide ETC display based on agent status
+        if (window.phaseManager) {
+            if (isRunning) {
+                // ETC will be shown when phase updates are received
+                console.log('Agent started - ETC display will be shown with phase updates');
+            } else {
+                // Hide ETC display when agent stops
+                window.phaseManager.hideETCDisplay();
+                console.log('Agent stopped - ETC display hidden');
+            }
+        }
     }
 
     // --- Preferences Management ---
@@ -575,39 +587,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         // Debug: Log what we're about to call
-        console.log(`Calling phaseManager.updatePhaseStatus(${data.phase_id}, ${data.status}, ${data.message})`);
+        console.log(`Calling phaseManager.handlePhaseUpdateWithETC for ${data.phase_id}`, data);
         
-        // Use phase manager for updates (single point of truth)
+        // Use enhanced phase manager for updates with ETC handling
         try {
-            // Update the bottom status message
-            window.phaseManager.updateCurrentPhaseDetails(
-                data.phase_id, 
-                data.message || '', 
-                data.processed_count, 
-                data.total_count, 
-                data.error_count
-            );
-            
-            // Update the phase status in the execution plan
-            window.phaseManager.updatePhaseStatus(
-                data.phase_id,
-                data.status,
-                data.message
-            );
-            
-            // If we have progress counts, also update progress display
-            if (data.processed_count !== null && data.processed_count !== undefined) {
-                window.phaseManager.updatePhaseExecutionStatus(
-                    data.phase_id,
-                    data.processed_count,
-                    data.total_count,
-                    data.error_count
-                );
-            }
-            
-            console.log(`Successfully processed phase update for ${data.phase_id}`);
+            window.phaseManager.handlePhaseUpdateWithETC(data);
+            console.log(`Successfully processed phase update with ETC for ${data.phase_id}`);
         } catch (error) {
-            console.error('Error processing phase update:', error);
+            console.error('Error processing phase update with ETC:', error);
+            // Fallback to basic phase handling
+            window.phaseManager.updatePhaseStatus(data.phase_id, data.status, data.message);
         }
     });
 
@@ -616,6 +605,11 @@ document.addEventListener('DOMContentLoaded', function () {
         appState.setAgentRunning(data.is_running);
         appState.setCurrentPhase(null);
         appState.setActivePreferences(null);
+        
+        // Hide ETC display when agent completes
+        if (window.phaseManager) {
+            window.phaseManager.hideETCDisplay();
+        }
     });
 
     socket.on('gpu_stats', function(data) {
