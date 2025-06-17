@@ -39,6 +39,13 @@ class SubcategorySynthesis(db.Model):
     created_at = db.Column(db.DateTime, nullable=False)
     last_updated = db.Column(db.DateTime, nullable=False)
     
+    # New fields for dependency tracking
+    content_hash = db.Column(db.String(64), nullable=True)  # SHA256 hash of source content
+    is_stale = db.Column(db.Boolean, nullable=False, default=False)  # Whether synthesis is out of date
+    last_item_update = db.Column(db.DateTime, nullable=True)  # Latest update time from source KB items
+    needs_regeneration = db.Column(db.Boolean, nullable=False, default=False)  # Explicitly marked for regen
+    dependency_item_ids = db.Column(db.Text, nullable=True)  # JSON array of KB item IDs this synthesis depends on
+    
     __table_args__ = (
         db.UniqueConstraint('main_category', 'sub_category', name='uq_main_sub_category'),
     )

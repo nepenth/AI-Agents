@@ -106,8 +106,50 @@
 }
 
 .typing-indicator {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.typing-indicator::before {
+    content: "Assistant is typing";
+    margin-right: 8px;
+}
+
+.typing-indicator span {
+    height: 6px;
+    width: 6px;
     border-radius: 50%;
-    animation: typing 1s infinite;
+    background-color: #999;
+    display: inline-block;
+    margin: 0 1px;
+    animation: typing-dots 1.4s ease-in-out infinite;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing-dots {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
 }
 
 /* Chat Page Specific Styles */
@@ -165,4 +207,36 @@
     min-width: 20px;
     text-align: center;
     user-select: none;
+}
+
+/* Clear Chat Button Styles */
+#clear-chat-page {
+    border-color: #6c757d;
+    color: #6c757d;
+    transition: all 0.2s ease-in-out;
+}
+
+#clear-chat-page:hover {
+    background-color: #6c757d;
+    color: white;
+    border-color: #6c757d;
+}
+
+#clear-chat-widget {
+    transition: all 0.2s ease-in-out;
+}
+
+#clear-chat-widget:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Ensure proper spacing in chat widget header */
+.chat-widget-header {
+    gap: 0.5rem;
+}
+
+.chat-model-selector-widget-container {
+    flex-grow: 1;
+    margin: 0 0.5rem;
 } 

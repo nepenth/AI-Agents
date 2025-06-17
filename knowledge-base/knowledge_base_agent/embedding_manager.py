@@ -179,7 +179,7 @@ class EmbeddingManager:
             if document:
                 results.append({
                     "title": document.title if hasattr(document, 'title') else document.synthesis_title,
-                    "score": similarities[i],
+                    "score": float(similarities[i]),  # Convert numpy float32 to Python float
                     "content": document.content if hasattr(document, 'content') else document.synthesis_content,
                     "type": embedding_record.document_type,
                     "id": embedding_record.document_id

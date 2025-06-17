@@ -635,58 +635,78 @@ class StreamlinedContentProcessor:
             raise
 
     async def _sync_to_db(self, tweet_id: str, tweet_data: Dict[str, Any], category_manager: CategoryManager) -> None:
-        """Sync tweet data to database."""
+        """
+        Sync individual tweet to database.
+        Enhanced with synthesis staleness tracking.
+        """
+        self.socketio_emit_log(f"Syncing tweet {tweet_id} to database...", "DEBUG")
+
         try:
-            app = current_app._get_current_object()
-            with app.app_context():
-                db_item: DBKnowledgeBaseItem = DBKnowledgeBaseItem.query.filter_by(tweet_id=tweet_id).first()
+            # Get or create KB item in database
+            from knowledge_base_agent.models import KnowledgeBaseItem as DBKnowledgeBaseItem, db
 
-                created_at_dt = tweet_data.get('created_at_dt')
-                if isinstance(created_at_dt, str):
-                    try:
-                        if created_at_dt.endswith('Z'):
-                            created_at_dt_parsed = datetime.fromisoformat(created_at_dt[:-1] + '+00:00')
-                        else:
-                            created_at_dt_parsed = datetime.fromisoformat(created_at_dt)
-                        created_at_dt = created_at_dt_parsed.replace(tzinfo=timezone.utc) if created_at_dt_parsed.tzinfo is None else created_at_dt_parsed
-                    except ValueError:
-                        self.socketio_emit_log(f"Could not parse date string '{created_at_dt}' for tweet {tweet_id}. Setting to None.", "WARNING")
-                        created_at_dt = None
-                elif isinstance(created_at_dt, datetime):
-                    created_at_dt = created_at_dt.replace(tzinfo=timezone.utc) if created_at_dt.tzinfo is None else created_at_dt
-                else:
-                     self.socketio_emit_log(f"created_at_tweet for {tweet_id} is not a str or datetime. Type: {type(created_at_dt)}. Setting to None.", "WARNING")
-                     created_at_dt = None
+            db_item = DBKnowledgeBaseItem.query.filter_by(tweet_id=tweet_id).first()
 
-                attributes = {
-                    "tweet_id": tweet_id,
-                    "user_screen_name": tweet_data.get('user_screen_name', 'unknown'),
-                    "content": tweet_data.get('full_text_cleaned', tweet_data.get('full_text', '')),
-                    "main_category_name": tweet_data.get('main_category'),
-                    "sub_category_name": tweet_data.get('sub_category'),
-                    "item_name": tweet_data.get('item_name_suggestion', 'Untitled KB Item'),
-                    "tweet_url": tweet_data.get('url', f'https://twitter.com/{tweet_data.get("user_screen_name", "user")}/status/{tweet_id}'),
-                    "created_at_tweet": created_at_dt,
-                    "tags_list": tweet_data.get('tags', []),
-                    "source": "twitter_bookmark",
-                    "file_path": tweet_data.get('kb_item_path'),
-                    "kb_media_paths": tweet_data.get('kb_media_paths'),
-                }
+            created_at_str = tweet_data.get('created_at', datetime.now().isoformat())
+            try:
+                created_at_dt = datetime.fromisoformat(created_at_str) if isinstance(created_at_str, str) else created_at_str
+            except ValueError:
+                created_at_dt = datetime.now()
 
-                if db_item:
-                    self.socketio_emit_log(f"Updating existing DB entry for tweet {tweet_id}", "DEBUG")
-                    for key, value in attributes.items():
-                        setattr(db_item, key, value)
-                    db_item.updated_at = datetime.now(timezone.utc)
-                else:
-                    self.socketio_emit_log(f"Creating new DB entry for tweet {tweet_id}", "DEBUG")
-                    db_item = DBKnowledgeBaseItem(**attributes)
-                    db_item.updated_at = datetime.now(timezone.utc)
-                
-                from knowledge_base_agent.models import db
-                db.session.add(db_item)
-                db.session.commit()
-                self.socketio_emit_log(f"DB entry for {tweet_id} committed.", "DEBUG")
+            attributes = {
+                "tweet_id": tweet_id,
+                "user_screen_name": tweet_data.get('user_screen_name', 'unknown'),
+                "content": tweet_data.get('full_text_cleaned', tweet_data.get('full_text', '')),
+                "main_category_name": tweet_data.get('main_category'),
+                "sub_category_name": tweet_data.get('sub_category'),
+                "item_name": tweet_data.get('item_name_suggestion', 'Untitled KB Item'),
+                "tweet_url": tweet_data.get('url', f'https://twitter.com/{tweet_data.get("user_screen_name", "user")}/status/{tweet_id}'),
+                "created_at_tweet": created_at_dt,
+                "tags_list": tweet_data.get('tags', []),
+                "source": "twitter_bookmark",
+                "file_path": tweet_data.get('kb_item_path'),
+                "kb_media_paths": tweet_data.get('kb_media_paths'),
+            }
+
+            # Track if this is a new item or an update for synthesis staleness
+            is_new_item = db_item is None
+            main_category = tweet_data.get('main_category')
+            sub_category = tweet_data.get('sub_category')
+
+            if db_item:
+                self.socketio_emit_log(f"Updating existing DB entry for tweet {tweet_id}", "DEBUG")
+                for key, value in attributes.items():
+                    setattr(db_item, key, value)
+                db_item.updated_at = datetime.now(timezone.utc)
+            else:
+                self.socketio_emit_log(f"Creating new DB entry for tweet {tweet_id}", "DEBUG")
+                db_item = DBKnowledgeBaseItem(**attributes)
+                db_item.updated_at = datetime.now(timezone.utc)
+            
+            db.session.add(db_item)
+            db.session.commit()
+            self.socketio_emit_log(f"DB entry for {tweet_id} committed.", "DEBUG")
+
+            # Mark affected synthesis documents as stale
+            if main_category and sub_category:
+                try:
+                    from .synthesis_tracker import SynthesisDependencyTracker
+                    dependency_tracker = SynthesisDependencyTracker(self.config)
+                    
+                    marked_count = dependency_tracker.mark_affected_syntheses_stale(
+                        main_category, sub_category
+                    )
+                    
+                    if marked_count > 0:
+                        action = "New KB item added" if is_new_item else "KB item updated"
+                        self.socketio_emit_log(
+                            f"{action}: Marked {marked_count} synthesis documents as stale for {main_category}/{sub_category}",
+                            "INFO"
+                        )
+                        
+                except Exception as e:
+                    # Don't fail the main DB sync if synthesis tracking fails
+                    self.socketio_emit_log(f"Warning: Could not update synthesis staleness for {tweet_id}", "WARNING")
 
         except Exception as e:
             logging.exception(f"Error syncing tweet {tweet_id} to database: {e}")

@@ -135,6 +135,34 @@ def item_detail(item_id):
 @app.route('/synthesis/<int:synthesis_id>')
 def synthesis_detail(synthesis_id):
     synth = SubcategorySynthesis.query.get_or_404(synthesis_id)
+    
+    # Check if JSON response is requested
+    if request.args.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
+        # Parse raw JSON content if it exists
+        raw_json_content_parsed = None
+        if synth.raw_json_content:
+            try:
+                import json
+                raw_json_content_parsed = json.loads(synth.raw_json_content)
+            except (json.JSONDecodeError, TypeError):
+                raw_json_content_parsed = None
+        
+        synthesis_data = {
+            'id': synth.id,
+            'synthesis_title': synth.synthesis_title,
+            'synthesis_short_name': synth.synthesis_short_name,
+            'main_category': synth.main_category,
+            'sub_category': synth.sub_category,
+            'synthesis_content': synth.synthesis_content,
+            'raw_json_content': synth.raw_json_content,
+            'raw_json_content_parsed': raw_json_content_parsed,
+            'item_count': synth.item_count,
+            'file_path': synth.file_path,
+            'created_at': synth.created_at.isoformat() if synth.created_at else None,
+            'last_updated': synth.last_updated.isoformat() if synth.last_updated else None
+        }
+        return jsonify(synthesis_data)
+    
     return render_template('synthesis_detail_content.html', synthesis=synth)
 
 @app.route('/syntheses')
@@ -194,6 +222,23 @@ def handle_request_initial_status_and_git_config():
         'active_run_preferences': current_run_preferences,
         'git_config': git_config
     })
+    
+    # Also send current logs
+    emit('initial_logs', {'logs': list(recent_logs)})
+
+@socketio.on('request_initial_logs')
+def handle_request_initial_logs():
+    """Send current logs to the requesting client"""
+    emit('initial_logs', {'logs': list(recent_logs)})
+
+@socketio.on('clear_server_logs')
+def handle_clear_server_logs():
+    """Clear the server-side log buffer"""
+    global recent_logs
+    recent_logs.clear()
+    logging.info("Server logs cleared by client request")
+    # Notify all clients to clear their logs too
+    emit('logs_cleared', broadcast=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -293,15 +338,15 @@ def handle_stop_agent():
 @socketio.on('request_gpu_stats')
 def handle_request_gpu_stats():
     try:
-        logging.info("GPU stats requested via SocketIO")
+        logging.debug("GPU stats requested via SocketIO")
         stats = get_gpu_stats()
-        logging.info(f"GPU stats result: {stats}")
+        logging.debug(f"GPU stats result: {stats}")
         
         if stats is None:
             logging.warning("GPU stats returned None - nvidia-smi not available or failed")
             emit('gpu_stats', {'error': 'GPU stats not available - nvidia-smi not found or failed'})
         else:
-            logging.info(f"Emitting GPU stats for {len(stats)} GPU(s)")
+            logging.debug(f"Emitting GPU stats for {len(stats)} GPU(s)")
             emit('gpu_stats', {'gpus': stats})
     except Exception as e:
         logging.error(f"Error getting GPU stats: {e}", exc_info=True)

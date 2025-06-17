@@ -53,7 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Re-initialize dynamic components like chat and GPU stats
                 if (window.reinitializeDynamicComponents) {
-                    window.reinitializeDynamicComponents();
+                    console.log('Calling reinitializeDynamicComponents after navigation');
+                    // Add a small delay to ensure DOM is fully ready
+                    setTimeout(() => {
+                        window.reinitializeDynamicComponents();
+                    }, 50);
                 }
 
                 // Initialize chat page specific scripts
@@ -116,9 +120,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 event.preventDefault(); // Prevent default link behavior
                 const destinationUrl = link.getAttribute('href');
+                
                 if (destinationUrl && destinationUrl !== window.location.pathname) {
                     console.log('Navigating to:', destinationUrl);
-                    loadContent(destinationUrl);
+                    
+                    // Special handling for synthesis documents
+                    if (destinationUrl.startsWith('/synthesis/') && window.loadSynthesis) {
+                        const synthesisId = destinationUrl.substring(destinationUrl.lastIndexOf('/') + 1);
+                        console.log('Loading synthesis document:', synthesisId);
+                        
+                        // Show loading indicator
+                        contentArea.innerHTML = `
+                            <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading synthesis...</span>
+                                </div>
+                            </div>`;
+                        
+                        window.loadSynthesis(destinationUrl, synthesisId, true)
+                            .then(data => {
+                                // Update browser history
+                                history.pushState({ path: destinationUrl, synthesisId: data.id }, data.synthesis_title, destinationUrl);
+                                updateActiveLink(destinationUrl);
+                            })
+                            .catch(error => {
+                                console.error('Failed to load synthesis:', error);
+                                contentArea.innerHTML = `<p class="text-danger p-4">Error loading synthesis. Please try again.</p>`;
+                            });
+                    } else {
+                        // Regular navigation for other pages
+                        loadContent(destinationUrl);
+                    }
                 }
             }
         }
@@ -128,11 +160,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('popstate', (event) => {
         if (event.state && event.state.path) {
-            // Load content without pushing a new state to history
-            loadContent(event.state.path, false);
+            // Special handling for synthesis documents
+            if (event.state.path.startsWith('/synthesis/') && window.loadSynthesis) {
+                const synthesisId = event.state.synthesisId || event.state.path.substring(event.state.path.lastIndexOf('/') + 1);
+                window.loadSynthesis(event.state.path, synthesisId, false)
+                    .then(() => {
+                        updateActiveLink(event.state.path);
+                    })
+                    .catch(error => {
+                        console.error('Failed to load synthesis on popstate:', error);
+                        contentArea.innerHTML = `<p class="text-danger p-4">Error loading synthesis. Please try again.</p>`;
+                    });
+            } else {
+                // Load content without pushing a new state to history
+                loadContent(event.state.path, false);
+            }
         } else {
             // Handle cases where state is null (e.g., initial page load)
-            loadContent(location.pathname, false);
+            const currentPath = location.pathname;
+            if (currentPath.startsWith('/synthesis/') && window.loadSynthesis) {
+                const synthesisId = currentPath.substring(currentPath.lastIndexOf('/') + 1);
+                window.loadSynthesis(currentPath, synthesisId, false)
+                    .then(() => {
+                        updateActiveLink(currentPath);
+                    })
+                    .catch(error => {
+                        console.error('Failed to load synthesis on initial load:', error);
+                    });
+            } else {
+                loadContent(currentPath, false);
+            }
         }
     });
 
@@ -159,19 +216,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateActiveLink = (path) => {
         if (!sidebar) return;
+        
         // Update nav links in the sidebar
         const navLinks = sidebar.querySelectorAll('a.nav-link');
+        const synthesisLinks = document.querySelectorAll('.sidebar .synthesis-link');
+        const itemLinks = document.querySelectorAll('.sidebar .item-link');
         
-        navLinks.forEach(link => {
-            if (link.href) {
-                const linkPath = new URL(link.href).pathname;
-                if (linkPath === path || (path === '/' && linkPath === '/agent_control_panel')) {
-                    link.classList.add('active');
-                } else {
-                    link.classList.remove('active');
+        // Clear all active states first
+        navLinks.forEach(link => link.classList.remove('active'));
+        synthesisLinks.forEach(link => link.classList.remove('active'));
+        itemLinks.forEach(link => link.classList.remove('active'));
+        
+        // Handle synthesis links
+        if (path.startsWith('/synthesis/')) {
+            synthesisLinks.forEach(link => {
+                if (link.href) {
+                    const linkPath = new URL(link.href).pathname;
+                    if (linkPath === path) {
+                        link.classList.add('active');
+                    }
                 }
+            });
+            // Update synthesis link active state using the global function if available
+            if (window.updateActiveSynthesisLink) {
+                const synthesisId = path.substring(path.lastIndexOf('/') + 1);
+                window.updateActiveSynthesisLink(synthesisId);
             }
-        });
+        }
+        // Handle knowledge base item links
+        else if (path.startsWith('/item/')) {
+            itemLinks.forEach(link => {
+                if (link.href) {
+                    const linkPath = new URL(link.href).pathname;
+                    if (linkPath === path) {
+                        link.classList.add('active');
+                    }
+                }
+            });
+        }
+        // Handle regular navigation links
+        else {
+            navLinks.forEach(link => {
+                if (link.href) {
+                    const linkPath = new URL(link.href).pathname;
+                    if (linkPath === path || (path === '/' && linkPath === '/agent_control_panel')) {
+                        link.classList.add('active');
+                    }
+                }
+            });
+        }
     };
 
     // --- Initial State ---
