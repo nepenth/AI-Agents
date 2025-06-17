@@ -653,6 +653,123 @@ class PhaseManager {
 
         console.log('PhaseManager: Finished applying active run preferences to UI. New phaseStates:', JSON.parse(JSON.stringify(this.phaseStates)));
     }
+
+    /**
+     * Update ETC display in logs footer
+     */
+    updateETCDisplay(etcData) {
+        const phaseEtcElement = document.getElementById('phaseEtcLogsFooter');
+        if (!phaseEtcElement) return;
+        
+        // Show/hide ETC display based on agent status
+        const agentIsRunning = window.agentIsRunning || false;
+        
+        if (!agentIsRunning || !etcData || (!etcData.estimated_remaining_minutes && !etcData.estimated_completion_timestamp)) {
+            phaseEtcElement.style.display = 'none';
+            return;
+        }
+        
+        // Format the ETC message
+        const remainingMinutes = etcData.estimated_remaining_minutes;
+        let etcMessage = '';
+        
+        if (remainingMinutes !== undefined && remainingMinutes !== null) {
+            if (remainingMinutes <= 0) {
+                etcMessage = 'Phase ETC: Completing...';
+            } else if (remainingMinutes < 1) {
+                etcMessage = 'Phase ETC: < 1 min';
+            } else if (remainingMinutes < 60) {
+                etcMessage = `Phase ETC: ${Math.round(remainingMinutes)} min`;
+            } else {
+                const hours = Math.floor(remainingMinutes / 60);
+                const mins = Math.round(remainingMinutes % 60);
+                etcMessage = `Phase ETC: ${hours}h ${mins}m`;
+            }
+            
+            // Add phase-specific information if available
+            if (etcData.phase_id && etcData.total_count && etcData.processed_count !== null) {
+                const progress = etcData.processed_count / etcData.total_count * 100;
+                etcMessage += ` (${Math.round(progress)}%)`;
+            }
+        } else if (etcData.estimated_completion_timestamp) {
+            // Calculate remaining time from timestamp
+            const now = Date.now() / 1000; // Convert to seconds
+            const remainingSeconds = etcData.estimated_completion_timestamp - now;
+            if (remainingSeconds > 0) {
+                const remainingMins = remainingSeconds / 60;
+                if (remainingMins < 1) {
+                    etcMessage = 'Phase ETC: < 1 min';
+                } else if (remainingMins < 60) {
+                    etcMessage = `Phase ETC: ${Math.round(remainingMins)} min`;
+                } else {
+                    const hours = Math.floor(remainingMins / 60);
+                    const mins = Math.round(remainingMins % 60);
+                    etcMessage = `Phase ETC: ${hours}h ${mins}m`;
+                }
+            } else {
+                etcMessage = 'Phase ETC: Completing...';
+            }
+        }
+        
+        // Add current processing speed info if available
+        if (etcData.current_avg_time_per_item && etcData.current_avg_time_per_item > 0) {
+            const avgTime = etcData.current_avg_time_per_item;
+            if (avgTime < 60) {
+                etcMessage += ` (${avgTime.toFixed(1)}s/item)`;
+            } else {
+                etcMessage += ` (${(avgTime/60).toFixed(1)}min/item)`;
+            }
+        }
+        
+        phaseEtcElement.textContent = etcMessage;
+        phaseEtcElement.style.display = 'inline';
+        
+        console.log(`ETC updated: ${etcMessage}`, etcData);
+    }
+
+    /**
+     * Handle phase update with ETC information
+     */
+    handlePhaseUpdateWithETC(data) {
+        // Standard phase update
+        if (data.processed_count !== null && data.processed_count !== undefined) {
+            this.updateCurrentPhaseDetails(
+                data.phase_id, 
+                data.message || '', 
+                data.processed_count, 
+                data.total_count, 
+                data.error_count
+            );
+            
+            this.updatePhaseStatus(data.phase_id, data.status, data.message);
+            this.updatePhaseExecutionStatus(data.phase_id, data.processed_count, data.total_count, data.error_count);
+        } else {
+            this.updatePhaseStatus(data.phase_id, data.status, data.message);
+        }
+        
+        // Update ETC display if we have ETC data
+        if (data.estimated_remaining_minutes !== undefined || data.estimated_completion_timestamp) {
+            this.updateETCDisplay({
+                phase_id: data.phase_id,
+                estimated_remaining_minutes: data.estimated_remaining_minutes,
+                estimated_completion_timestamp: data.estimated_completion_timestamp,
+                total_count: data.total_count,
+                processed_count: data.processed_count,
+                current_avg_time_per_item: data.current_avg_time_per_item,
+                progress_percentage: data.progress_percentage
+            });
+        }
+    }
+
+    /**
+     * Hide ETC display when agent stops
+     */
+    hideETCDisplay() {
+        const phaseEtcElement = document.getElementById('phaseEtcLogsFooter');
+        if (phaseEtcElement) {
+            phaseEtcElement.style.display = 'none';
+        }
+    }
 }
 
 // Export singleton instance
