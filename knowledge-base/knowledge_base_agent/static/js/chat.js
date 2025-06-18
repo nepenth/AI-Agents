@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Core Chat Logic ---
-    async function handleChatSubmit(formId, inputId, historyId, typingIndicatorId, selectorId) {
+    async function handleChatSubmit(inputId, historyId, typingIndicatorId, selectorId) {
         const chatInput = document.getElementById(inputId);
         const query = chatInput.value.trim();
         if (!query) return;
@@ -67,7 +67,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const data = await response.json();
-            appendMessage(chatHistory, 'assistant', data.response, data.sources);
+            
+            // Display query type if available
+            if (data.query_type) {
+                console.log(`Query classified as: ${data.query_type}`);
+            }
+            
+            appendMessage(chatHistory, 'assistant', data.response, data.sources, data.context_stats, data.performance_metrics);
 
         } catch (error) {
             console.error('Error during chat:', error);
@@ -79,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function appendMessage(history, role, text, sources = []) {
+    function appendMessage(history, role, text, sources = [], contextStats = {}, performanceMetrics = {}) {
         if (!history) return;
         
         const messageDiv = document.createElement('div');
@@ -89,58 +95,136 @@ document.addEventListener('DOMContentLoaded', function() {
         p.innerHTML = text.replace(/\n/g, '<br>');
         messageDiv.appendChild(p);
 
+        // Add performance metrics for assistant messages
+        if (role === 'assistant' && performanceMetrics && Object.keys(performanceMetrics).length > 0) {
+            const metricsDiv = document.createElement('div');
+            metricsDiv.className = 'chat-performance-metrics';
+            
+            const metricsToggle = document.createElement('button');
+            metricsToggle.className = 'btn btn-outline-secondary btn-sm metrics-toggle';
+            metricsToggle.innerHTML = '<i class="bi bi-speedometer2"></i> Performance';
+            metricsToggle.style.fontSize = '0.75rem';
+            metricsToggle.style.padding = '2px 6px';
+            metricsToggle.style.marginTop = '5px';
+            
+            const metricsContent = document.createElement('div');
+            metricsContent.className = 'metrics-content';
+            metricsContent.style.display = 'none';
+            metricsContent.style.marginTop = '8px';
+            metricsContent.style.padding = '8px';
+            metricsContent.style.backgroundColor = '#f8f9fa';
+            metricsContent.style.borderRadius = '4px';
+            metricsContent.style.fontSize = '0.8rem';
+            metricsContent.style.border = '1px solid #dee2e6';
+            
+            // Format performance metrics
+            const metrics = [
+                `⏱️ Response Time: ${performanceMetrics.response_time_ms}ms (${performanceMetrics.response_time_seconds}s)`,
+                `🚀 Speed: ${performanceMetrics.tokens_per_second} tokens/sec`,
+                `📊 Input Tokens: ${performanceMetrics.estimated_input_tokens} | Output: ${performanceMetrics.estimated_output_tokens}`,
+                `📈 Total Tokens: ${performanceMetrics.estimated_total_tokens}`,
+                `🤖 Model: ${performanceMetrics.model}`,
+                `📚 Context Sources: ${performanceMetrics.context_length || 0}`
+            ];
+            
+            metricsContent.innerHTML = metrics.map(metric => `<div>${metric}</div>`).join('');
+            
+            // Toggle functionality
+            metricsToggle.addEventListener('click', () => {
+                const isVisible = metricsContent.style.display !== 'none';
+                metricsContent.style.display = isVisible ? 'none' : 'block';
+                metricsToggle.innerHTML = isVisible ? 
+                    '<i class="bi bi-speedometer2"></i> Performance' : 
+                    '<i class="bi bi-speedometer2-fill"></i> Performance';
+            });
+            
+            metricsDiv.appendChild(metricsToggle);
+            metricsDiv.appendChild(metricsContent);
+            messageDiv.appendChild(metricsDiv);
+        }
+
+        // Enhanced source display with rich metadata
         if (sources && sources.length > 0) {
             const sourcesDiv = document.createElement('div');
             sourcesDiv.className = 'chat-sources';
-            sourcesDiv.innerHTML = '<strong>Sources:</strong>';
-            const ul = document.createElement('ul');
-            sources.forEach(source => {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = `#`; 
-                a.textContent = source.title || source.source;
-                a.onclick = (e) => {
-                    e.preventDefault();
-                    // Navigation to source could be implemented here
-                    console.log('Source clicked:', source);
+            
+            // Add context stats if available
+            if (contextStats && Object.keys(contextStats).length > 0) {
+                const statsDiv = document.createElement('div');
+                statsDiv.className = 'chat-context-stats';
+                statsDiv.innerHTML = `
+                    <strong>📊 Context Summary:</strong> 
+                    ${contextStats.total_sources || 0} sources 
+                    (${contextStats.synthesis_docs || 0} syntheses, 
+                    ${contextStats.kb_items || 0} items) 
+                    across ${contextStats.categories_covered || 0} categories
+                `;
+                sourcesDiv.appendChild(statsDiv);
+            }
+            
+            sourcesDiv.innerHTML += '<strong>🔗 Sources:</strong>';
+            const sourcesList = document.createElement('div');
+            sourcesList.className = 'sources-list';
+            
+            sources.forEach((source, index) => {
+                const sourceItem = document.createElement('div');
+                sourceItem.className = 'source-item';
+                
+                // Create main source link
+                const sourceLink = document.createElement('a');
+                sourceLink.href = source.url || '#';
+                sourceLink.className = 'source-link';
+                sourceLink.textContent = source.title || 'Unknown Source';
+                
+                // Handle click for navigation
+                sourceLink.onclick = (e) => {
+                    if (source.url && source.url !== '#') {
+                        // Navigate to the source page
+                        window.location.href = source.url;
+                    } else {
+                        e.preventDefault();
+                        console.log('Source clicked but no URL available:', source);
+                    }
                 };
                 
-                // Add score if available
-                if (source.score !== undefined) {
-                    li.appendChild(a);
-                    li.appendChild(document.createTextNode(` (Score: ${source.score.toFixed(2)})`));
-                } else {
-                    li.appendChild(a);
+                // Create metadata display
+                const metadata = document.createElement('div');
+                metadata.className = 'source-metadata';
+                
+                let metadataContent = '';
+                
+                // Document type with emoji
+                if (source.doc_type_display) {
+                    metadataContent += `<span class="doc-type">${source.doc_type_display}</span>`;
                 }
-                ul.appendChild(li);
+                
+                // Category information
+                if (source.category || source.subcategory) {
+                    const categoryPath = [source.category, source.subcategory].filter(Boolean).join('/');
+                    metadataContent += `<span class="category">${categoryPath}</span>`;
+                }
+                
+                // Relevance score
+                if (source.score !== undefined && source.score !== null) {
+                    const scorePercent = (source.score * 100).toFixed(1);
+                    const scoreClass = source.score > 0.8 ? 'high-score' : source.score > 0.6 ? 'med-score' : 'low-score';
+                    metadataContent += `<span class="score ${scoreClass}">${scorePercent}% relevant</span>`;
+                }
+                
+                metadata.innerHTML = metadataContent;
+                
+                // Assemble source item
+                sourceItem.appendChild(sourceLink);
+                sourceItem.appendChild(metadata);
+                sourcesList.appendChild(sourceItem);
             });
-            sourcesDiv.appendChild(ul);
+            
+            sourcesDiv.appendChild(sourcesList);
             messageDiv.appendChild(sourcesDiv);
         }
         
         history.appendChild(messageDiv);
         history.scrollTop = history.scrollHeight;
-    }
-
-    // --- Enhanced Textarea Handling ---
-    function setupTextareaEnterHandling(textareaId, formId) {
-        const textarea = document.getElementById(textareaId);
-        const form = document.getElementById(formId);
-        
-        if (!textarea || !form) return;
-
-        textarea.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                if (event.shiftKey) {
-                    // Shift+Enter: Allow new line (default behavior)
-                    return;
-                } else {
-                    // Enter without Shift: Submit form
-                    event.preventDefault();
-                    form.dispatchEvent(new Event('submit'));
-                }
-            }
-        });
     }
 
     // --- Clear Chat Functionality ---
@@ -197,25 +281,50 @@ document.addEventListener('DOMContentLoaded', function() {
         const history = document.getElementById(historyId);
 
         if (form && input && history) {
-            // Remove any existing event listeners to prevent duplicates
+            console.log(`Found chat elements for ${context}`);
+            
+            // Remove existing event listeners by cloning the form
             const newForm = form.cloneNode(true);
             form.parentNode.replaceChild(newForm, form);
+            
+            // Get the new input element from the cloned form
+            const newInput = newForm.querySelector('textarea');
+            if (!newInput) {
+                console.error(`Failed to find textarea in cloned form for ${context}`);
+                return;
+            }
+            
+            console.log(`Setting up event listeners for ${context}`);
             
             // Add submit handler
             newForm.addEventListener('submit', (event) => {
                 event.preventDefault();
-                handleChatSubmit(formId, inputId, historyId, typingIndicatorId, selectorId);
+                console.log(`Form submitted for ${context}`);
+                handleChatSubmit(inputId, historyId, typingIndicatorId, selectorId);
             });
 
-            // Setup Enter/Shift+Enter handling
-            setupTextareaEnterHandling(inputId, formId);
+            // Setup Enter/Shift+Enter handling on the new input
+            newInput.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    if (event.shiftKey) {
+                        // Shift+Enter: Allow new line (default behavior)
+                        console.log(`Shift+Enter pressed for ${context}`);
+                        return;
+                    } else {
+                        // Enter without Shift: Submit form
+                        console.log(`Enter pressed for ${context}, submitting form`);
+                        event.preventDefault();
+                        newForm.dispatchEvent(new Event('submit'));
+                    }
+                }
+            });
             
             // Setup clear chat button
             setupClearChatButton(context);
             
-            console.log(`Chat initialized for ${context}`);
+            console.log(`Chat initialized successfully for ${context}`);
         } else {
-            console.warn(`Chat elements not found for context: ${context}`);
+            console.warn(`Chat elements not found for context: ${context}. Form: ${!!form}, Input: ${!!input}, History: ${!!history}`);
         }
     }
 
@@ -270,8 +379,8 @@ function toggleChat() {
 }
 
 // Global function for reinitializing chat (called from index.js)
-function initializeChat(context = 'page') {
-    console.log(`Global initializeChat called for context: ${context}`);
+function reinitializeChat(context = 'page') {
+    console.log(`Global reinitializeChat called for context: ${context}`);
     
     const suffix = context === 'widget' ? '-widget' : '-page';
     const formId = `chat-form${suffix}`;
@@ -289,10 +398,17 @@ function initializeChat(context = 'page') {
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
         
+        // Get the new input element from the cloned form
+        const newInput = newForm.querySelector('textarea');
+        if (!newInput) {
+            console.error(`Failed to find textarea in cloned form for ${context}`);
+            return;
+        }
+        
         // Add submit handler  
         async function handleSubmit(event) {
             event.preventDefault();
-            const query = input.value.trim();
+            const query = newInput.value.trim();
             if (!query) return;
 
             const modelSelector = document.getElementById(selectorId);
@@ -301,8 +417,8 @@ function initializeChat(context = 'page') {
 
             // Add user message
             appendMessage(history, 'user', query);
-            input.value = '';
-            input.disabled = true;
+            newInput.value = '';
+            newInput.disabled = true;
             if (typingIndicator) typingIndicator.style.display = 'block';
 
             try {
@@ -318,19 +434,25 @@ function initializeChat(context = 'page') {
                 }
 
                 const data = await response.json();
-                appendMessage(history, 'assistant', data.response, data.sources);
+                
+                // Display query type if available  
+                if (data.query_type) {
+                    console.log(`Query classified as: ${data.query_type}`);
+                }
+                
+                appendMessage(history, 'assistant', data.response, data.sources, data.context_stats, data.performance_metrics);
 
             } catch (error) {
                 console.error('Chat error:', error);
                 appendMessage(history, 'assistant', `Error: ${error.message}`);
             } finally {
                 if (typingIndicator) typingIndicator.style.display = 'none';
-                input.disabled = false;
-                input.focus();
+                newInput.disabled = false;
+                newInput.focus();
             }
         }
 
-        function appendMessage(history, role, text, sources = []) {
+        function appendMessage(history, role, text, sources = [], contextStats = {}, performanceMetrics = {}) {
             if (!history) return;
             
             const messageDiv = document.createElement('div');
@@ -340,30 +462,131 @@ function initializeChat(context = 'page') {
             p.innerHTML = text.replace(/\n/g, '<br>');
             messageDiv.appendChild(p);
 
+            // Add performance metrics for assistant messages
+            if (role === 'assistant' && performanceMetrics && Object.keys(performanceMetrics).length > 0) {
+                const metricsDiv = document.createElement('div');
+                metricsDiv.className = 'chat-performance-metrics';
+                
+                const metricsToggle = document.createElement('button');
+                metricsToggle.className = 'btn btn-outline-secondary btn-sm metrics-toggle';
+                metricsToggle.innerHTML = '<i class="bi bi-speedometer2"></i> Performance';
+                metricsToggle.style.fontSize = '0.75rem';
+                metricsToggle.style.padding = '2px 6px';
+                metricsToggle.style.marginTop = '5px';
+                
+                const metricsContent = document.createElement('div');
+                metricsContent.className = 'metrics-content';
+                metricsContent.style.display = 'none';
+                metricsContent.style.marginTop = '8px';
+                metricsContent.style.padding = '8px';
+                metricsContent.style.backgroundColor = '#f8f9fa';
+                metricsContent.style.borderRadius = '4px';
+                metricsContent.style.fontSize = '0.8rem';
+                metricsContent.style.border = '1px solid #dee2e6';
+                
+                // Format performance metrics
+                const metrics = [
+                    `⏱️ Response Time: ${performanceMetrics.response_time_ms}ms (${performanceMetrics.response_time_seconds}s)`,
+                    `🚀 Speed: ${performanceMetrics.tokens_per_second} tokens/sec`,
+                    `📊 Input Tokens: ${performanceMetrics.estimated_input_tokens} | Output: ${performanceMetrics.estimated_output_tokens}`,
+                    `📈 Total Tokens: ${performanceMetrics.estimated_total_tokens}`,
+                    `🤖 Model: ${performanceMetrics.model}`,
+                    `📚 Context Sources: ${performanceMetrics.context_length || 0}`
+                ];
+                
+                metricsContent.innerHTML = metrics.map(metric => `<div>${metric}</div>`).join('');
+                
+                // Toggle functionality
+                metricsToggle.addEventListener('click', () => {
+                    const isVisible = metricsContent.style.display !== 'none';
+                    metricsContent.style.display = isVisible ? 'none' : 'block';
+                    metricsToggle.innerHTML = isVisible ? 
+                        '<i class="bi bi-speedometer2"></i> Performance' : 
+                        '<i class="bi bi-speedometer2-fill"></i> Performance';
+                });
+                
+                metricsDiv.appendChild(metricsToggle);
+                metricsDiv.appendChild(metricsContent);
+                messageDiv.appendChild(metricsDiv);
+            }
+
+            // Enhanced source display with rich metadata
             if (sources && sources.length > 0) {
                 const sourcesDiv = document.createElement('div');
                 sourcesDiv.className = 'chat-sources';
-                sourcesDiv.innerHTML = '<strong>Sources:</strong>';
-                const ul = document.createElement('ul');
-                sources.forEach(source => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.href = `#`; 
-                    a.textContent = source.title || source.source;
-                    a.onclick = (e) => {
-                        e.preventDefault();
-                        console.log('Source clicked:', source);
+                
+                // Add context stats if available
+                if (contextStats && Object.keys(contextStats).length > 0) {
+                    const statsDiv = document.createElement('div');
+                    statsDiv.className = 'chat-context-stats';
+                    statsDiv.innerHTML = `
+                        <strong>📊 Context Summary:</strong> 
+                        ${contextStats.total_sources || 0} sources 
+                        (${contextStats.synthesis_docs || 0} syntheses, 
+                        ${contextStats.kb_items || 0} items) 
+                        across ${contextStats.categories_covered || 0} categories
+                    `;
+                    sourcesDiv.appendChild(statsDiv);
+                }
+                
+                sourcesDiv.innerHTML += '<strong>🔗 Sources:</strong>';
+                const sourcesList = document.createElement('div');
+                sourcesList.className = 'sources-list';
+                
+                sources.forEach((source, index) => {
+                    const sourceItem = document.createElement('div');
+                    sourceItem.className = 'source-item';
+                    
+                    // Create main source link
+                    const sourceLink = document.createElement('a');
+                    sourceLink.href = source.url || '#';
+                    sourceLink.className = 'source-link';
+                    sourceLink.textContent = source.title || 'Unknown Source';
+                    
+                    // Handle click for navigation
+                    sourceLink.onclick = (e) => {
+                        if (source.url && source.url !== '#') {
+                            // Navigate to the source page
+                            window.location.href = source.url;
+                        } else {
+                            e.preventDefault();
+                            console.log('Source clicked but no URL available:', source);
+                        }
                     };
                     
-                    if (source.score !== undefined) {
-                        li.appendChild(a);
-                        li.appendChild(document.createTextNode(` (Score: ${source.score.toFixed(2)})`));
-                    } else {
-                        li.appendChild(a);
+                    // Create metadata display
+                    const metadata = document.createElement('div');
+                    metadata.className = 'source-metadata';
+                    
+                    let metadataContent = '';
+                    
+                    // Document type with emoji
+                    if (source.doc_type_display) {
+                        metadataContent += `<span class="doc-type">${source.doc_type_display}</span>`;
                     }
-                    ul.appendChild(li);
+                    
+                    // Category information
+                    if (source.category || source.subcategory) {
+                        const categoryPath = [source.category, source.subcategory].filter(Boolean).join('/');
+                        metadataContent += `<span class="category">${categoryPath}</span>`;
+                    }
+                    
+                    // Relevance score
+                    if (source.score !== undefined && source.score !== null) {
+                        const scorePercent = (source.score * 100).toFixed(1);
+                        const scoreClass = source.score > 0.8 ? 'high-score' : source.score > 0.6 ? 'med-score' : 'low-score';
+                        metadataContent += `<span class="score ${scoreClass}">${scorePercent}% relevant</span>`;
+                    }
+                    
+                    metadata.innerHTML = metadataContent;
+                    
+                    // Assemble source item
+                    sourceItem.appendChild(sourceLink);
+                    sourceItem.appendChild(metadata);
+                    sourcesList.appendChild(sourceItem);
                 });
-                sourcesDiv.appendChild(ul);
+                
+                sourcesDiv.appendChild(sourcesList);
                 messageDiv.appendChild(sourcesDiv);
             }
             
@@ -373,22 +596,19 @@ function initializeChat(context = 'page') {
         
         newForm.addEventListener('submit', handleSubmit);
 
-        // Setup Enter/Shift+Enter handling
-        const newInput = document.getElementById(inputId);
-        if (newInput) {
-            newInput.addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    if (event.shiftKey) {
-                        // Shift+Enter: Allow new line (default behavior)
-                        return;
-                    } else {
-                        // Enter without Shift: Submit form
-                        event.preventDefault();
-                        newForm.dispatchEvent(new Event('submit'));
-                    }
+        // Setup Enter/Shift+Enter handling on the new input
+        newInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                if (event.shiftKey) {
+                    // Shift+Enter: Allow new line (default behavior)
+                    return;
+                } else {
+                    // Enter without Shift: Submit form
+                    event.preventDefault();
+                    newForm.dispatchEvent(new Event('submit'));
                 }
-            });
-        }
+            }
+        });
         
         // Setup clear chat button
         const clearButtonId = `clear-chat${suffix}`;
@@ -444,5 +664,5 @@ async function loadChatModels(selector) {
 }
 
 // Expose functions to global scope
-window.initializeChat = initializeChat;
+window.reinitializeChat = reinitializeChat;
 window.toggleChat = toggleChat; 

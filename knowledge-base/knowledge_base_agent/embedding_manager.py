@@ -18,6 +18,7 @@ from .http_client import HTTPClient
 from .models import db, KnowledgeBaseItem, SubcategorySynthesis, Embedding
 from .custom_types import Synthesis
 from .file_utils import async_json_load, async_write_text
+from .exceptions import AIError
 
 class EmbeddingManager:
     """Manages the creation and storage of embeddings."""
@@ -70,6 +71,12 @@ class EmbeddingManager:
 
         for i, item_data in enumerate(items_to_process):
             try:
+                # Skip items with empty or None content
+                if not item_data.get('content') or not item_data['content'].strip():
+                    self.logger.info(f"Skipping {item_data['type']} {item_data['id']} - empty content")
+                    processed_count += 1
+                    continue
+
                 if not force_regenerate:
                     existing_embedding = Embedding.query.filter_by(
                         document_id=item_data['id'],
@@ -109,20 +116,65 @@ class EmbeddingManager:
                 error_count += 1
 
         self.logger.info(f"Embedding generation finished. Processed: {processed_count}, Errors: {error_count}")
+        
+        # Emit completion phase update
+        if phase_emitter_func:
+            if error_count > 0:
+                phase_emitter_func(
+                    "embedding_generation",
+                    "completed_with_errors",
+                    f"Embedding generation completed with {error_count} errors. Processed: {processed_count}/{total_items}",
+                    is_sub_step_update=False,
+                    processed_count=processed_count,
+                    total_count=total_items,
+                    error_count=error_count
+                )
+            else:
+                phase_emitter_func(
+                    "embedding_generation",
+                    "completed",
+                    f"Successfully generated embeddings for {processed_count} documents.",
+                    is_sub_step_update=False,
+                    processed_count=processed_count,
+                    total_count=total_items,
+                    error_count=error_count
+                )
+        
         return processed_count, error_count
 
     async def _generate_embedding(self, content: str) -> List[float]:
         """Generate embedding for a given text content."""
         
         try:
+            # Validate content before sending to API
+            if content is None:
+                raise ValueError("Content is None - cannot generate embedding")
+            
+            if not isinstance(content, str):
+                raise ValueError(f"Content must be a string, got {type(content)}: {content}")
+            
+            if not content.strip():
+                raise ValueError(f"Content is empty or whitespace-only: '{content}'")
+            
+            content_length = len(content)
+            content_preview = content[:100] + "..." if len(content) > 100 else content
+            self.logger.debug(f"Generating embedding for content (length={content_length}): {content_preview}")
+            
             # Use the direct ollama_embed method instead of the non-existent send_embedding_request
             embedding = await self.http_client.ollama_embed(
                 model=self.embedding_model,
                 prompt=content
             )
+            
+            if not embedding or len(embedding) == 0:
+                raise ValueError(f"Received empty embedding from API for content: {content_preview}")
+            
+            self.logger.debug(f"Successfully generated embedding with dimension {len(embedding)}")
             return embedding
+            
         except Exception as e:
-            self.logger.error(f"Failed to generate embedding: {e}")
+            self.logger.error(f"Failed to generate embedding for content (length={len(content) if content else 0}): {e}")
+            self.logger.error(f"Content preview: '{content[:200] if content else 'None'}...'")
             raise Exception(f"Failed to generate embedding from API: {e}")
 
     async def _save_embedding(self, document_id: int, document_type: str, embedding_vector: List[float], model: str):
@@ -208,7 +260,7 @@ class EmbeddingManager:
         
         return np.dot(vec2, vec1.T).flatten() / denominator 
 
-    async def _get_embedding_from_api(self, text: str) -> List[float]:
+    async def _get_embedding_from_api(self, text: str) -> Optional[List[float]]:
         """Get embedding for a single text from the API."""
         try:
             embedding = await self.http_client.ollama_embed(
@@ -222,7 +274,8 @@ class EmbeddingManager:
 
     def _normalize_vector(self, vector: List[float]) -> List[float]:
         """Normalize a vector to unit length."""
-        norm = np.linalg.norm(vector)
+        vector_array = np.array(vector)
+        norm = np.linalg.norm(vector_array)
         if norm == 0:
             return vector
-        return vector / norm 
+        return (vector_array / norm).tolist() 

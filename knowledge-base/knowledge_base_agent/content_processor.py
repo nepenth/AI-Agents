@@ -98,10 +98,11 @@ class StreamlinedContentProcessor:
         if not unprocessed_tweets:
             logging.info("ContentProcessor: No tweets to process.")
             self.socketio_emit_log("No tweets to process.", "INFO")
-            if self.phase_emitter_func: 
-                self.phase_emitter_func('content_processing_overall', 'skipped', 'No tweets in queue.')
-            return phase_details_results
-
+            
+            # Don't return early - let execution plans determine if sub-phases have work to do
+            # This handles force reprocessing flags and database sync needs properly
+            unprocessed_tweets = []  # Set to empty list but continue with execution plan evaluation
+            
         self.socketio_emit_log(
             f"Starting to process {len(unprocessed_tweets)} tweets phase-by-phase. "
             f"Force flags: recache={preferences.force_recache_tweets}, "
@@ -112,11 +113,14 @@ class StreamlinedContentProcessor:
         )
         if self.phase_emitter_func: 
             self.phase_emitter_func('content_processing_overall', 'in_progress', 
-                                   f'Processing {len(unprocessed_tweets)} tweets phase-by-phase...')
+                                   f'Evaluating processing needs for all cached tweets...')
 
-        # Load tweet data (StateManager already validated during initialization)
+        # Load ALL tweet data for execution plan evaluation, not just unprocessed ones
+        # The execution plans will determine what actually needs processing based on force flags
+        all_tweets = await self.state_manager.get_all_tweets()
         tweets_data_map: Dict[str, Dict[str, Any]] = {}
-        for tweet_id in unprocessed_tweets:
+        
+        for tweet_id in all_tweets:
             tweet_data = await self.state_manager.get_tweet(tweet_id)
             if not tweet_data:
                 tweet_data = {'tweet_id': tweet_id, 'url': f'https://twitter.com/user/status/{tweet_id}'}
@@ -159,7 +163,7 @@ class StreamlinedContentProcessor:
         # Final processing validation and stats
         await self._finalize_processing(tweets_data_map, unprocessed_tweets, stats)
 
-        final_summary_msg = f"Content processing completed. Successfully processed: {stats.processed_count}/{len(unprocessed_tweets)}. Errors: {stats.error_count}."
+        final_summary_msg = f"Content processing completed. Evaluated {len(tweets_data_map)} total tweets. Successfully processed: {stats.processed_count}. Errors: {stats.error_count}."
         self.socketio_emit_log(final_summary_msg, "INFO")
         
         overall_status = 'completed'
@@ -177,8 +181,13 @@ class StreamlinedContentProcessor:
         """Execute caching phase using execution plan."""
         if plan.should_skip_phase:
             self.socketio_emit_log(f"Skipping cache phase - all {plan.already_complete_count} tweets already cached", "INFO")
+            # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_cache', 'skipped', 
+                self.phase_emitter_func('subphase_cp_cache', 'active', f'Checking {plan.already_complete_count} tweets...')
+            # Brief delay to allow UI to register the active status
+            await asyncio.sleep(0.1)
+            if self.phase_emitter_func:
+                self.phase_emitter_func('subphase_cp_cache', 'completed', 
                                        f'All {plan.already_complete_count} tweets already cached')
             return
 
@@ -213,8 +222,13 @@ class StreamlinedContentProcessor:
         """Execute media processing phase using execution plan."""
         if plan.should_skip_phase:
             self.socketio_emit_log(f"Skipping media phase - all {plan.already_complete_count} tweets already processed", "INFO")
+            # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_media', 'skipped', 
+                self.phase_emitter_func('subphase_cp_media', 'active', f'Checking {plan.already_complete_count} tweets...')
+            # Brief delay to allow UI to register the active status
+            await asyncio.sleep(0.1)
+            if self.phase_emitter_func:
+                self.phase_emitter_func('subphase_cp_media', 'completed', 
                                        f'All {plan.already_complete_count} tweets already have media processed')
             return
 
@@ -264,8 +278,13 @@ class StreamlinedContentProcessor:
         """Execute LLM categorization phase using execution plan."""
         if plan.should_skip_phase:
             self.socketio_emit_log(f"Skipping LLM phase - all {plan.already_complete_count} tweets already categorized", "INFO")
+            # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_llm', 'skipped', 
+                self.phase_emitter_func('subphase_cp_llm', 'active', f'Checking {plan.already_complete_count} tweets...')
+            # Brief delay to allow UI to register the active status
+            await asyncio.sleep(0.1)
+            if self.phase_emitter_func:
+                self.phase_emitter_func('subphase_cp_llm', 'completed', 
                                        f'All {plan.already_complete_count} tweets already categorized')
             return
 
@@ -372,8 +391,13 @@ class StreamlinedContentProcessor:
         """Execute KB item generation phase using execution plan."""
         if plan.should_skip_phase:
             self.socketio_emit_log(f"Skipping KB item phase - all {plan.already_complete_count} tweets already have KB items", "INFO")
+            # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_kbitem', 'skipped', 
+                self.phase_emitter_func('subphase_cp_kbitem', 'active', f'Checking {plan.already_complete_count} tweets...')
+            # Brief delay to allow UI to register the active status
+            await asyncio.sleep(0.1)
+            if self.phase_emitter_func:
+                self.phase_emitter_func('subphase_cp_kbitem', 'completed', 
                                        f'All {plan.already_complete_count} KB items already exist')
             return
 
@@ -489,8 +513,13 @@ class StreamlinedContentProcessor:
         """Execute database sync phase using execution plan."""
         if plan.should_skip_phase:
             self.socketio_emit_log(f"Skipping DB sync phase - all {plan.already_complete_count} tweets already synced", "INFO")
+            # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_db', 'skipped', 
+                self.phase_emitter_func('subphase_cp_db', 'active', f'Checking {plan.already_complete_count} tweets...')
+            # Brief delay to allow UI to register the active status
+            await asyncio.sleep(0.1)
+            if self.phase_emitter_func:
+                self.phase_emitter_func('subphase_cp_db', 'completed', 
                                        f'All {plan.already_complete_count} tweets already synced to database')
             return
 
@@ -653,19 +682,27 @@ class StreamlinedContentProcessor:
             except ValueError:
                 created_at_dt = datetime.now()
 
+            # Get the display title and raw JSON content from the KB item generation phase
+            display_title = tweet_data.get('display_title', tweet_data.get('item_name_suggestion', 'Untitled KB Item'))
+            raw_json_content = tweet_data.get('raw_json_content')
+            
+            # Get content from markdown content if available, otherwise fall back to tweet text
+            content = tweet_data.get('markdown_content', tweet_data.get('full_text_cleaned', tweet_data.get('full_text', '')))
+            
             attributes = {
                 "tweet_id": tweet_id,
-                "user_screen_name": tweet_data.get('user_screen_name', 'unknown'),
-                "content": tweet_data.get('full_text_cleaned', tweet_data.get('full_text', '')),
-                "main_category_name": tweet_data.get('main_category'),
-                "sub_category_name": tweet_data.get('sub_category'),
+                "title": tweet_data.get('item_name_suggestion', 'Untitled KB Item'),
+                "display_title": display_title,
+                "description": tweet_data.get('description', ''),
+                "content": content,
+                "main_category": tweet_data.get('main_category'),
+                "sub_category": tweet_data.get('sub_category'),
                 "item_name": tweet_data.get('item_name_suggestion', 'Untitled KB Item'),
-                "tweet_url": tweet_data.get('url', f'https://twitter.com/{tweet_data.get("user_screen_name", "user")}/status/{tweet_id}'),
-                "created_at_tweet": created_at_dt,
-                "tags_list": tweet_data.get('tags', []),
-                "source": "twitter_bookmark",
+                "source_url": tweet_data.get('url', f'https://twitter.com/{tweet_data.get("user_screen_name", "user")}/status/{tweet_id}'),
+                "created_at": created_at_dt,
                 "file_path": tweet_data.get('kb_item_path'),
-                "kb_media_paths": tweet_data.get('kb_media_paths'),
+                "kb_media_paths": json.dumps(tweet_data.get('kb_media_paths', [])) if tweet_data.get('kb_media_paths') else None,
+                "raw_json_content": raw_json_content,
             }
 
             # Track if this is a new item or an update for synthesis staleness
@@ -677,11 +714,11 @@ class StreamlinedContentProcessor:
                 self.socketio_emit_log(f"Updating existing DB entry for tweet {tweet_id}", "DEBUG")
                 for key, value in attributes.items():
                     setattr(db_item, key, value)
-                db_item.updated_at = datetime.now(timezone.utc)
+                db_item.last_updated = datetime.now(timezone.utc)
             else:
                 self.socketio_emit_log(f"Creating new DB entry for tweet {tweet_id}", "DEBUG")
                 db_item = DBKnowledgeBaseItem(**attributes)
-                db_item.updated_at = datetime.now(timezone.utc)
+                db_item.last_updated = datetime.now(timezone.utc)
             
             db.session.add(db_item)
             db.session.commit()

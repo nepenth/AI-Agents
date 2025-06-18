@@ -798,10 +798,129 @@ The system provides comprehensive debugging and monitoring capabilities:
 - **Debugging Setup**: Familiarize yourself with the logging system and debugging tools available
 - **Error Recovery**: Understand the error handling mechanisms and recovery procedures
 
+## Recent Enhancements
+
+### Phase State Synchronization and README Generation Tracking
+
+Recent enhancements to the system include:
+
+#### Sub-phase Status Synchronization
+- **Problem Solved**: Sub-phases in the Agent Execution Plan now properly show as "Done" when they complete with no work to do
+- **Implementation**: Enhanced the JavaScript `PhaseManager` class in `knowledge_base_agent/static/js/phases.js` with:
+  - `_handleSubPhaseCompletion()` method that automatically checks if all sub-phases are completed
+  - When all sub-phases (Tweet Caching, Media Analysis, LLM Processing, KB Item Generation, Database Sync) are marked as completed or skipped, the parent Content Processing phase is automatically marked as completed
+  - Improved status class management for better visual state handling
+- **Benefits**: Provides accurate visual feedback about processing status, even when phases have no work to perform
+
+#### Intelligent README Generation Tracking
+- **Problem Solved**: README generation now uses intelligent dependency tracking to avoid unnecessary regeneration
+- **Implementation**: Created `knowledge_base_agent/readme_tracker.py` with:
+  - `ReadmeDependencyTracker` class that tracks dependencies for README generation
+  - Smart analysis of README staleness based on changes to Knowledge Base items
+  - Integration with the agent pipeline to only regenerate when needed
+- **Configuration**: Added `force_regenerate_readme` flag to `UserPreferences` for manual override
+- **Benefits**: Improves pipeline efficiency by skipping README generation when no new KB items have been added
+
+#### Key Files Modified
+- `knowledge_base_agent/static/js/phases.js` - Enhanced sub-phase completion handling
+- `knowledge_base_agent/readme_tracker.py` - New intelligent dependency tracking
+- `knowledge_base_agent/agent.py` - Integrated README dependency tracking
+- `knowledge_base_agent/prompts.py` - Added `force_regenerate_readme` preference
+
+#### Testing Results
+- README dependency tracker correctly identifies when regeneration is needed
+- Sub-phase completion logic properly synchronizes parent phase status
+- Performance improvements in pipeline execution when README regeneration is skipped
+
 ## Conclusion
 
 This implementation plan provides a comprehensive and current overview of the Knowledge Base Agent's streamlined design, including the new validation-based StateManager, phase-execution planning, and pure orchestration architecture. The system now has clear separation of concerns, reduced complexity, and improved maintainability while supporting advanced features like a conversational RAG-based chat interface, pluggable embedding generation, and subcategory synthesis generation.
 
 The recent debugging and stabilization efforts have resolved critical issues with frontend UI components, backend process management, and real-time communication, resulting in a robust and reliable system. The enhanced logging and monitoring capabilities provide comprehensive debugging tools for ongoing development and maintenance.
 
-The plan serves as a roadmap for extending the agent's capabilities and understanding its refined architecture, with particular emphasis on the debugging tools, error recovery mechanisms, and performance monitoring systems that ensure stable operation in production environments.
+Recent enhancements include intelligent phase state synchronization and README generation dependency tracking, which improve both user experience and system efficiency. The sub-phase status synchronization ensures accurate visual feedback in the Agent Execution Plan, while the README generation tracking prevents unnecessary regeneration when no changes have occurred.
+
+The plan serves as a roadmap for extending the agent's capabilities and understanding its refined architecture, with particular emphasis on the debugging tools, error recovery mechanisms, performance monitoring systems, and the new intelligent tracking features that ensure stable and efficient operation in production environments.
+
+## Recent Updates and Bug Fixes
+
+### 2025-06-18: Fixed Embedding Generation Error for Empty Content
+
+**Issue**: The embedding generation process was failing with "Empty embedding from Ollama API" errors when attempting to process KB items with empty content. This was causing the entire embedding generation phase to fail for specific items (162-165).
+
+**Root Cause**: KB items with empty content strings were being passed to the Ollama embedding API, which cannot generate embeddings for empty text. The error handling was not specific enough to identify this as the root cause.
+
+**Solution Implemented**:
+
+1. **Enhanced Input Validation** (`http_client.py`):
+   - Added validation to check for empty or whitespace-only prompts before sending to API
+   - Improved error messages to include more debugging information
+   - Added logging of prompt content length and preview
+   - Better differentiation between None, empty list, and non-list responses from API
+
+2. **Improved Content Filtering** (`embedding_manager.py`):
+   - Added check to skip KB items with empty or None content before attempting embedding generation
+   - Enhanced error logging with content previews and length information
+   - Added import for AIError exception class
+   - Fixed return type annotations for optional embeddings
+
+3. **Better Error Recovery**:
+   - Empty content items are now logged as skipped rather than causing errors
+   - The embedding generation process continues processing other items instead of failing completely
+   - Clear differentiation between items with empty content vs. actual API failures
+
+**Code Changes**:
+- Modified `ollama_embed()` method in `HTTPClient` with comprehensive input validation
+- Updated `generate_all_embeddings()` method in `EmbeddingManager` to skip empty content
+- Enhanced `_generate_embedding()` method with better validation and error messages
+- Fixed type annotations in helper methods
+
+**Result**: Embedding generation now gracefully handles KB items with empty content, providing clear logs about skipped items while continuing to process valid content successfully.
+
+### 2025-06-18: Resolved Spurious app.db Creation Issue
+
+**Issue**: An empty `app.db` file appeared in the `instance/` directory during debugging session, which was not part of the intended database structure.
+
+**Root Cause**: During debugging, when Python code imported the `web.py` module, it initialized Flask and SQLAlchemy. If there were any path resolution issues or timing problems during this initialization, Flask-SQLAlchemy could fall back to creating a default `app.db` file.
+
+**Solution Implemented**:
+
+1. **Removed Spurious File**: Deleted the empty `app.db` file (confirmed to be 0 bytes and unused).
+
+2. **Improved Database Configuration** (`web.py`):
+   - Made database path construction more explicit using `os.path.abspath(__file__)` instead of just `__file__`
+   - Added explanatory comments about the path calculation
+   - Added debug logging to show the resolved database URI
+   - Separated the path construction into a variable for better clarity
+
+3. **Confirmed Protection**: Verified that `.gitignore` already contains `*.db` pattern, ensuring such files won't be accidentally committed.
+
+**Code Changes**:
+- Enhanced database URI configuration in `web.py` with more robust path resolution
+- Added debug logging for database path verification
+- Added inline documentation explaining the path calculation
+
+**Result**: The database configuration is now more robust against fallback behavior, and spurious database files will be properly ignored by git. The intended database (`knowledge_base.db`) remains the only active database file.
+
+### 2025-06-18: Fixed Hardcoded Timeout in Short Name Generation
+
+**Issue**: The `generate_short_name` function was failing with "Ollama request timed out after 30 seconds" when using larger models like `magistral:24b` for synthesis generation.
+
+**Root Cause**: The `generate_short_name` function in `naming_utils.py` had a hardcoded `timeout=30` parameter that bypassed the application's configured `REQUEST_TIMEOUT` setting (which was set to 1000 seconds / ~16 minutes).
+
+**Solution Implemented**:
+
+1. **Removed Hardcoded Timeout**: Changed `timeout=30` to `timeout=None` in the `generate_short_name` function
+2. **Use Configuration-Based Timeout**: The function now respects the HTTPClient's configured timeout (derived from `REQUEST_TIMEOUT` environment variable)
+3. **Verified Other Timeouts**: Confirmed no other inappropriate hardcoded timeouts exist for LLM operations
+
+**Code Changes**:
+- Modified `generate_short_name()` function in `naming_utils.py` to use default timeout instead of hardcoded 30 seconds
+- Updated inline comment to reflect the change
+
+**Configuration Context**:
+- Default `REQUEST_TIMEOUT`: 180 seconds (3 minutes)
+- Current environment setting: 1000 seconds (~16 minutes)
+- This provides ample time for large models like `magistral:24b` to generate responses
+
+**Result**: Synthesis generation with short name creation now works properly with large models, respecting the configured timeout instead of failing prematurely after 30 seconds.

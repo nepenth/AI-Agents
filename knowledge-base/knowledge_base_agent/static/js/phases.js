@@ -95,6 +95,19 @@ class PhaseManager {
                 force: { label: 'Force Regenerate', class: 'status-will-run phase-state-force' }
             }
         };
+
+        // Initialize phase states
+        Object.keys(this.phaseStateMapping).forEach(phase => {
+            this.phaseStates[phase] = 'normal';
+        });
+        this.phaseStates['initialization'] = 'normal';
+        this.phaseStates['cleanup'] = 'normal';
+
+        this.restorePhaseStates();
+        this.applyStateToUI();
+        
+        // Start periodic check for sub-phase completion
+        this.startSubPhaseCompletionMonitor();
     }
 
     /**
@@ -376,7 +389,7 @@ class PhaseManager {
             let statusText = `${processed_count}/${total_count}`;
             
             if (percentage === 100) {
-                statusText = `✅ Done (${total_count})`;
+                statusText = `Done (${total_count})`;  // Simplified text without emoji
                 // Update the visual class to completed
                 phaseElement.classList.remove('status-pending', 'status-active', 'status-skipped', 'status-error');
                 phaseElement.classList.add('status-completed');
@@ -394,14 +407,14 @@ class PhaseManager {
             statusElement.textContent = statusText;
         } else if (processed_count === 0 && total_count === 0) {
             // Phase completed with no items to process
-            statusElement.textContent = '✅ Done';
+            statusElement.textContent = 'Done';  // Simplified text without emoji
             phaseElement.classList.remove('status-pending', 'status-active', 'status-skipped', 'status-error');
             phaseElement.classList.add('status-completed');
         }
     }
 
     /**
-     * Update phase status based on status string from backend
+     * Update phase status in the execution plan with enhanced sub-phase handling
      */
     updatePhaseStatus(phaseId, status, message) {
         const phaseElement = document.querySelector(`[data-phase-id="${phaseId}"]`);
@@ -409,55 +422,124 @@ class PhaseManager {
             console.warn(`PhaseManager: Phase element not found for ${phaseId}`);
             return;
         }
-        
+
         const statusElement = phaseElement.querySelector('.phase-status');
         if (!statusElement) {
             console.warn(`PhaseManager: Status element not found for ${phaseId}`);
             return;
         }
-        
-        // Remove all status classes first
-        phaseElement.classList.remove('status-pending', 'status-active', 'status-completed', 'status-skipped', 'status-error', 'status-interrupted');
-        
-        // Update visual state based on status
+
+        // Log all status changes for sub-phases
+        if (this.subPhaseIds.includes(phaseId)) {
+            console.log(`PhaseManager: Sub-phase ${phaseId} status update: ${status} - ${message}`);
+        }
+
+        // Remove existing status classes while preserving others
+        let baseClasses = [];
+        phaseElement.classList.forEach(cls => {
+            if (!cls.startsWith('status-')) {
+                baseClasses.push(cls);
+            }
+        });
+        phaseElement.className = baseClasses.join(' ');
+
+        // Apply the new status class based on status parameter
         switch (status) {
             case 'active':
             case 'in_progress':
                 phaseElement.classList.add('status-active');
-                statusElement.textContent = '⚡ Running';
+                statusElement.textContent = 'Running';  // Simplified text
                 console.log(`PhaseManager: Set ${phaseId} to active`);
+                // Update current phase details when a phase becomes active
+                // This ensures the old phase status message is replaced
+                this.updateCurrentPhaseDetails(phaseId, message || 'Phase started');
                 break;
                 
             case 'completed':
+            case 'completed_with_errors': // Handle completion with errors
                 phaseElement.classList.add('status-completed');
-                statusElement.textContent = '✅ Done';
+                statusElement.textContent = 'Done';  // Simplified "Done" text without emoji
                 console.log(`PhaseManager: Set ${phaseId} to completed`);
+                
+                // Handle sub-phase completion for content processing
+                if (this.subPhaseIds.includes(phaseId)) {
+                    console.log(`PhaseManager: Triggering sub-phase completion check for ${phaseId}`);
+                    this._handleSubPhaseCompletion(phaseId);
+                }
                 break;
                 
             case 'skipped':
                 phaseElement.classList.add('status-skipped');
-                statusElement.textContent = '⏭️ Skipped';
+                statusElement.textContent = 'Skipped';  // Simplified text
                 console.log(`PhaseManager: Set ${phaseId} to skipped`);
+                
+                // Also handle sub-phase completion for skipped phases
+                if (this.subPhaseIds.includes(phaseId)) {
+                    console.log(`PhaseManager: Triggering sub-phase completion check for skipped ${phaseId}`);
+                    this._handleSubPhaseCompletion(phaseId);
+                }
                 break;
                 
             case 'error':
                 phaseElement.classList.add('status-error');
-                statusElement.textContent = '❌ Error';
+                statusElement.textContent = 'Error';  // Simplified text
                 console.log(`PhaseManager: Set ${phaseId} to error`);
                 break;
                 
             case 'interrupted':
                 phaseElement.classList.add('status-interrupted');
-                statusElement.textContent = '⏸️ Stopped';
+                statusElement.textContent = 'Stopped';  // Simplified text
                 console.log(`PhaseManager: Set ${phaseId} to interrupted`);
                 break;
                 
             case 'pending':
             default:
                 phaseElement.classList.add('status-pending');
-                statusElement.textContent = 'Will Run';
+                statusElement.textContent = 'Pending';  // Simplified text
                 console.log(`PhaseManager: Set ${phaseId} to pending/default`);
                 break;
+        }
+    }
+
+    /**
+     * Handle sub-phase completion and update parent phase if necessary
+     */
+    _handleSubPhaseCompletion(subPhaseId) {
+        console.log(`PhaseManager: Checking sub-phase completion for ${subPhaseId}`);
+        
+        // Check if all sub-phases are completed
+        const subPhaseStatuses = {};
+        const allSubPhasesCompleted = this.subPhaseIds.every(id => {
+            const element = document.querySelector(`[data-phase-id="${id}"]`);
+            const isCompleted = element && (
+                element.classList.contains('status-completed') || 
+                element.classList.contains('status-skipped')
+            );
+            subPhaseStatuses[id] = {
+                exists: !!element,
+                completed: element ? element.classList.contains('status-completed') : false,
+                skipped: element ? element.classList.contains('status-skipped') : false,
+                isCompleted: isCompleted
+            };
+            return isCompleted;
+        });
+
+        console.log(`PhaseManager: Sub-phase statuses:`, subPhaseStatuses);
+        console.log(`PhaseManager: All sub-phases completed: ${allSubPhasesCompleted}`);
+
+        // If all sub-phases are completed/skipped, mark parent as completed
+        if (allSubPhasesCompleted) {
+            const parentElement = document.querySelector('[data-phase-id="content_processing_overall"]');
+            if (parentElement && !parentElement.classList.contains('status-completed')) {
+                console.log('PhaseManager: All sub-phases completed, marking content_processing_overall as completed');
+                this.updatePhaseStatus('content_processing_overall', 'completed', 'All sub-phases completed');
+            } else if (parentElement && parentElement.classList.contains('status-completed')) {
+                console.log('PhaseManager: Parent content_processing_overall already marked as completed');
+            } else {
+                console.warn('PhaseManager: Parent content_processing_overall element not found');
+            }
+        } else {
+            console.log('PhaseManager: Not all sub-phases completed yet, parent remains unchanged');
         }
     }
 
@@ -731,6 +813,8 @@ class PhaseManager {
      * Handle phase update with ETC information
      */
     handlePhaseUpdateWithETC(data) {
+        console.log('handlePhaseUpdateWithETC called with data:', data);
+        
         // Standard phase update
         if (data.processed_count !== null && data.processed_count !== undefined) {
             this.updateCurrentPhaseDetails(
@@ -749,6 +833,12 @@ class PhaseManager {
         
         // Update ETC display if we have ETC data
         if (data.estimated_remaining_minutes !== undefined || data.estimated_completion_timestamp) {
+            console.log('ETC data found, updating display:', {
+                estimated_remaining_minutes: data.estimated_remaining_minutes,
+                estimated_completion_timestamp: data.estimated_completion_timestamp,
+                progress: data.processed_count && data.total_count ? (data.processed_count / data.total_count * 100) : null
+            });
+            
             this.updateETCDisplay({
                 phase_id: data.phase_id,
                 estimated_remaining_minutes: data.estimated_remaining_minutes,
@@ -757,6 +847,13 @@ class PhaseManager {
                 processed_count: data.processed_count,
                 current_avg_time_per_item: data.current_avg_time_per_item,
                 progress_percentage: data.progress_percentage
+            });
+        } else {
+            console.log('No ETC data in phase update:', {
+                has_estimated_remaining_minutes: 'estimated_remaining_minutes' in data,
+                has_estimated_completion_timestamp: 'estimated_completion_timestamp' in data,
+                estimated_remaining_minutes_value: data.estimated_remaining_minutes,
+                estimated_completion_timestamp_value: data.estimated_completion_timestamp
             });
         }
     }
@@ -768,6 +865,30 @@ class PhaseManager {
         const phaseEtcElement = document.getElementById('phaseEtcLogsFooter');
         if (phaseEtcElement) {
             phaseEtcElement.style.display = 'none';
+        }
+    }
+
+    /**
+     * Start periodic monitoring of sub-phase completion
+     */
+    startSubPhaseCompletionMonitor() {
+        // Check every 2 seconds for sub-phase completion
+        setInterval(() => {
+            this.checkAndUpdateSubPhaseCompletion();
+        }, 2000);
+    }
+
+    /**
+     * Check sub-phase completion and update parent if needed
+     */
+    checkAndUpdateSubPhaseCompletion() {
+        // Only check if there are sub-phase elements on the page
+        const hasSubPhases = this.subPhaseIds.some(id => 
+            document.querySelector(`[data-phase-id="${id}"]`) !== null
+        );
+        
+        if (hasSubPhases) {
+            this._handleSubPhaseCompletion('periodic_check');
         }
     }
 }

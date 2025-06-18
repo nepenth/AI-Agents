@@ -199,6 +199,7 @@ class KnowledgeBaseAgent:
             # When a phase starts, initialize dynamic tracking
             if status == 'active' or status == 'in_progress':
                 if total_count is not None and total_count > 0:
+                    logging.info(f"Initializing phase tracking for '{phase_id}' with {total_count} items")
                     # Initialize dynamic phase estimation
                     historical_duration = self.phase_estimator.initialize_phase_tracking(phase_id, total_count)
                     
@@ -216,13 +217,19 @@ class KnowledgeBaseAgent:
                     if initial_estimated_duration_seconds is not None and initial_estimated_duration_seconds > 0:
                         estimated_completion_timestamp = current_time + initial_estimated_duration_seconds
                         logging.info(f"Phase '{phase_id}' initialized with ETC: {format_duration_to_hhmm(initial_estimated_duration_seconds)}")
+                else:
+                    logging.debug(f"Phase '{phase_id}' not initialized for tracking: status={status}, total_count={total_count}")
             
             # Update progress for ongoing phases
             elif processed_count is not None and total_count is not None:
+                logging.debug(f"Updating progress for '{phase_id}': {processed_count}/{total_count}")
                 # Update dynamic estimation with current progress
                 estimation_result = self.phase_estimator.update_phase_progress(phase_id, processed_count)
                 if estimation_result:
                     estimated_completion_timestamp = estimation_result.get("estimated_completion_timestamp")
+                    logging.debug(f"Updated ETC for '{phase_id}': {estimation_result.get('estimated_remaining_minutes', 0)} minutes remaining")
+                else:
+                    logging.debug(f"No estimation result for '{phase_id}' progress update")
                 
                 # Update legacy tracking
                 self._phase_processed_items[phase_id] = processed_count
@@ -270,11 +277,19 @@ class KnowledgeBaseAgent:
         if not is_sub_step_update:
             estimate_data = self.phase_estimator.get_phase_estimate(phase_id)
             if estimate_data:
-                data_to_emit.update({
+                etc_data = {
                     'current_avg_time_per_item': estimate_data.get("current_avg_time_per_item", 0.0),
                     'estimated_remaining_minutes': estimate_data.get("estimated_remaining_minutes", 0.0),
                     'progress_percentage': (processed_count / total_count * 100) if processed_count and total_count else 0
-                })
+                }
+                data_to_emit.update(etc_data)
+                logging.debug(f"Adding ETC data to emit for '{phase_id}': {etc_data}")
+            else:
+                logging.debug(f"No estimate data available for '{phase_id}'")
+        
+        # Log the complete data being emitted for debugging
+        if logging.getLogger().isEnabledFor(logging.DEBUG):
+            logging.debug(f"Emitting phase_update for '{phase_id}': {json.dumps(data_to_emit, default=str)}")
         
         if self.socketio:
             try:
@@ -460,6 +475,11 @@ class KnowledgeBaseAgent:
                     skip_process_content=False,
                     # Set other flags as appropriate for this context, or load defaults
                 )
+                
+                # Ensure content processor is initialized before use
+                if not self.content_processor:
+                    await self.initialize()
+                
                 await self.content_processor.process_all_tweets(
                     preferences=current_prefs, 
                     unprocessed_tweets=new_tweet_ids,
@@ -520,12 +540,22 @@ class KnowledgeBaseAgent:
         try:
             if stop_flag.is_set():
                 logging.info("Skipping GitHub sync due to stop request")
+                self.socketio_emit_phase_update('git_sync', 'skipped', 'Stop flag active.')
                 return
+            
+            self.socketio_emit_phase_update('git_sync', 'in_progress', 'Starting GitHub synchronization...')
             logging.info("Starting GitHub sync...")
-            await self.git_handler.sync_to_github("Update knowledge base content")
+            self.socketio_emit_log("Starting GitHub sync...", "INFO")
+            
+            self.git_handler.sync_to_github("Update knowledge base content")
+            
             logging.info("GitHub sync completed successfully")
+            self.socketio_emit_log("GitHub sync completed successfully", "INFO")
+            self.socketio_emit_phase_update('git_sync', 'completed', 'Successfully synced to GitHub repository.')
         except Exception as e:
             logging.exception(f"GitHub sync failed: {str(e)}") # Log with stack trace
+            self.socketio_emit_log(f"GitHub sync failed: {str(e)}", "ERROR")
+            self.socketio_emit_phase_update('git_sync', 'error', f"Sync failed: {str(e)}")
             raise AgentError("Failed to sync changes to GitHub") from e
 
     async def cleanup(self) -> None:
@@ -689,6 +719,10 @@ class KnowledgeBaseAgent:
                             # Update with initial count info
                             self.socketio_emit_phase_update('content_processing_overall', 'in_progress', f'Processing {total_tweets_count} items...', False, 0, total_tweets_count, 0)
                             
+                            # Ensure content processor is initialized before use
+                            if not self.content_processor:
+                                await self.initialize()
+                            
                             phase_details_from_content_processor = await self.content_processor.process_all_tweets(
                                 preferences=preferences,
                                 unprocessed_tweets=tweets_to_process,
@@ -702,7 +736,7 @@ class KnowledgeBaseAgent:
                             self.socketio_emit_phase_update('content_processing_overall', 'completed', f'Processed {processed_tweets_in_run} of {total_tweets_count} items. Errors: {stats.error_count}.', False, processed_tweets_in_run, total_tweets_count, stats.error_count)
                         else:
                             self.socketio_emit_log("No tweets to process - the system has no unprocessed tweets and no force reprocessing flags are enabled.", "INFO")
-                            self.socketio_emit_phase_update('content_processing_overall', 'skipped', 'No tweets to process')
+                            self.socketio_emit_phase_update('content_processing_overall', 'completed', 'No tweets to process', False, 0, 0, 0)
                             
                             # Check if we have any tweets in the system at all
                             all_tweets = await self.state_manager.get_all_tweets()
@@ -739,7 +773,7 @@ class KnowledgeBaseAgent:
 
                 # --- Phase 6: README Generation (Optional) ---
                 if not preferences.skip_readme_generation:
-                    await self.regenerate_readme()
+                    await self.regenerate_readme(preferences)
                 else:
                     self.socketio_emit_log("Skipping README generation due to user preference.", "INFO")
                     self.socketio_emit_phase_update('readme_generation', 'skipped', 'Skipped by user preference.', False, 0, 0, 0)
@@ -978,6 +1012,10 @@ class KnowledgeBaseAgent:
                 # For now, let's assume if the user calls process_tweet, they want it processed.
                 # We'll rely on force_recache_tweets and force_reprocess_content from the passed `preferences`.
 
+                # Ensure content processor is initialized before use
+                if not self.content_processor:
+                    await self.initialize()
+
                 phase_details = await self.content_processor.process_all_tweets(
                     preferences=effective_prefs, # Pass the potentially modified preferences
                     unprocessed_tweets=[tweet_id],
@@ -988,9 +1026,9 @@ class KnowledgeBaseAgent:
 
                 if phase_details:
                     self.socketio_emit_log(f"Successfully processed single tweet {tweet_id}. KB item created/updated.", "INFO")
-                    if effective_prefs.regenerate_readme:
-                        await self.regenerate_readme()
-                    if effective_prefs.git_push and self.config.git_enabled:
+                    if not effective_prefs.skip_readme_generation:
+                        await self.regenerate_readme(effective_prefs)
+                    if not effective_prefs.skip_git_push:
                         self.socketio_emit_log(f"Attempting Git sync after single tweet processing for {tweet_id}...", "INFO")
                         self.git_handler.sync_to_github(f"Update/add KB item for tweet {tweet_id}") # Changed to sync call
                         self.socketio_emit_log(f"Git sync successful for tweet {tweet_id}.", "INFO")
@@ -1000,12 +1038,13 @@ class KnowledgeBaseAgent:
         except Exception as e:
             self.socketio_emit_log(f"Failed to process single tweet {tweet_id}: {e}", "ERROR")
 
-    async def regenerate_readme(self) -> None:
+    async def regenerate_readme(self, preferences: UserPreferences) -> None:
         """
-        Regenerate the root README file.
+        Regenerate the root README file with intelligent dependency tracking.
 
-        This method regenerates the main README file for the knowledge base, attempting to create
-        an intelligent version first, falling back to a static version if that fails.
+        This method regenerates the main README file for the knowledge base only if needed,
+        based on changes to Knowledge Base items since the last README generation.
+        Uses intelligent tracking similar to synthesis generation.
 
         Raises:
             MarkdownGenerationError: If README regeneration fails completely.
@@ -1015,9 +1054,104 @@ class KnowledgeBaseAgent:
             self.socketio_emit_phase_update('readme_generation', 'skipped', 'Stop flag active.')
             return
         
-        self.socketio_emit_log("Starting README regeneration process...", "INFO")
+        self.socketio_emit_log("Starting README dependency analysis...", "INFO")
+        
+        # Import and initialize README dependency tracker
+        from knowledge_base_agent.readme_tracker import ReadmeDependencyTracker
+        readme_tracker = ReadmeDependencyTracker(self.config)
+        
+        # Emit phase start update with dependency analysis
+        self.socketio_emit_phase_update(
+            'readme_generation', 
+            'in_progress', 
+            'Analyzing README dependencies and staleness...',
+            is_sub_step_update=False
+        )
 
         try:
+            # Analyze if README needs regeneration
+            execution_plan = readme_tracker.create_readme_execution_plan(
+                force_regenerate=getattr(preferences, 'force_regenerate_readme', False)
+            )
+            
+            analysis = execution_plan['analysis']
+            total_kb_items = execution_plan['total_kb_items']
+            
+            # Log analysis results with synthesis documents
+            total_syntheses = analysis.get('total_syntheses', 0)
+            total_content = analysis.get('total_content', total_kb_items)
+            self.socketio_emit_log(f"README analysis: {total_kb_items} KB items, {total_syntheses} synthesis documents found", "INFO")
+            if analysis['readme_exists']:
+                self.socketio_emit_log(f"Existing README last modified: {analysis['readme_last_modified']}", "INFO")
+            
+            if not execution_plan['needs_generation']:
+                skip_reason = execution_plan['skip_reason']
+                if skip_reason == 'up_to_date':
+                    self.socketio_emit_log("README is up to date - no regeneration needed", "INFO")
+                    self.socketio_emit_phase_update(
+                        'readme_generation',
+                        'completed',
+                        f'README up to date (covers {total_kb_items} KB items, {total_syntheses} synthesis docs)',
+                        is_sub_step_update=False,
+                        processed_count=total_content,
+                        total_count=total_content,
+                        error_count=0
+                    )
+                elif skip_reason == 'no_kb_items':
+                    self.socketio_emit_log("No KB items found - skipping README generation", "INFO") 
+                    self.socketio_emit_phase_update(
+                        'readme_generation',
+                        'completed',
+                        'No KB items to catalog in README',
+                        is_sub_step_update=False,
+                        processed_count=0,
+                        total_count=0,
+                        error_count=0
+                    )
+                return
+            
+            # README needs regeneration
+            if execution_plan['force_regenerate']:
+                self.socketio_emit_log("README regeneration forced by user preference", "INFO")
+            else:
+                reason = analysis['staleness_reason']
+                if reason == 'missing':
+                    self.socketio_emit_log("README.md does not exist - generating new README", "INFO")
+                elif reason == 'content_updated_after_readme' or reason == 'items_updated_after_readme':
+                    new_items = analysis.get('new_items_since_readme', 0)
+                    updated_items = analysis.get('updated_items_since_readme', 0)
+                    new_syntheses = analysis.get('new_syntheses_since_readme', 0)
+                    updated_syntheses = analysis.get('updated_syntheses_since_readme', 0)
+                    
+                    content_summary = []
+                    if new_items > 0:
+                        content_summary.append(f"{new_items} new KB items")
+                    if updated_items > 0:
+                        content_summary.append(f"{updated_items} updated KB items")
+                    if new_syntheses > 0:
+                        content_summary.append(f"{new_syntheses} new synthesis documents")
+                    if updated_syntheses > 0:
+                        content_summary.append(f"{updated_syntheses} updated synthesis documents")
+                    
+                    if content_summary:
+                        self.socketio_emit_log(
+                            f"README is stale: {', '.join(content_summary)} since last README", 
+                            "INFO"
+                        )
+                    else:
+                        self.socketio_emit_log("README is stale: content updated since last README", "INFO")
+            
+            # Emit progress update for generation start
+            self.socketio_emit_phase_update(
+                'readme_generation', 
+                'in_progress', 
+                f'Generating README for {total_kb_items} KB items, {total_syntheses} synthesis docs...',
+                is_sub_step_update=False,
+                processed_count=0,
+                total_count=total_content,
+                error_count=0
+            )
+
             logging.info("Starting README regeneration")
             readme_path = self.config.knowledge_base_dir / "README.md"
             
@@ -1041,10 +1175,30 @@ class KnowledgeBaseAgent:
                     await f.write(content)
                 logging.info("Generated static README as fallback.")
                 self.socketio_emit_log("Static README generated as fallback.", "INFO")
+            
+            # Emit completion phase update
+            self.socketio_emit_phase_update(
+                'readme_generation',
+                'completed',
+                f'README regeneration completed for {total_kb_items} KB items, {total_syntheses} synthesis docs',
+                is_sub_step_update=False,
+                processed_count=total_content,
+                total_count=total_content,
+                error_count=0
+            )
                 
         except Exception as e:
             logging.error(f"README regeneration failed: {e}")
             self.socketio_emit_log(f"README regeneration completely failed: {e}", "ERROR")
+            
+            # Emit error phase update
+            self.socketio_emit_phase_update(
+                'readme_generation',
+                'error',
+                f'README regeneration failed: {e}',
+                is_sub_step_update=False
+            )
+            
             raise MarkdownGenerationError(f"Failed to regenerate README: {e}")
 
     async def _verify_tweet_cached(self, tweet_id: str) -> bool:

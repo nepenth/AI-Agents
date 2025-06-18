@@ -36,7 +36,7 @@
                                 <ul class="list-group list-group-flush">
                                     {% for concept in raw_json_data.core_concepts %}
                                         <li class="list-group-item">
-                                            <strong>{{ concept.concept }}</strong>: {{ concept.description }}
+                                            <strong>{{ concept.concept or 'Unnamed Concept' }}</strong>: {{ concept.description or 'No description available' }}
                                         </li>
                                     {% endfor %}
                                 </ul>

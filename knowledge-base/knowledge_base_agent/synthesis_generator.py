@@ -108,9 +108,9 @@ class SynthesisGenerator:
                 if phase_emitter_func:
                     phase_emitter_func(
                         "synthesis_generation",
-                        f"Generating subcategory synthesis: {main_category}/{sub_category}",
                         "in_progress",
-                        True, processed_count, total_eligible, error_count
+                        f"Generating subcategory synthesis: {main_category}/{sub_category}",
+                        False, processed_count, total_eligible, error_count
                     )
                 
                 synthesis = await self._create_synthesis_document(
@@ -124,6 +124,15 @@ class SynthesisGenerator:
                     synthesis_results.append(synthesis)
                     processed_count += 1
                     self.logger.info(f"Successfully generated synthesis for {main_category}/{sub_category}")
+                    
+                    # Send progress update after successful completion
+                    if phase_emitter_func:
+                        phase_emitter_func(
+                            "synthesis_generation",
+                            "in_progress",
+                            f"Completed synthesis for {main_category}/{sub_category}",
+                            False, processed_count, total_eligible, error_count
+                        )
                 else:
                     error_count += 1
                     
@@ -137,9 +146,9 @@ class SynthesisGenerator:
                 if phase_emitter_func:
                     phase_emitter_func(
                         "synthesis_generation",
-                        f"Generating main category synthesis: {main_category}",
                         "in_progress",
-                        True, processed_count, total_eligible, error_count
+                        f"Generating main category synthesis: {main_category}",
+                        False, processed_count, total_eligible, error_count
                     )
                 
                 synthesis = await self._create_synthesis_document(
@@ -153,6 +162,15 @@ class SynthesisGenerator:
                     synthesis_results.append(synthesis)
                     processed_count += 1
                     self.logger.info(f"Successfully generated main category synthesis for {main_category}")
+                    
+                    # Send progress update after successful completion
+                    if phase_emitter_func:
+                        phase_emitter_func(
+                            "synthesis_generation",
+                            "in_progress",
+                            f"Completed synthesis for {main_category}",
+                            False, processed_count, total_eligible, error_count
+                        )
                 else:
                     error_count += 1
                     

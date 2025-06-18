@@ -125,40 +125,119 @@ def fix_invalid_name(
     # If all attempts fail, return a fallback based on the snippet.
     return fallback_snippet_based_name(snippet)
 
+def create_fallback_short_name(name: str) -> str:
+    """Create a user-friendly fallback short name from the original name."""
+    # Convert underscores to spaces and title case
+    readable_name = name.replace('_', ' ').title()
+    
+    # Handle common technical abbreviations
+    replacements = {
+        'Api': 'API',
+        'Ai': 'AI', 
+        'Ml': 'ML',
+        'Ui': 'UI',
+        'Ux': 'UX',
+        'Db': 'DB',
+        'Sql': 'SQL',
+        'Http': 'HTTP',
+        'Json': 'JSON',
+        'Xml': 'XML',
+        'Css': 'CSS',
+        'Html': 'HTML',
+        'Js': 'JS',
+        'Ts': 'TS'
+    }
+    
+    for old, new in replacements.items():
+        readable_name = readable_name.replace(old, new)
+    
+    # If too long, try to abbreviate intelligently
+    if len(readable_name) > 25:
+        words = readable_name.split()
+        if len(words) > 2:
+            # Take first word and abbreviate others
+            first_word = words[0]
+            abbreviated = first_word + ' ' + ''.join(w[0] for w in words[1:])
+            if len(abbreviated) <= 25:
+                return abbreviated
+        
+        # Simple truncation as last resort
+        return readable_name[:22] + "..."
+    
+    return readable_name
+
+def validate_short_name(short_name: str) -> bool:
+    """Validate that a short name meets our criteria."""
+    if not short_name or len(short_name) < 2:
+        return False
+    if len(short_name) > 25:
+        return False
+    # Should contain at least one letter
+    if not re.search(r'[a-zA-Z]', short_name):
+        return False
+    # Shouldn't be just underscores or special characters
+    if re.match(r'^[_\-\s]*$', short_name):
+        return False
+    return True
+
 async def generate_short_name(
     http_client: HTTPClient,
     name: str,
-    is_main_category: bool = False
+    is_main_category: bool = False,
+    max_retries: int = 2
 ) -> str:
     """
     Generates a short, UI-friendly name for a category or sub-category using an LLM.
     """
-    try:
-        system_prompt = LLMPrompts.get_short_name_generation_prompt()
-        
-        user_message = (
-            f"Please generate a short, catchy, and UI-friendly name (2-3 words, max 25 characters) for the "
-            f"{'main category' if is_main_category else 'sub-category'}: '{name}'"
-        )
+    logging.debug(f"Generating short name for: '{name}' (is_main_category: {is_main_category})")
+    
+    for attempt in range(max_retries):
+        try:
+            system_prompt = LLMPrompts.get_short_name_generation_prompt()
+            
+            user_message = (
+                f"Generate a short, catchy name (2-3 words, max 25 characters) for the "
+                f"{'main category' if is_main_category else 'sub-category'}: '{name}'\n\n"
+                f"Examples:\n"
+                f"- 'machine_learning' → 'ML & AI'\n"
+                f"- 'web_development' → 'Web Dev'\n"
+                f"- 'data_structures' → 'Data Structures'\n"
+                f"- 'agent_frameworks' → 'AI Agents'\n\n"
+                f"Respond with ONLY the short name, no quotes or explanation."
+            )
 
-        llm_response = await http_client.send_llm_request(
-            # Using text model for this simple task
-            model=http_client.config.text_model, 
-            system_prompt=system_prompt,
-            user_message=user_message,
-            temperature=0.7,
-            max_tokens=20,
-        )
-        
-        if llm_response and llm_response.get("success"):
-            short_name = llm_response.get("content", "").strip().replace('"', '')
-            if 1 < len(short_name) <= 25:
-                return short_name
+            # Combine system and user prompts for ollama_generate
+            full_prompt = f"{system_prompt}\n\n{user_message}"
 
-        logging.warning(f"Failed to generate a valid short name for '{name}'. Using a normalized version as fallback.")
-        return normalize_name_for_filesystem(name, 25)
+            response_content = await http_client.ollama_generate(
+                model=http_client.config.text_model, 
+                prompt=full_prompt,
+                temperature=0.7,
+                max_tokens=30,  # Increased token limit
+                timeout=None  # Use default timeout from http_client config (180s)
+            )
+            
+            if response_content:
+                # Clean up the response
+                short_name = response_content.strip()
+                short_name = re.sub(r'^["\']|["\']$', '', short_name)  # Remove quotes
+                short_name = short_name.split('\n')[0].strip()  # Take first line only
+                
+                logging.debug(f"LLM response for '{name}': '{short_name}'")
+                
+                # Check if the LLM just returned the same name (indicates failure)
+                if short_name.lower().replace(' ', '_') == name.lower():
+                    logging.debug(f"LLM returned same name '{short_name}' for '{name}', attempt {attempt + 1}")
+                elif validate_short_name(short_name):
+                    logging.debug(f"Successfully generated short name for '{name}': '{short_name}'")
+                    return short_name
+                else:
+                    logging.debug(f"Invalid short name '{short_name}' for '{name}', attempt {attempt + 1}")
 
-    except Exception as e:
-        logging.error(f"Error generating short name for '{name}': {e}", exc_info=True)
-        # Fallback to a normalized version of the original name
-        return normalize_name_for_filesystem(name, 25)
+        except Exception as e:
+            logging.warning(f"Error generating short name for '{name}' (attempt {attempt + 1}): {e}")
+
+    # All attempts failed, use fallback
+    fallback_name = create_fallback_short_name(name)
+    logging.info(f"Using fallback short name for '{name}': '{fallback_name}'")
+    return fallback_name
