@@ -38,5 +38,59 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Collapsible GPU Status Panel -->
+        <div class="chat-gpu-panel" style="margin-top: 15px;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center" style="cursor: pointer;" onclick="toggleGPUPanel()">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-gpu-card me-2"></i>GPU Status & Performance
+                    </h6>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="event.stopPropagation(); if(window.refreshGPUStats) window.refreshGPUStats(); else console.error('refreshGPUStats not found')" title="Refresh GPU Stats">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <i id="gpu-panel-toggle-icon" class="bi bi-chevron-up"></i>
+                    </div>
+                </div>
+                <div id="gpu-panel-body" class="card-body">
+                    <div id="gpuStatsContainer">
+                        <!-- GPU stats will be populated dynamically -->
+                        <div class="text-center text-muted">
+                            <i class="bi bi-hourglass-split"></i> Loading GPU statistics...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div> 
+</div>
+
+<script>
+function toggleGPUPanel() {
+    const panelBody = document.getElementById('gpu-panel-body');
+    const toggleIcon = document.getElementById('gpu-panel-toggle-icon');
+    
+    if (panelBody.style.display === 'none') {
+        panelBody.style.display = 'block';
+        toggleIcon.className = 'bi bi-chevron-up';
+        // Refresh GPU stats when opening
+        if (window.refreshGPUStats) {
+            window.refreshGPUStats();
+        }
+    } else {
+        panelBody.style.display = 'none';
+        toggleIcon.className = 'bi bi-chevron-down';
+    }
+}
+
+// Initialize GPU panel as collapsed by default
+document.addEventListener('DOMContentLoaded', function() {
+    const panelBody = document.getElementById('gpu-panel-body');
+    const toggleIcon = document.getElementById('gpu-panel-toggle-icon');
+    if (panelBody && toggleIcon) {
+        panelBody.style.display = 'none';
+        toggleIcon.className = 'bi bi-chevron-down';
+    }
+});
+</script> 

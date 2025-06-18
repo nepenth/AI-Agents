@@ -8,6 +8,7 @@ from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.http_client import HTTPClient
 from knowledge_base_agent.exceptions import MarkdownGenerationError
 from knowledge_base_agent.config import Config
+from knowledge_base_agent.models import SubcategorySynthesis
 import json
 import os
 import shutil
@@ -178,15 +179,61 @@ async def generate_root_readme(
             f"Cataloged {len(kb_items)} existing KB items for README generation (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)]) if tweet_cache else 0})"
         )
 
+        # Collect synthesis documents from database
+        synthesis_items = []
+        try:
+            # Query all synthesis documents from database
+            syntheses = SubcategorySynthesis.query.all()
+            
+            for synthesis in syntheses:
+                try:
+                    # Determine the relative path structure for synthesis documents
+                    if synthesis.sub_category:
+                        # Subcategory synthesis: syntheses/main_category/sub_category/synthesis_*.md
+                        synthesis_path = f"syntheses/{synthesis.main_category}/{synthesis.sub_category}"
+                    else:
+                        # Main category synthesis: syntheses/main_category/synthesis_overview.md  
+                        synthesis_path = f"syntheses/{synthesis.main_category}"
+                    
+                    synthesis_items.append({
+                        "type": "synthesis",
+                        "main_category": synthesis.main_category,
+                        "sub_category": synthesis.sub_category or synthesis.main_category,  # Use main_category as fallback for display
+                        "item_name": synthesis.synthesis_short_name or synthesis.synthesis_title,
+                        "path": synthesis_path,
+                        "description": f"Synthesis document analyzing {synthesis.item_count} items in this category. {synthesis.synthesis_content[:200]}..." if synthesis.synthesis_content else "Comprehensive synthesis document.",
+                        "last_updated": synthesis.last_updated.timestamp() if synthesis.last_updated else 0,
+                        "created_date": synthesis.created_at.strftime('%Y-%m-%d') if synthesis.created_at else "Unknown",
+                        "source_url": f"/synthesis/{synthesis.id}",  # Link to synthesis detail page
+                        "item_count": synthesis.item_count,
+                        "synthesis_id": synthesis.id
+                    })
+                except Exception as e:
+                    logging.error(f"Error processing synthesis {synthesis.id}: {e}")
+                    continue
+                    
+            logging.info(f"Cataloged {len(synthesis_items)} synthesis documents for README generation")
+            
+        except Exception as e:
+            logging.warning(f"Failed to collect synthesis documents: {e}")
+            synthesis_items = []
+
         # Log item names for debugging
         logging.debug("KB item names for validation:")
         for item in kb_items:
             logging.debug(f"- {item['item_name'].replace('-', ' ').title()}")
+        
+        logging.debug("Synthesis item names for validation:")
+        for item in synthesis_items:
+            logging.debug(f"- {item['item_name']}")
 
-        total_items = len(kb_items)
-        total_main_cats = len(set(item["main_category"] for item in kb_items))
+        # Combine KB items and synthesis items for unified processing
+        all_items = kb_items + synthesis_items
+
+        total_items = len(all_items)
+        total_main_cats = len(set(item["main_category"] for item in all_items))
         total_subcats = len(
-            set(f"{item['main_category']}/{item['sub_category']}" for item in kb_items)
+            set(f"{item['main_category']}/{item['sub_category']}" for item in all_items)
         )
         total_media = sum(
             1
@@ -199,12 +246,12 @@ async def generate_root_readme(
             f"Collected {total_items} items, {total_main_cats} main categories, {total_subcats} subcategories, {total_media} media files"
         )
         logging.debug("First 5 KB items paths:")
-        for item in kb_items[:5]:
+        for item in all_items[:5]:
             logging.debug(f"- {item['path']}")
 
         # Group items by category
         categories = {}
-        for item in kb_items:
+        for item in all_items:
             main_cat = item["main_category"]
             sub_cat = item["sub_category"]
             if main_cat not in categories:
@@ -214,10 +261,10 @@ async def generate_root_readme(
             categories[main_cat]["subcategories"][sub_cat].append(item)
 
         # Calculate statistics
-        total_items = len(kb_items)
-        total_main_cats = len(set(item["main_category"] for item in kb_items))
+        total_items = len(all_items)
+        total_main_cats = len(set(item["main_category"] for item in all_items))
         total_subcats = len(
-            set(f"{item['main_category']}/{item['sub_category']}" for item in kb_items)
+            set(f"{item['main_category']}/{item['sub_category']}" for item in all_items)
         )
         total_media = sum(
             1
@@ -227,13 +274,26 @@ async def generate_root_readme(
             or file.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp"))
         )
 
-        # Generate the static structure first (reliable)
+        # Prepare stats dict for the prompt - include synthesis counts
+        kb_stats = {
+            "total_items": len(kb_items),
+            "total_synthesis": len(synthesis_items),
+            "total_combined": total_items,
+            "total_main_cats": total_main_cats,
+            "total_subcats": total_subcats,
+            "total_media": total_media,
+        }
+        category_list_str = ", ".join(sorted(list(categories.keys())))
+
+        # Generate the static structure first (reliable) - enhanced with synthesis info
         static_content = [
             "# 📚 Technical Knowledge Base",
             "",
             "---",
             "## 📊 Overview",
-            f"- **Total Items**: {total_items}",
+            f"- **Knowledge Base Items**: {len(kb_items)}",
+            f"- **Synthesis Documents**: {len(synthesis_items)}",
+            f"- **Total Content**: {total_items}",
             f"- **Main Categories**: {total_main_cats}",
             f"- **Subcategories**: {total_subcats}",
             f"- **Media Files**: {total_media}",
@@ -254,7 +314,7 @@ async def generate_root_readme(
                 static_content.append(f"  - [{sub_display}](#{sub_anchor})")
 
         # Add recent updates section
-        recent_items = sorted(kb_items, key=lambda x: x["last_updated"], reverse=True)[
+        recent_items = sorted(all_items, key=lambda x: x["last_updated"], reverse=True)[
             :5
         ]
         if recent_items:
@@ -274,21 +334,20 @@ async def generate_root_readme(
                 updated = datetime.fromtimestamp(item["last_updated"]).strftime(
                     "%Y-%m-%d"
                 )
-                source = item.get("source_url", "N/A")
+                
+                # Add type indicator and appropriate source link
+                if item.get("type") == "synthesis":
+                    name_with_type = f"🔬 {name}"
+                    source = item.get("source_url", f"/synthesis/{item.get('synthesis_id', 'N/A')}")
+                else:
+                    name_with_type = f"📄 {name}"
+                    source = item.get("source_url", "N/A")
+                
                 static_content.append(
-                    f"| [{name}]({path}) | {cat} | {updated} | [{source}]({source}) |"
+                    f"| [{name_with_type}]({path}) | {cat} | {updated} | [{source}]({source}) |"
                 )
 
         # Now use the LLM to generate just the introduction
-        # Prepare stats dict for the prompt
-        kb_stats = {
-            "total_items": total_items,
-            "total_main_cats": total_main_cats,
-            "total_subcats": total_subcats,
-            "total_media": total_media,
-        }
-        category_list_str = ", ".join(sorted(list(categories.keys())))
-
         try:
             # Check if the model supports reasoning mode
             use_reasoning = (
@@ -310,7 +369,7 @@ async def generate_root_readme(
                     timeout=config.content_generation_timeout,
                 )
             else:
-                # Use the centralized standard prompt
+                # Use the centralized standard prompt with synthesis awareness  
                 intro_prompt = LLMPrompts.get_readme_introduction_prompt_standard(kb_stats, category_list_str)
                 intro_content = await http_client.ollama_generate(
                     model=config.text_model,
@@ -423,7 +482,16 @@ async def generate_root_readme(
                     name = item["item_name"].replace("-", " ").title()
                     desc = sanitize_markdown_cell(item["description"])
                     path = f"{item['path']}"
-                    static_content.append(f"| [{name}]({path}) | {desc} |")
+                    
+                    # Add different icons for different content types
+                    if item.get("type") == "synthesis":
+                        icon = "🔬"  # Synthesis icon
+                        name_with_icon = f"{icon} {name}"
+                    else:
+                        icon = "📄"  # Regular KB item icon  
+                        name_with_icon = f"{icon} {name}"
+                    
+                    static_content.append(f"| [{name_with_icon}]({path}) | {desc} |")
                 static_content.append("</details>\n")
 
         # Add footer

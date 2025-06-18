@@ -34,8 +34,20 @@
                     </a>
                     <div class="collapse" id="collapseSynthCat{{ synthesis_main_cat_index }}">
                         <ul class="list-unstyled ps-3"> {# Sub category list #}
-                        {% set synthesis_subcategories = main_group|groupby('sub_category')|sort(attribute='grouper') %}
-                        {% for sub_category, sub_group in synthesis_subcategories %}
+                        {% set synthesis_subcategories_safe = [] %}
+                        {% for item in main_group %}
+                            {% set safe_sub_cat = item.sub_category or 'Uncategorized' %}
+                            {% if safe_sub_cat not in synthesis_subcategories_safe %}
+                                {% set _ = synthesis_subcategories_safe.append(safe_sub_cat) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for sub_category in synthesis_subcategories_safe|sort %}
+                            {% set sub_group = [] %}
+                            {% for item in main_group %}
+                                {% if (item.sub_category or 'Uncategorized') == sub_category %}
+                                    {% set _ = sub_group.append(item) %}
+                                {% endif %}
+                            {% endfor %}
                             {# *** Use captured outer index (synthesis_main_cat_index) and inner index (loop.index) *** #}
                             {% set synthesis_sub_cat_loop_index = loop.index %}
                             <li>
@@ -87,8 +99,20 @@
                     </a>
                     <div class="collapse" id="collapseCat{{ main_cat_index }}">
                         <ul class="list-unstyled ps-3"> {# Sub category list #}
-                        {% set subcategories = main_group|groupby('sub_category')|sort(attribute='grouper') %}
-                        {% for sub_category, sub_group in subcategories %}
+                        {% set subcategories_safe = [] %}
+                        {% for item in main_group %}
+                            {% set safe_sub_cat = item.sub_category or 'Uncategorized' %}
+                            {% if safe_sub_cat not in subcategories_safe %}
+                                {% set _ = subcategories_safe.append(safe_sub_cat) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for sub_category in subcategories_safe|sort %}
+                            {% set sub_group = [] %}
+                            {% for item in main_group %}
+                                {% if (item.sub_category or 'Uncategorized') == sub_category %}
+                                    {% set _ = sub_group.append(item) %}
+                                {% endif %}
+                            {% endfor %}
                             {# *** Use captured outer index (main_cat_index) and inner index (loop.index) *** #}
                             {% set sub_cat_loop_index = loop.index %}
                             <li>

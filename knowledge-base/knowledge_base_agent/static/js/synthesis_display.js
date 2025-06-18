@@ -104,7 +104,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<ul class="list-group list-group-flush">';
                 raw_json_data.core_concepts.forEach(concept => {
                     html += '<li class="list-group-item">';
-                    html += `<strong>${concept.concept}</strong>: ${concept.description}`;
+                    const conceptName = concept.concept || 'Unnamed Concept';
+                    const conceptDesc = concept.description || 'No description available';
+                    html += `<strong>${conceptName}</strong>: ${conceptDesc}`;
                     html += '</li>';
                 });
                 html += '</ul>';
@@ -120,13 +122,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     html += '<div class="col-md-6 mb-3">';
                     html += '<div class="card h-100">';
                     html += '<div class="card-body">';
-                    html += `<h6 class="card-title">${insight.title}</h6>`;
-                    html += `<p class="card-text">${insight.description}</p>`;
+                    const insightTitle = insight.title || 'Untitled Insight';
+                    const insightDesc = insight.description || 'No description available';
+                    html += `<h6 class="card-title">${insightTitle}</h6>`;
+                    html += `<p class="card-text">${insightDesc}</p>`;
                     if (insight.examples && insight.examples.length > 0) {
                         html += '<h6 class="card-subtitle mb-2 text-muted">Examples:</h6>';
                         html += '<ul class="small">';
                         insight.examples.forEach(example => {
-                            html += `<li>${example}</li>`;
+                            html += `<li>${example || 'No example provided'}</li>`;
                         });
                         html += '</ul>';
                     }
@@ -144,20 +148,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<h4>Patterns and Trends</h4>';
                 html += '<div class="accordion" id="patternsAccordion">';
                 raw_json_data.patterns_and_trends.forEach((pattern, index) => {
+                    const patternTitle = pattern.title || 'Untitled Pattern';
+                    const patternDesc = pattern.description || 'No description available';
                     html += '<div class="accordion-item">';
                     html += `<h2 class="accordion-header" id="heading${index + 1}">`;
                     html += `<button class="accordion-button${index === 0 ? '' : ' collapsed'}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index + 1}" aria-expanded="${index === 0 ? 'true' : 'false'}" aria-controls="collapse${index + 1}">`;
-                    html += `${pattern.title}`;
+                    html += `${patternTitle}`;
                     html += '</button>';
                     html += '</h2>';
                     html += `<div id="collapse${index + 1}" class="accordion-collapse collapse${index === 0 ? ' show' : ''}" aria-labelledby="heading${index + 1}" data-bs-parent="#patternsAccordion">`;
                     html += '<div class="accordion-body">';
-                    html += `<p>${pattern.description}</p>`;
+                    html += `<p>${patternDesc}</p>`;
                     if (pattern.evidence && pattern.evidence.length > 0) {
                         html += '<h6>Evidence:</h6>';
                         html += '<ul>';
                         pattern.evidence.forEach(evidence => {
-                            html += `<li>${evidence}</li>`;
+                            html += `<li>${evidence || 'No evidence provided'}</li>`;
                         });
                         html += '</ul>';
                     }
@@ -175,15 +181,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<h4>Practical Applications</h4>';
                 html += '<div class="row">';
                 raw_json_data.practical_applications.forEach(application => {
+                    const appTitle = application.title || 'Untitled Application';
+                    const appDesc = application.description || 'No description available';
                     html += '<div class="col-lg-4 col-md-6 mb-3">';
                     html += '<div class="card">';
                     html += '<div class="card-body">';
-                    html += `<h6 class="card-title">${application.title}</h6>`;
-                    html += `<p class="card-text small">${application.description}</p>`;
+                    html += `<h6 class="card-title">${appTitle}</h6>`;
+                    html += `<p class="card-text small">${appDesc}</p>`;
                     if (application.steps && application.steps.length > 0) {
                         html += '<ol class="small">';
                         application.steps.forEach(step => {
-                            html += `<li>${step}</li>`;
+                            html += `<li>${step || 'No step description'}</li>`;
                         });
                         html += '</ol>';
                     }
@@ -202,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<div class="alert alert-success">';
                 html += '<ul class="mb-0">';
                 raw_json_data.recommendations.forEach(recommendation => {
-                    html += `<li>${recommendation}</li>`;
+                    html += `<li>${recommendation || 'No recommendation provided'}</li>`;
                 });
                 html += '</ul>';
                 html += '</div>';
@@ -215,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<h4>Related Topics</h4>';
                 html += '<div class="d-flex flex-wrap gap-2">';
                 raw_json_data.related_topics.forEach(topic => {
-                    html += `<span class="badge bg-secondary">${topic}</span>`;
+                    html += `<span class="badge bg-secondary">${topic || 'No topic'}</span>`;
                 });
                 html += '</div>';
                 html += '</section>';

@@ -508,8 +508,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        if (window.initializeChat) {
-            window.initializeChat();
+        // Initialize chat widget if available
+        if (window.reinitializeChat) {
+            window.reinitializeChat();
         }
     }
 

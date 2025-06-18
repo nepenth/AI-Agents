@@ -11,7 +11,7 @@ from typing import Optional
 from collections import deque
 
 # Third-party imports
-from flask import Flask, render_template, request, jsonify, current_app
+from flask import Flask, render_template, request, jsonify, current_app, url_for, send_file, abort
 from flask_socketio import SocketIO, emit
 from flask_migrate import Migrate
 import markdown
@@ -23,6 +23,7 @@ from .models import db, KnowledgeBaseItem, SubcategorySynthesis
 from .main import load_config, run_agent_from_preferences
 from .gpu_utils import get_gpu_stats
 from .api.routes import bp as api_bp
+from .chat_manager import ChatManager
 
 # --- Helper Functions ---
 
@@ -32,8 +33,16 @@ from .api.routes import bp as api_bp
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['SECRET_KEY'] = 'secret!' # Replace with a real secret key
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(os.path.dirname(os.path.dirname(__file__)), "instance", "knowledge_base.db")}'
+
+# Explicitly construct the database path to avoid Flask-SQLAlchemy fallback behavior
+# This resolves to: /path/to/project/instance/knowledge_base.db
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "instance", "knowledge_base.db")
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Log the database URI for debugging
+print(f"DATABASE URI: {app.config['SQLALCHEMY_DATABASE_URI']}", flush=True)
+
 db.init_app(app)
 socketio = SocketIO(app, async_mode='gevent', logger=False, engineio_logger=False)
 migrate = Migrate(app, db)
@@ -45,6 +54,23 @@ agent_thread = None
 current_run_preferences: Optional[dict] = None
 recent_logs = deque(maxlen=400)
 
+# Initialize ChatManager if not already done
+chat_manager = None
+
+def get_chat_manager():
+    """Get or create ChatManager instance."""
+    global chat_manager
+    if chat_manager is None:
+        config = current_app.config.get('APP_CONFIG')
+        if config:
+            from .http_client import HTTPClient
+            from .embedding_manager import EmbeddingManager
+            
+            http_client = HTTPClient(config)
+            embedding_manager = EmbeddingManager(config, http_client)
+            chat_manager = ChatManager(config, http_client, embedding_manager)
+    return chat_manager
+
 # --- Template Filters ---
 
 @app.template_filter('markdown')
@@ -53,6 +79,17 @@ def markdown_filter(text):
     if not text:
         return ""
     return Markup(markdown.markdown(text, extensions=['extra', 'codehilite']))
+
+@app.template_filter('fromjson')
+def fromjson_filter(text):
+    """Parse JSON string to Python object."""
+    if not text:
+        return None
+    try:
+        import json
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 # --- Logging Setup ---
 
@@ -130,6 +167,57 @@ def agent_control_panel():
 @app.route('/item/<int:item_id>')
 def item_detail(item_id):
     item = KnowledgeBaseItem.query.get_or_404(item_id)
+    
+    # Check if JSON response is requested
+    if request.args.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
+        # Parse raw JSON content if it exists
+        raw_json_content_parsed = None
+        if item.raw_json_content:
+            try:
+                import json
+                raw_json_content_parsed = json.loads(item.raw_json_content)
+            except (json.JSONDecodeError, TypeError):
+                raw_json_content_parsed = None
+        
+        # Parse media paths
+        media_files_for_template = []
+        if item.kb_media_paths:
+            try:
+                import json
+                media_paths = json.loads(item.kb_media_paths)
+                if isinstance(media_paths, list):
+                    for media_path in media_paths:
+                        filename = media_path.split('/')[-1] if media_path else 'unknown'
+                        media_type = 'image' if any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']) else 'video' if any(filename.lower().endswith(ext) for ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']) else 'other'
+                        media_files_for_template.append({
+                            'name': filename,
+                            'url': url_for('serve_kb_media_generic', path=media_path),
+                            'type': media_type
+                        })
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        item_data = {
+            'id': item.id,
+            'tweet_id': item.tweet_id,
+            'title': item.title,
+            'display_title': item.display_title,
+            'description': item.description,
+            'content': item.content,
+            'main_category': item.main_category,
+            'sub_category': item.sub_category,
+            'item_name': item.item_name,
+            'source_url': item.source_url,
+            'created_at': item.created_at.isoformat() if item.created_at else None,
+            'last_updated': item.last_updated.isoformat() if item.last_updated else None,
+            'file_path': item.file_path,
+            'kb_media_paths': item.kb_media_paths,
+            'raw_json_content': item.raw_json_content,
+            'raw_json_content_parsed': raw_json_content_parsed,
+            'media_files_for_template': media_files_for_template
+        }
+        return jsonify(item_data)
+    
     return render_template('item_detail_content.html', item=item)
 
 @app.route('/synthesis/<int:synthesis_id>')
@@ -177,7 +265,54 @@ def chat_page():
 def logs_page():
     return render_template('logs_content.html')
 
+@app.route('/media/<path:path>')
+def serve_kb_media_generic(path):
+    """Serve media files from the knowledge base."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        if not config:
+            abort(500, description="App config not available")
+        
+        # Construct full path to media file
+        media_file_path = config.knowledge_base_dir / path
+        
+        # Security check - ensure path is within knowledge base directory
+        try:
+            media_file_path.resolve().relative_to(config.knowledge_base_dir.resolve())
+        except ValueError:
+            abort(403, description="Access forbidden")
+        
+        if not media_file_path.exists():
+            abort(404, description="Media file not found")
+        
+        return send_file(str(media_file_path))
+    except Exception as e:
+        logging.error(f"Error serving media file {path}: {e}", exc_info=True)
+        abort(500, description="Failed to serve media file")
+
 # --- API Routes ---
+
+@app.route('/api/syntheses')
+def api_synthesis_list():
+    """API endpoint to get all synthesis documents."""
+    try:
+        syntheses = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
+        synthesis_list = []
+        for synth in syntheses:
+            synthesis_list.append({
+                'id': synth.id,
+                'synthesis_title': synth.synthesis_title,
+                'synthesis_short_name': synth.synthesis_short_name,
+                'main_category': synth.main_category,
+                'sub_category': synth.sub_category,
+                'item_count': synth.item_count,
+                'created_at': synth.created_at.isoformat() if synth.created_at else None,
+                'last_updated': synth.last_updated.isoformat() if synth.last_updated else None
+            })
+        return jsonify(synthesis_list)
+    except Exception as e:
+        logging.error(f"Error retrieving synthesis list: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve synthesis documents'}), 500
 
 @app.route('/api/gpu-stats')
 def api_gpu_stats():
@@ -195,14 +330,14 @@ def api_gpu_stats():
 
 @socketio.on('connect')
 def handle_connect(auth=None):
-    logging.info(f"Client connected: {request.sid}")
+    logging.info("Client connected")
     emit('agent_status', {'is_running': agent_is_running, 'preferences': current_run_preferences})
     emit('initial_logs', {'logs': list(recent_logs)})
     config = current_app.config.get('APP_CONFIG')
     if config:
-        # Use safe attribute access with defaults
-        git_auto_commit = getattr(config, 'git_auto_commit', config.git_enabled if hasattr(config, 'git_enabled') else False)
-        git_auto_push = getattr(config, 'git_auto_push', config.git_enabled if hasattr(config, 'git_enabled') else False)
+        # Use safe attribute access with defaults - Git is now always available
+        git_auto_commit = getattr(config, 'git_auto_commit', False)  # Default to manual control
+        git_auto_push = getattr(config, 'git_auto_push', False)      # Default to manual control
         emit('git_config_status', {'auto_commit': git_auto_commit, 'auto_push': git_auto_push})
 
 @socketio.on('request_initial_status_and_git_config')
@@ -210,9 +345,9 @@ def handle_request_initial_status_and_git_config():
     config = current_app.config.get('APP_CONFIG')
     git_config = {}
     if config:
-        # Use safe attribute access with defaults
-        git_auto_commit = getattr(config, 'git_auto_commit', config.git_enabled if hasattr(config, 'git_enabled') else False)
-        git_auto_push = getattr(config, 'git_auto_push', config.git_enabled if hasattr(config, 'git_enabled') else False)
+        # Use safe attribute access with defaults - Git is now always available
+        git_auto_commit = getattr(config, 'git_auto_commit', False)  # Default to manual control
+        git_auto_push = getattr(config, 'git_auto_push', False)      # Default to manual control
         git_config = {'auto_commit': git_auto_commit, 'auto_push': git_auto_push}
     
     emit('initial_status_and_git_config', {
@@ -242,7 +377,7 @@ def handle_clear_server_logs():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    logging.info(f"Client disconnected: {request.sid}")
+    logging.info("Client disconnected")
 
 @socketio.on('run_agent')
 def handle_run_agent(data):
@@ -267,7 +402,7 @@ def handle_run_agent(data):
             raise Exception("App config not available")
         
         # Get app instance for the thread
-        app_instance = current_app._get_current_object()
+        app_instance = app
         
         def run_agent_in_thread():
             """Run the agent in a background thread with direct SocketIO access."""
@@ -351,6 +486,95 @@ def handle_request_gpu_stats():
     except Exception as e:
         logging.error(f"Error getting GPU stats: {e}", exc_info=True)
         emit('gpu_stats', {'error': f'Failed to get GPU stats: {str(e)}'})
+
+# --- Enhanced Chat API Routes ---
+
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    """Enhanced chat API endpoint with technical expertise and rich source metadata."""
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        message = data['message'].strip()
+        if not message:
+            return jsonify({'error': 'Message cannot be empty'}), 400
+        
+        # Get optional model selection
+        model = data.get('model')
+        
+        # Get chat manager
+        chat_mgr = get_chat_manager()
+        if not chat_mgr:
+            return jsonify({'error': 'Chat functionality not available'}), 503
+        
+        # Process chat query asynchronously
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(
+                chat_mgr.handle_chat_query(message, model)
+            )
+        finally:
+            loop.close()
+        
+        if 'error' in result:
+            return jsonify(result), 500
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logging.error(f"Error in chat API: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/chat/models', methods=['GET'])
+def api_chat_models():
+    """Get available chat models."""
+    try:
+        chat_mgr = get_chat_manager()
+        if not chat_mgr:
+            return jsonify([]), 200
+        
+        # Get available models asynchronously
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            models = loop.run_until_complete(chat_mgr.get_available_models())
+        finally:
+            loop.close()
+        
+        return jsonify(models)
+        
+    except Exception as e:
+        logging.error(f"Error getting chat models: {e}", exc_info=True)
+        return jsonify([{'id': 'default', 'name': 'Default Model'}]), 200
+
+# --- Legacy Chat Routes (for backward compatibility) ---
+
+@app.route('/api/chat/legacy', methods=['POST'])
+def api_chat_legacy():
+    """Legacy chat endpoint for backward compatibility."""
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        # Simple response for legacy compatibility
+        return jsonify({
+            'response': f"Legacy chat response for: {message}",
+            'sources': []
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in legacy chat API: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
 
 # --- Main Execution ---
 

@@ -60,9 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }, 50);
                 }
 
-                // Initialize chat page specific scripts
-                if (window.initializeChat && document.getElementById('chat-page-container')) {
-                    window.initializeChat('page');
+                // Initialize chat functionality if it's the chat page
+                if (window.reinitializeChat && document.getElementById('chat-page-container')) {
+                    window.reinitializeChat('page');
                 }
 
                 // Initialize syntheses page specific scripts

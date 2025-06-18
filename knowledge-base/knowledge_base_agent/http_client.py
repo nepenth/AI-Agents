@@ -295,6 +295,16 @@ class HTTPClient:
         async with self._semaphore:
             await self.ensure_session()
             try:
+                # Validate input prompt
+                if not prompt or not prompt.strip():
+                    logging.error(f"Empty or whitespace-only prompt provided for embedding: '{prompt}'")
+                    raise AIError("Cannot generate embedding for empty or whitespace-only content")
+                
+                # Log prompt details for debugging
+                prompt_length = len(prompt)
+                prompt_preview = prompt[:200] + "..." if len(prompt) > 200 else prompt
+                logging.debug(f"Generating embedding for content (length={prompt_length}): {prompt_preview}")
+                
                 api_endpoint = f"{self.base_url}/api/embeddings"
                 logging.debug(f"Sending Ollama embedding request to {api_endpoint} for model {model}")
 
@@ -312,14 +322,26 @@ class HTTPClient:
                     if response.status != 200:
                         error_text = await response.text()
                         logging.error(f"Ollama embedding API error: {response.status} - {error_text}")
-                        raise AIError(f"Ollama embedding API returned status {response.status}")
+                        raise AIError(f"Ollama embedding API returned status {response.status}: {error_text}")
 
                     result = await response.json()
                     elapsed = time.time() - start_time
                     
+                    # Log the full response for debugging
+                    logging.debug(f"Raw Ollama embedding response: {result}")
+                    
                     embedding = result.get("embedding")
-                    if not embedding:
-                        raise AIError("Empty embedding from Ollama API")
+                    if embedding is None:
+                        logging.error(f"Ollama API returned None for embedding. Full response: {result}")
+                        raise AIError("Ollama API returned None for embedding field")
+                    
+                    if not isinstance(embedding, list):
+                        logging.error(f"Ollama API returned non-list embedding: {type(embedding)} - {embedding}")
+                        raise AIError(f"Ollama API returned non-list embedding: {type(embedding)}")
+                    
+                    if len(embedding) == 0:
+                        logging.error(f"Ollama API returned empty list for embedding. Full response: {result}")
+                        raise AIError("Ollama API returned empty embedding list")
 
                     logging.debug(f"Received embedding of dimension {len(embedding)} in {elapsed:.2f}s. Model: {model}")
                     return embedding

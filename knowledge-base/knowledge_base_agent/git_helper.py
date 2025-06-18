@@ -239,18 +239,24 @@ class GitSyncHandler:
             self._configure_git()
             git_executable = os.environ['GIT_PYTHON_GIT_EXECUTABLE']
             
-            # Add all changes
-            self.logger.info("GIT_HELPER_LOGGER: Adding all changes via direct subprocess")
-            print("GIT_HELPER_PRINT: Adding all changes via direct subprocess")
-            # First, ensure .gitignore excludes media files to prevent large files from being added
-            self.logger.info("GIT_HELPER_LOGGER: Updating .gitignore to exclude media files")
-            print("GIT_HELPER_PRINT: Updating .gitignore to exclude media files")
+            # Proactively check if repository needs refresh due to size
+            if self.check_repository_needs_refresh():
+                self.logger.info("GIT_HELPER_LOGGER: Repository size indicates refresh needed, creating fresh repository")
+                print("GIT_HELPER_PRINT: Repository size indicates refresh needed, creating fresh repository")
+                self.create_fresh_repository(commit_message)
+                return  # Exit early after successful fresh repository creation
+            
+            # First, ensure .gitignore excludes video files to prevent large files from being added
+            self.logger.info("GIT_HELPER_LOGGER: Updating .gitignore to exclude large media files")
+            print("GIT_HELPER_PRINT: Updating .gitignore to exclude large media files")
             gitignore_path = self.repo_dir / ".gitignore"
             media_extensions = [
-                "# Ignore media files to prevent large uploads",
+                "# Ignore large media files to prevent oversized uploads",
+                "# Videos - excluded due to size",
                 "*.mp4", "*.avi", "*.mkv", "*.mov", "*.wmv", "*.flv", "*.webm",
-                "*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp", "*.tiff", "*.webp",
-                "*.mp3", "*.wav", "*.ogg", "*.flac"
+                "# Audio files - excluded", 
+                "*.mp3", "*.wav", "*.ogg", "*.flac",
+                "# Images are included for GitHub sync"
             ]
             # Check if .gitignore exists and read its content
             existing_content = []
@@ -258,7 +264,7 @@ class GitSyncHandler:
                 with open(gitignore_path, "r", encoding="utf-8") as f:
                     existing_content = f.readlines()
                     # Check if media ignore rules are already present
-                    if any("# Ignore media files to prevent large uploads" in line for line in existing_content):
+                    if any("# Ignore large media files to prevent oversized uploads" in line for line in existing_content):
                         self.logger.info("GIT_HELPER_LOGGER: .gitignore already has media ignore rules")
                         print("GIT_HELPER_PRINT: .gitignore already has media ignore rules")
                     else:
@@ -274,7 +280,62 @@ class GitSyncHandler:
                 self.logger.info("GIT_HELPER_LOGGER: Created .gitignore with media ignore rules")
                 print("GIT_HELPER_PRINT: Created .gitignore with media ignore rules")
             
-            # Now add all changes (respecting .gitignore)
+            # Remove already-tracked video files from git to reduce repository size
+            self.logger.info("GIT_HELPER_LOGGER: Checking for already-tracked video files to remove")
+            print("GIT_HELPER_PRINT: Checking for already-tracked video files to remove")
+            
+            # Get list of tracked video files
+            video_patterns = ["*.mp4", "*.avi", "*.mkv", "*.mov", "*.wmv", "*.flv", "*.webm"]
+            tracked_videos = []
+            
+            for pattern in video_patterns:
+                ls_files_result = subprocess.run(
+                    [git_executable, "ls-files", pattern],
+                    cwd=str(self.repo_dir),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    shell=False
+                )
+                if ls_files_result.returncode == 0 and ls_files_result.stdout.strip():
+                    tracked_videos.extend(ls_files_result.stdout.strip().split('\n'))
+            
+            if tracked_videos:
+                self.logger.info(f"GIT_HELPER_LOGGER: Found {len(tracked_videos)} tracked video files to remove")
+                print(f"GIT_HELPER_PRINT: Found {len(tracked_videos)} tracked video files to remove")
+                
+                # Remove video files from git tracking
+                for video_file in tracked_videos:
+                    if video_file.strip():  # Skip empty lines
+                        try:
+                            subprocess.run(
+                                [git_executable, "rm", "--cached", video_file.strip()],
+                                cwd=str(self.repo_dir),
+                                check=True,
+                                shell=False
+                            )
+                            self.logger.debug(f"GIT_HELPER_LOGGER: Removed {video_file} from git tracking")
+                        except subprocess.CalledProcessError as e:
+                            self.logger.warning(f"GIT_HELPER_LOGGER: Could not remove {video_file} from tracking: {e}")
+                            print(f"GIT_HELPER_PRINT: Could not remove {video_file} from tracking: {e}")
+                
+                # Stage the removal of video files
+                subprocess.run(
+                    [git_executable, "add", "-u"],
+                    cwd=str(self.repo_dir),
+                    check=True,
+                    shell=False
+                )
+                
+                self.logger.info("GIT_HELPER_LOGGER: Staged removal of video files from git tracking")
+                print("GIT_HELPER_PRINT: Staged removal of video files from git tracking")
+            else:
+                self.logger.info("GIT_HELPER_LOGGER: No tracked video files found")
+                print("GIT_HELPER_PRINT: No tracked video files found")
+            
+            # Add all changes (respecting .gitignore)
+            self.logger.info("GIT_HELPER_LOGGER: Adding all changes via direct subprocess")
+            print("GIT_HELPER_PRINT: Adding all changes via direct subprocess")
             subprocess.run(
                 [git_executable, "add", "."],
                 cwd=str(self.repo_dir),
@@ -339,17 +400,97 @@ class GitSyncHandler:
                 check=True,
                 shell=False
             )
+            # Additional timeout configuration
+            subprocess.run(
+                [git_executable, "config", "http.lowSpeedLimit", "1000"],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            subprocess.run(
+                [git_executable, "config", "http.lowSpeedTime", "300"],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            subprocess.run(
+                [git_executable, "config", "http.timeout", "300"],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            
+            # Check repository size before pushing - measure only git-tracked files
+            try:
+                # Get size of git-tracked files only, not entire working directory
+                ls_files_result = subprocess.run(
+                    [git_executable, "ls-files", "-z"],
+                    cwd=str(self.repo_dir),
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    shell=False
+                )
+                
+                if ls_files_result.stdout.strip():
+                    # Calculate size of tracked files only
+                    tracked_files = [f for f in ls_files_result.stdout.split('\0') if f.strip()]
+                    total_size = 0
+                    for file_path in tracked_files:
+                        try:
+                            file_full_path = self.repo_dir / file_path
+                            if file_full_path.exists():
+                                total_size += file_full_path.stat().st_size
+                        except (OSError, IOError):
+                            continue  # Skip files that can't be accessed
+                    
+                    repo_size_mb = total_size / (1024 * 1024)
+                    self.logger.info(f"GIT_HELPER_LOGGER: Git repository size (tracked files): {repo_size_mb:.2f} MB")
+                    print(f"GIT_HELPER_PRINT: Git repository size (tracked files): {repo_size_mb:.2f} MB")
+                else:
+                    repo_size_mb = 0
+                    self.logger.info("GIT_HELPER_LOGGER: Git repository size: 0 MB (no tracked files)")
+                    print("GIT_HELPER_PRINT: Git repository size: 0 MB (no tracked files)")
+                
+                if repo_size_mb > 100:  # Warn if repo is larger than 100MB
+                    self.logger.warning(f"GIT_HELPER_LOGGER: Large repository size ({repo_size_mb:.2f} MB) may cause push timeouts")
+                    print(f"GIT_HELPER_PRINT: Large repository size ({repo_size_mb:.2f} MB) may cause push timeouts")
+            except Exception as e:
+                self.logger.warning(f"GIT_HELPER_LOGGER: Could not determine repository size: {e}")
+                print(f"GIT_HELPER_PRINT: Could not determine repository size: {e}")
+            
+            # Get the current branch name instead of hardcoding 'main'
+            current_branch_result = subprocess.run(
+                [git_executable, "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=str(self.repo_dir),
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False
+            )
+            
+            if current_branch_result.returncode == 0:
+                current_branch = current_branch_result.stdout.strip()
+                self.logger.info(f"GIT_HELPER_LOGGER: Detected current branch: {current_branch}")
+                print(f"GIT_HELPER_PRINT: Detected current branch: {current_branch}")
+            else:
+                current_branch = "main"  # fallback
+                self.logger.warning(f"GIT_HELPER_LOGGER: Could not detect branch, using fallback: {current_branch}")
+                print(f"GIT_HELPER_PRINT: Could not detect branch, using fallback: {current_branch}")
+
             # Retry loop for push operation
             max_retries = 3
+            fresh_repo_attempted = False
             for attempt in range(max_retries):
                 try:
                     push_result = subprocess.run(
-                        [git_executable, "push", "origin", "main", "--force"],
+                        [git_executable, "push", "origin", current_branch, "--force"],
                         cwd=str(self.repo_dir),
                         capture_output=True,
                         text=True,
                         check=True,
-                        shell=False
+                        shell=False,
+                        timeout=600  # 10 minute timeout
                     )
                     self.logger.debug(f"GIT_HELPER_LOGGER: Force-pushed changes to remote repository. Output: {push_result.stdout}")
                     print(f"GIT_HELPER_PRINT: Force-pushed changes to remote repository. Output: {push_result.stdout}")
@@ -357,21 +498,250 @@ class GitSyncHandler:
                     print("GIT_HELPER_PRINT: Successfully synced to GitHub via direct subprocess")
                     break  # Exit loop on success
                 except subprocess.CalledProcessError as e:
+                    # Check if this is an HTTP 408 timeout error or related connectivity issue
+                    error_text = str(e.stderr).lower() if e.stderr else ""
+                    is_http_timeout = any(pattern in error_text for pattern in [
+                        "http 408", "408", "unexpected disconnect", "remote end hung up", 
+                        "rpc failed", "send-pack: unexpected disconnect"
+                    ])
+                    
                     self.logger.error(f"Push attempt {attempt + 1}/{max_retries} failed: {e}. Stderr: {e.stderr}")
                     print(f"GIT_HELPER_PRINT: Push attempt {attempt + 1}/{max_retries} failed: {e}. Stderr: {e.stderr}")
+                    
+                    # If HTTP timeout and we haven't tried fresh repo yet, try it on 2nd attempt or later
+                    if is_http_timeout and not fresh_repo_attempted and attempt >= 1:
+                        self.logger.info("GIT_HELPER_LOGGER: HTTP timeout/connectivity issue detected, attempting fresh repository approach")
+                        print("GIT_HELPER_PRINT: HTTP timeout/connectivity issue detected, attempting fresh repository approach")
+                        fresh_repo_attempted = True
+                        try:
+                            self.create_fresh_repository(commit_message)
+                            return  # Success via fresh repository
+                        except Exception as fresh_error:
+                            self.logger.error(f"Fresh repository approach also failed: {fresh_error}")
+                            print(f"GIT_HELPER_PRINT: Fresh repository approach also failed: {fresh_error}")
+                            # Continue to raise original error
+                    
                     if attempt == max_retries - 1:  # Last attempt
                         raise
                     import time
-                    time.sleep(5)  # Wait before retrying
+                    time.sleep(10)  # Increased wait time before retrying
+                except subprocess.TimeoutExpired as e:
+                    self.logger.error(f"Push attempt {attempt + 1}/{max_retries} timed out after 10 minutes: {e}")
+                    print(f"GIT_HELPER_PRINT: Push attempt {attempt + 1}/{max_retries} timed out after 10 minutes: {e}")
+                    
+                    # Try fresh repository approach on timeout if not already attempted
+                    if not fresh_repo_attempted and attempt == max_retries - 1:
+                        self.logger.info("GIT_HELPER_LOGGER: Push timeout detected, attempting fresh repository approach")
+                        print("GIT_HELPER_PRINT: Push timeout detected, attempting fresh repository approach")
+                        fresh_repo_attempted = True
+                        try:
+                            self.create_fresh_repository(commit_message)
+                            return  # Success via fresh repository
+                        except Exception as fresh_error:
+                            self.logger.error(f"Fresh repository approach also failed: {fresh_error}")
+                            print(f"GIT_HELPER_PRINT: Fresh repository approach also failed: {fresh_error}")
+                            # Continue to raise original error
+                    
+                    if attempt == max_retries - 1:  # Last attempt
+                        raise
+                    import time
+                    time.sleep(15)  # Longer wait after timeout
                 
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Direct Git command failed during sync: {e}. Stderr: {e.stderr}", exc_info=True)
             print(f"GIT_HELPER_PRINT: subprocess.CalledProcessError during sync: {e}. Stderr: {e.stderr}")
             raise GitSyncError(f"Direct Git sync command failed: {e}") from e
+        except subprocess.TimeoutExpired as e:
+            self.logger.error(f"Git push timed out during sync: {e}", exc_info=True)
+            print(f"GIT_HELPER_PRINT: subprocess.TimeoutExpired during sync: {e}")
+            raise GitSyncError(f"Git push timed out: {e}") from e
         except Exception as e:
             self.logger.error(f"GitHub sync failed: {e}", exc_info=True)
             print(f"GIT_HELPER_PRINT: Exception during sync: {e}")
             raise GitSyncError(f"Git sync failed: {e}") from e
+
+    def create_fresh_repository(self, commit_message: str = "Fresh knowledge base content") -> None:
+        """Create a fresh git repository without history to eliminate large file references."""
+        try:
+            git_executable = shutil.which("git")
+            if not git_executable:
+                raise GitSyncError("Git executable not found")
+            
+            self.logger.info("GIT_HELPER_LOGGER: Creating fresh repository without history")
+            print("GIT_HELPER_PRINT: Creating fresh repository without history")
+            
+            # Remove existing .git directory
+            git_dir = self.repo_dir / ".git"
+            if git_dir.exists():
+                self.logger.info("GIT_HELPER_LOGGER: Removing existing .git directory")
+                print("GIT_HELPER_PRINT: Removing existing .git directory")
+                shutil.rmtree(git_dir)
+            
+            # Initialize fresh repository
+            subprocess.run(
+                [git_executable, "init"],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            
+            # Get the default branch name (could be main or master)
+            default_branch_result = subprocess.run(
+                [git_executable, "config", "--get", "init.defaultBranch"],
+                cwd=str(self.repo_dir),
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False
+            )
+            
+            if default_branch_result.returncode == 0 and default_branch_result.stdout.strip():
+                branch_name = default_branch_result.stdout.strip()
+            else:
+                # Check what branch was actually created
+                branch_check_result = subprocess.run(
+                    [git_executable, "rev-parse", "--abbrev-ref", "HEAD"],
+                    cwd=str(self.repo_dir),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    shell=False
+                )
+                if branch_check_result.returncode == 0 and branch_check_result.stdout.strip():
+                    branch_name = branch_check_result.stdout.strip()
+                else:
+                    branch_name = "master"  # fallback to master for older git versions
+            
+            self.logger.info(f"GIT_HELPER_LOGGER: Using branch name: {branch_name}")
+            print(f"GIT_HELPER_PRINT: Using branch name: {branch_name}")
+            
+            # Configure git
+            subprocess.run(
+                [git_executable, "config", "user.name", self.config.github_user_name],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            subprocess.run(
+                [git_executable, "config", "user.email", self.config.github_user_email],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            
+            # Add remote
+            remote_url = str(self.config.github_repo_url).replace('https://', f'https://{self.config.github_token}@')
+            subprocess.run(
+                [git_executable, "remote", "add", "origin", remote_url],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            
+            # Ensure .gitignore exists with video exclusions
+            gitignore_path = self.repo_dir / ".gitignore"
+            media_extensions = [
+                "# Ignore large media files to prevent oversized uploads",
+                "# Videos - excluded due to size",
+                "*.mp4", "*.avi", "*.mkv", "*.mov", "*.wmv", "*.flv", "*.webm",
+                "# Audio files - excluded", 
+                "*.mp3", "*.wav", "*.ogg", "*.flac",
+                "# Images are included for GitHub sync"
+            ]
+            with open(gitignore_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(media_extensions) + "\n")
+            
+            # Add all current files
+            subprocess.run(
+                [git_executable, "add", "."],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            
+            # Initial commit
+            subprocess.run(
+                [git_executable, "commit", "-m", commit_message],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False
+            )
+            
+            # Force push to create fresh remote
+            subprocess.run(
+                [git_executable, "push", "origin", branch_name, "--force"],
+                cwd=str(self.repo_dir),
+                check=True,
+                shell=False,
+                timeout=300  # 5 minute timeout for fresh push
+            )
+            
+            self.logger.info("GIT_HELPER_LOGGER: Fresh repository created and pushed successfully")
+            print("GIT_HELPER_PRINT: Fresh repository created and pushed successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to create fresh repository: {e}")
+            print(f"GIT_HELPER_PRINT: Failed to create fresh repository: {e}")
+            raise GitSyncError(f"Fresh repository creation failed: {e}") from e
+
+    def check_repository_needs_refresh(self) -> bool:
+        """Check if repository should be refreshed based on size and performance indicators."""
+        try:
+            git_executable = shutil.which("git")
+            if not git_executable:
+                return False
+            
+            # Check git objects size
+            objects_result = subprocess.run(
+                [git_executable, "count-objects", "-v"],
+                cwd=str(self.repo_dir),
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False
+            )
+            
+            if objects_result.returncode == 0:
+                total_size_kb = 0
+                
+                # Parse output for both loose objects (size) and packed objects (size-pack)
+                for line in objects_result.stdout.splitlines():
+                    if line.startswith("size "):
+                        # Loose objects size in KB
+                        loose_size_kb = int(line.split()[1])
+                        total_size_kb += loose_size_kb
+                        self.logger.info(f"Git loose objects size: {loose_size_kb / 1024:.2f} MB")
+                        print(f"GIT_HELPER_PRINT: Git loose objects size: {loose_size_kb / 1024:.2f} MB")
+                    elif line.startswith("size-pack "):
+                        # Packed objects size in KB
+                        packed_size_kb = int(line.split()[1])
+                        total_size_kb += packed_size_kb
+                        self.logger.info(f"Git packed objects size: {packed_size_kb / 1024:.2f} MB")
+                        print(f"GIT_HELPER_PRINT: Git packed objects size: {packed_size_kb / 1024:.2f} MB")
+                
+                total_size_mb = total_size_kb / 1024
+                self.logger.info(f"Git total objects size: {total_size_mb:.2f} MB")
+                print(f"GIT_HELPER_PRINT: Git total objects size: {total_size_mb:.2f} MB")
+                
+                # Recommend refresh if objects are larger than 200MB (reduced threshold)
+                if total_size_mb > 200:
+                    self.logger.warning(f"Large git objects ({total_size_mb:.2f} MB) may cause timeouts")
+                    print(f"GIT_HELPER_PRINT: Large git objects ({total_size_mb:.2f} MB) may cause timeouts")
+                    return True
+            
+            return False
+        except Exception as e:
+            self.logger.warning(f"Could not check repository size: {e}")
+            return False
+
+    def create_fresh_repository_if_needed(self, commit_message: str = "Fresh knowledge base content") -> bool:
+        """Create fresh repository if current one is too large or has issues. Returns True if refresh was performed."""
+        if self.check_repository_needs_refresh():
+            self.logger.info("Repository size indicates refresh needed, creating fresh repository")
+            print("GIT_HELPER_PRINT: Repository size indicates refresh needed, creating fresh repository")
+            self.create_fresh_repository(commit_message)
+            return True
+        return False
 
     async def run_command(self, cmd: str, cwd: Path) -> None:
         """Run a git command asynchronously."""

@@ -27,6 +27,7 @@ class UserPreferences:
     force_recache_tweets: bool = False     # If True, forces re-downloading of tweet data during content processing.
     force_regenerate_synthesis: bool = False  # If True, forces regeneration of existing synthesis documents.
     force_regenerate_embeddings: bool = False # If True, forces regeneration of embeddings.
+    force_regenerate_readme: bool = False  # If True, forces regeneration of README even if up to date.
     
     # Granular force flags for content processing phases
     force_reprocess_media: bool = False    # If True, forces re-analyzing media even if already processed
@@ -65,7 +66,8 @@ class UserPreferences:
             'force_reprocess_llm', 
             'force_reprocess_kb_item',
             'force_regenerate_synthesis',
-            'force_regenerate_embeddings'
+            'force_regenerate_embeddings',
+            'force_regenerate_readme'
         ]
 
         for flag_name in bool_flags:
@@ -121,10 +123,10 @@ def prompt_for_preferences(config: Config) -> UserPreferences:
     prefs = UserPreferences()
     kb_state = check_knowledge_base_state(config)
 
-    prefs.update_bookmarks = input("Fetch new bookmarks? (y/n): ").lower().startswith('y')
-    
-    # Prompt for processing queued content
-    prefs.process_queued_content = input("Process all queued/unprocessed content? (y/n, default y): ").lower() not in ['n', 'no']
+    # These would need to be added to UserPreferences dataclass if needed
+    # For now, commenting out as they're not defined in the dataclass
+    # prefs.update_bookmarks = input("Fetch new bookmarks? (y/n): ").lower().startswith('y')
+    # prefs.process_queued_content = input("Process all queued/unprocessed content? (y/n, default y): ").lower() not in ['n', 'no']
 
     # Only prompt for cache refresh if there is cached data
     if kb_state['has_cached_tweets']:
@@ -134,7 +136,8 @@ def prompt_for_preferences(config: Config) -> UserPreferences:
     prefs.skip_readme_generation = input("Skip regeneration of all README files? (y/n): ").lower().startswith('y')
 
     # Git push preference
-    if config.git_enabled:
+    # Git is now always configured; pipeline allows skipping via UI preferences
+    if True:  # Git configuration is always available
         prefs.skip_git_push = input("Skip pushing changes to Git repository after processing? (y/n, default n): ").lower() not in ['n', 'no']
     else:
         prefs.skip_git_push = True # Ensure it's True if git is not enabled globally
@@ -215,16 +218,192 @@ class LLMPrompts:
     @staticmethod
     def get_chat_prompt() -> str:
         """
-        Returns the system prompt for the chat functionality.
+        Returns the enhanced system prompt for the chat functionality.
+        This positions the AI as a senior technical expert with deep knowledge of the personal knowledge base.
         """
         return (
-            "You are a helpful AI assistant for a personal knowledge base. "
-            "Your role is to answer user questions based *only* on the provided context from the knowledge base. "
-            "Be concise, accurate, and helpful. If the context does not contain the answer, "
-            "state that the information is not available in the knowledge base. "
-            "Do not make up information. "
-            "When you use information from a source, cite it at the end of the sentence like this: [Source: Title of Document]."
+            "You are a **Senior Technical Expert and Knowledge Architect** with deep expertise across software engineering, "
+            "system design, DevOps, cloud architecture, and emerging technologies. You serve as an intelligent assistant "
+            "for a comprehensive technical knowledge base containing curated insights, synthesis documents, and practical implementations.\n\n"
+            
+            "**Your Role & Capabilities:**\n"
+            "• **Technical Authority**: You possess expert-level understanding across multiple technical domains\n"
+            "• **Knowledge Synthesis**: You can connect concepts across different areas and identify patterns\n"
+            "• **Practical Guidance**: You provide actionable, implementation-focused advice\n"
+            "• **Learning Facilitation**: You help users discover related concepts and deepen their understanding\n\n"
+            
+            "**Response Principles:**\n"
+            "1. **Context-Driven**: Base all responses strictly on the provided knowledge base context\n"
+            "2. **Technical Precision**: Use accurate terminology and provide technically rigorous explanations\n"
+            "3. **Actionable Insights**: Focus on practical applications and real-world implementation\n"
+            "4. **Cross-References**: Actively connect related concepts and suggest exploration paths\n"
+            "5. **Honest Limitations**: Clearly state when information isn't available in the knowledge base\n\n"
+            
+            "**Response Structure Guidelines:**\n"
+            "• **Direct Answer**: Start with a clear, concise answer to the specific query\n"
+            "• **Technical Context**: Provide necessary background and technical context\n"
+            "• **Implementation Details**: Include practical steps, code examples, or configuration details when relevant\n"
+            "• **Cross-References**: Mention related topics and concepts from the knowledge base\n"
+            "• **Next Steps**: Suggest logical follow-up areas for deeper exploration\n\n"
+            
+            "**Source Citation Format:**\n"
+            "• For individual knowledge base items: `[📄 Item: Title]` \n"
+            "• For synthesis documents: `[📋 Synthesis: Title]`\n"
+            "• For high-relevance sources: `[⭐ Key Source: Title]`\n"
+            "• When referencing multiple related items: `[🔗 Related: Title1, Title2]`\n\n"
+            
+            "**When Information is Unavailable:**\n"
+            "If the provided context doesn't contain sufficient information to answer the query:\n"
+            "• State clearly: \"This specific information is not available in the current knowledge base.\"\n"
+            "• Suggest related topics that ARE covered: \"However, the knowledge base contains relevant information about [related topics]...\"\n"
+            "• Recommend potential exploration paths: \"You might find value in exploring [specific categories or synthesis documents]...\"\n\n"
+            
+            "**Quality Standards:**\n"
+            "• Maintain expert-level technical accuracy\n"
+            "• Provide comprehensive yet focused responses\n"
+            "• Include practical implementation considerations\n"
+            "• Highlight trade-offs and alternative approaches when relevant\n"
+            "• Connect theoretical concepts to real-world applications\n\n"
+            
+            "Remember: You are not just answering questions—you are facilitating deep technical learning and helping users "
+            "navigate and leverage their accumulated knowledge effectively."
         )
+    
+    @staticmethod 
+    def get_chat_context_preparation_prompt() -> str:
+        """
+        Returns a prompt for preparing context from knowledge base documents for chat queries.
+        This helps structure the context to be more useful for the chat model.
+        """
+        return (
+            "You are preparing context from a technical knowledge base to answer a user query. "
+            "Structure the context to be maximally useful for providing a comprehensive technical response.\n\n"
+            
+            "**Context Structuring Guidelines:**\n"
+            "• **Prioritize by Relevance**: Place most relevant content first\n"
+            "• **Group by Type**: Separate synthesis documents from individual items\n"
+            "• **Include Metadata**: Provide document type, category, and relevance context\n"
+            "• **Highlight Key Points**: Extract the most pertinent information for the query\n"
+            "• **Preserve Technical Details**: Maintain code examples, configurations, and specific implementations\n\n"
+            
+            "Format the prepared context clearly and comprehensively to enable expert-level technical responses."
+        )
+
+    @staticmethod
+    def get_synthesis_aware_chat_prompt() -> str:
+        """
+        Enhanced chat prompt specifically for handling synthesis documents alongside individual items.
+        """
+        return (
+            "You are a **Principal Technical Architect** and **Knowledge Synthesis Expert** with comprehensive understanding "
+            "of complex technical domains. You have access to both detailed individual knowledge base items and high-level "
+            "synthesis documents that consolidate patterns and insights across multiple topics.\n\n"
+            
+            "**Knowledge Base Structure You're Working With:**\n"
+            "• **Individual Items**: Detailed technical articles on specific topics, tools, and implementations\n"
+            "• **Synthesis Documents**: Comprehensive analyses that identify patterns, best practices, and strategic insights across multiple related items\n"
+            "• **Categories**: Organized by technical domain (e.g., backend_frameworks, cloud_architecture, devops_automation)\n"
+            "• **Cross-References**: Documents are interconnected with shared concepts and complementary information\n\n"
+            
+            "**Your Expert Capabilities:**\n"
+            "• **Pattern Recognition**: Identify common themes and architectural patterns across multiple sources\n"
+            "• **Strategic Thinking**: Provide both tactical implementation details and strategic technical guidance\n"
+            "• **Technology Evolution**: Understand how technologies and practices evolve and interconnect\n"
+            "• **Practical Implementation**: Bridge theoretical concepts with real-world application\n\n"
+            
+            "**Response Strategy by Context Type:**\n"
+            "• **When referencing synthesis documents**: Provide strategic insights, patterns, and high-level guidance\n"
+            "• **When referencing individual items**: Focus on specific implementation details and practical steps\n"
+            "• **When combining both**: Start with strategic context from syntheses, then drill down to specific implementations\n"
+            "• **When cross-referencing**: Actively connect related concepts and suggest exploration paths\n\n"
+            
+            "**Enhanced Citation System:**\n"
+            "• Individual Items: `[📄 {Category}/{Subcategory}: Title]`\n"
+            "• Synthesis Documents: `[📋 {Category} Synthesis: Title]`\n"
+            "• High-value cross-references: `[🔗 Related in {Category}: Title1, Title2]`\n"
+            "• Strategic insights: `[⚡ Key Pattern from {Synthesis}: Insight]`\n\n"
+            
+            "**Response Excellence Standards:**\n"
+            "• **Comprehensive Coverage**: Address the query from multiple angles when relevant sources exist\n"
+            "• **Technical Depth**: Provide expert-level technical details without overwhelming\n"
+            "• **Practical Focus**: Always include actionable guidance and implementation considerations\n"
+            "• **Strategic Context**: Connect tactical details to broader architectural and strategic considerations\n"
+            "• **Learning Facilitation**: Suggest logical next steps and deeper exploration paths\n\n"
+            
+            "Your goal is to provide responses that would be valued by senior engineers, technical architects, and technology leaders "
+            "seeking both immediate answers and deeper technical understanding."
+        )
+
+    @staticmethod
+    def get_contextual_chat_response_prompt(query_type: str = "general") -> str:
+        """
+        Returns specialized prompts based on the type of query being asked.
+        
+        Args:
+            query_type: Type of query - "explanation", "implementation", "comparison", "troubleshooting", "architecture", "general"
+        """
+        base_context = (
+            "You are a Senior Technical Expert responding to a specific type of technical query. "
+            "Tailor your response structure and focus to best serve the user's information need.\n\n"
+        )
+        
+        query_specific_guidance = {
+            "explanation": (
+                "**Query Type: Technical Explanation**\n"
+                "• Start with a clear, concise definition or overview\n"
+                "• Provide necessary technical background and context\n"
+                "• Include concrete examples and use cases\n"
+                "• Explain the 'why' behind technical decisions and approaches\n"
+                "• Connect to broader architectural or design patterns\n"
+                "• Suggest areas for deeper learning"
+            ),
+            "implementation": (
+                "**Query Type: Implementation Guidance**\n"
+                "• Provide step-by-step implementation guidance\n"
+                "• Include code examples, configurations, and specific technical details\n"
+                "• Highlight common pitfalls and how to avoid them\n"
+                "• Mention prerequisites and dependencies\n"
+                "• Suggest testing and validation approaches\n"
+                "• Reference best practices and production considerations"
+            ),
+            "comparison": (
+                "**Query Type: Technology/Approach Comparison**\n"
+                "• Create structured comparison highlighting key differences\n"
+                "• Analyze trade-offs and use case suitability\n"
+                "• Include performance, complexity, and maintainability considerations\n"
+                "• Provide decision criteria and selection guidance\n"
+                "• Reference real-world usage patterns and industry adoption\n"
+                "• Suggest evaluation approaches"
+            ),
+            "troubleshooting": (
+                "**Query Type: Troubleshooting/Problem Solving**\n"
+                "• Identify potential root causes systematically\n"
+                "• Provide diagnostic steps and debugging approaches\n"
+                "• Include specific commands, tools, and techniques\n"
+                "• Suggest monitoring and prevention strategies\n"
+                "• Reference common patterns and known issues\n"
+                "• Provide escalation paths for complex scenarios"
+            ),
+            "architecture": (
+                "**Query Type: Architecture/Design**\n"
+                "• Address scalability, reliability, and maintainability concerns\n"
+                "• Include system design patterns and architectural principles\n"
+                "• Discuss trade-offs between different architectural approaches\n"
+                "• Reference industry best practices and proven patterns\n"
+                "• Consider operational and organizational implications\n"
+                "• Suggest evolution paths and future considerations"
+            ),
+            "general": (
+                "**Query Type: General Technical**\n"
+                "• Provide comprehensive coverage of the topic\n"
+                "• Balance theoretical understanding with practical application\n"
+                "• Include multiple perspectives and approaches when relevant\n"
+                "• Connect to related concepts and technologies\n"
+                "• Suggest logical learning progression and next steps"
+            )
+        }
+        
+        return base_context + query_specific_guidance.get(query_type, query_specific_guidance["general"])
     
     @staticmethod
     def get_short_name_generation_prompt() -> str:
@@ -232,10 +411,11 @@ class LLMPrompts:
         Returns the system prompt for generating a short name for a category.
         """
         return (
-            "You are a master at creating concise, catchy, and user-friendly names. "
-            "Your task is to generate a short name (2-3 words, max 25 characters) for a given category name. "
-            "The name should be suitable for a UI navigation bar. Do not use underscores or special characters. "
-            "Respond with ONLY the generated name."
+            "You are an expert at creating concise, intuitive navigation labels for technical categories. "
+            "Create short, memorable names (2-3 words, max 25 characters) that developers would recognize instantly. "
+            "Use title case, common technical abbreviations (API, ML, AI, DB, etc.), and avoid underscores. "
+            "Examples: 'agent_frameworks' → 'AI Agents', 'web_development' → 'Web Dev', 'machine_learning' → 'ML & AI'. "
+            "Always respond with ONLY the short name, no quotes or explanation."
         )
     
     @staticmethod
@@ -356,17 +536,25 @@ Respond ONLY with a single, valid JSON object that strictly adheres to the schem
 
     @staticmethod
     def get_readme_introduction_prompt_standard(kb_stats: Dict[str, int], category_list: str) -> str:
-        """Generate a README introduction prompt for standard models"""
+        """Generate a README introduction prompt for standard models with synthesis awareness"""
+        kb_items = kb_stats.get('total_items', 0)
+        synthesis_docs = kb_stats.get('total_synthesis', 0)
+        total_content = kb_stats.get('total_combined', kb_items + synthesis_docs)
+        
         return (
             f"Generate an engaging introduction paragraph for a technical knowledge base README.md file.\n\n"
             f"Knowledge Base Statistics:\n"
-            f"- Total Items: {kb_stats.get('total_items', 0)}\n"
+            f"- Knowledge Base Items: {kb_items}\n"
+            f"- Synthesis Documents: {synthesis_docs}\n"
+            f"- Total Content: {total_content}\n"
             f"- Main Categories: {kb_stats.get('total_main_cats', 0)}\n"
             f"- Subcategories: {kb_stats.get('total_subcats', 0)}\n"
             f"- Media Files: {kb_stats.get('total_media', 0)}\n\n"
             f"Categories include: {category_list}\n\n"
             "The introduction should be engaging, concise, and highlight the value of the knowledge base for technical professionals. "
-            "Explain what makes this collection valuable, how it's organized, and how users can benefit from it. "
+            "Mention both the detailed individual knowledge base items AND the high-level synthesis documents that provide "
+            "consolidated insights and patterns across multiple topics. "
+            "Explain what makes this dual-layer collection valuable, how it's organized, and how users can benefit from it. "
             "Write in markdown format, and keep it to 3-5 sentences. Adopt the persona of a helpful technical guide."
         )
 
@@ -607,7 +795,7 @@ class ReasoningPrompts:
         }
     
     @staticmethod
-    def get_kb_item_generation_prompt(tweet_text: str, categories: Dict[str, str], media_descriptions: List[str] = None) -> Dict[str, str]:
+    def get_kb_item_generation_prompt(tweet_text: str, categories: Dict[str, str], media_descriptions: Optional[List[str]] = None) -> Dict[str, str]:
         """Generate a knowledge base item generation prompt for reasoning models"""
         media_desc_text = ""
         if media_descriptions and len(media_descriptions) > 0:
@@ -642,19 +830,27 @@ class ReasoningPrompts:
     
     @staticmethod
     def get_readme_generation_prompt(kb_stats: Dict[str, int], category_list: str) -> Dict[str, str]:
-        """Generate a README introduction prompt for reasoning models"""
+        """Generate a README introduction prompt for reasoning models with synthesis awareness"""
+        kb_items = kb_stats.get('total_items', 0)
+        synthesis_docs = kb_stats.get('total_synthesis', 0)
+        total_content = kb_stats.get('total_combined', kb_items + synthesis_docs)
+        
         return {
             "role": "user",
             "content": (
                 f"Generate an engaging introduction paragraph for a technical knowledge base README.md file.\n\n"
                 f"Knowledge Base Statistics:\n"
-                f"- Total Items: {kb_stats.get('total_items', 0)}\n"
+                f"- Knowledge Base Items: {kb_items}\n"
+                f"- Synthesis Documents: {synthesis_docs}\n"
+                f"- Total Content: {total_content}\n"
                 f"- Main Categories: {kb_stats.get('total_main_cats', 0)}\n"
                 f"- Subcategories: {kb_stats.get('total_subcats', 0)}\n"
                 f"- Media Files: {kb_stats.get('total_media', 0)}\n\n"
                 f"Categories include: {category_list}\n\n"
                 "The introduction should be engaging, concise, and highlight the value of the knowledge base for technical professionals. "
-                "Explain what makes this collection valuable, how it's organized, and how users can benefit from it. "
+                "Mention both the detailed individual knowledge base items AND the high-level synthesis documents that provide "
+                "consolidated insights and patterns across multiple topics. "
+                "Explain what makes this dual-layer collection valuable, how it's organized, and how users can benefit from it. "
                 "Write in markdown format, and keep it to 3-5 sentences. "
                 "Think step-by-step about what would make this knowledge base appealing to technical users. Adopt the persona of an expert technical guide and knowledge architect."
             )

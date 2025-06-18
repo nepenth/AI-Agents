@@ -167,7 +167,7 @@ class DynamicPhaseEstimator:
             Dictionary with updated estimates including ETC timestamp
         """
         if phase_id not in self.runtime_estimates:
-            logging.warning(f"Phase '{phase_id}' not initialized for tracking")
+            logging.debug(f"Phase '{phase_id}' not initialized for tracking (likely completed with 0 items)")
             return {}
         
         phase_data = self.runtime_estimates[phase_id]

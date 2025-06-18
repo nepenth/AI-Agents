@@ -190,10 +190,20 @@ html[data-bs-theme="dark"] #current-phase-details {
 .status-pending { color: #6c757d; border-color: #6c757d !important; }
 .status-will-run { color: #0d6efd; border-color: #0d6efd !important; }
 .status-active { color: #198754; border-color: #198754 !important; background-color: #e8f3ee !important; }
-.status-completed { color: #198754; border-color: #198754 !important; }
+.status-completed { 
+    color: #198754; 
+    border-color: #198754 !important; 
+    font-weight: normal; /* Remove bold to be less prominent */
+    font-size: 0.875rem; /* Slightly smaller font to blend better */
+}
 .status-skipped { color: #6c757d; border-color: #adb5bd !important; }
 .status-error { color: #dc3545; border-color: #dc3545 !important; background-color: #f8d7da !important; }
 .status-interrupted { color: #fd7e14; border-color: #fd7e14 !important; }
+
+/* Dark mode adjustments for completed status */
+html[data-bs-theme="dark"] .status-completed {
+    color: #75c28a; /* Slightly muted green for dark mode */
+}
 
 /* ==================== PHASE STYLING ==================== */
 
