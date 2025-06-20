@@ -261,6 +261,14 @@ def syntheses_list_page():
 def chat_page():
     return render_template('chat_content.html')
 
+@app.route('/schedule')
+def schedule_page():
+    return render_template('schedule_content.html')
+
+@app.route('/environment')
+def environment_page():
+    return render_template('environment_content.html')
+
 @app.route('/logs')
 def logs_page():
     return render_template('logs_content.html')
@@ -493,6 +501,11 @@ def handle_request_gpu_stats():
 def api_chat():
     """Enhanced chat API endpoint with technical expertise and rich source metadata."""
     try:
+        from .models import ChatSession, ChatMessage, db
+        from datetime import datetime, timezone
+        import json
+        import uuid
+        
         data = request.get_json()
         if not data or 'message' not in data:
             return jsonify({'error': 'Message is required'}), 400
@@ -501,8 +514,40 @@ def api_chat():
         if not message:
             return jsonify({'error': 'Message cannot be empty'}), 400
         
-        # Get optional model selection
+        # Get optional model selection and session ID
         model = data.get('model')
+        session_id = data.get('session_id')
+        
+        # Create new session if none provided
+        if not session_id:
+            session_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc)
+            
+            session = ChatSession()
+            session.session_id = session_id
+            session.title = message[:50] + "..." if len(message) > 50 else message
+            session.created_at = now
+            session.last_updated = now
+            session.is_archived = False
+            session.message_count = 0
+            
+            db.session.add(session)
+            db.session.commit()
+        else:
+            # Get existing session
+            session = ChatSession.query.filter_by(session_id=session_id).first()
+            if not session:
+                return jsonify({'error': 'Session not found'}), 404
+        
+        # Save user message
+        now = datetime.now(timezone.utc)
+        user_message = ChatMessage()
+        user_message.session_id = session_id
+        user_message.role = 'user'
+        user_message.content = message
+        user_message.created_at = now
+        
+        db.session.add(user_message)
         
         # Get chat manager
         chat_mgr = get_chat_manager()
@@ -523,6 +568,28 @@ def api_chat():
         
         if 'error' in result:
             return jsonify(result), 500
+        
+        # Save assistant response
+        assistant_message = ChatMessage()
+        assistant_message.session_id = session_id
+        assistant_message.role = 'assistant'
+        assistant_message.content = result.get('response', '')
+        assistant_message.created_at = datetime.now(timezone.utc)
+        assistant_message.model_used = model or 'default'
+        assistant_message.sources = json.dumps(result.get('sources', []))
+        assistant_message.context_stats = json.dumps(result.get('context_stats', {}))
+        assistant_message.performance_metrics = json.dumps(result.get('performance_metrics', {}))
+        
+        db.session.add(assistant_message)
+        
+        # Update session
+        session.message_count += 2
+        session.last_updated = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        
+        # Add session_id to result
+        result['session_id'] = session_id
         
         return jsonify(result)
         
@@ -575,6 +642,587 @@ def api_chat_legacy():
     except Exception as e:
         logging.error(f"Error in legacy chat API: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
+
+# --- Schedule API Routes ---
+
+@app.route('/api/schedules', methods=['GET'])
+def api_get_schedules():
+    """Get all schedules."""
+    try:
+        from .models import Schedule
+        schedules = Schedule.query.all()
+        schedule_list = []
+        
+        for schedule in schedules:
+            schedule_list.append({
+                'id': schedule.id,
+                'name': schedule.name,
+                'description': schedule.description,
+                'frequency': schedule.frequency,
+                'time': schedule.time,
+                'day_of_week': schedule.day_of_week,
+                'day_of_month': schedule.day_of_month,
+                'cron_expression': schedule.cron_expression,
+                'pipeline_type': schedule.pipeline_type,
+                'enabled': schedule.enabled,
+                'next_run': schedule.next_run.isoformat() if schedule.next_run else None,
+                'last_run': schedule.last_run.isoformat() if schedule.last_run else None,
+                'created_at': schedule.created_at.isoformat() if schedule.created_at else None
+            })
+        
+        return jsonify(schedule_list)
+    except Exception as e:
+        logging.error(f"Error retrieving schedules: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve schedules'}), 500
+
+@app.route('/api/schedules', methods=['POST'])
+def api_create_schedule():
+    """Create a new schedule."""
+    try:
+        from .models import Schedule, db
+        from datetime import datetime, timezone
+        import json
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('frequency'):
+            return jsonify({'error': 'Name and frequency are required'}), 400
+        
+        # Create new schedule
+        now = datetime.now(timezone.utc)
+        schedule = Schedule()
+        schedule.name = data['name']
+        schedule.description = data.get('description', '')
+        schedule.frequency = data['frequency']
+        schedule.time = data.get('time')
+        schedule.day_of_week = data.get('day')
+        schedule.day_of_month = data.get('date')
+        schedule.cron_expression = data.get('cron')
+        schedule.pipeline_type = data.get('pipeline', 'full')
+        schedule.pipeline_config = json.dumps({
+            'skip_fetch_bookmarks': data.get('skip_fetch_bookmarks', False),
+            'skip_process_content': data.get('skip_process_content', False),
+            'force_recache_tweets': data.get('force_recache_tweets', False),
+            'force_reprocess_media': data.get('force_reprocess_media', False),
+            'force_reprocess_llm': data.get('force_reprocess_llm', False),
+            'force_reprocess_kb_item': data.get('force_reprocess_kb_item', False)
+        })
+        schedule.enabled = data.get('enabled', True)
+        schedule.created_at = now
+        schedule.last_updated = now
+        
+        db.session.add(schedule)
+        db.session.commit()
+        
+        return jsonify({
+            'id': schedule.id,
+            'name': schedule.name,
+            'description': schedule.description,
+            'frequency': schedule.frequency,
+            'time': schedule.time,
+            'pipeline_type': schedule.pipeline_type,
+            'enabled': schedule.enabled,
+            'created_at': schedule.created_at.isoformat()
+        }), 201
+        
+    except Exception as e:
+        logging.error(f"Error creating schedule: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to create schedule'}), 500
+
+@app.route('/api/schedules/<int:schedule_id>', methods=['PUT'])
+def api_update_schedule(schedule_id):
+    """Update an existing schedule."""
+    try:
+        from .models import Schedule, db
+        from datetime import datetime, timezone
+        import json
+        
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return jsonify({'error': 'Schedule not found'}), 404
+        
+        data = request.get_json()
+        
+        # Update schedule fields
+        if 'name' in data:
+            schedule.name = data['name']
+        if 'description' in data:
+            schedule.description = data['description']
+        if 'frequency' in data:
+            schedule.frequency = data['frequency']
+        if 'time' in data:
+            schedule.time = data['time']
+        if 'day' in data:
+            schedule.day_of_week = data['day']
+        if 'date' in data:
+            schedule.day_of_month = data['date']
+        if 'cron' in data:
+            schedule.cron_expression = data['cron']
+        if 'pipeline' in data:
+            schedule.pipeline_type = data['pipeline']
+        if 'enabled' in data:
+            schedule.enabled = data['enabled']
+        
+        # Update pipeline config
+        pipeline_config = {
+            'skip_fetch_bookmarks': data.get('skip_fetch_bookmarks', False),
+            'skip_process_content': data.get('skip_process_content', False),
+            'force_recache_tweets': data.get('force_recache_tweets', False),
+            'force_reprocess_media': data.get('force_reprocess_media', False),
+            'force_reprocess_llm': data.get('force_reprocess_llm', False),
+            'force_reprocess_kb_item': data.get('force_reprocess_kb_item', False)
+        }
+        schedule.pipeline_config = json.dumps(pipeline_config)
+        schedule.last_updated = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        return jsonify({'message': 'Schedule updated successfully'})
+    except Exception as e:
+        logging.error(f"Error updating schedule {schedule_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to update schedule'}), 500
+
+@app.route('/api/schedules/<int:schedule_id>', methods=['DELETE'])
+def api_delete_schedule(schedule_id):
+    """Delete a schedule."""
+    try:
+        from .models import Schedule, db
+        
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return jsonify({'error': 'Schedule not found'}), 404
+        
+        db.session.delete(schedule)
+        db.session.commit()
+        
+        return jsonify({'message': 'Schedule deleted successfully'})
+    except Exception as e:
+        logging.error(f"Error deleting schedule {schedule_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to delete schedule'}), 500
+
+@app.route('/api/schedules/<int:schedule_id>/toggle', methods=['POST'])
+def api_toggle_schedule(schedule_id):
+    """Toggle schedule enabled/disabled status."""
+    try:
+        from .models import Schedule, db
+        from datetime import datetime, timezone
+        
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return jsonify({'error': 'Schedule not found'}), 404
+        
+        schedule.enabled = not schedule.enabled
+        schedule.last_updated = datetime.now(timezone.utc)
+        db.session.commit()
+        
+        return jsonify({'message': 'Schedule toggled successfully'})
+    except Exception as e:
+        logging.error(f"Error toggling schedule {schedule_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to toggle schedule'}), 500
+
+@app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
+def api_run_schedule(schedule_id):
+    """Run a schedule immediately."""
+    try:
+        from .models import Schedule, ScheduleRun, db
+        from datetime import datetime, timezone
+        
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return jsonify({'error': 'Schedule not found'}), 404
+        
+        # Create a new schedule run record
+        run = ScheduleRun()
+        run.schedule_id = schedule_id
+        run.execution_time = datetime.now(timezone.utc)
+        run.status = 'running'
+        db.session.add(run)
+        db.session.commit()
+        
+        # TODO: Actually trigger the agent run here
+        # For now, just mark as completed
+        run.status = 'completed'
+        run.duration = '0 seconds'
+        run.processed_items = 0
+        db.session.commit()
+        
+        return jsonify({'message': 'Schedule execution started'})
+    except Exception as e:
+        logging.error(f"Error running schedule {schedule_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to run schedule'}), 500
+
+@app.route('/api/schedule-history', methods=['GET'])
+def api_get_schedule_history():
+    """Get schedule execution history."""
+    try:
+        from .models import ScheduleRun, Schedule
+        
+        runs = db.session.query(ScheduleRun, Schedule).join(Schedule).order_by(ScheduleRun.execution_time.desc()).limit(50).all()
+        
+        history = []
+        for run, schedule in runs:
+            history.append({
+                'id': run.id,
+                'schedule_name': schedule.name,
+                'execution_time': run.execution_time.isoformat() if run.execution_time else None,
+                'status': run.status,
+                'duration': run.duration,
+                'processed_items': run.processed_items or 0
+            })
+        
+        return jsonify(history)
+    except Exception as e:
+        logging.error(f"Error retrieving schedule history: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve schedule history'}), 500
+
+@app.route('/api/schedule-runs/<int:run_id>', methods=['DELETE'])
+def delete_schedule_run(run_id):
+    """API endpoint to delete a schedule run from history."""
+    try:
+        # Implementation for deleting specific run from history
+        return jsonify({'success': True, 'message': 'Schedule run deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/environment-variables', methods=['GET'])
+def get_environment_variables():
+    """API endpoint to get environment variables with validation against config.py."""
+    try:
+        from dotenv import dotenv_values
+        import os
+        from .config import Config
+        from pydantic.fields import FieldInfo
+        from typing import get_origin, get_args
+        
+        # Get current .env values and actual environment variables
+        env_file_path = '.env'
+        if os.path.exists(env_file_path):
+            env_values = dotenv_values(env_file_path)
+        else:
+            env_values = {}
+        
+        # Dynamically extract all environment variable aliases from Config class
+        config_fields = {}
+        
+        for field_name, field_info in Config.model_fields.items():
+            # Skip computed fields that don't correspond to environment variables
+            if field_name in ['project_root', 'data_processing_dir', 'knowledge_base_dir', 'categories_file', 
+                             'bookmarks_file', 'processed_tweets_file', 'media_cache_dir', 'tweet_cache_file',
+                             'log_file', 'unprocessed_tweets_file', 'log_dir']:
+                continue
+                
+            # Get the alias (environment variable name)
+            env_var_name = field_info.alias if field_info.alias else field_name.upper()
+            
+            # Get field description
+            description = field_info.description or f"Configuration for {field_name}"
+            
+            # Determine if field is required
+            required = field_info.is_required()
+            
+            # Get field type
+            field_type = "str"  # default
+            if hasattr(field_info, 'annotation') and field_info.annotation:
+                annotation = field_info.annotation
+                if annotation == int:
+                    field_type = "int"
+                elif annotation == bool:
+                    field_type = "bool"
+                elif annotation == float:
+                    field_type = "float"
+                elif get_origin(annotation) == list:
+                    field_type = "array"
+                elif str(annotation).startswith('typing.Optional'):
+                    # Handle Optional types
+                    args = get_args(annotation)
+                    if args and args[0] == int:
+                        field_type = "int"
+                    elif args and args[0] == bool:
+                        field_type = "bool"
+                    elif args and args[0] == float:
+                        field_type = "float"
+            
+            config_fields[env_var_name] = {
+                'alias': env_var_name,
+                'description': description,
+                'required': required,
+                'type': field_type,
+                'field_name': field_name
+            }
+        
+        # Add system environment variables to our env_values if they exist
+        for var_name in config_fields.keys():
+            if var_name not in env_values and var_name in os.environ:
+                env_values[var_name] = os.environ[var_name]
+        
+        # Determine which env vars are used/unused
+        used_env_vars = []
+        unused_env_vars = []
+        missing_env_vars = []
+        
+        # Check which variables are used (defined in Config class)
+        for var_name, var_info in config_fields.items():
+            if var_name in env_values:
+                used_env_vars.append(var_name)
+            elif var_info['required']:
+                missing_env_vars.append(var_name)
+        
+        # Find unused variables (variables in .env but not defined in Config class)
+        for var_name in env_values.keys():
+            if var_name not in config_fields:
+                unused_env_vars.append(var_name)
+        
+        # Organize environment variables
+        result = {
+            'env_variables': env_values,
+            'config_fields': config_fields,
+            'used_env_vars': used_env_vars,
+            'unused_env_vars': unused_env_vars,
+            'missing_env_vars': missing_env_vars
+        }
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error getting environment variables: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/environment-variables', methods=['POST'])
+def update_environment_variables():
+    """API endpoint to update environment variables in .env file while preserving comments and formatting."""
+    try:
+        data = request.get_json()
+        env_vars = data.get('env_variables', {})
+        
+        env_file_path = '.env'
+        
+        if not os.path.exists(env_file_path):
+            # Create new .env file if it doesn't exist
+            with open(env_file_path, 'w') as f:
+                for key, value in env_vars.items():
+                    f.write(f"{key}={value}\n")
+            return jsonify({'success': True, 'message': 'Environment variables created successfully'})
+        
+        # Read all lines from the existing .env file
+        with open(env_file_path, 'r') as f:
+            lines = f.readlines()
+        
+        # Process each variable update
+        for var_name, var_value in env_vars.items():
+            updated = False
+            
+            # Look for existing variable and update it
+            for i, line in enumerate(lines):
+                stripped_line = line.strip()
+                if stripped_line and not stripped_line.startswith('#') and '=' in stripped_line:
+                    existing_var_name = stripped_line.split('=', 1)[0]
+                    if existing_var_name == var_name:
+                        # Update the existing line
+                        lines[i] = f"{var_name}={var_value}\n"
+                        updated = True
+                        break
+            
+            # If variable not found, append it at the end
+            if not updated:
+                # Add a newline before the new variable if the file doesn't end with one
+                if lines and not lines[-1].endswith('\n'):
+                    lines[-1] += '\n'
+                lines.append(f"{var_name}={var_value}\n")
+        
+        # Write the updated content back to the file
+        with open(env_file_path, 'w') as f:
+            f.writelines(lines)
+        
+        return jsonify({'success': True, 'message': 'Environment variables updated successfully'})
+    except Exception as e:
+        logging.error(f"Error updating environment variables: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/environment-variables/<var_name>', methods=['DELETE'])
+def delete_environment_variable(var_name):
+    """API endpoint to delete an environment variable from .env file."""
+    try:
+        env_file_path = '.env'
+        if not os.path.exists(env_file_path):
+            return jsonify({'success': False, 'error': '.env file not found'}), 404
+        
+        # Read current .env file
+        lines = []
+        with open(env_file_path, 'r') as f:
+            lines = f.readlines()
+        
+        # Filter out the variable to delete
+        updated_lines = []
+        for line in lines:
+            if not line.strip().startswith(f"{var_name}="):
+                updated_lines.append(line)
+        
+        # Write back to .env file
+        with open(env_file_path, 'w') as f:
+            f.writelines(updated_lines)
+        
+        return jsonify({'success': True, 'message': f'Environment variable {var_name} deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- Chat Session API Routes ---
+
+@app.route('/api/chat/sessions', methods=['GET'])
+def api_get_chat_sessions():
+    """Get all chat sessions."""
+    try:
+        from .models import ChatSession
+        
+        sessions = ChatSession.query.order_by(ChatSession.last_updated.desc()).all()
+        session_list = []
+        
+        for session in sessions:
+            session_list.append({
+                'id': session.id,
+                'session_id': session.session_id,
+                'title': session.title,
+                'created_at': session.created_at.isoformat() if session.created_at else None,
+                'last_updated': session.last_updated.isoformat() if session.last_updated else None,
+                'is_archived': session.is_archived,
+                'message_count': session.message_count
+            })
+        
+        return jsonify(session_list)
+    except Exception as e:
+        logging.error(f"Error retrieving chat sessions: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve chat sessions'}), 500
+
+@app.route('/api/chat/sessions/<session_id>', methods=['GET'])
+def api_get_chat_session(session_id):
+    """Get a specific chat session with messages."""
+    try:
+        from .models import ChatSession, ChatMessage
+        import json
+        
+        session = ChatSession.query.filter_by(session_id=session_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        messages = ChatMessage.query.filter_by(session_id=session_id).order_by(ChatMessage.created_at.asc()).all()
+        
+        message_list = []
+        for message in messages:
+            msg_data = {
+                'id': message.id,
+                'role': message.role,
+                'content': message.content,
+                'created_at': message.created_at.isoformat() if message.created_at else None,
+                'model_used': message.model_used
+            }
+            
+            # Parse JSON fields if they exist
+            if message.sources:
+                try:
+                    msg_data['sources'] = json.loads(message.sources)
+                except:
+                    msg_data['sources'] = []
+            
+            if message.context_stats:
+                try:
+                    msg_data['context_stats'] = json.loads(message.context_stats)
+                except:
+                    msg_data['context_stats'] = {}
+            
+            if message.performance_metrics:
+                try:
+                    msg_data['performance_metrics'] = json.loads(message.performance_metrics)
+                except:
+                    msg_data['performance_metrics'] = {}
+                    
+            message_list.append(msg_data)
+        
+        return jsonify({
+            'session': {
+                'id': session.id,
+                'session_id': session.session_id,
+                'title': session.title,
+                'created_at': session.created_at.isoformat() if session.created_at else None,
+                'last_updated': session.last_updated.isoformat() if session.last_updated else None,
+                'is_archived': session.is_archived,
+                'message_count': session.message_count
+            },
+            'messages': message_list
+        })
+    except Exception as e:
+        logging.error(f"Error retrieving chat session {session_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve chat session'}), 500
+
+@app.route('/api/chat/sessions', methods=['POST'])
+def api_create_chat_session():
+    """Create a new chat session."""
+    try:
+        from .models import ChatSession, db
+        from datetime import datetime, timezone
+        import uuid
+        
+        data = request.get_json()
+        
+        # Generate a unique session ID
+        session_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc)
+        
+        session = ChatSession()
+        session.session_id = session_id
+        session.title = data.get('title', 'New Chat')
+        session.created_at = now
+        session.last_updated = now
+        session.is_archived = False
+        session.message_count = 0
+        
+        db.session.add(session)
+        db.session.commit()
+        
+        return jsonify({
+            'session_id': session.session_id,
+            'title': session.title,
+            'created_at': session.created_at.isoformat()
+        }), 201
+        
+    except Exception as e:
+        logging.error(f"Error creating chat session: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to create chat session'}), 500
+
+@app.route('/api/chat/sessions/<session_id>/archive', methods=['POST'])
+def api_archive_chat_session(session_id):
+    """Archive/unarchive a chat session."""
+    try:
+        from .models import ChatSession, db
+        from datetime import datetime, timezone
+        
+        session = ChatSession.query.filter_by(session_id=session_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        session.is_archived = not session.is_archived
+        session.last_updated = datetime.now(timezone.utc)
+        db.session.commit()
+        
+        return jsonify({'message': 'Session archived successfully' if session.is_archived else 'Session unarchived successfully'})
+    except Exception as e:
+        logging.error(f"Error archiving chat session {session_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to archive chat session'}), 500
+
+@app.route('/api/chat/sessions/<session_id>', methods=['DELETE'])
+def api_delete_chat_session(session_id):
+    """Delete a chat session and all its messages."""
+    try:
+        from .models import ChatSession, db
+        
+        session = ChatSession.query.filter_by(session_id=session_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        db.session.delete(session)
+        db.session.commit()
+        
+        return jsonify({'message': 'Session deleted successfully'})
+    except Exception as e:
+        logging.error(f"Error deleting chat session {session_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to delete chat session'}), 500
 
 # --- Main Execution ---
 

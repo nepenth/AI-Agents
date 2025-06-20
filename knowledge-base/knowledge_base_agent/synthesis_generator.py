@@ -14,6 +14,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
+import time
 
 from .config import Config
 from .http_client import HTTPClient
@@ -26,6 +27,7 @@ from .naming_utils import (
     generate_short_name,
 )
 from .synthesis_tracker import SynthesisDependencyTracker
+from .stats_manager import update_phase_stats
 
 
 class SynthesisGenerator:
@@ -48,6 +50,9 @@ class SynthesisGenerator:
         Returns a list of generated synthesis objects, total eligible count, and total errors.
         """
         self.logger.info("Starting synthesis generation with dependency tracking.")
+        
+        # Track overall phase timing
+        phase_start_time = time.time()
         
         # Analyze current staleness and create execution plan
         if phase_emitter_func:
@@ -91,6 +96,7 @@ class SynthesisGenerator:
         synthesis_results = []
         processed_count = 0
         error_count = 0
+        item_processing_times = []  # Track individual item processing times
         
         # Process subcategories first, then main categories
         subcategory_syntheses = [
@@ -113,6 +119,9 @@ class SynthesisGenerator:
                         False, processed_count, total_eligible, error_count
                     )
                 
+                # Track individual item processing time
+                item_start_time = time.time()
+                
                 synthesis = await self._create_synthesis_document(
                     main_category=main_category,
                     sub_category=sub_category,
@@ -120,10 +129,13 @@ class SynthesisGenerator:
                     is_main_category=False
                 )
                 
+                item_duration = time.time() - item_start_time
+                item_processing_times.append(item_duration)
+                
                 if synthesis:
                     synthesis_results.append(synthesis)
                     processed_count += 1
-                    self.logger.info(f"Successfully generated synthesis for {main_category}/{sub_category}")
+                    self.logger.info(f"Successfully generated synthesis for {main_category}/{sub_category} in {item_duration:.1f}s")
                     
                     # Send progress update after successful completion
                     if phase_emitter_func:
@@ -137,6 +149,8 @@ class SynthesisGenerator:
                     error_count += 1
                     
             except Exception as e:
+                item_duration = time.time() - item_start_time
+                item_processing_times.append(item_duration)  # Track time even for failed items
                 self.logger.error(f"Error generating synthesis for {main_category}/{sub_category}: {e}", exc_info=True)
                 error_count += 1
         
@@ -151,6 +165,9 @@ class SynthesisGenerator:
                         False, processed_count, total_eligible, error_count
                     )
                 
+                # Track individual item processing time
+                item_start_time = time.time()
+                
                 synthesis = await self._create_synthesis_document(
                     main_category=main_category,
                     sub_category=None,
@@ -158,10 +175,13 @@ class SynthesisGenerator:
                     is_main_category=True
                 )
                 
+                item_duration = time.time() - item_start_time
+                item_processing_times.append(item_duration)
+                
                 if synthesis:
                     synthesis_results.append(synthesis)
                     processed_count += 1
-                    self.logger.info(f"Successfully generated main category synthesis for {main_category}")
+                    self.logger.info(f"Successfully generated main category synthesis for {main_category} in {item_duration:.1f}s")
                     
                     # Send progress update after successful completion
                     if phase_emitter_func:
@@ -175,12 +195,29 @@ class SynthesisGenerator:
                     error_count += 1
                     
             except Exception as e:
+                item_duration = time.time() - item_start_time
+                item_processing_times.append(item_duration)  # Track time even for failed items
                 self.logger.error(f"Error generating main category synthesis for {main_category}: {e}", exc_info=True)
                 error_count += 1
         
+        # Calculate and update historical statistics
+        total_phase_duration = time.time() - phase_start_time
+        items_actually_processed = len(item_processing_times)
+        
+        if items_actually_processed > 0:
+            avg_time_per_item = sum(item_processing_times) / items_actually_processed
+            self.logger.info(f"Synthesis generation stats: {items_actually_processed} items processed, avg {avg_time_per_item:.1f}s/item")
+            
+            # Update historical statistics for future ETC calculations
+            update_phase_stats(
+                phase_id="synthesis_generation",
+                items_processed_this_run=items_actually_processed,
+                duration_this_run_seconds=total_phase_duration
+            )
+        
         self.logger.info(
             f"Synthesis generation complete. Generated: {processed_count}, "
-            f"Eligible: {total_eligible}, Errors: {error_count}"
+            f"Eligible: {total_eligible}, Errors: {error_count}, Total time: {total_phase_duration:.1f}s"
         )
         
         if phase_emitter_func:

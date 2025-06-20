@@ -45,18 +45,26 @@
         </div>
     </div>
 
-    <div id="chat-widget" class="chat-widget chat-widget-open">
+    <!-- Chat Widget (starts minimized) -->
+    <div id="chat-widget" class="chat-widget">
         <div class="chat-widget-header">
-            <span>Agent Chat</span>
-            <div class="chat-model-selector-widget-container">
-                <select id="chat-model-selector-widget" class="form-control form-control-sm"></select>
-            </div>
-            <button id="clear-chat-widget" class="btn btn-outline-light btn-sm" title="Clear Chat History" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 5px;">
-                <i class="bi bi-trash3"></i>
+            <span>💬 Chat with Knowledge Base</span>
+            <button class="chat-toggle" onclick="toggleChat()">
+                <span class="chat-toggle-icon">+</span>
             </button>
-            <span class="chat-toggle-icon">-</span>
         </div>
-        <div class="chat-widget-body" style="display: flex;">
+        <div class="chat-widget-body" style="display: none;">
+            <div class="chat-widget-controls" style="padding: 8px; border-bottom: 1px solid #ddd;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="chat-model-selector-widget-container">
+                        <label for="chat-model-selector-widget" class="form-label mb-0" style="font-size: 0.8rem;">Model:</label>
+                        <select id="chat-model-selector-widget" class="form-control form-control-sm"></select>
+                    </div>
+                    <button id="clear-chat-widget" class="btn btn-outline-secondary btn-sm" title="Clear Chat History">
+                        <i class="bi bi-eraser"></i>
+                    </button>
+                </div>
+            </div>
             <div id="chat-history-widget" class="chat-history">
                 <div class="chat-message assistant-message">
                     <p>Hello! How can I help you query the knowledge base today?</p>

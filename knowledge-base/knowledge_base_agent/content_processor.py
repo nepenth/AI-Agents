@@ -120,12 +120,17 @@ class StreamlinedContentProcessor:
         all_tweets = await self.state_manager.get_all_tweets()
         tweets_data_map: Dict[str, Dict[str, Any]] = {}
         
-        for tweet_id in all_tweets:
+        # Ensure all unprocessed tweets are included in the data map, even if not cached yet
+        all_tweet_ids = set(all_tweets.keys()) | set(unprocessed_tweets)
+        
+        for tweet_id in all_tweet_ids:
             tweet_data = await self.state_manager.get_tweet(tweet_id)
             if not tweet_data:
+                # Initialize cache entry for tweets that are in unprocessed queue but not cached
                 tweet_data = {'tweet_id': tweet_id, 'url': f'https://twitter.com/user/status/{tweet_id}'}
                 await self.state_manager.initialize_tweet_cache(tweet_id, tweet_data)
                 tweet_data = await self.state_manager.get_tweet(tweet_id)
+                logging.info(f"Initialized cache entry for unprocessed tweet {tweet_id}")
             tweets_data_map[tweet_id] = tweet_data or {'tweet_id': tweet_id}
 
         # Create force flags dictionary for helper

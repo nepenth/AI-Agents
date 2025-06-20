@@ -1323,7 +1323,7 @@ class KnowledgeBaseAgent:
                 continue
 
     async def generate_synthesis(self, preferences: UserPreferences) -> None:
-        """Generates synthesis documents for all eligible subcategories."""
+        """Generates synthesis documents for all eligible subcategories with proper phase tracking."""
         
         # Check if we have access to Flask app context (required for database operations)
         if not self.app:
@@ -1331,17 +1331,55 @@ class KnowledgeBaseAgent:
             self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped - no database access in subprocess mode')
             return
         
-        # The generate_subcategory_syntheses function is designed to be called directly
-        # and handles its own logging and phase updates.
         try:
             with self.app.app_context():
+                # Create a custom phase emitter that also updates the dynamic phase estimator
+                def enhanced_phase_emitter(phase_id, status, message, is_sub_step_update=False, 
+                                         processed_count=None, total_count=None, error_count=None, 
+                                         initial_estimated_duration_seconds=None):
+                    
+                    # Call the standard phase emitter
+                    self.socketio_emit_phase_update(
+                        phase_id, status, message, is_sub_step_update, 
+                        processed_count, total_count, error_count, 
+                        initial_estimated_duration_seconds
+                    )
+                    
+                    # If this is the initial phase setup with total count, initialize tracking
+                    if (phase_id == "synthesis_generation" and 
+                        not is_sub_step_update and 
+                        status == "in_progress" and 
+                        total_count and total_count > 0 and 
+                        processed_count == 0):
+                        
+                        self.logger.info(f"Initializing dynamic phase tracking for synthesis_generation with {total_count} items")
+                        historical_duration = self.phase_estimator.initialize_phase_tracking(phase_id, total_count)
+                        if historical_duration:
+                            self.logger.info(f"Using historical average for synthesis ETC: {historical_duration:.1f}s total")
+                    
+                    # If we have progress updates, update the estimator
+                    elif (phase_id == "synthesis_generation" and 
+                          not is_sub_step_update and 
+                          processed_count is not None):
+                        
+                        estimation_result = self.phase_estimator.update_phase_progress(phase_id, processed_count)
+                        if estimation_result:
+                            etc_minutes = estimation_result.get('estimated_remaining_minutes', 0)
+                            self.logger.debug(f"Updated synthesis ETC: {etc_minutes:.1f} minutes remaining")
+                
                 syntheses, eligible_count, error_count = await generate_syntheses(
                     self.config,
                     self.http_client,
                     preferences,
                     self.socketio,
-                    self.socketio_emit_phase_update
+                    enhanced_phase_emitter
                 )
+                
+                # Finalize phase tracking when complete
+                if eligible_count > 0:
+                    self.phase_estimator.finalize_phase("synthesis_generation")
+                    self.logger.info(f"Finalized synthesis generation phase tracking")
+                
         except RuntimeError as e:
             if "Working outside of application context" in str(e):
                 self.logger.info("Skipping synthesis generation - no Flask app context available")

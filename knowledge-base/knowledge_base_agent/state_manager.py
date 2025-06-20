@@ -380,14 +380,21 @@ class StateManager:
         """
         Phase 6: Final Processing Validation
         Move tweets that have completed all phases to the processed list.
+        Also clean up tweets that are in unprocessed queue but not cached.
         """
         logging.info("Running Final Processing Validation...")
         
         tweets_to_mark_processed = []
+        tweets_to_remove_from_unprocessed = []
         
         for tweet_id in list(self._unprocessed_tweets):  # Use list() to avoid modification during iteration
             tweet_data = self._tweet_cache.get(tweet_id)
             if not tweet_data:
+                # Tweet is in unprocessed queue but not cached - this shouldn't happen in normal flow
+                # These tweets should be processed by cache phase first, not left in unprocessed queue
+                logging.warning(f"Tweet {tweet_id} is in unprocessed queue but not in cache. Removing from unprocessed queue.")
+                tweets_to_remove_from_unprocessed.append(tweet_id)
+                self.validation_stats["tweets_moved_to_unprocessed"] -= 1  # Decrement since we're removing
                 continue
                 
             # Check if all required phases are complete
@@ -412,6 +419,11 @@ class StateManager:
                 tweets_to_mark_processed.append(tweet_id)
                 logging.debug(f"Tweet {tweet_id}: all phases complete, marking as processed")
         
+        # Remove tweets that shouldn't be in unprocessed queue
+        for tweet_id in tweets_to_remove_from_unprocessed:
+            if tweet_id in self._unprocessed_tweets:
+                self._unprocessed_tweets.remove(tweet_id)
+        
         # Move tweets to processed list
         for tweet_id in tweets_to_mark_processed:
             # Add to processed tweets with timestamp
@@ -422,6 +434,9 @@ class StateManager:
                 self._unprocessed_tweets.remove(tweet_id)
             
             self.validation_stats["tweets_moved_to_processed"] += 1
+        
+        if tweets_to_remove_from_unprocessed:
+            logging.info(f"Final processing validation: removed {len(tweets_to_remove_from_unprocessed)} uncached tweets from unprocessed queue")
         
         if tweets_to_mark_processed:
             logging.info(f"Final processing validation: moved {len(tweets_to_mark_processed)} tweets to processed list")

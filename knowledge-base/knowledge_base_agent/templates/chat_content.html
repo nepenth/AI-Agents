@@ -6,13 +6,30 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0"><i class="bi bi-chat-dots me-2"></i> Agent Chat</h5>
                     <div class="d-flex align-items-center gap-3">
+                        <div class="chat-session-container">
+                            <label for="chat-session-selector" class="form-label mb-0">Chat Session:</label>
+                            <select id="chat-session-selector" class="form-control form-control-sm">
+                                <option value="">New Chat</option>
+                            </select>
+                        </div>
                         <div class="chat-model-selector-container">
                             <label for="chat-model-selector-page" class="form-label mb-0">Chat Model:</label>
                             <select id="chat-model-selector-page" class="form-control form-control-sm"></select>
                         </div>
-                        <button id="clear-chat-page" class="btn btn-outline-secondary btn-sm" title="Clear Chat History">
-                            <i class="bi bi-trash3"></i> Clear
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button id="new-chat-btn" class="btn btn-outline-primary btn-sm" title="Start New Chat">
+                                <i class="bi bi-plus-circle"></i> New
+                            </button>
+                            <button id="archive-session-btn" class="btn btn-outline-warning btn-sm" title="Archive Current Session">
+                                <i class="bi bi-archive"></i> Archive
+                            </button>
+                            <button id="delete-session-btn" class="btn btn-outline-danger btn-sm" title="Delete Current Session">
+                                <i class="bi bi-trash3"></i> Delete
+                            </button>
+                            <button id="clear-chat-page" class="btn btn-outline-secondary btn-sm" title="Clear Chat History">
+                                <i class="bi bi-eraser"></i> Clear
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

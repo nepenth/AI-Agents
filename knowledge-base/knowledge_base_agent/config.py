@@ -49,6 +49,7 @@ class Config(BaseSettings):
     gpu_total_memory: int = Field(0, alias="GPU_TOTAL_MEM", description="Total GPU memory available in MB for parallelization decisions")
     num_gpus_available: int = Field(1, alias="NUM_GPUS_AVAILABLE", description="Number of GPUs available for parallel processing")
     text_model_thinking: bool = Field(False, alias="TEXT_MODEL_THINKING", description="Whether the text model supports reasoning/thinking subroutines (e.g., Cogito)")
+    categorization_model_thinking: bool = Field(False, alias="CATEGORIZATION_MODEL_THINKING", description="Whether the categorization model supports reasoning/thinking subroutines (e.g., Cogito)")
     enable_categorization_thinking: bool = Field(False, alias="ENABLE_CATEGORIZATION_THINKING", description="Whether to use a specific thinking model for categorization and synthesis tasks")
     categorization_thinking_model_name: Optional[str] = Field(None, alias="CATEGORIZATION_THINKING_MODEL_NAME", description="The name of the thinking model to use for categorization/synthesis if enable_categorization_thinking is true")
     
@@ -155,6 +156,10 @@ class Config(BaseSettings):
     # New attribute for force_recache
     force_recache: bool = Field(False, alias="FORCE_RECACHE_TWEETS")
     ollama_supports_json_mode: bool = Field(False, alias="OLLAMA_SUPPORTS_JSON_MODE", description="Whether the Ollama instance supports JSON mode for formatted output.")
+
+    # Vector store configuration
+    vector_store_path: str = Field("./data/vector_store", alias="VECTOR_STORE_PATH", description="Path to the vector store database directory")
+    vector_collection_name: str = Field("knowledge_base", alias="VECTOR_COLLECTION_NAME", description="Name of the vector collection in the database")
 
     @model_validator(mode='after')
     def resolve_paths(self):

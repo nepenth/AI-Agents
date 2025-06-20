@@ -75,6 +75,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.initializeLogsPage();
                 }
 
+                // Initialize environment manager if it's the environment page
+                if (document.querySelector('.environment-manager')) {
+                    console.log('Environment page detected, creating EnvironmentManager');
+                    // Ensure any existing instance is cleaned up
+                    if (window.environmentManager) {
+                        delete window.environmentManager;
+                    }
+                    // Load the environment script if not already loaded
+                    if (typeof EnvironmentManager === 'undefined') {
+                        const script = document.createElement('script');
+                        script.src = '/static/js/environment.js';
+                        script.onload = () => {
+                            window.environmentManager = new EnvironmentManager();
+                        };
+                        document.head.appendChild(script);
+                    } else {
+                        window.environmentManager = new EnvironmentManager();
+                    }
+                }
+
+                // Initialize schedule manager if it's the schedule page
+                if (document.querySelector('.schedule-manager')) {
+                    console.log('Schedule page detected, creating ScheduleManager');
+                    // Ensure any existing instance is cleaned up
+                    if (window.scheduleManager) {
+                        delete window.scheduleManager;
+                    }
+                    // Load the schedule script if not already loaded
+                    if (typeof ScheduleManager === 'undefined') {
+                        const script = document.createElement('script');
+                        script.src = '/static/js/schedule.js';
+                        script.onload = () => {
+                            window.scheduleManager = new ScheduleManager();
+                        };
+                        document.head.appendChild(script);
+                    } else {
+                        window.scheduleManager = new ScheduleManager();
+                    }
+                }
+
                 // Re-run Prism highlighting if it's used on the loaded page
                 if (window.Prism) {
                     Prism.highlightAll();
@@ -201,6 +241,42 @@ document.addEventListener('DOMContentLoaded', () => {
         // Call the component re-initializer from index.js
         if (window.reinitializeDynamicComponents) {
             window.reinitializeDynamicComponents();
+        }
+
+        // Initialize environment manager if it's the environment page
+        if (document.querySelector('.environment-manager')) {
+            console.log('Environment page detected, creating EnvironmentManager');
+            if (window.environmentManager) {
+                delete window.environmentManager;
+            }
+            if (typeof EnvironmentManager === 'undefined') {
+                const script = document.createElement('script');
+                script.src = '/static/js/environment.js';
+                script.onload = () => {
+                    window.environmentManager = new EnvironmentManager();
+                };
+                document.head.appendChild(script);
+            } else {
+                window.environmentManager = new EnvironmentManager();
+            }
+        }
+
+        // Initialize schedule manager if it's the schedule page
+        if (document.querySelector('.schedule-manager')) {
+            console.log('Schedule page detected, creating ScheduleManager');
+            if (window.scheduleManager) {
+                delete window.scheduleManager;
+            }
+            if (typeof ScheduleManager === 'undefined') {
+                const script = document.createElement('script');
+                script.src = '/static/js/schedule.js';
+                script.onload = () => {
+                    window.scheduleManager = new ScheduleManager();
+                };
+                document.head.appendChild(script);
+            } else {
+                window.scheduleManager = new ScheduleManager();
+            }
         }
 
         // Re-run Prism highlighting if it's used on the loaded page
