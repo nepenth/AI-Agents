@@ -78,7 +78,7 @@ class HTTPClient:
             max_tokens: Maximum tokens to generate
             top_p: Nucleus sampling parameter
             timeout: Request timeout in seconds (defaults to config.request_timeout)
-            options: Additional options, e.g., {"json_mode": True}
+            options: Additional options, e.g., {"json_mode": True, "seed": 42, "stop": ["\\n"]}
         
         Returns:
             str: Generated text response
@@ -102,9 +102,11 @@ class HTTPClient:
                     "model": model,
                     "prompt": prompt,
                     "stream": False,
-                    "temperature": temperature,
-                    "top_p": top_p,
-                    "options": {}  # Initialize options dict
+                    "options": {
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "num_predict": max_tokens
+                    }
                 }
                 
                 # Add options from the function parameters
@@ -117,10 +119,38 @@ class HTTPClient:
                         else:
                             logging.warning(f"JSON mode requested for Ollama model {model}, but not enabled in config (ollama_supports_json_mode=False). Sending as plain text.")
                     
-                    # If there's a specific GPU device requested, pass it through
-                    if "gpu_device" in options:
-                        payload["options"]["gpu_device_index"] = options["gpu_device"]
-                        logging.debug(f"Setting GPU device index to {options['gpu_device']} for this request")
+                    # Add standard Ollama parameters
+                    standard_params = [
+                        'seed', 'stop', 'num_keep', 'num_ctx', 'num_batch', 'num_gpu', 'main_gpu',
+                        'low_vram', 'vocab_only', 'use_mmap', 'use_mlock', 'num_thread', 'repeat_last_n',
+                        'repeat_penalty', 'presence_penalty', 'frequency_penalty', 'mirostat', 
+                        'mirostat_tau', 'mirostat_eta', 'penalize_newline', 'tfs_z', 'typical_p',
+                        'top_k', 'min_p'
+                    ]
+                    
+                    for param in standard_params:
+                        if param in options:
+                            payload["options"][param] = options[param]
+                    
+                    # Handle special parameters at top level
+                    if "keep_alive" in options:
+                        payload["keep_alive"] = options["keep_alive"]
+                    
+                    if "system" in options:
+                        payload["system"] = options["system"]
+                    
+                    if "template" in options:
+                        payload["template"] = options["template"]
+                    
+                    if "context" in options:
+                        payload["context"] = options["context"]
+                    
+                    if "raw" in options:
+                        payload["raw"] = options["raw"]
+                    
+                    # Handle images for multimodal models
+                    if "images" in options:
+                        payload["images"] = options["images"]
                 
                 # Log the complete payload for debugging
                 logging.debug(f"Complete Ollama payload: {payload}")
@@ -183,7 +213,7 @@ class HTTPClient:
             temperature: Controls randomness (0.0-1.0)
             top_p: Nucleus sampling parameter
             timeout: Request timeout in seconds (defaults to config.request_timeout)
-            options: Additional options, e.g., {"json_mode": True}
+            options: Additional options, e.g., {"json_mode": True, "tools": [...], "keep_alive": "5m"}
         
         Returns:
             str: Generated text response
@@ -207,25 +237,47 @@ class HTTPClient:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "temperature": temperature,
-                    "top_p": top_p,
-                    "options": {}  # Initialize options dict
+                    "options": {
+                        "temperature": temperature,
+                        "top_p": top_p
+                    }
                 }
 
                 # Add options from the function parameters
                 if options:
                     # Handle JSON mode if enabled
-                    if options.get("json_mode") is True and hasattr(self.config, 'ollama_supports_json_mode') and self.config.ollama_supports_json_mode:
-                        payload["format"] = "json"
-                        logging.info(f"Ollama JSON mode enabled for chat with model {model}")
+                    if options.get("json_mode") is True:
+                        if hasattr(self.config, 'ollama_supports_json_mode') and self.config.ollama_supports_json_mode:
+                            payload["format"] = "json"
+                            logging.info(f"Ollama JSON mode enabled for chat with model {model}")
+                        else:
+                            logging.warning(f"JSON mode requested for Ollama chat model {model}, but not enabled in config")
                     
-                    # If there's a specific GPU device requested, pass it through
-                    if "gpu_device" in options:
-                        payload["options"]["gpu_device_index"] = options["gpu_device"]
-                        logging.debug(f"Setting GPU device index to {options['gpu_device']} for chat request")
+                    # Handle tools for function calling
+                    if "tools" in options:
+                        payload["tools"] = options["tools"]
+                        # Tools require stream=false, which we already set
+                        logging.debug(f"Added {len(options['tools'])} tools to chat request")
+                    
+                    # Add standard Ollama parameters to options
+                    standard_params = [
+                        'seed', 'num_keep', 'num_ctx', 'num_batch', 'num_gpu', 'main_gpu',
+                        'low_vram', 'vocab_only', 'use_mmap', 'use_mlock', 'num_thread', 'repeat_last_n',
+                        'repeat_penalty', 'presence_penalty', 'frequency_penalty', 'mirostat', 
+                        'mirostat_tau', 'mirostat_eta', 'penalize_newline', 'tfs_z', 'typical_p',
+                        'top_k', 'min_p', 'stop', 'num_predict'
+                    ]
+                    
+                    for param in standard_params:
+                        if param in options:
+                            payload["options"][param] = options[param]
+                    
+                    # Handle top-level parameters
+                    if "keep_alive" in options:
+                        payload["keep_alive"] = options["keep_alive"]
                 
                 # Log the complete payload for debugging
-                logging.debug(f"Complete Ollama chat payload: {payload}")
+                logging.debug(f"Complete Ollama chat payload: {str(payload)[:500]}...")
                 
                 start_time = time.time()
                 async with self.session.post(
@@ -248,7 +300,19 @@ class HTTPClient:
                         raise AIError("Unexpected response format from Ollama chat API")
                     
                     response_message = result.get("message", {})
-                    response_text = response_message.get("content", "").strip()
+                    
+                    # Handle tool calls if present
+                    if "tool_calls" in response_message:
+                        # For tool calls, we might want to return structured data
+                        # but for now, return the content if available
+                        response_text = response_message.get("content", "").strip()
+                        if not response_text:
+                            # If no content but has tool calls, return a structured response
+                            tool_calls = response_message["tool_calls"]
+                            logging.debug(f"Received {len(tool_calls)} tool calls from model")
+                            response_text = f"[Tool calls: {len(tool_calls)} functions requested]"
+                    else:
+                        response_text = response_message.get("content", "").strip()
                     
                     if not response_text:
                         logging.error(f"Ollama chat API returned empty response: {result}")
@@ -278,7 +342,7 @@ class HTTPClient:
         timeout: Optional[int] = None
     ) -> List[float]:
         """
-        Generate embeddings using Ollama's /api/embeddings endpoint.
+        Generate embeddings using Ollama's /api/embed endpoint.
 
         Args:
             model: The embedding model to use.
@@ -305,12 +369,13 @@ class HTTPClient:
                 prompt_preview = prompt[:200] + "..." if len(prompt) > 200 else prompt
                 logging.debug(f"Generating embedding for content (length={prompt_length}): {prompt_preview}")
                 
-                api_endpoint = f"{self.base_url}/api/embeddings"
+                api_endpoint = f"{self.base_url}/api/embed"
                 logging.debug(f"Sending Ollama embedding request to {api_endpoint} for model {model}")
 
+                # Updated payload to match Ollama API specification
                 payload = {
                     "model": model,
-                    "prompt": prompt
+                    "input": prompt  # Changed from "prompt" to "input"
                 }
 
                 start_time = time.time()
@@ -330,17 +395,24 @@ class HTTPClient:
                     # Log the full response for debugging
                     logging.debug(f"Raw Ollama embedding response: {result}")
                     
-                    embedding = result.get("embedding")
-                    if embedding is None:
-                        logging.error(f"Ollama API returned None for embedding. Full response: {result}")
-                        raise AIError("Ollama API returned None for embedding field")
+                    # Updated to match new API response format
+                    embeddings = result.get("embeddings")
+                    if embeddings is None:
+                        logging.error(f"Ollama API returned None for embeddings. Full response: {result}")
+                        raise AIError("Ollama API returned None for embeddings field")
                     
+                    if not isinstance(embeddings, list) or len(embeddings) == 0:
+                        logging.error(f"Ollama API returned invalid embeddings format: {type(embeddings)} - {embeddings}")
+                        raise AIError(f"Ollama API returned invalid embeddings format: {type(embeddings)}")
+                    
+                    # Extract the first embedding from the array
+                    embedding = embeddings[0]
                     if not isinstance(embedding, list):
                         logging.error(f"Ollama API returned non-list embedding: {type(embedding)} - {embedding}")
                         raise AIError(f"Ollama API returned non-list embedding: {type(embedding)}")
                     
                     if len(embedding) == 0:
-                        logging.error(f"Ollama API returned empty list for embedding. Full response: {result}")
+                        logging.error(f"Ollama API returned empty embedding list. Full response: {result}")
                         raise AIError("Ollama API returned empty embedding list")
 
                     logging.debug(f"Received embedding of dimension {len(embedding)} in {elapsed:.2f}s. Model: {model}")

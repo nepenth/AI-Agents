@@ -502,7 +502,7 @@ class PhaseManager {
     }
 
     /**
-     * Handle sub-phase completion and update parent phase if necessary
+     * Handle sub-phase completion and update parent if necessary
      */
     _handleSubPhaseCompletion(subPhaseId) {
         console.log(`PhaseManager: Checking sub-phase completion for ${subPhaseId}`);
@@ -758,6 +758,16 @@ class PhaseManager {
         if (remainingMinutes !== undefined && remainingMinutes !== null) {
             if (remainingMinutes <= 0) {
                 etcMessage = 'Phase ETC: Completing...';
+            } else if (remainingMinutes < 0.1) {
+                // Handle very small estimates that might be due to bad historical data
+                if (etcData.phase_id === 'synthesis_generation' && etcData.total_count > 0) {
+                    // Provide reasonable fallback for synthesis generation (assume 60s per synthesis)
+                    const remainingItems = etcData.total_count - (etcData.processed_count || 0);
+                    const fallbackMinutes = remainingItems * 1.0; // 1 minute per synthesis as fallback
+                    etcMessage = `Phase ETC: ~${Math.round(fallbackMinutes)} min (estimated)`;
+                } else {
+                    etcMessage = 'Phase ETC: < 1 min';
+                }
             } else if (remainingMinutes < 1) {
                 etcMessage = 'Phase ETC: < 1 min';
             } else if (remainingMinutes < 60) {
@@ -779,7 +789,16 @@ class PhaseManager {
             const remainingSeconds = etcData.estimated_completion_timestamp - now;
             if (remainingSeconds > 0) {
                 const remainingMins = remainingSeconds / 60;
-                if (remainingMins < 1) {
+                if (remainingMins < 0.1) {
+                    // Same fallback logic for timestamp-based estimates
+                    if (etcData.phase_id === 'synthesis_generation' && etcData.total_count > 0) {
+                        const remainingItems = etcData.total_count - (etcData.processed_count || 0);
+                        const fallbackMinutes = remainingItems * 1.0;
+                        etcMessage = `Phase ETC: ~${Math.round(fallbackMinutes)} min (estimated)`;
+                    } else {
+                        etcMessage = 'Phase ETC: < 1 min';
+                    }
+                } else if (remainingMins < 1) {
                     etcMessage = 'Phase ETC: < 1 min';
                 } else if (remainingMins < 60) {
                     etcMessage = `Phase ETC: ${Math.round(remainingMins)} min`;
@@ -793,8 +812,8 @@ class PhaseManager {
             }
         }
         
-        // Add current processing speed info if available
-        if (etcData.current_avg_time_per_item && etcData.current_avg_time_per_item > 0) {
+        // Add current processing speed info if available and reasonable
+        if (etcData.current_avg_time_per_item && etcData.current_avg_time_per_item > 0.1) {
             const avgTime = etcData.current_avg_time_per_item;
             if (avgTime < 60) {
                 etcMessage += ` (${avgTime.toFixed(1)}s/item)`;

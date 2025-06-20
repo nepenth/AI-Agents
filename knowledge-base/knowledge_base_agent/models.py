@@ -70,4 +70,77 @@ class Embedding(db.Model):
     )
 
     def __repr__(self):
-        return f'<Embedding for {self.document_type} {self.document_id}>' 
+        return f'<Embedding for {self.document_type} {self.document_id}>'
+
+class ChatSession(db.Model):
+    __tablename__ = 'chat_session'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), unique=True, nullable=False)
+    title = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+    last_updated = db.Column(db.DateTime, nullable=False)
+    is_archived = db.Column(db.Boolean, nullable=False, default=False)
+    message_count = db.Column(db.Integer, nullable=False, default=0)
+    
+    # Relationship to chat messages
+    messages = db.relationship('ChatMessage', backref='session', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<ChatSession {self.session_id}>'
+
+class ChatMessage(db.Model):
+    __tablename__ = 'chat_message'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), db.ForeignKey('chat_session.session_id'), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # 'user' or 'assistant'
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False)
+    model_used = db.Column(db.String(100), nullable=True)
+    sources = db.Column(db.Text, nullable=True)  # JSON string of source documents
+    context_stats = db.Column(db.Text, nullable=True)  # JSON string of context statistics
+    performance_metrics = db.Column(db.Text, nullable=True)  # JSON string of performance data
+    
+    def __repr__(self):
+        return f'<ChatMessage {self.role} in {self.session_id}>'
+
+class Schedule(db.Model):
+    __tablename__ = 'schedule'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    frequency = db.Column(db.String(50), nullable=False)  # 'manual', 'daily', 'weekly', 'monthly', 'custom'
+    time = db.Column(db.String(10), nullable=True)  # HH:MM format
+    day_of_week = db.Column(db.Integer, nullable=True)  # 0-6 (Sunday-Saturday)
+    day_of_month = db.Column(db.Integer, nullable=True)  # 1-31
+    cron_expression = db.Column(db.String(100), nullable=True)  # For custom schedules
+    pipeline_type = db.Column(db.String(50), nullable=False, default='full')
+    pipeline_config = db.Column(db.Text, nullable=True)  # JSON string of pipeline configuration
+    enabled = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+    last_updated = db.Column(db.DateTime, nullable=False)
+    next_run = db.Column(db.DateTime, nullable=True)
+    last_run = db.Column(db.DateTime, nullable=True)
+    
+    # Relationship to schedule runs
+    runs = db.relationship('ScheduleRun', backref='schedule', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<Schedule {self.name}>'
+
+class ScheduleRun(db.Model):
+    __tablename__ = 'schedule_run'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id'), nullable=False)
+    execution_time = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(20), nullable=False)  # 'running', 'completed', 'failed'
+    duration = db.Column(db.String(50), nullable=True)
+    processed_items = db.Column(db.Integer, nullable=True, default=0)
+    error_message = db.Column(db.Text, nullable=True)
+    logs = db.Column(db.Text, nullable=True)
+    
+    def __repr__(self):
+        return f'<ScheduleRun {self.id} for schedule {self.schedule_id}>' 
