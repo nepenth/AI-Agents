@@ -1,199 +1,177 @@
 /**
- * logs.js - Handles logs page functionality
+ * logs.js - Handles the functionality for the log viewer page.
+ * This module is implemented as a self-contained class to ensure proper encapsulation and
+ * avoid conflicts in a Single Page Application (SPA) context.
  */
 
-// Make function globally accessible
-window.initializeLogsPage = function initializeLogsPage() {
-    console.log('Initializing logs page functionality');
+class LogViewer {
+    /**
+     * Initializes the LogViewer, finding DOM elements and binding events.
+     */
+    constructor() {
+        // Find all necessary DOM elements once.
+        this.logSelect = document.getElementById('log-file-select');
+        this.logContentArea = document.getElementById('log-content-area');
+        this.refreshLogListBtn = document.getElementById('refreshLogListBtn');
+        this.deleteAllLogsBtn = document.getElementById('deleteAllLogsBtn');
+        this.logContentHeader = document.getElementById('log-content-header');
 
-    const logSelect = document.getElementById('log-file-select');
-    const logContentArea = document.getElementById('log-content-area');
-    const loadLogButton = document.getElementById('load-log-button');
-    const refreshLogListBtn = document.getElementById('refreshLogListBtn');
-    const deleteAllLogsBtn = document.getElementById('deleteAllLogsBtn');
-    const logContentHeader = document.getElementById('log-content-header');
+        // If the primary element doesn't exist, we're not on the logs page.
+        if (!this.logSelect) {
+            return;
+        }
 
-    // Only proceed if elements exist (we're on the logs page)
-    if (!logSelect || !logContentArea || !loadLogButton) {
-        console.log('Logs page elements not found:', { 
-            logSelect: !!logSelect, 
-            logContentArea: !!logContentArea, 
-            loadLogButton: !!loadLogButton 
-        });
-        return;
+        console.log("LogViewer class instantiated and initialized.");
+        
+        // Bind all event listeners cleanly.
+        this.bindEvents();
+
+        // Fetch the initial list of logs.
+        this.fetchLogList();
     }
 
-    console.log('Found all required logs page elements');
+    /**
+     * Attaches event listeners to the DOM elements.
+     */
+    bindEvents() {
+        this.refreshLogListBtn.addEventListener('click', () => this.fetchLogList());
+        this.deleteAllLogsBtn.addEventListener('click', () => this.deleteAllLogs());
+        this.logSelect.addEventListener('change', () => this.handleSelectionChange());
+    }
 
-    async function fetchLogList() {
-        console.log("Starting fetchLogList...");
-        logSelect.innerHTML = '<option value="">Loading log files...</option>';
-        logSelect.disabled = true;
-        loadLogButton.disabled = true;
+    /**
+     * Handles the change event for the log file selector.
+     */
+    handleSelectionChange() {
+        const selectedFile = this.logSelect.value;
+        console.log('Log selection changed to:', selectedFile);
+        if (selectedFile) {
+            this.fetchLogContent(selectedFile);
+        } else {
+            this.logContentArea.textContent = 'Please select a log file.';
+            this.logContentHeader.textContent = 'Log Content';
+        }
+    }
+
+    /**
+     * Fetches the list of available log files from the API and populates the dropdown.
+     */
+    async fetchLogList() {
+        console.log("Fetching log list...");
+        this.logSelect.innerHTML = '<option value="">Loading log files...</option>';
+        this.logSelect.disabled = true;
         
         try {
-            console.log("Fetching log files from /api/logs...");
             const response = await fetch('/api/logs');
-            console.log("Response status:", response.status);
-            
             if (!response.ok) {
-                const errorData = await response.json();
-                const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-                throw new Error(errorMessage);
+                const errorData = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+                throw new Error(errorData.error);
             }
             
             const logFiles = await response.json();
-            console.log("Received log files:", logFiles);
-
-            logSelect.innerHTML = '<option value="">Select a log file...</option>';
-            if (logFiles && logFiles.length > 0) {
+            
+            // Clear existing options
+            this.logSelect.innerHTML = '<option value="">Select a log file...</option>';
+            
+            if (Array.isArray(logFiles) && logFiles.length > 0) {
                 logFiles.forEach(filename => {
                     const option = document.createElement('option');
                     option.value = filename;
                     option.textContent = filename;
-                    logSelect.appendChild(option);
+                    this.logSelect.appendChild(option);
                 });
-                if (deleteAllLogsBtn) deleteAllLogsBtn.disabled = false;
-                logContentArea.textContent = `Found ${logFiles.length} log file(s). Select one to view its content.`;
-                console.log(`Successfully loaded ${logFiles.length} log files into dropdown`);
+                this.deleteAllLogsBtn.disabled = false;
+                this.logContentArea.textContent = `Found ${logFiles.length} log file(s). Select one to view.`;
+                console.log(`Successfully populated dropdown with ${logFiles.length} files.`);
             } else {
-                logSelect.innerHTML = '<option value="">No log files found</option>';
-                if (deleteAllLogsBtn) deleteAllLogsBtn.disabled = true;
-                logContentArea.textContent = 'No log files found. The agent hasn\'t created any logs yet.';
+                this.logSelect.innerHTML = '<option value="">No log files found</option>';
+                this.deleteAllLogsBtn.disabled = true;
+                this.logContentArea.textContent = 'No log files available.';
+                console.log('No log files found.');
             }
         } catch (error) {
-            console.error("Error fetching log list:", error);
-            logSelect.innerHTML = '<option value="">Error loading list</option>';
-            logContentArea.textContent = `Error loading log list: ${error.message}`;
-            if (deleteAllLogsBtn) deleteAllLogsBtn.disabled = true;
+            console.error("Error fetching log list:", error.message);
+            this.logSelect.innerHTML = '<option value="">Error loading list</option>';
+            this.logContentArea.textContent = `Error: ${error.message}`;
+            this.deleteAllLogsBtn.disabled = true;
         } finally {
-            logSelect.disabled = false;
-            loadLogButton.disabled = false;
+            this.logSelect.disabled = false;
         }
     }
 
-    async function fetchLogContent(filename) {
-        if (!filename) {
-            logContentArea.textContent = 'Please select a log file.';
-            if (logContentHeader) logContentHeader.textContent = 'Log Content';
-            return;
-        }
-        logContentArea.textContent = `Loading ${filename}...`;
-        if (logContentHeader) logContentHeader.textContent = `Log Content: ${filename}`;
-        loadLogButton.disabled = true;
+    /**
+     * Fetches and displays the content of a specific log file.
+     * @param {string} filename - The name of the log file to fetch.
+     */
+    async fetchLogContent(filename) {
+        if (!filename) return;
+
+        this.logContentArea.textContent = `Loading content for ${filename}...`;
+        this.logContentHeader.textContent = `Log Content: ${filename}`;
         
         try {
             const response = await fetch(`/api/logs/${encodeURIComponent(filename)}`);
+            const textContent = await response.text();
+
             if (!response.ok) {
-                const errorData = await response.text();
+                // Try to parse error from JSON, otherwise use the text content.
                 try {
-                    const jsonError = JSON.parse(errorData);
-                    throw new Error(jsonError.error || `HTTP error! status: ${response.status}`);
-                } catch (e) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const jsonError = JSON.parse(textContent);
+                    throw new Error(jsonError.error || 'Unknown API error');
+                } catch(e) {
+                    throw new Error(textContent || `HTTP error! status: ${response.status}`);
                 }
             }
-            const textContent = await response.text();
-            logContentArea.textContent = textContent;
+            
+            this.logContentArea.textContent = textContent;
         } catch (error) {
             console.error(`Error fetching log content for ${filename}:`, error);
-            logContentArea.textContent = `Error loading ${filename}: ${error.message}`;
-        } finally {
-             loadLogButton.disabled = false;
+            this.logContentArea.textContent = `Error loading ${filename}: ${error.message}`;
         }
     }
     
-    async function deleteAllLogs() {
+    /**
+     * Handles the request to delete all log files after confirmation.
+     */
+    async deleteAllLogs() {
         if (!confirm('Are you sure you want to delete ALL log files? This cannot be undone.')) {
             return;
         }
         
-        if (deleteAllLogsBtn) deleteAllLogsBtn.disabled = true;
-        logContentArea.textContent = 'Deleting all log files...';
+        this.deleteAllLogsBtn.disabled = true;
+        this.logContentArea.textContent = 'Deleting all log files...';
         
         try {
-            const response = await fetch('/api/logs/delete-all', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
+            const response = await fetch('/api/logs/delete-all', { method: 'POST' });
             const result = await response.json();
             
-            if (response.ok) {
-                logContentArea.textContent = `${result.message || 'All log files have been deleted.'}\n\n${result.deleted_count || 0} files were deleted.`;
-                logSelect.innerHTML = '<option value="">No log files available</option>';
-                if (logContentHeader) logContentHeader.textContent = 'Log Content';
-            } else {
+            if (!response.ok) {
                 throw new Error(result.error || 'Failed to delete log files');
             }
+            
+            this.logContentArea.textContent = result.message || 'All logs deleted.';
+            console.log(result.message);
+
         } catch (error) {
             console.error('Error deleting logs:', error);
-            logContentArea.textContent = `Error deleting logs: ${error.message}`;
+            this.logContentArea.textContent = `Error: ${error.message}`;
         } finally {
-            await fetchLogList();
+            // Always refresh the list after attempting deletion.
+            await this.fetchLogList();
         }
     }
-
-    // Clean event handling - remove existing listeners and add new ones
-    if (loadLogButton) {
-        loadLogButton.replaceWith(loadLogButton.cloneNode(true));
-        const newLoadLogButton = document.getElementById('load-log-button');
-        newLoadLogButton.addEventListener('click', () => {
-            const selectedFile = logSelect.value;
-            console.log('Load log button clicked, selected file:', selectedFile);
-            fetchLogContent(selectedFile);
-        });
-    }
-
-    if (refreshLogListBtn) {
-        refreshLogListBtn.replaceWith(refreshLogListBtn.cloneNode(true));
-        const newRefreshBtn = document.getElementById('refreshLogListBtn');
-        newRefreshBtn.addEventListener('click', () => {
-            console.log('Refresh button clicked');
-            fetchLogList();
-        });
-    }
-
-    if (deleteAllLogsBtn) {
-        deleteAllLogsBtn.replaceWith(deleteAllLogsBtn.cloneNode(true));
-        const newDeleteBtn = document.getElementById('deleteAllLogsBtn');
-        newDeleteBtn.addEventListener('click', () => {
-            console.log('Delete all logs button clicked');
-            deleteAllLogs();
-        });
-    }
-
-    if (logSelect) {
-        logSelect.replaceWith(logSelect.cloneNode(true));
-        const newLogSelect = document.getElementById('log-file-select');
-        newLogSelect.addEventListener('change', () => {
-            const selectedFile = newLogSelect.value;
-            console.log('Log select changed, selected file:', selectedFile);
-            if (selectedFile) {
-                fetchLogContent(selectedFile);
-            }
-        });
-    }
-
-    // Initial load
-    console.log('Calling initial fetchLogList...');
-    fetchLogList();
 }
 
-// Auto-initialize when DOM is ready and logs page elements are present
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        if (document.getElementById('log-file-select')) {
-            console.log('DOMContentLoaded: Initializing logs page');
-            initializeLogsPage();
-        }
-    }, 100);
-});
+/**
+ * The single initialization function called by the SPA navigation conductor.
+ * It creates a new instance of the LogViewer, ensuring a clean state on each page load.
+ */
+function initializeLogsPage() {
+    console.log('Request to initialize logs page received.');
+    // By creating a new instance, we ensure old event listeners are discarded
+    // along with the old DOM elements, preventing memory leaks and conflicts.
+    window.currentLogViewer = new LogViewer();
+}
 
-// Also export for manual calling
-window.initializeLogsPageNow = function() {
-    console.log('Manual logs page initialization called');
-    initializeLogsPage();
-}; 
+// Expose the initializer for the conductor to call.
+window.initializeLogsPageNow = initializeLogsPage; 

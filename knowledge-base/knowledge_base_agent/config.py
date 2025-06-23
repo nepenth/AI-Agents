@@ -2,7 +2,7 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic_settings import BaseSettings
 from pydantic import HttpUrl, Field, field_validator, model_validator
 from knowledge_base_agent.exceptions import ConfigurationError
@@ -160,6 +160,46 @@ class Config(BaseSettings):
     # Vector store configuration
     vector_store_path: str = Field("./data/vector_store", alias="VECTOR_STORE_PATH", description="Path to the vector store database directory")
     vector_collection_name: str = Field("knowledge_base", alias="VECTOR_COLLECTION_NAME", description="Name of the vector collection in the database")
+
+    # === New Ollama Performance & GPU Optimization Configuration ===
+    # GPU and Performance Optimization
+    ollama_num_gpu: int = Field(-1, alias="OLLAMA_NUM_GPU", description="Number of GPU layers to load (-1 for auto, 0 for CPU only)")
+    ollama_main_gpu: int = Field(0, alias="OLLAMA_MAIN_GPU", description="Main GPU device to use for processing")
+    ollama_low_vram: bool = Field(False, alias="OLLAMA_LOW_VRAM", description="Enable low VRAM mode for memory-constrained GPUs")
+    ollama_gpu_split: str = Field("", alias="OLLAMA_GPU_SPLIT", description="GPU memory split configuration for multi-GPU setups (e.g., '50,50')")
+
+    # Model Loading & Memory Management
+    ollama_keep_alive: str = Field("5m", alias="OLLAMA_KEEP_ALIVE", description="How long to keep models loaded in memory (e.g., '5m', '1h', '0' for immediately unload)")
+    ollama_use_mmap: bool = Field(True, alias="OLLAMA_USE_MMAP", description="Use memory mapping for faster model loading")
+    ollama_use_mlock: bool = Field(False, alias="OLLAMA_USE_MLOCK", description="Lock model in memory to prevent swapping")
+    ollama_num_threads: int = Field(0, alias="OLLAMA_NUM_THREADS", description="Number of CPU threads to use (0 for auto)")
+
+    # Context and Batch Optimization  
+    ollama_num_ctx: int = Field(0, alias="OLLAMA_NUM_CTX", description="Context window size (0 for model default, larger = more context but slower)")
+    ollama_num_batch: int = Field(0, alias="OLLAMA_NUM_BATCH", description="Batch size for processing (0 for auto, larger = faster but more memory)")
+    ollama_num_keep: int = Field(0, alias="OLLAMA_NUM_KEEP", description="Number of tokens to keep from prompt when context exceeds limit")
+
+    # Advanced Performance Options
+    ollama_seed: int = Field(-1, alias="OLLAMA_SEED", description="Random seed for reproducible outputs (-1 for random)")
+    ollama_rope_frequency_base: float = Field(0.0, alias="OLLAMA_ROPE_FREQUENCY_BASE", description="RoPE frequency base for extended context")
+    ollama_rope_frequency_scale: float = Field(0.0, alias="OLLAMA_ROPE_FREQUENCY_SCALE", description="RoPE frequency scale for extended context")
+
+    # Quality and Output Control
+    ollama_stop_sequences: List[str] = Field([], alias="OLLAMA_STOP_SEQUENCES", description="Global stop sequences to prevent unwanted output patterns")
+    ollama_repeat_penalty: float = Field(1.1, alias="OLLAMA_REPEAT_PENALTY", description="Penalty for repeating tokens (1.0 = no penalty, higher = less repetition)")
+    ollama_repeat_last_n: int = Field(64, alias="OLLAMA_REPEAT_LAST_N", description="Number of previous tokens to consider for repeat penalty")
+    ollama_top_k: int = Field(40, alias="OLLAMA_TOP_K", description="Limit sampling to top K tokens (0 = disabled)")
+    ollama_min_p: float = Field(0.05, alias="OLLAMA_MIN_P", description="Minimum probability threshold for token sampling")
+
+    # Batch Processing & Concurrency Optimization
+    ollama_concurrent_requests_per_model: int = Field(1, alias="OLLAMA_CONCURRENT_REQUESTS_PER_MODEL", description="Max concurrent requests per model instance")
+    ollama_enable_model_preloading: bool = Field(True, alias="OLLAMA_ENABLE_MODEL_PRELOADING", description="Pre-load models at startup for faster first requests")
+    ollama_adaptive_batch_size: bool = Field(True, alias="OLLAMA_ADAPTIVE_BATCH_SIZE", description="Dynamically adjust batch size based on GPU memory")
+
+    # Model-Specific Optimization Profiles
+    ollama_vision_model_gpu_layers: int = Field(-1, alias="OLLAMA_VISION_MODEL_GPU_LAYERS", description="GPU layers for vision model (-1 for auto)")
+    ollama_text_model_gpu_layers: int = Field(-1, alias="OLLAMA_TEXT_MODEL_GPU_LAYERS", description="GPU layers for text model (-1 for auto)")
+    ollama_embedding_model_gpu_layers: int = Field(-1, alias="OLLAMA_EMBEDDING_MODEL_GPU_LAYERS", description="GPU layers for embedding model (-1 for auto)")
 
     @model_validator(mode='after')
     def resolve_paths(self):
@@ -336,5 +376,69 @@ class Config(BaseSettings):
         return absolute_path.relative_to(self.project_root)
 
     def resolve_path_from_project_root(self, relative_path: Path | str) -> Path:
-        """Resolves a path relative to the project root to an absolute path."""
-        return (self.project_root / relative_path).resolve()
+        """Resolve a relative path against the project root to get an absolute path."""
+        return (self.project_root / Path(relative_path)).resolve()
+
+    @classmethod
+    def auto_configure_ollama_optimization(cls, workload_type: str = "balanced", 
+                                         apply_to_env: bool = False) -> Dict[str, str]:
+        """
+        Auto-configure Ollama optimization settings based on detected hardware.
+        
+        Args:
+            workload_type: Optimization profile ("performance", "balanced", "memory_efficient")
+            apply_to_env: Whether to automatically apply settings to environment
+            
+        Returns:
+            Dictionary of environment variables to set
+        """
+        try:
+            from .hardware_detector import HardwareDetector
+            
+            detector = HardwareDetector()
+            system_info = detector.detect_system_info()
+            config = detector.generate_ollama_config(system_info, workload_type)
+            
+            # Convert to environment variables dictionary
+            env_vars = {
+                "OLLAMA_NUM_GPU": str(config.num_gpu),
+                "OLLAMA_MAIN_GPU": str(config.main_gpu),
+                "OLLAMA_LOW_VRAM": str(config.low_vram).lower(),
+                "OLLAMA_GPU_SPLIT": config.gpu_split,
+                "OLLAMA_NUM_THREADS": str(config.num_threads),
+                "OLLAMA_KEEP_ALIVE": config.keep_alive,
+                "OLLAMA_USE_MMAP": str(config.use_mmap).lower(),
+                "OLLAMA_USE_MLOCK": str(config.use_mlock).lower(),
+                "OLLAMA_NUM_CTX": str(config.num_ctx),
+                "OLLAMA_NUM_BATCH": str(config.num_batch),
+                "OLLAMA_ADAPTIVE_BATCH_SIZE": str(config.adaptive_batch_size).lower(),
+                "OLLAMA_REPEAT_PENALTY": str(config.repeat_penalty),
+                "OLLAMA_REPEAT_LAST_N": str(config.repeat_last_n),
+                "OLLAMA_TOP_K": str(config.top_k),
+                "OLLAMA_MIN_P": str(config.min_p),
+                "MAX_CONCURRENT_REQUESTS": str(config.max_concurrent_requests),
+                "OLLAMA_ENABLE_MODEL_PRELOADING": str(config.enable_model_preloading).lower(),
+                "OLLAMA_VISION_MODEL_GPU_LAYERS": str(config.vision_model_gpu_layers),
+                "OLLAMA_TEXT_MODEL_GPU_LAYERS": str(config.text_model_gpu_layers),
+                "OLLAMA_EMBEDDING_MODEL_GPU_LAYERS": str(config.embedding_model_gpu_layers),
+            }
+            
+            # Apply to environment if requested
+            if apply_to_env:
+                for key, value in env_vars.items():
+                    os.environ[key] = value
+                logging.info(f"Applied {len(env_vars)} auto-configured Ollama optimization settings")
+            
+            # Log the configuration reasoning
+            logging.info("Hardware-based Ollama optimization generated:")
+            for key, reason in config.reasoning.items():
+                logging.info(f"  {key}: {reason}")
+                
+            return env_vars
+            
+        except ImportError as e:
+            logging.warning(f"Hardware detection not available (missing dependencies): {e}")
+            return {}
+        except Exception as e:
+            logging.error(f"Failed to auto-configure Ollama optimization: {e}")
+            return {}

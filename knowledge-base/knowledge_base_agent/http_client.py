@@ -508,6 +508,255 @@ class HTTPClient:
             logging.error(f"Failed to expand URL {url}: {str(e)}")
             raise NetworkError(f"Failed to get final URL for {url}") from e
         
+    def _get_optimized_options(self, model: str, task_type: str = "general") -> Dict[str, Any]:
+        """
+        Get optimized Ollama options based on model type, task, and system configuration.
+        
+        Args:
+            model: The model name being used
+            task_type: Type of task ('text', 'vision', 'embedding', 'synthesis', 'categorization')
+            
+        Returns:
+            Dict containing optimized options for the Ollama API call
+        """
+        options = {}
+        
+        # Base performance options from config
+        if hasattr(self.config, 'ollama_num_gpu') and self.config.ollama_num_gpu != -1:
+            options['num_gpu'] = self.config.ollama_num_gpu
+            
+        if hasattr(self.config, 'ollama_main_gpu'):
+            options['main_gpu'] = self.config.ollama_main_gpu
+            
+        if hasattr(self.config, 'ollama_low_vram') and self.config.ollama_low_vram:
+            options['low_vram'] = True
+            
+        if hasattr(self.config, 'ollama_use_mmap'):
+            options['use_mmap'] = self.config.ollama_use_mmap
+            
+        if hasattr(self.config, 'ollama_use_mlock') and self.config.ollama_use_mlock:
+            options['use_mlock'] = True
+            
+        if hasattr(self.config, 'ollama_num_threads') and self.config.ollama_num_threads > 0:
+            options['num_thread'] = self.config.ollama_num_threads
+            
+        # Context and batch optimization
+        if hasattr(self.config, 'ollama_num_ctx') and self.config.ollama_num_ctx > 0:
+            options['num_ctx'] = self.config.ollama_num_ctx
+            
+        if hasattr(self.config, 'ollama_num_batch') and self.config.ollama_num_batch > 0:
+            options['num_batch'] = self.config.ollama_num_batch
+        elif hasattr(self.config, 'ollama_adaptive_batch_size') and self.config.ollama_adaptive_batch_size:
+            # Adaptive batch sizing based on available GPU memory
+            if hasattr(self.config, 'gpu_total_memory') and self.config.gpu_total_memory > 0:
+                if self.config.gpu_total_memory >= 32000:  # 32GB+
+                    options['num_batch'] = 2048
+                elif self.config.gpu_total_memory >= 16000:  # 16GB+
+                    options['num_batch'] = 1024
+                elif self.config.gpu_total_memory >= 8000:   # 8GB+
+                    options['num_batch'] = 512
+                else:
+                    options['num_batch'] = 256
+                    
+        if hasattr(self.config, 'ollama_num_keep') and self.config.ollama_num_keep > 0:
+            options['num_keep'] = self.config.ollama_num_keep
+            
+        # Quality and output control
+        if hasattr(self.config, 'ollama_repeat_penalty'):
+            options['repeat_penalty'] = self.config.ollama_repeat_penalty
+            
+        if hasattr(self.config, 'ollama_repeat_last_n'):
+            options['repeat_last_n'] = self.config.ollama_repeat_last_n
+            
+        if hasattr(self.config, 'ollama_top_k') and self.config.ollama_top_k > 0:
+            options['top_k'] = self.config.ollama_top_k
+            
+        if hasattr(self.config, 'ollama_min_p') and self.config.ollama_min_p > 0:
+            options['min_p'] = self.config.ollama_min_p
+            
+        # Stop sequences
+        if hasattr(self.config, 'ollama_stop_sequences') and self.config.ollama_stop_sequences:
+            options['stop'] = self.config.ollama_stop_sequences
+            
+        # Seed for reproducibility
+        if hasattr(self.config, 'ollama_seed') and self.config.ollama_seed != -1:
+            options['seed'] = self.config.ollama_seed
+            
+        # Task-specific optimizations
+        if task_type == 'synthesis':
+            # Synthesis benefits from longer context and higher quality
+            options['temperature'] = 0.3  # More focused
+            options['repeat_penalty'] = 1.2  # Reduce repetition
+            if 'num_ctx' not in options:
+                options['num_ctx'] = 8192  # Larger context for synthesis
+                
+        elif task_type == 'categorization':
+            # Categorization needs consistency and speed
+            options['temperature'] = 0.1  # Very focused
+            options['top_k'] = 20  # Limit options
+            if 'num_ctx' not in options:
+                options['num_ctx'] = 4096  # Moderate context
+                
+        elif task_type == 'vision':
+            # Vision models need more GPU memory and processing power
+            if hasattr(self.config, 'ollama_vision_model_gpu_layers') and self.config.ollama_vision_model_gpu_layers != -1:
+                options['num_gpu'] = self.config.ollama_vision_model_gpu_layers
+                
+        elif task_type == 'embedding':
+            # Embeddings benefit from consistency and speed
+            if hasattr(self.config, 'ollama_embedding_model_gpu_layers') and self.config.ollama_embedding_model_gpu_layers != -1:
+                options['num_gpu'] = self.config.ollama_embedding_model_gpu_layers
+                
+        # Model loading optimization
+        if hasattr(self.config, 'ollama_keep_alive'):
+            options['keep_alive'] = self.config.ollama_keep_alive
+            
+        logging.debug(f"Optimized options for {task_type} task with model {model}: {options}")
+        return options
+
+    async def ollama_generate_optimized(
+        self,
+        model: str,
+        prompt: str,
+        task_type: str = "general",
+        temperature: float = 0.7,
+        max_tokens: int = 50000,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        additional_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate text using Ollama API with intelligent optimization based on task type.
+        
+        Args:
+            model: The model to use for generation
+            prompt: The prompt text
+            task_type: Type of task for optimization ('synthesis', 'categorization', 'vision', 'general')
+            temperature: Controls randomness (0.0-1.0)
+            max_tokens: Maximum tokens to generate
+            top_p: Nucleus sampling parameter
+            timeout: Request timeout in seconds
+            additional_options: Additional options to merge with optimized options
+        
+        Returns:
+            str: Generated text response
+        """
+        # Get optimized options for this task type
+        options = self._get_optimized_options(model, task_type)
+        
+        # Apply task-specific temperature if not overridden
+        if task_type in ['synthesis', 'categorization']:
+            temperature = options.get('temperature', temperature)
+            
+        # Merge with additional options
+        if additional_options:
+            options.update(additional_options)
+            
+        return await self.ollama_generate(
+            model=model,
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            timeout=timeout,
+            options=options
+        )
+
+    async def ollama_chat_optimized(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        task_type: str = "general",
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        additional_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate text using Ollama chat API with intelligent optimization.
+        
+        Args:
+            model: The model to use for generation
+            messages: List of message objects with 'role' and 'content' keys
+            task_type: Type of task for optimization
+            temperature: Controls randomness (0.0-1.0)
+            top_p: Nucleus sampling parameter
+            timeout: Request timeout in seconds
+            additional_options: Additional options to merge with optimized options
+        
+        Returns:
+            str: Generated text response
+        """
+        # Get optimized options for this task type
+        options = self._get_optimized_options(model, task_type)
+        
+        # Apply task-specific temperature if not overridden
+        if task_type in ['synthesis', 'categorization']:
+            temperature = options.get('temperature', temperature)
+            
+        # Merge with additional options
+        if additional_options:
+            options.update(additional_options)
+            
+        return await self.ollama_chat(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            top_p=top_p,
+            timeout=timeout,
+            options=options
+        )
+
+    async def preload_models(self) -> Dict[str, bool]:
+        """
+        Pre-load models specified in config to improve first-request performance.
+        
+        Returns:
+            Dict mapping model names to success status
+        """
+        if not hasattr(self.config, 'ollama_enable_model_preloading') or not self.config.ollama_enable_model_preloading:
+            logging.info("Model preloading disabled in config")
+            return {}
+            
+        models_to_preload = []
+        if hasattr(self.config, 'text_model'):
+            models_to_preload.append(self.config.text_model)
+        if hasattr(self.config, 'vision_model'):
+            models_to_preload.append(self.config.vision_model)
+        if hasattr(self.config, 'embedding_model'):
+            models_to_preload.append(self.config.embedding_model)
+        if hasattr(self.config, 'chat_model') and self.config.chat_model:
+            models_to_preload.append(self.config.chat_model)
+            
+        # Remove duplicates
+        models_to_preload = list(set(models_to_preload))
+        
+        results = {}
+        logging.info(f"Pre-loading {len(models_to_preload)} models for improved performance")
+        
+        for model in models_to_preload:
+            try:
+                logging.info(f"Pre-loading model: {model}")
+                # Send a minimal request to load the model into memory
+                await self.ollama_generate(
+                    model=model,
+                    prompt="test",
+                    max_tokens=1,
+                    timeout=30,
+                    options={
+                        "keep_alive": self.config.ollama_keep_alive if hasattr(self.config, 'ollama_keep_alive') else "5m"
+                    }
+                )
+                results[model] = True
+                logging.info(f"Successfully pre-loaded model: {model}")
+            except Exception as e:
+                logging.error(f"Failed to pre-load model {model}: {e}")
+                results[model] = False
+                
+        successful = sum(1 for success in results.values() if success)
+        logging.info(f"Model pre-loading complete: {successful}/{len(models_to_preload)} models loaded successfully")
+        return results
+
 class OllamaClient:
     """Client for interacting with Ollama API."""
     

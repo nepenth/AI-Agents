@@ -429,76 +429,44 @@ class PhaseManager {
             return;
         }
 
-        // Log all status changes for sub-phases
-        if (this.subPhaseIds.includes(phaseId)) {
-            console.log(`PhaseManager: Sub-phase ${phaseId} status update: ${status} - ${message}`);
-        }
+        // Clean slate: remove all old status classes
+        phaseElement.className = phaseElement.className.replace(/status-\w+/g, '');
 
-        // Remove existing status classes while preserving others
-        let baseClasses = [];
-        phaseElement.classList.forEach(cls => {
-            if (!cls.startsWith('status-')) {
-                baseClasses.push(cls);
-            }
-        });
-        phaseElement.className = baseClasses.join(' ');
-
-        // Apply the new status class based on status parameter
+        // Apply the single, correct status class
+        phaseElement.classList.add(`status-${status}`);
+        
+        // Update the text content based on the status
         switch (status) {
             case 'active':
             case 'in_progress':
-                phaseElement.classList.add('status-active');
-                statusElement.textContent = 'Running';  // Simplified text
-                console.log(`PhaseManager: Set ${phaseId} to active`);
-                // Update current phase details when a phase becomes active
-                // This ensures the old phase status message is replaced
+                statusElement.textContent = 'Running';
                 this.updateCurrentPhaseDetails(phaseId, message || 'Phase started');
                 break;
-                
             case 'completed':
-            case 'completed_with_errors': // Handle completion with errors
-                phaseElement.classList.add('status-completed');
-                statusElement.textContent = 'Done';  // Simplified "Done" text without emoji
-                console.log(`PhaseManager: Set ${phaseId} to completed`);
-                
-                // Handle sub-phase completion for content processing
+            case 'completed_with_errors':
+                statusElement.textContent = 'Done';
                 if (this.subPhaseIds.includes(phaseId)) {
-                    console.log(`PhaseManager: Triggering sub-phase completion check for ${phaseId}`);
                     this._handleSubPhaseCompletion(phaseId);
                 }
                 break;
-                
             case 'skipped':
-                phaseElement.classList.add('status-skipped');
-                statusElement.textContent = 'Skipped';  // Simplified text
-                console.log(`PhaseManager: Set ${phaseId} to skipped`);
-                
-                // Also handle sub-phase completion for skipped phases
+                statusElement.textContent = 'Skipped';
                 if (this.subPhaseIds.includes(phaseId)) {
-                    console.log(`PhaseManager: Triggering sub-phase completion check for skipped ${phaseId}`);
                     this._handleSubPhaseCompletion(phaseId);
                 }
                 break;
-                
             case 'error':
-                phaseElement.classList.add('status-error');
-                statusElement.textContent = 'Error';  // Simplified text
-                console.log(`PhaseManager: Set ${phaseId} to error`);
+                statusElement.textContent = 'Error';
                 break;
-                
             case 'interrupted':
-                phaseElement.classList.add('status-interrupted');
-                statusElement.textContent = 'Stopped';  // Simplified text
-                console.log(`PhaseManager: Set ${phaseId} to interrupted`);
+                statusElement.textContent = 'Stopped';
                 break;
-                
             case 'pending':
             default:
-                phaseElement.classList.add('status-pending');
-                statusElement.textContent = 'Pending';  // Simplified text
-                console.log(`PhaseManager: Set ${phaseId} to pending/default`);
+                statusElement.textContent = 'Pending';
                 break;
         }
+        console.log(`PhaseManager: Set ${phaseId} to ${status}`);
     }
 
     /**

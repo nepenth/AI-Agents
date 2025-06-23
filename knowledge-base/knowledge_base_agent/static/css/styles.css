@@ -185,24 +185,85 @@ html[data-bs-theme="dark"] #current-phase-details {
     color: #f8f9fa;
 }
 
-/* ==================== PHASE STATUS STYLES ==================== */
+/* ==================== PHASE STATUS STYLES (NEW UNIFIED) ==================== */
 
-.status-pending { color: #6c757d; border-color: #6c757d !important; }
-.status-will-run { color: #0d6efd; border-color: #0d6efd !important; }
-.status-active { color: #198754; border-color: #198754 !important; background-color: #e8f3ee !important; }
-.status-completed { 
-    color: #198754; 
-    border-color: #198754 !important; 
-    font-weight: normal; /* Remove bold to be less prominent */
-    font-size: 0.875rem; /* Slightly smaller font to blend better */
+/* Base styling for all phase items */
+.phase-item, .sub-phase-item {
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    border: 1px solid transparent;
 }
-.status-skipped { color: #6c757d; border-color: #adb5bd !important; }
-.status-error { color: #dc3545; border-color: #dc3545 !important; background-color: #f8d7da !important; }
-.status-interrupted { color: #fd7e14; border-color: #fd7e14 !important; }
 
-/* Dark mode adjustments for completed status */
+/* Default state for phases that are waiting */
+.status-pending .phase-status,
+.status-will-run .phase-status {
+    color: var(--bs-secondary-color);
+}
+
+/* Active: Phase is currently running */
+.status-active {
+    border-left: 4px solid #0d6efd !important; /* Blue left border */
+}
+.status-active .phase-status {
+    color: #0d6efd; /* Blue text */
+    font-weight: 600;
+}
+html[data-bs-theme="dark"] .status-active {
+    background-color: rgba(13, 110, 253, 0.15);
+}
+
+/* Completed: Phase finished successfully */
+.status-completed {
+    border-left: 4px solid #198754 !important; /* Green left border */
+}
+.status-completed .phase-status {
+    color: #198754; /* Green text */
+}
 html[data-bs-theme="dark"] .status-completed {
-    color: #75c28a; /* Slightly muted green for dark mode */
+    background-color: rgba(25, 135, 84, 0.1);
+}
+/* Special case for content processing container when all sub-phases are done */
+[data-phase-id="content_processing_overall"].status-completed {
+    background-color: rgba(25, 135, 84, 0.1);
+    border: 1px solid rgba(25, 135, 84, 0.2);
+}
+html[data-bs-theme="dark"] [data-phase-id="content_processing_overall"].status-completed {
+    background-color: rgba(25, 135, 84, 0.2);
+    border: 1px solid rgba(25, 135, 84, 0.4);
+}
+
+
+/* Skipped: Phase was intentionally skipped */
+.status-skipped .phase-name,
+.status-skipped .phase-icon {
+    opacity: 0.6;
+}
+.status-skipped .phase-status {
+    color: var(--bs-secondary-color);
+    font-style: italic;
+}
+
+/* Error: Phase encountered an error */
+.status-error {
+    border-left: 4px solid #dc3545 !important; /* Red left border */
+}
+.status-error .phase-status {
+    color: #dc3545; /* Red text */
+    font-weight: 600;
+}
+html[data-bs-theme="dark"] .status-error {
+    background-color: rgba(220, 53, 69, 0.15);
+}
+
+/* Interrupted: Phase was stopped by the user */
+.status-interrupted {
+    border-left: 4px solid #fd7e14 !important; /* Orange left border */
+}
+.status-interrupted .phase-status {
+    color: #fd7e14; /* Orange text */
+    font-weight: 600;
+}
+html[data-bs-theme="dark"] .status-interrupted {
+    background-color: rgba(253, 126, 20, 0.15);
 }
 
 /* ==================== PHASE STYLING ==================== */

@@ -6,6 +6,9 @@
             <button class="btn btn-success me-2" id="save-env-btn">
                 <i class="bi bi-save me-2"></i> Save Changes
             </button>
+            <button class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#ollamaOptimizationModal">
+                <i class="bi bi-rocket me-2"></i> Ollama Optimization
+            </button>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEnvVarModal">
                 <i class="bi bi-plus-circle me-2"></i> Add Variable
             </button>
@@ -175,6 +178,119 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="update-env-var-btn">Update Variable</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ollama Optimization Modal -->
+<div class="modal fade" id="ollamaOptimizationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-rocket me-2"></i> Ollama Performance Optimization</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Hardware Detection Section -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-cpu me-2"></i> Detected Hardware</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="hardware-info">
+                            <div class="col-12">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Detecting hardware...</span>
+                                    </div>
+                                    <p class="mt-2">Detecting hardware configuration...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Selection -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-sliders me-2"></i> Optimization Profile</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="optimizationProfile" id="profile-performance" value="performance">
+                                    <label class="form-check-label" for="profile-performance">
+                                        <strong>Performance</strong><br>
+                                        <small class="text-muted">Maximum speed, higher memory usage</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="optimizationProfile" id="profile-balanced" value="balanced" checked>
+                                    <label class="form-check-label" for="profile-balanced">
+                                        <strong>Balanced</strong><br>
+                                        <small class="text-muted">Good performance with moderate memory usage</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="optimizationProfile" id="profile-memory" value="memory_efficient">
+                                    <label class="form-check-label" for="profile-memory">
+                                        <strong>Memory Efficient</strong><br>
+                                        <small class="text-muted">Lower memory usage, slower processing</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Settings Preview -->
+                <div class="card" id="optimization-preview" style="display: none;">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-eye me-2"></i> Generated Settings Preview</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Value</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="optimization-preview-body">
+                                    <!-- Preview will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Apply Options -->
+                <div class="alert alert-info mt-4">
+                    <h6><i class="bi bi-info-circle me-2"></i> Application Notes:</h6>
+                    <ul class="mb-0">
+                        <li>Settings will be applied to both the current session and your .env file</li>
+                        <li>Changes take effect immediately for the current session</li>
+                        <li>Your existing REQUEST_TIMEOUT setting will be preserved</li>
+                        <li>A backup comment will be added to the .env file</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" id="preview-optimization-btn">
+                    <i class="bi bi-eye me-2"></i> Preview Settings
+                </button>
+                <button type="button" class="btn btn-success" id="apply-optimization-btn">
+                    <i class="bi bi-check-circle me-2"></i> Apply Optimization
+                </button>
             </div>
         </div>
     </div>

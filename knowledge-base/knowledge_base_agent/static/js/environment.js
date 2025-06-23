@@ -8,6 +8,8 @@ class EnvironmentManager {
         this.envData = null;
         this.filteredVars = [];
         this.pendingChanges = {};
+        this.hardwareInfo = null;
+        this.optimizationPreview = null;
         this.init();
     }
 
@@ -52,6 +54,23 @@ class EnvironmentManager {
         const togglePassword = document.getElementById('toggle-password');
         if (togglePassword) {
             togglePassword.addEventListener('click', () => this.togglePasswordVisibility());
+        }
+
+        // Ollama optimization buttons
+        const previewOptimizationBtn = document.getElementById('preview-optimization-btn');
+        if (previewOptimizationBtn) {
+            previewOptimizationBtn.addEventListener('click', () => this.previewOptimization());
+        }
+
+        const applyOptimizationBtn = document.getElementById('apply-optimization-btn');
+        if (applyOptimizationBtn) {
+            applyOptimizationBtn.addEventListener('click', () => this.applyOptimization());
+        }
+
+        // Modal event for hardware detection
+        const ollamaModal = document.getElementById('ollamaOptimizationModal');
+        if (ollamaModal) {
+            ollamaModal.addEventListener('show.bs.modal', () => this.loadHardwareInfo());
         }
     }
 
@@ -472,17 +491,249 @@ class EnvironmentManager {
             toastElement.remove();
         });
     }
+
+    // === Ollama Optimization Methods ===
+
+    async loadHardwareInfo() {
+        try {
+            console.log('Loading hardware information...');
+            const response = await fetch('/api/hardware-detection');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            if (result.success) {
+                this.hardwareInfo = result.hardware;
+                this.displayHardwareInfo();
+            } else {
+                throw new Error(result.error || 'Hardware detection failed');
+            }
+        } catch (error) {
+            console.error('Error loading hardware info:', error);
+            this.displayHardwareError(error.message);
+        }
+    }
+
+    displayHardwareInfo() {
+        const hardwareInfoDiv = document.getElementById('hardware-info');
+        const hardware = this.hardwareInfo;
+        
+        let gpuInfo = '';
+        if (hardware.gpu_count > 0) {
+            const totalVram = Math.round(hardware.gpu_total_memory / 1024 * 100) / 100;
+            gpuInfo = `
+                <div class="col-md-6">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h5><i class="bi bi-gpu-card me-2"></i>GPU</h5>
+                            <p class="mb-1"><strong>${hardware.gpu_count}</strong> GPU(s)</p>
+                            <p class="mb-0"><strong>${totalVram} GB</strong> Total VRAM</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (hardware.gpu_devices && hardware.gpu_devices.length > 0) {
+                const gpuDetails = hardware.gpu_devices.map(gpu => {
+                    const memoryGB = Math.round(gpu.memory / 1024 * 100) / 100;
+                    return `<li>${gpu.name}: ${memoryGB} GB</li>`;
+                }).join('');
+                
+                gpuInfo += `
+                    <div class="col-12 mt-2">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>GPU Details:</h6>
+                                <ul class="mb-0">${gpuDetails}</ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            gpuInfo = `
+                <div class="col-md-6">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <h5><i class="bi bi-cpu me-2"></i>CPU Only</h5>
+                            <p class="mb-0">No GPU detected</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        const memoryGB = Math.round(hardware.total_memory / 1024 / 1024 / 1024 * 100) / 100;
+        const availableGB = Math.round(hardware.available_memory / 1024 / 1024 / 1024 * 100) / 100;
+        
+        hardwareInfoDiv.innerHTML = `
+            ${gpuInfo}
+            <div class="col-md-6">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h5><i class="bi bi-memory me-2"></i>System Memory</h5>
+                        <p class="mb-1"><strong>${memoryGB} GB</strong> Total</p>
+                        <p class="mb-0"><strong>${availableGB} GB</strong> Available</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h5><i class="bi bi-cpu me-2"></i>CPU</h5>
+                        <p class="mb-0"><strong>${hardware.cpu_cores}</strong> Cores</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    displayHardwareError(errorMessage) {
+        const hardwareInfoDiv = document.getElementById('hardware-info');
+        hardwareInfoDiv.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Hardware Detection Error</h6>
+                    <p class="mb-0">${errorMessage}</p>
+                    <p class="mt-2 mb-0"><small>You can still proceed with optimization using default settings.</small></p>
+                </div>
+            </div>
+        `;
+    }
+
+    async previewOptimization() {
+        const selectedProfile = document.querySelector('input[name="optimizationProfile"]:checked').value;
+        
+        try {
+            console.log(`Generating optimization preview for profile: ${selectedProfile}`);
+            const response = await fetch('/api/ollama-optimization', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    profile: selectedProfile,
+                    apply_to_env: false
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                this.optimizationPreview = result.env_variables;
+                this.displayOptimizationPreview(selectedProfile);
+            } else {
+                throw new Error(result.error || 'Optimization generation failed');
+            }
+        } catch (error) {
+            console.error('Error generating optimization preview:', error);
+            this.showErrorMessage('Failed to generate optimization preview: ' + error.message);
+        }
+    }
+
+    displayOptimizationPreview(profile) {
+        const previewCard = document.getElementById('optimization-preview');
+        const previewBody = document.getElementById('optimization-preview-body');
+        
+        if (!this.optimizationPreview) return;
+
+        // Variable descriptions for better UX
+        const descriptions = {
+            'OLLAMA_NUM_GPU': 'Number of GPU layers to use (-1 = auto)',
+            'OLLAMA_MAIN_GPU': 'Primary GPU device index',
+            'OLLAMA_LOW_VRAM': 'Enable low VRAM mode for memory-limited GPUs',
+            'OLLAMA_GPU_SPLIT': 'Memory split across multiple GPUs',
+            'OLLAMA_NUM_THREADS': 'CPU threads for processing',
+            'OLLAMA_KEEP_ALIVE': 'Model cache duration',
+            'OLLAMA_USE_MMAP': 'Memory mapping for faster loading',
+            'OLLAMA_USE_MLOCK': 'Lock models in memory',
+            'OLLAMA_NUM_CTX': 'Context window size',
+            'OLLAMA_NUM_BATCH': 'Batch processing size',
+            'OLLAMA_ADAPTIVE_BATCH_SIZE': 'Dynamic batch size adjustment',
+            'OLLAMA_REPEAT_PENALTY': 'Penalty for token repetition',
+            'OLLAMA_REPEAT_LAST_N': 'Tokens to consider for repeat penalty',
+            'OLLAMA_TOP_K': 'Top-K sampling parameter',
+            'OLLAMA_MIN_P': 'Minimum probability threshold',
+            'MAX_CONCURRENT_REQUESTS': 'Maximum parallel requests',
+            'OLLAMA_ENABLE_MODEL_PRELOADING': 'Pre-load models at startup',
+            'OLLAMA_VISION_MODEL_GPU_LAYERS': 'GPU layers for vision model',
+            'OLLAMA_TEXT_MODEL_GPU_LAYERS': 'GPU layers for text model',
+            'OLLAMA_EMBEDDING_MODEL_GPU_LAYERS': 'GPU layers for embedding model'
+        };
+
+        let rows = '';
+        for (const [key, value] of Object.entries(this.optimizationPreview)) {
+            const description = descriptions[key] || 'Optimization setting';
+            rows += `
+                <tr>
+                    <td><code>${key}</code></td>
+                    <td><strong>${value}</strong></td>
+                    <td class="text-muted">${description}</td>
+                </tr>
+            `;
+        }
+
+        previewBody.innerHTML = rows;
+        previewCard.style.display = 'block';
+        
+        this.showInfoMessage(`Generated ${Object.keys(this.optimizationPreview).length} optimization settings for ${profile} profile`);
+    }
+
+    async applyOptimization() {
+        const selectedProfile = document.querySelector('input[name="optimizationProfile"]:checked').value;
+        
+        if (!this.optimizationPreview) {
+            this.showErrorMessage('Please preview the optimization settings first');
+            return;
+        }
+
+        try {
+            console.log(`Applying optimization settings for profile: ${selectedProfile}`);
+            const response = await fetch('/api/ollama-optimization', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    profile: selectedProfile,
+                    apply_to_env: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                this.showSuccessMessage(`Successfully applied ${Object.keys(result.env_variables).length} optimization settings`);
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('ollamaOptimizationModal'));
+                modal.hide();
+                
+                // Reload environment variables to show updated values
+                this.loadEnvironmentVariables();
+            } else {
+                throw new Error(result.error || 'Optimization application failed');
+            }
+        } catch (error) {
+            console.error('Error applying optimization:', error);
+            this.showErrorMessage('Failed to apply optimization: ' + error.message);
+        }
+    }
 }
 
-// Initialize the environment manager when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded - initializing EnvironmentManager');
-    
+function initializeEnvironmentPage() {
     // Check if we're on the environment page
     if (document.querySelector('.environment-manager')) {
-        console.log('Environment page detected, creating EnvironmentManager');
+        // Create a new instance of the manager and attach it to the window
         window.environmentManager = new EnvironmentManager();
     } else {
         console.log('Not on environment page, skipping EnvironmentManager initialization');
     }
-}); 
+} 
