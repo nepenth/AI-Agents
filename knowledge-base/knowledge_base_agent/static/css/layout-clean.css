@@ -300,4 +300,76 @@
     .live-logs-panel {
         height: 400px;
     }
+}
+
+/* Enhanced dark mode support for layout components */
+html[data-bs-theme="dark"] .dashboard-gpu-panel .card-header,
+html[data-bs-theme="dark"] .gpu-card-header {
+    background-color: #343a40;
+    color: #f8f9fa;
+    border-color: var(--bs-border-color, #495057);
+}
+
+html[data-bs-theme="dark"] .gpu-card {
+    background-color: #2c3034;
+    border-color: var(--bs-border-color, #495057);
+}
+
+html[data-bs-theme="dark"] .gpu-stat-label {
+    color: #adb5bd;
+}
+
+html[data-bs-theme="dark"] .gpu-stat-value {
+    color: #f8f9fa;
+}
+
+html[data-bs-theme="dark"] .gpu-progress-bar {
+    background-color: #495057;
+}
+
+html[data-bs-theme="dark"] .status-pending {
+    background-color: #343a40;
+    color: #adb5bd;
+}
+
+html[data-bs-theme="dark"] .status-active {
+    background-color: #1e3a8a;
+    color: #dbeafe;
+}
+
+html[data-bs-theme="dark"] .status-completed {
+    background-color: #166534;
+    color: #dcfce7;
+}
+
+html[data-bs-theme="dark"] .status-skipped {
+    background-color: #92400e;
+    color: #fef3c7;
+}
+
+html[data-bs-theme="dark"] .status-error {
+    background-color: #991b1b;
+    color: #fecaca;
+}
+
+/* Dark mode for main panels */
+html[data-bs-theme="dark"] .execution-plan-panel .card,
+html[data-bs-theme="dark"] .live-logs-panel .card {
+    background-color: #2c3034;
+    border-color: var(--bs-border-color, #495057);
+}
+
+html[data-bs-theme="dark"] .execution-plan-panel .card-header,
+html[data-bs-theme="dark"] .live-logs-panel .card-header,
+html[data-bs-theme="dark"] .execution-plan-panel .card-footer,
+html[data-bs-theme="dark"] .live-logs-panel .card-footer {
+    background-color: #343a40;
+    border-color: var(--bs-border-color, #495057);
+    color: #f8f9fa;
+}
+
+html[data-bs-theme="dark"] #liveLogsUl .list-group-item {
+    background-color: transparent;
+    border-color: var(--bs-border-color, #495057);
+    color: var(--bs-body-color, #f8f9fa);
 } 

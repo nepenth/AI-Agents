@@ -71,12 +71,69 @@ This document explains all environment variables used in the Knowledge Base Agen
 
 | Variable | Description | Status |
 |----------|-------------|--------|
-| `MIN_CONTENT_LENGTH` | Minimum content length to process | Active, optional (default: 50) |
-| `MAX_CONTENT_LENGTH` | Maximum content length | Active, optional (default: 5000) |
-| `SUMMARY_LENGTH` | Length of generated summaries | Active, optional (default: 280) |
+| `MAX_CONTENT_LENGTH` | Maximum content length for processing | Active, optional (default: 5000) |
+| `SUMMARY_LENGTH` | Target length for generated summaries | Active, optional (default: 280) |
+| `MIN_CONTENT_LENGTH` | Minimum content length threshold | Active, optional (default: 50) |
 | `CONTENT_GENERATION_TIMEOUT` | Timeout for content generation | Active, optional (default: 300) |
 | `CONTENT_RETRIES` | Number of retries for content generation | Active, optional (default: 3) |
 | `PROCESS_VIDEOS` | Whether to process videos | Active, optional (default: True) |
+
+## Ollama Performance & GPU Optimization
+
+### GPU & Hardware Control
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_NUM_GPU` | Number of GPU layers to load (-1 for auto, 0 for CPU only) | Active, optional (default: -1) |
+| `OLLAMA_MAIN_GPU` | Main GPU device to use for processing | Active, optional (default: 0) |
+| `OLLAMA_LOW_VRAM` | Enable low VRAM mode for memory-constrained GPUs | Active, optional (default: false) |
+| `OLLAMA_GPU_SPLIT` | GPU memory split configuration for multi-GPU setups | Active, optional (default: "") |
+| `OLLAMA_NUM_THREADS` | Number of CPU threads to use (0 for auto) | Active, optional (default: 0) |
+
+### Memory Management
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_KEEP_ALIVE` | How long to keep models loaded in memory | Active, optional (default: "5m") |
+| `OLLAMA_USE_MMAP` | Use memory mapping for faster model loading | Active, optional (default: true) |
+| `OLLAMA_USE_MLOCK` | Lock model in memory to prevent swapping | Active, optional (default: false) |
+
+### Context & Batch Processing
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_NUM_CTX` | Context window size (0 for model default) | Active, optional (default: 0) |
+| `OLLAMA_NUM_BATCH` | Batch size for processing (0 for auto) | Active, optional (default: 0) |
+| `OLLAMA_NUM_KEEP` | Number of tokens to keep from prompt when context exceeds limit | Active, optional (default: 0) |
+| `OLLAMA_ADAPTIVE_BATCH_SIZE` | Dynamically adjust batch size based on GPU memory | Active, optional (default: true) |
+
+### Quality Control
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_REPEAT_PENALTY` | Penalty for repeating tokens (1.0 = no penalty) | Active, optional (default: 1.1) |
+| `OLLAMA_REPEAT_LAST_N` | Number of previous tokens to consider for repeat penalty | Active, optional (default: 64) |
+| `OLLAMA_TOP_K` | Limit sampling to top K tokens (0 = disabled) | Active, optional (default: 40) |
+| `OLLAMA_MIN_P` | Minimum probability threshold for token sampling | Active, optional (default: 0.05) |
+| `OLLAMA_STOP_SEQUENCES` | Global stop sequences to prevent unwanted output patterns | Active, optional (default: []) |
+
+### Advanced Options
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_SEED` | Random seed for reproducible outputs (-1 for random) | Active, optional (default: -1) |
+| `OLLAMA_ROPE_FREQUENCY_BASE` | RoPE frequency base for extended context | Active, optional (default: 0.0) |
+| `OLLAMA_ROPE_FREQUENCY_SCALE` | RoPE frequency scale for extended context | Active, optional (default: 0.0) |
+
+### Model-Specific GPU Layers
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_VISION_MODEL_GPU_LAYERS` | GPU layers for vision model (-1 for auto) | Active, optional (default: -1) |
+| `OLLAMA_TEXT_MODEL_GPU_LAYERS` | GPU layers for text model (-1 for auto) | Active, optional (default: -1) |
+| `OLLAMA_EMBEDDING_MODEL_GPU_LAYERS` | GPU layers for embedding model (-1 for auto) | Active, optional (default: -1) |
+
+### Concurrency & Performance
+| Variable | Description | Status |
+|----------|-------------|--------|
+| `OLLAMA_CONCURRENT_REQUESTS_PER_MODEL` | Max concurrent requests per model instance | Active, optional (default: 1) |
+| `OLLAMA_ENABLE_MODEL_PRELOADING` | Pre-load models at startup for faster first requests | Active, optional (default: true) |
+
+## Phase Processing Settings
 
 ## X/Twitter Settings
 

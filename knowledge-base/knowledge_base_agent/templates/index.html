@@ -6,12 +6,17 @@
     <title>Knowledge Base Agent</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/layout-clean.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
@@ -49,9 +54,6 @@
     <div id="chat-widget" class="chat-widget">
         <div class="chat-widget-header">
             <span>💬 Chat with Knowledge Base</span>
-            <button class="chat-toggle" onclick="toggleChat()">
-                <span class="chat-toggle-icon">+</span>
-            </button>
         </div>
         <div class="chat-widget-body" style="display: none;">
             <div class="chat-widget-controls" style="padding: 8px; border-bottom: 1px solid #ddd;">
@@ -83,65 +85,19 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/prism.js') }}"></script>
     <script src="{{ url_for('static', filename='js/phases.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
     <script src="{{ url_for('static', filename='js/syntheses.js') }}"></script>
     <script src="{{ url_for('static', filename='js/logs.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/environment.js') }}"></script>
     <script src="{{ url_for('static', filename='js/kb_display.js') }}"></script>
     <script src="{{ url_for('static', filename='js/synthesis_display.js') }}"></script>
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
     <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
     <script>
     // Global functions for HTML onclick handlers
-    function togglePhaseState(phaseElement) {
-        if (window.phaseManager) {
-            window.phaseManager.togglePhaseState(phaseElement, window.agentIsRunning || false);
-        }
-    }
-    
-    function setPreset(presetType) {
-        if (window.phaseManager) {
-            window.phaseManager.applyPreset(presetType);
-            // Save preferences after applying preset
-            if (window.preferencesManager) {
-                window.preferencesManager.saveClientPreferences();
-            }
-        }
-    }
-
-    // Tab interface handling
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize modular components
-        if (window.layoutManager) {
-            window.layoutManager.init();
-        }
-        
-        // Button to go from empty KB to agent tab
-        const goToAgentTabBtn = document.getElementById('goToAgentTabBtn');
-        if (goToAgentTabBtn) {
-            goToAgentTabBtn.addEventListener('click', function() {
-                document.getElementById('agent-tab').click();
-            });
-        }
-        
-        // Store the active tab in local storage
-        const tabLinks = document.querySelectorAll('button[data-bs-toggle="tab"]');
-        tabLinks.forEach(tabLink => {
-            tabLink.addEventListener('shown.bs.tab', function(event) {
-                localStorage.setItem('activeTab', event.target.id);
-            });
-        });
-        
-        // Restore active tab on page load
-        const activeTab = localStorage.getItem('activeTab');
-        if (activeTab) {
-            const tab = document.getElementById(activeTab);
-            if (tab) {
-                tab.click();
-            }
-        }
-    });
+    // These are now handled by event listeners in index.js and other modules
     </script>
 </body>
 </html>

@@ -23,19 +23,19 @@
                         </div>
                         <div class="card-body py-2">
                             <div class="d-flex gap-2 justify-content-center">
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setPreset('full_run')">
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-preset="full_run">
                                     <i class="bi bi-play-fill me-1"></i>Full Pipeline Run
                                 </button>
-                                <button type="button" class="btn btn-outline-info btn-sm" onclick="setPreset('synthesis_only')">
+                                <button type="button" class="btn btn-outline-info btn-sm" data-preset="synthesis_only">
                                     <i class="bi bi-journal-text me-1"></i>Synthesis Only
                                 </button>
-                                <button type="button" class="btn btn-outline-info btn-sm" onclick="setPreset('embedding_only')">
+                                <button type="button" class="btn btn-outline-info btn-sm" data-preset="embedding_only">
                                     <i class="bi bi-gpu-card me-1"></i>Embedding Only
                                 </button>
-                                <button type="button" class="btn btn-outline-warning btn-sm" onclick="setPreset('force_reprocess')">
+                                <button type="button" class="btn btn-outline-warning btn-sm" data-preset="force_reprocess">
                                     <i class="bi bi-arrow-clockwise me-1"></i>Force Reprocess All
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setPreset('clear_all')">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="clear_all">
                                     <i class="bi bi-eraser me-1"></i>Clear All Options
                                 </button>
                             </div>
@@ -63,14 +63,14 @@
                                         </div>
                                         
                                         <!-- Fetch Bookmarks Phase -->
-                                        <div class="phase-item status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="fetch_bookmarks" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                        <div class="phase-item status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="fetch_bookmarks" data-phase-state="normal">
                                             <div class="phase-icon"><i class="bi bi-bookmark-star"></i></div>
                                             <div class="ms-2 phase-name">Fetch Bookmarks</div>
                                             <div class="ms-auto phase-status">Will Run</div>
                                         </div>
                                         
                                         <!-- Content Processing Phase -->
-                                        <div class="phase-item status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="content_processing_overall" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                        <div class="phase-item status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="content_processing_overall" data-phase-state="normal">
                                             <div class="phase-icon"><i class="bi bi-file-earmark-text"></i></div>
                                             <div class="ms-2 phase-name">Content Processing</div>
                                             <div class="ms-auto phase-status">Will Run</div>
@@ -79,31 +79,31 @@
                                         <!-- Content Processing Subphases -->
                                         <div id="content-processing-subphases" class="sub-phases-grid ps-4 mb-2">
                                             <div class="sub-phase-row">
-                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_cache" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_cache" data-phase-state="normal">
                                                     <div class="phase-icon"><i class="bi bi-cloud-download"></i></div>
                                                     <div class="ms-1 phase-name">Tweet Caching</div>
                                                     <div class="ms-auto phase-status small">Will Run</div>
                                                 </div>
-                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_media" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_media" data-phase-state="normal">
                                                     <div class="phase-icon"><i class="bi bi-image"></i></div>
                                                     <div class="ms-1 phase-name">Media Analysis</div>
                                                     <div class="ms-auto phase-status small">Will Run</div>
                                                 </div>
                                             </div>
                                             <div class="sub-phase-row">
-                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_llm" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_llm" data-phase-state="normal">
                                                     <div class="phase-icon"><i class="bi bi-diagram-3"></i></div>
                                                     <div class="ms-1 phase-name">LLM Processing</div>
                                                     <div class="ms-auto phase-status small">Will Run</div>
                                                 </div>
-                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_kbitem" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_kbitem" data-phase-state="normal">
                                                     <div class="phase-icon"><i class="bi bi-file-earmark-plus"></i></div>
                                                     <div class="ms-1 phase-name">KB Item Generation</div>
                                                     <div class="ms-auto phase-status small">Will Run</div>
                                                 </div>
                                             </div>
                                             <div class="sub-phase-row">
-                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_db" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                                <div class="sub-phase-item status-will-run phase-state-normal d-flex align-items-center clickable-phase" data-phase-id="subphase_cp_db" data-phase-state="normal">
                                                     <div class="phase-icon"><i class="bi bi-database-check"></i></div>
                                                     <div class="ms-1 phase-name">Database Sync</div>
                                                     <div class="ms-auto phase-status small">Will Run</div>
@@ -112,7 +112,7 @@
                                         </div>
                                         
                                         <!-- Synthesis Generation Phase -->
-                                        <div class="phase-item optional-phase status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="synthesis_generation" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                        <div class="phase-item optional-phase status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="synthesis_generation" data-phase-state="normal">
                                             <div class="phase-icon"><i class="bi bi-journal-text"></i></div>
                                             <div class="ms-2 phase-name">Synthesis Generation</div>
                                             <div class="ms-auto">
@@ -122,7 +122,7 @@
                                         </div>
                                         
                                         <!-- Embedding Generation Phase -->
-                                        <div class="phase-item optional-phase status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="embedding_generation" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                        <div class="phase-item optional-phase status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="embedding_generation" data-phase-state="normal">
                                             <div class="phase-icon"><i class="bi bi-gpu-card"></i></div>
                                             <div class="ms-2 phase-name">Embedding Generation</div>
                                             <div class="ms-auto">
@@ -132,14 +132,14 @@
                                         </div>
                                         
                                         <!-- README Generation Phase -->
-                                        <div class="phase-item status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="readme_generation" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                        <div class="phase-item status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="readme_generation" data-phase-state="normal">
                                             <div class="phase-icon"><i class="bi bi-file-earmark-markdown"></i></div>
                                             <div class="ms-2 phase-name">README Generation</div>
                                             <div class="ms-auto phase-status">Will Run</div>
                                         </div>
                                         
                                         <!-- Git Sync Phase -->
-                                        <div class="phase-item optional-phase status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="git_sync" data-phase-state="normal" onclick="togglePhaseState(this)">
+                                        <div class="phase-item optional-phase status-will-run phase-state-normal d-flex align-items-center p-2 clickable-phase" data-phase-id="git_sync" data-phase-state="normal">
                                             <div class="phase-icon"><i class="bi bi-git"></i></div>
                                             <div class="ms-2 phase-name">Git Sync</div>
                                             <div class="ms-auto">
@@ -194,7 +194,7 @@
                         <div class="card gpu-status-card">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h6 class="card-title mb-0"><i class="bi bi-gpu-card me-2"></i>GPU Status</h6>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="if(window.refreshGPUStats) window.refreshGPUStats(); else console.error('refreshGPUStats not found')" title="Refresh GPU Stats">
+                                <button class="btn btn-sm btn-outline-secondary" id="refresh-gpu-stats-btn" title="Refresh GPU Stats">
                                     <i class="bi bi-arrow-clockwise"></i>
                                 </button>
                             </div>

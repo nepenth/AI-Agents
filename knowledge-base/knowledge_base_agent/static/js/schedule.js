@@ -649,15 +649,18 @@ class ScheduleManager {
     }
 }
 
-// Initialize the schedule manager when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded - initializing ScheduleManager');
-    
-    // Check if we're on the schedule page
+function initializeSchedulePage() {
+    // Check if we are on the schedule page by looking for a unique element
     if (document.querySelector('.schedule-manager')) {
         console.log('Schedule page detected, creating ScheduleManager');
+        // Instantiate the manager and attach it to the window
+        // This ensures it only runs when the schedule page is loaded
         window.scheduleManager = new ScheduleManager();
     } else {
+        // This case should not be hit if navigation.js is working correctly,
+        // but it's good practice for defensive coding.
         console.log('Not on schedule page, skipping ScheduleManager initialization');
     }
-}); 
+}
+
+window.initializeSchedulePage = initializeSchedulePage; 

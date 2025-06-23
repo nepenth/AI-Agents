@@ -1,14 +1,12 @@
 // knowledge_base_agent/static/js/chat.js
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Chat.js: Initializing chat functionality');
-    
-    // Chat session management
-    let currentSessionId = null;
-    let chatSessions = [];
+// Centralized chat state and functions
+const chatSystem = {
+    currentSessionId: null,
+    chatSessions: [],
     
     // --- Session Management ---
-    async function createNewSession() {
+    async createNewSession() {
         try {
             const response = await fetch('/api/chat/sessions', {
                 method: 'POST',
@@ -18,45 +16,42 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.ok) {
                 const sessionData = await response.json();
-                currentSessionId = sessionData.session_id;
-                localStorage.setItem('currentChatSession', currentSessionId);
-                loadChatSessions();
+                this.currentSessionId = sessionData.session_id;
+                localStorage.setItem('currentChatSession', this.currentSessionId);
+                await this.loadChatSessions(); // Use 'this'
                 return sessionData;
             }
         } catch (error) {
             console.error('Error creating new session:', error);
         }
         return null;
-    }
+    },
     
-    async function loadChatSessions() {
+    async loadChatSessions() {
         try {
             const response = await fetch('/api/chat/sessions');
             if (response.ok) {
-                chatSessions = await response.json();
-                updateSessionSelector();
+                this.chatSessions = await response.json();
+                this.updateSessionSelector();
             }
         } catch (error) {
             console.error('Error loading chat sessions:', error);
         }
-    }
+    },
     
-    async function loadChatSession(sessionId) {
+    async loadChatSession(sessionId) {
         try {
             const response = await fetch(`/api/chat/sessions/${sessionId}`);
             if (response.ok) {
                 const sessionData = await response.json();
-                currentSessionId = sessionId;
-                localStorage.setItem('currentChatSession', currentSessionId);
+                this.currentSessionId = sessionId;
+                localStorage.setItem('currentChatSession', this.currentSessionId);
                 
-                // Clear current chat history
                 const chatHistory = document.getElementById('chat-history-page');
                 if (chatHistory) {
                     chatHistory.innerHTML = '';
-                    
-                    // Load messages from session
                     sessionData.messages.forEach(message => {
-                        appendMessage(chatHistory, message.role, message.content, 
+                        this.appendMessage(chatHistory, message.role, message.content, 
                                     message.sources || [], message.context_stats || {}, 
                                     message.performance_metrics || {});
                     });
@@ -68,25 +63,25 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading chat session:', error);
         }
         return null;
-    }
+    },
     
-    async function archiveSession(sessionId) {
+    async archiveSession(sessionId) {
         try {
             const response = await fetch(`/api/chat/sessions/${sessionId}/archive`, {
                 method: 'POST'
             });
             
             if (response.ok) {
-                loadChatSessions();
-                showToast('Session archived successfully', 'success');
+                await this.loadChatSessions();
+                this.showToast('Session archived successfully', 'success');
             }
         } catch (error) {
             console.error('Error archiving session:', error);
-            showToast('Failed to archive session', 'error');
+            this.showToast('Failed to archive session', 'error');
         }
-    }
+    },
     
-    async function deleteSession(sessionId) {
+    async deleteSession(sessionId) {
         if (!confirm('Are you sure you want to delete this chat session? This action cannot be undone.')) {
             return;
         }
@@ -97,29 +92,28 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             if (response.ok) {
-                if (currentSessionId === sessionId) {
-                    currentSessionId = null;
+                if (this.currentSessionId === sessionId) {
+                    this.currentSessionId = null;
                     localStorage.removeItem('currentChatSession');
-                    clearChatHistory('chat-history-page');
+                    this.clearChatHistory('chat-history-page');
                 }
-                loadChatSessions();
-                showToast('Session deleted successfully', 'success');
+                await this.loadChatSessions();
+                this.showToast('Session deleted successfully', 'success');
             }
         } catch (error) {
             console.error('Error deleting session:', error);
-            showToast('Failed to delete session', 'error');
+            this.showToast('Failed to delete session', 'error');
         }
-    }
+    },
     
-    function updateSessionSelector() {
+    updateSessionSelector() {
         const selector = document.getElementById('chat-session-selector');
         if (!selector) return;
         
         selector.innerHTML = '<option value="">New Chat</option>';
         
-        // Group sessions by archived status
-        const activeSessions = chatSessions.filter(s => !s.is_archived);
-        const archivedSessions = chatSessions.filter(s => s.is_archived);
+        const activeSessions = this.chatSessions.filter(s => !s.is_archived);
+        const archivedSessions = this.chatSessions.filter(s => s.is_archived);
         
         if (activeSessions.length > 0) {
             const activeGroup = document.createElement('optgroup');
@@ -128,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const option = document.createElement('option');
                 option.value = session.session_id;
                 option.textContent = session.title || `Chat ${session.id}`;
-                if (session.session_id === currentSessionId) {
+                if (session.session_id === this.currentSessionId) {
                     option.selected = true;
                 }
                 activeGroup.appendChild(option);
@@ -147,10 +141,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             selector.appendChild(archivedGroup);
         }
-    }
-    
-    // --- Model Loading ---
-    async function fetchAndPopulateModels() {
+    },
+
+    async fetchAndPopulateModels() {
         try {
             const response = await fetch('/api/chat/models');
             if (!response.ok) {
@@ -161,18 +154,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const widgetSelector = document.getElementById('chat-model-selector-widget');
             const pageSelector = document.getElementById('chat-model-selector-page');
 
-            if (widgetSelector) {
-                populateSelector(widgetSelector, models);
-            }
-            if (pageSelector) {
-                populateSelector(pageSelector, models);
-            }
+            if (widgetSelector) this.populateSelector(widgetSelector, models);
+            if (pageSelector) this.populateSelector(pageSelector, models);
+
         } catch (error) {
             console.error('Error fetching chat models:', error);
         }
-    }
+    },
 
-    function populateSelector(selector, models) {
+    populateSelector(selector, models) {
         selector.innerHTML = '';
         models.forEach(model => {
             const option = document.createElement('option');
@@ -180,10 +170,9 @@ document.addEventListener('DOMContentLoaded', function() {
             option.textContent = model.name;
             selector.appendChild(option);
         });
-    }
+    },
 
-    // --- Core Chat Logic ---
-    async function handleChatSubmit(inputId, historyId, typingIndicatorId, selectorId) {
+    async handleChatSubmit(inputId, historyId, typingIndicatorId, selectorId) {
         const chatInput = document.getElementById(inputId);
         const query = chatInput.value.trim();
         if (!query) return;
@@ -192,8 +181,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const typingIndicator = document.getElementById(typingIndicatorId);
         const modelSelector = document.getElementById(selectorId);
 
-        // Add user message to history
-        appendMessage(chatHistory, 'user', query);
+        this.appendMessage(chatHistory, 'user', query);
         chatInput.value = '';
         chatInput.disabled = true;
         if (typingIndicator) typingIndicator.style.display = 'block';
@@ -207,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ 
                     message: query, 
                     model: selectedModel,
-                    session_id: currentSessionId
+                    session_id: this.currentSessionId
                 })
             });
 
@@ -218,31 +206,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const data = await response.json();
             
-            // Update current session ID if it was created
-            if (data.session_id && !currentSessionId) {
-                currentSessionId = data.session_id;
-                localStorage.setItem('currentChatSession', currentSessionId);
-                loadChatSessions();
+            if (data.session_id && !this.currentSessionId) {
+                this.currentSessionId = data.session_id;
+                localStorage.setItem('currentChatSession', this.currentSessionId);
+                await this.loadChatSessions();
             }
             
-            // Display query type if available
             if (data.query_type) {
                 console.log(`Query classified as: ${data.query_type}`);
             }
             
-            appendMessage(chatHistory, 'assistant', data.response, data.sources, data.context_stats, data.performance_metrics);
+            this.appendMessage(chatHistory, 'assistant', data.response, data.sources, data.context_stats, data.performance_metrics);
 
         } catch (error) {
             console.error('Error during chat:', error);
-            appendMessage(chatHistory, 'assistant', `Sorry, an error occurred: ${error.message}`);
+            this.appendMessage(chatHistory, 'assistant', `Sorry, an error occurred: ${error.message}`);
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
             chatInput.disabled = false;
             chatInput.focus();
         }
-    }
+    },
 
-    function appendMessage(history, role, text, sources = [], contextStats = {}, performanceMetrics = {}) {
+    appendMessage(history, role, text, sources = [], contextStats = {}, performanceMetrics = {}) {
         if (!history) return;
         
         const messageDiv = document.createElement('div');
@@ -252,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
         p.innerHTML = text.replace(/\n/g, '<br>');
         messageDiv.appendChild(p);
 
-        // Add performance metrics for assistant messages
         if (role === 'assistant' && performanceMetrics && Object.keys(performanceMetrics).length > 0) {
             const metricsDiv = document.createElement('div');
             metricsDiv.className = 'chat-performance-metrics';
@@ -276,7 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
             metricsContent.style.border = '1px solid #dee2e6';
             metricsContent.style.fontFamily = 'monospace';
             
-            // Format performance metrics with better organization
             const responseTime = performanceMetrics.response_time_ms ? `${performanceMetrics.response_time_ms}ms` : 'N/A';
             const responseTimeSeconds = performanceMetrics.response_time_seconds ? `${performanceMetrics.response_time_seconds}s` : 'N/A';
             const tokensPerSecond = performanceMetrics.tokens_per_second ? `${performanceMetrics.tokens_per_second} tokens/sec` : 'N/A';
@@ -315,16 +299,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             metricsContent.innerHTML = metricsHTML;
             
-            // Toggle functionality with enhanced UX
             metricsToggle.addEventListener('click', () => {
                 const isVisible = metricsContent.style.display !== 'none';
                 metricsContent.style.display = isVisible ? 'none' : 'block';
-                metricsToggle.innerHTML = isVisible ? 
-                    '<i class="bi bi-speedometer2"></i> Performance Details' : 
-                    '<i class="bi bi-speedometer2-fill"></i> Hide Details';
-                metricsToggle.className = isVisible ? 
-                    'btn btn-outline-info btn-sm metrics-toggle' : 
-                    'btn btn-info btn-sm metrics-toggle';
+                metricsToggle.innerHTML = isVisible ? '<i class="bi bi-speedometer2"></i> Performance Details' : '<i class="bi bi-speedometer2-fill"></i> Hide Details';
+                metricsToggle.className = isVisible ? 'btn btn-outline-info btn-sm metrics-toggle' : 'btn btn-info btn-sm metrics-toggle';
             });
             
             metricsDiv.appendChild(metricsToggle);
@@ -332,12 +311,10 @@ document.addEventListener('DOMContentLoaded', function() {
             messageDiv.appendChild(metricsDiv);
         }
 
-        // Enhanced source display with rich metadata
         if (sources && sources.length > 0) {
             const sourcesDiv = document.createElement('div');
             sourcesDiv.className = 'chat-sources';
             
-            // Add context stats if available
             if (contextStats && Object.keys(contextStats).length > 0) {
                 const statsDiv = document.createElement('div');
                 statsDiv.className = 'chat-context-stats';
@@ -359,16 +336,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const sourceItem = document.createElement('div');
                 sourceItem.className = 'source-item';
                 
-                // Create main source link
                 const sourceLink = document.createElement('a');
                 sourceLink.href = source.url || '#';
                 sourceLink.className = 'source-link';
                 sourceLink.textContent = source.title || 'Unknown Source';
                 
-                // Handle click for navigation
                 sourceLink.onclick = (e) => {
                     if (source.url && source.url !== '#') {
-                        // Navigate to the source page
                         window.location.href = source.url;
                     } else {
                         e.preventDefault();
@@ -376,24 +350,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 };
                 
-                // Create metadata display
                 const metadata = document.createElement('div');
                 metadata.className = 'source-metadata';
                 
                 let metadataContent = '';
                 
-                // Document type with emoji
                 if (source.doc_type_display) {
                     metadataContent += `<span class="doc-type">${source.doc_type_display}</span>`;
                 }
                 
-                // Category information
                 if (source.category || source.subcategory) {
                     const categoryPath = [source.category, source.subcategory].filter(Boolean).join('/');
                     metadataContent += `<span class="category">${categoryPath}</span>`;
                 }
                 
-                // Relevance score
                 if (source.score !== undefined && source.score !== null) {
                     const scorePercent = (source.score * 100).toFixed(1);
                     const scoreClass = source.score > 0.8 ? 'high-score' : source.score > 0.6 ? 'med-score' : 'low-score';
@@ -402,7 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 metadata.innerHTML = metadataContent;
                 
-                // Assemble source item
                 sourceItem.appendChild(sourceLink);
                 sourceItem.appendChild(metadata);
                 sourcesList.appendChild(sourceItem);
@@ -414,135 +383,105 @@ document.addEventListener('DOMContentLoaded', function() {
         
         history.appendChild(messageDiv);
         history.scrollTop = history.scrollHeight;
-    }
+    },
 
-    // --- Clear Chat Functionality ---
-    function clearChatHistory(historyId) {
+    clearChatHistory(historyId) {
         const history = document.getElementById(historyId);
         if (!history) return;
         
-        // Remove all chat messages except any initial system message
         const messages = history.querySelectorAll('.chat-message');
         messages.forEach(message => {
-            // Keep the initial assistant welcome message
-            if (message.classList.contains('assistant-message') && 
-                message.querySelector('p')?.textContent.includes('Hello! How can I help you')) {
+            if (message.classList.contains('assistant-message') && message.querySelector('p')?.textContent.includes('Hello! How can I help you')) {
                 return;
             }
             message.remove();
         });
         
         console.log('Chat history cleared');
-    }
+    },
 
-    function setupClearChatButton(context) {
+    setupClearChatButton(context) {
         const suffix = context === 'widget' ? '-widget' : '-page';
         const clearButtonId = `clear-chat${suffix}`;
         const historyId = `chat-history${suffix}`;
         
         const clearButton = document.getElementById(clearButtonId);
         if (clearButton) {
-            // Remove any existing event listeners
             const newButton = clearButton.cloneNode(true);
             clearButton.parentNode.replaceChild(newButton, clearButton);
             
             newButton.addEventListener('click', () => {
                 if (confirm('Are you sure you want to clear the chat history?')) {
-                    clearChatHistory(historyId);
-                    // Start a new session
-                    currentSessionId = null;
+                    this.clearChatHistory(historyId);
+                    this.currentSessionId = null;
                     localStorage.removeItem('currentChatSession');
                 }
             });
         }
-    }
+    },
 
-    // --- Session Controls ---
-    function setupSessionControls() {
-        // Session selector
+    setupSessionControls() {
         const sessionSelector = document.getElementById('chat-session-selector');
         if (sessionSelector) {
             sessionSelector.addEventListener('change', async (e) => {
                 const selectedSessionId = e.target.value;
                 if (selectedSessionId) {
-                    await loadChatSession(selectedSessionId);
+                    await this.loadChatSession(selectedSessionId);
                 } else {
-                    // New chat
-                    currentSessionId = null;
+                    this.currentSessionId = null;
                     localStorage.removeItem('currentChatSession');
-                    clearChatHistory('chat-history-page');
+                    this.clearChatHistory('chat-history-page');
                 }
             });
         }
         
-        // New chat button
         const newChatButton = document.getElementById('new-chat-btn');
         if (newChatButton) {
             newChatButton.addEventListener('click', async () => {
-                currentSessionId = null;
+                this.currentSessionId = null;
                 localStorage.removeItem('currentChatSession');
-                clearChatHistory('chat-history-page');
-                updateSessionSelector();
+                this.clearChatHistory('chat-history-page');
+                this.updateSessionSelector();
             });
         }
         
-        // Archive session button
         const archiveButton = document.getElementById('archive-session-btn');
         if (archiveButton) {
             archiveButton.addEventListener('click', () => {
-                if (currentSessionId) {
-                    archiveSession(currentSessionId);
-                }
+                if (this.currentSessionId) this.archiveSession(this.currentSessionId);
             });
         }
         
-        // Delete session button
         const deleteButton = document.getElementById('delete-session-btn');
         if (deleteButton) {
             deleteButton.addEventListener('click', () => {
-                if (currentSessionId) {
-                    deleteSession(currentSessionId);
-                }
+                if (this.currentSessionId) this.deleteSession(this.currentSessionId);
             });
         }
-    }
+    },
     
-    // --- Toast Notifications ---
-    function showToast(message, type = 'info') {
-        const toastContainer = document.getElementById('toast-container') || createToastContainer();
-        
+    showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toast-container') || this.createToastContainer();
         const toast = document.createElement('div');
         toast.className = `toast align-items-center text-white bg-${type} border-0`;
         toast.setAttribute('role', 'alert');
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-        
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
         toastContainer.appendChild(toast);
-        
         const bsToast = new bootstrap.Toast(toast);
         bsToast.show();
-        
-        // Remove toast after it's hidden
-        toast.addEventListener('hidden.bs.toast', () => {
-            toast.remove();
-        });
-    }
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    },
 
-    function createToastContainer() {
+    createToastContainer() {
         const container = document.createElement('div');
         container.id = 'toast-container';
         container.className = 'toast-container position-fixed top-0 end-0 p-3';
         container.style.zIndex = '1100';
         document.body.appendChild(container);
         return container;
-    }
+    },
 
-    // --- Chat Initialization ---
-    function initializeChat(context) {
+    initializeChat(context) {
         console.log(`Initializing chat for context: ${context}`);
         
         const suffix = context === 'widget' ? '-widget' : '-page';
@@ -553,124 +492,91 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectorId = `chat-model-selector${suffix}`;
 
         const form = document.getElementById(formId);
-        const input = document.getElementById(inputId);
-        const history = document.getElementById(historyId);
-
-        if (form && input && history) {
-            console.log(`Found chat elements for ${context}`);
-            
-            // Remove existing event listeners by cloning the form
+        if (form) {
             const newForm = form.cloneNode(true);
             form.parentNode.replaceChild(newForm, form);
             
-            // Get the new input element from the cloned form
             const newInput = newForm.querySelector('textarea');
-            if (!newInput) {
-                console.error(`Failed to find textarea in cloned form for ${context}`);
-                return;
-            }
+            if (!newInput) return;
             
-            console.log(`Setting up event listeners for ${context}`);
-            
-            // Add submit handler
             newForm.addEventListener('submit', (event) => {
                 event.preventDefault();
-                console.log(`Form submitted for ${context}`);
-                handleChatSubmit(inputId, historyId, typingIndicatorId, selectorId);
+                this.handleChatSubmit(inputId, historyId, typingIndicatorId, selectorId);
             });
 
-            // Setup Enter/Shift+Enter handling on the new input
-            newInput.addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    if (event.shiftKey) {
-                        // Shift+Enter: Allow new line (default behavior)
-                        console.log(`Shift+Enter pressed for ${context}`);
-                        return;
-                    } else {
-                        // Enter without Shift: Submit form
-                        console.log(`Enter pressed for ${context}, submitting form`);
-                        event.preventDefault();
-                        newForm.dispatchEvent(new Event('submit'));
-                    }
+            newInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    newForm.dispatchEvent(new Event('submit'));
                 }
             });
             
-            // Setup clear chat button
-            setupClearChatButton(context);
-            
+            this.setupClearChatButton(context);
             console.log(`Chat initialized successfully for ${context}`);
+        }
+    },
+
+    initializeWidget() {
+        this.initializeChat('widget');
+        const savedSessionId = localStorage.getItem('currentChatSession');
+        if (savedSessionId) {
+            this.currentSessionId = savedSessionId;
+        }
+        this.fetchAndPopulateModels();
+    },
+
+    initializePage() {
+        console.log('Chat page detected, initializing...');
+        this.initializeChat('page');
+        this.setupSessionControls();
+        this.fetchAndPopulateModels();
+        
+        if (this.currentSessionId) {
+            this.loadChatSession(this.currentSessionId);
         } else {
-            console.warn(`Chat elements not found for context: ${context}. Form: ${!!form}, Input: ${!!input}, History: ${!!history}`);
+            this.loadChatSessions();
         }
-    }
 
-    // --- Initialize ---
-    // Load session from localStorage on page load
-    const savedSessionId = localStorage.getItem('currentChatSession');
-    if (savedSessionId) {
-        currentSessionId = savedSessionId;
-    }
-    
-    // Load initial data
-    loadChatSessions();
-    setupSessionControls();
-    
-    // Widget Chat Initialization
-    initializeChat('widget');
-    
-    // Dynamic Page Chat Initialization
-    const observer = new MutationObserver((mutationsList) => {
-        for (const mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                const chatPageContainer = document.querySelector('.chat-page-container');
-                if (chatPageContainer && !chatPageContainer.dataset.initialized) {
-                    chatPageContainer.dataset.initialized = 'true';
-                    console.log('Chat page detected, initializing...');
-                    initializeChat('page');
-                    setupSessionControls();
-                    
-                    // Load session if we have one saved
-                    if (currentSessionId) {
-                        loadChatSession(currentSessionId);
-                    }
-                    
-                    fetchAndPopulateModels(); // Refresh models for the page
-                    observer.disconnect();
-                    break;
+        // Attach listeners for GPU panel on chat page
+        const gpuPanelHeader = document.getElementById('gpu-panel-header');
+        const gpuPanelBody = document.getElementById('gpu-panel-body');
+        const gpuToggleIcon = document.getElementById('gpu-panel-toggle-icon');
+        const refreshGpuBtn = document.getElementById('refresh-gpu-chat');
+
+        if (gpuPanelHeader) {
+            gpuPanelHeader.addEventListener('click', () => {
+                const isCollapsed = gpuPanelBody.style.display === 'none';
+                gpuPanelBody.style.display = isCollapsed ? 'block' : 'none';
+                gpuToggleIcon.className = isCollapsed ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+                if (isCollapsed && window.agentManager && window.agentManager.refreshGPUStats) {
+                    window.agentManager.refreshGPUStats('gpuStatsContainerChat');
                 }
-            }
+            });
         }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // Initial model load
-    fetchAndPopulateModels();
-});
+        
+        if (refreshGpuBtn) {
+            refreshGpuBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent the header click event from firing
+                if (window.agentManager && window.agentManager.refreshGPUStats) {
+                    window.agentManager.refreshGPUStats('gpuStatsContainerChat');
+                }
+            });
+        }
+    }
+};
 
 // --- Global Functions ---
 function toggleChat() {
     const chatWidget = document.querySelector('#chat-widget');
     const chatBody = document.querySelector('#chat-widget .chat-widget-body');
-    const toggleIcon = document.querySelector('.chat-toggle-icon');
+    if (!chatWidget) return;
     
-    if (!chatWidget || !toggleIcon) {
-        console.error('Chat widget or toggle icon not found');
-        return;
-    }
-    
-    if (chatWidget.classList.contains('chat-widget-open')) {
-        chatWidget.classList.remove('chat-widget-open');
-        if (chatBody) chatBody.style.display = 'none';
-        toggleIcon.textContent = '+';
-        console.log('Chat widget minimized');
-    } else {
-        chatWidget.classList.add('chat-widget-open');
-        if (chatBody) chatBody.style.display = 'flex';
-        toggleIcon.textContent = '-';
-        console.log('Chat widget opened');
-    }
+    chatWidget.classList.toggle('chat-widget-open');
+    const isOpen = chatWidget.classList.contains('chat-widget-open');
+    if (chatBody) chatBody.style.display = isOpen ? 'flex' : 'none';
 }
 
 // Expose functions to global scope
-window.toggleChat = toggleChat; 
+window.toggleChat = toggleChat;
+window.initializeChatSystem = () => chatSystem.initializeWidget();
+window.initializeChatPage = () => chatSystem.initializePage(); 
