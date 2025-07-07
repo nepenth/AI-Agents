@@ -125,7 +125,7 @@ function updateLogCount() {
 /**
  * Updates the run/stop buttons and status text based on the agent's running state.
  */
-function updateAgentStatusUI() {
+function updateAgentStatusUI(etcText = null) {
     const DOM = getDOMElements();
     const isRunning = appState.agentIsRunning;
     
@@ -133,10 +133,17 @@ function updateAgentStatusUI() {
     if (DOM.runAgentButton) DOM.runAgentButton.disabled = isRunning;
     if (DOM.stopAgentButton) DOM.stopAgentButton.disabled = !isRunning;
     
-    // Update status display in the logs footer
+    // Update status display in the logs footer with ETC
     const statusFooter = document.getElementById('agentRunStatusLogsFooter');
     if (statusFooter) {
-        statusFooter.textContent = isRunning ? 'Agent Status: Running' : 'Agent Status: Not Running';
+        let statusText = isRunning ? 'Agent Status: Running' : 'Agent Status: Not Running';
+        
+        // Add ETC information if available and agent is running
+        if (isRunning && etcText) {
+            statusText += ` | ETC: ${etcText}`;
+        }
+        
+        statusFooter.textContent = statusText;
         statusFooter.classList.remove('text-danger', 'text-success');
         statusFooter.classList.add(isRunning ? 'text-success' : 'text-danger');
     }
@@ -151,6 +158,29 @@ function updateAgentStatusUI() {
             window.phaseManager.hideETCDisplay();
             console.log('Agent stopped - ETC display hidden');
         }
+    }
+}
+
+// Helper function to update agent status with ETC
+function updateAgentStatusWithETC(etcMinutes) {
+    if (etcMinutes && etcMinutes > 0) {
+        const etcText = formatETCForDisplay(etcMinutes);
+        updateAgentStatusUI(etcText);
+    } else {
+        updateAgentStatusUI();
+    }
+}
+
+// Format ETC minutes into a readable string
+function formatETCForDisplay(minutes) {
+    if (minutes < 1) {
+        return `${Math.round(minutes * 60)}s`;
+    } else if (minutes < 60) {
+        return `${Math.round(minutes)}m`;
+    } else {
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = Math.round(minutes % 60);
+        return `${hours}h ${remainingMinutes}m`;
     }
 }
 
@@ -602,7 +632,7 @@ function initializeSocketListeners() {
         addLogMessage(`SocketIO connection error: ${error.message}`, 'ERROR');
     });
 
-    socket.on('log_message', (data) => {
+    socket.on('log', (data) => {
         addLogMessage(data.message, data.level);
     });
 
@@ -651,6 +681,11 @@ function initializeSocketListeners() {
     socket.on('phase_update', (data) => {
         if (window.phaseManager) {
             window.phaseManager.handlePhaseUpdateWithETC(data);
+            
+            // Update agent status with ETC if available
+            if (data.estimated_remaining_minutes !== undefined && data.estimated_remaining_minutes > 0) {
+                updateAgentStatusWithETC(data.estimated_remaining_minutes);
+            }
         }
     });
 
