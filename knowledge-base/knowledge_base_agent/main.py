@@ -51,17 +51,19 @@ async def cleanup(config: Config) -> None:
     except Exception as e:
         logging.warning(f"Cleanup failed: {e}")
 
-async def run_agent_from_preferences(preferences: dict, status_queue=None):
+async def run_agent_from_preferences(preferences: dict, status_queue=None, socketio_instance=None):
     """Configures and runs the agent based on preferences from the UI.
     
-    Note: status_queue parameter is kept for backward compatibility but not used
-    in the new threading approach.
+    Args:
+        preferences: Dictionary of user preferences
+        status_queue: Kept for backward compatibility but not used
+        socketio_instance: SocketIO instance for real-time updates
     """
     config = await load_config()
     user_prefs = UserPreferences(**preferences)
     
-    # This function is now only used when called directly, not in multiprocessing context
-    agent = KnowledgeBaseAgent(app=None, config=config, socketio=None)
+    # Pass the socketio instance to enable real-time updates
+    agent = KnowledgeBaseAgent(app=None, config=config, socketio=socketio_instance)
     
     await agent.initialize()
     await agent.run(user_prefs)

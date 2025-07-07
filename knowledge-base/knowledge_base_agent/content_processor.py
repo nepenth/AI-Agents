@@ -239,9 +239,24 @@ class StreamlinedContentProcessor:
 
         self.socketio_emit_log(f"Media phase: processing {plan.needs_processing_count} tweets", "INFO")
         
+        # Load historical stats for ETC calculation
+        from knowledge_base_agent.stats_manager import load_processing_stats
+        processing_stats_data = load_processing_stats()
+        phase_historical_stats = processing_stats_data.get("phases", {}).get("subphase_cp_media", {})
+        avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
+        initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
+
         if self.phase_emitter_func:
-            self.phase_emitter_func('subphase_cp_media', 'active', 
-                                   f'Processing media for {plan.needs_processing_count} tweets...')
+            self.phase_emitter_func(
+                'subphase_cp_media', 
+                'active', 
+                f'Processing media for {plan.needs_processing_count} tweets...',
+                False,
+                0,  # processed_count starts at 0
+                plan.needs_processing_count,  # total_count
+                0,  # error_count starts at 0
+                initial_estimated_duration
+            )
 
         for i, tweet_id in enumerate(plan.tweets_needing_processing):
             if stop_flag.is_set():
@@ -254,6 +269,18 @@ class StreamlinedContentProcessor:
                 tweet_data = tweets_data_map[tweet_id]
                 self.socketio_emit_log(f"Processing media for tweet {tweet_id} ({i+1}/{plan.needs_processing_count})", "DEBUG")
                 
+                # Emit progress update as we start processing this item
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'subphase_cp_media', 
+                        'in_progress', 
+                        f'Processing media for tweet {tweet_id}...',
+                        False,
+                        i,  # processed_count (items completed so far)
+                        plan.needs_processing_count,  # total_count
+                        stats.error_count
+                    )
+                
                 updated_tweet_data = await process_media(
                     tweet_data=dict(tweet_data), 
                     http_client=self.http_client,
@@ -265,6 +292,18 @@ class StreamlinedContentProcessor:
                 
                 self.socketio_emit_log(f"Media processing complete for {tweet_id}", "INFO")
                 
+                # Emit progress update after completing this item
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'subphase_cp_media', 
+                        'in_progress', 
+                        f'Completed media processing for tweet {tweet_id}',
+                        False,
+                        i + 1,  # processed_count (items completed)
+                        plan.needs_processing_count,  # total_count
+                        stats.error_count
+                    )
+                
             except Exception as e:
                 logging.error(f"Error in media processing for tweet {tweet_id}: {e}")
                 self.socketio_emit_log(f"Error in media processing for tweet {tweet_id}: {e}", "ERROR")
@@ -275,8 +314,15 @@ class StreamlinedContentProcessor:
         if not stop_flag.is_set():
             self.socketio_emit_log(f"✅ Media processing completed for {plan.needs_processing_count} tweets", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_media', 'completed', 
-                                       f'Processed media for {plan.needs_processing_count} tweets')
+                self.phase_emitter_func(
+                    'subphase_cp_media', 
+                    'completed', 
+                    f'Processed media for {plan.needs_processing_count} tweets',
+                    False,
+                    plan.needs_processing_count,  # All items processed
+                    plan.needs_processing_count,  # Total count
+                    stats.error_count
+                )
 
     async def _execute_llm_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], 
                                 preferences, stats, category_manager):

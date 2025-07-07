@@ -98,6 +98,28 @@ class WebSocketHandler(logging.Handler):
         try:
             # Filter out noisy log messages
             message = record.getMessage()
+            
+            # Filter out HTTP request logs from Werkzeug/Flask
+            if any(pattern in message for pattern in [
+                ' - - [',  # HTTP request log pattern from Werkzeug
+                'GET /',
+                'POST /',
+                'PUT /',
+                'DELETE /',
+                'GET /socket.io/',
+                'POST /socket.io/',
+                'GET /static/',
+                'HTTP/1.1" 200',
+                'HTTP/1.1" 404',
+                'HTTP/1.1" 301',
+                'HTTP/1.1" 302',
+                'HTTP/1.1" 304',
+                'transport=polling',
+                '/apple-touch-icon'
+            ]):
+                return
+            
+            # Filter out other noisy messages
             if any(noise in message.lower() for noise in [
                 "emitting event", 
                 "gpu stats result", 
@@ -108,7 +130,12 @@ class WebSocketHandler(logging.Handler):
                 "gpu stats for",
                 "emitting gpu",
                 "received initial_status_and_git_config",
-                "agent status update"
+                "agent status update",
+                "web logging re-configured",
+                "starting flask-socketio server",
+                "requesting updated gpu stats",  # Add this specific pattern
+                "socketio connected successfully",
+                "requesting initial gpu stats"
             ]) or "gpu stats" in message.lower():
                 return
                 
@@ -363,6 +390,10 @@ def handle_run_agent(data):
         return
 
     logging.info(f"Agent run initiated with preferences: {data}")
+    
+    # Set initial state
+    agent_is_running = True
+    current_run_preferences = data
 
     def run_agent_in_thread():
         """Run the agent in a background thread with direct SocketIO access."""
@@ -370,6 +401,11 @@ def handle_run_agent(data):
         # Push an application context to make 'current_app' and other Flask globals available.
         with app.app_context():
             try:
+                # Set running state immediately
+                agent_is_running = True
+                current_run_preferences = data
+                socketio.emit('agent_status_update', {'is_running': True, 'preferences': data})
+                
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 
@@ -383,8 +419,11 @@ def handle_run_agent(data):
                 
                 logging.info("Agent thread started. Executing agent from preferences.")
                 
-                # Pass the received preferences to the agent runner
-                loop.run_until_complete(run_agent_from_preferences(preferences=data))
+                # Pass the received preferences and socketio instance to the agent runner
+                loop.run_until_complete(run_agent_from_preferences(preferences=data, socketio_instance=socketio))
+                
+                # If we get here, the agent completed successfully
+                socketio.emit('agent_completed', {'message': 'Agent run completed successfully'})
                 
             except Exception as e:
                 logging.error(f"Exception in agent thread: {e}", exc_info=True)
