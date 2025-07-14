@@ -281,9 +281,10 @@ class APIClient {
         });
     }
 
-    async stopAgent() {
+    async stopAgent(taskId = null) {
         return this.request('/v2/agent/stop', {
-            method: 'POST'
+            method: 'POST',
+            body: { task_id: taskId }
         });
     }
 

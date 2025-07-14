@@ -70,13 +70,15 @@ class KnowledgeBaseAgent:
     
     def __init__(self, app, config: Config, socketio: Optional[SocketIO] = None,
                  phase_callback: Optional[Callable[..., None]] = None,
-                 log_callback: Optional[Callable[[str, str], None]] = None):
+                 log_callback: Optional[Callable[[str, str], None]] = None,
+                 task_id: Optional[str] = None):
         """
         Initialize the agent with configuration.
 
         Args:
             config (Config): Configuration object containing settings for the agent.
             socketio (Optional[SocketIO]): SocketIO instance for real-time updates.
+            task_id (Optional[str]): Task ID for unified logging system.
         """
         self.app = app
         self.config = config
@@ -84,6 +86,15 @@ class KnowledgeBaseAgent:
         self.state_manager = StateManager(config)
         self.category_manager = CategoryManager(config, http_client=self.http_client)
         self.socketio = socketio
+        self.task_id = task_id
+        
+        # Initialize unified logging system if task_id is provided
+        if task_id:
+            from .unified_logging import get_unified_logger
+            self.unified_logger = get_unified_logger(task_id, config)
+        else:
+            self.unified_logger = None
+        
         # Optional external callbacks (e.g. Celery → Redis pipeline).  If provided, they
         # will be invoked in addition to the built-in Socket.IO emission so that the
         # caller can receive progress without monkey-patching these methods.
@@ -167,11 +178,12 @@ class KnowledgeBaseAgent:
         log_data = {'message': message, 'level': level.upper()}
 
         # Socket.IO path (web-server run) -----------------------------------
-        if self.socketio:
-            try:
-                self.socketio.emit('log', log_data)
-            except Exception as e:
-                logging.error(f"Failed to emit log via socketio: {e}")
+        # Use unified logging system
+        if hasattr(self, 'unified_logger') and self.unified_logger:
+            self.unified_logger.log(log_data.get('message', ''), log_data.get('level', 'INFO'))
+        else:
+            # Fallback to standard logging
+            logging.log(getattr(logging, log_data.get('level', 'INFO')), log_data.get('message', ''))
 
         # External callback path (Celery run) -------------------------------
         if self._external_log_cb:
@@ -333,7 +345,10 @@ class KnowledgeBaseAgent:
         self._update_state_in_db(**db_updates)
         # --- End DB Persistence ---
 
-        if self.socketio:
+        # Use unified logging system for phase updates
+        if hasattr(self, 'unified_logger') and self.unified_logger:
+            self.unified_logger.emit_phase_update(phase_id, status, message, processed_count or 0)
+        elif self.socketio:
             try:
                 self.socketio.emit('phase_update', data_to_emit)
             except Exception as e:
@@ -363,7 +378,8 @@ class KnowledgeBaseAgent:
             markdown_writer=MarkdownWriter(self.config),
             category_manager=self.category_manager,
             socketio=self.socketio,
-            phase_emitter_func=self.socketio_emit_phase_update
+            phase_emitter_func=self.socketio_emit_phase_update,
+            task_id=self.task_id  # Pass task_id for unified logging
         )
         
         # Initialize EmbeddingManager
@@ -643,7 +659,14 @@ class KnowledgeBaseAgent:
 
         self._is_running = True
         self._current_run_preferences = preferences  # Store preferences for state restoration
-        if self.socketio:
+        # Use unified logging system for agent status updates
+        if hasattr(self, 'unified_logger') and self.unified_logger:
+            self.unified_logger.emit_agent_status({
+                'is_running': True,
+                'active_run_preferences': asdict(preferences),
+                'plan_statuses': self._plan_statuses
+            })
+        elif self.socketio:
             try:
                 self.socketio.emit('agent_status', {
                     'is_running': True, 
@@ -868,7 +891,13 @@ class KnowledgeBaseAgent:
             stats.error_count += 1 # Ensure this error is counted.
         finally:
             self._is_running = False
-            if self.socketio:
+            # Use unified logging system for agent status updates
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                self.unified_logger.emit_agent_status({
+                    'is_running': False,
+                    'active_run_preferences': None
+                })
+            elif self.socketio:
                 self.socketio.emit('agent_status', {
                     'is_running': False,
                     'active_run_preferences': None
@@ -906,7 +935,12 @@ class KnowledgeBaseAgent:
                 'summary_message': summary_message,
                 'plan_statuses': final_plan_statuses,
             }
-            if self.socketio:
+            # Use unified logging system for completion updates
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                self.unified_logger.emit_agent_status({
+                    'agent_run_completed': completion_data
+                })
+            elif self.socketio:
                 self.socketio.emit('agent_run_completed', completion_data)
                 # Also emit a final status update from the DB state
                 with self.app.app_context():

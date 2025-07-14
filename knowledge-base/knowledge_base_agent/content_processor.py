@@ -58,7 +58,7 @@ class StreamlinedContentProcessor:
     
     def __init__(self, config=None, http_client=None, state_manager=None, 
                  markdown_writer=None, category_manager=None,
-                 socketio=None, phase_emitter_func=None):
+                 socketio=None, phase_emitter_func=None, task_id=None):
         self.config = config
         self.http_client = http_client
         self.state_manager = state_manager
@@ -67,6 +67,14 @@ class StreamlinedContentProcessor:
         self.text_model = self.http_client.config.text_model
         self.category_manager = category_manager
         self.markdown_writer = markdown_writer
+        self.task_id = task_id
+        
+        # Initialize unified logging system if task_id is provided
+        if task_id:
+            from .unified_logging import get_unified_logger
+            self.unified_logger = get_unified_logger(task_id, config)
+        else:
+            self.unified_logger = None
         
         # Initialize phase execution helper
         self.phase_helper = PhaseExecutionHelper()
@@ -74,8 +82,12 @@ class StreamlinedContentProcessor:
         logging.info(f"Initialized StreamlinedContentProcessor with model: {self.text_model}")
 
     def socketio_emit_log(self, message: str, level: str = "INFO") -> None:
-        """Helper method to emit general logs via SocketIO if available."""
-        if self.socketio:
+        """Helper method to emit general logs via unified logging system."""
+        # MODERN: Use unified logging system
+        if self.unified_logger:
+            self.unified_logger.log(message, level.upper())
+        elif self.socketio:
+            # LEGACY: Fallback to direct SocketIO
             self.socketio.emit('log', {'message': message, 'level': level.upper()})
         # Standard logging will also occur via Python's logging module
         logger_level = getattr(logging, level.upper(), logging.INFO)
@@ -802,8 +814,17 @@ class StreamlinedContentProcessor:
             raise
 
     def socketio_emit_progress(self, processed_count, total_count, error_count, current_item_id, status_message):
-        """Emit progress updates via SocketIO."""
-        if self.socketio:
+        """Emit progress updates via unified logging system."""
+        # MODERN: Use unified logging system
+        if self.unified_logger:
+            self.unified_logger.emit_phase_update(
+                'process_content',
+                'in_progress',
+                f'Processed {processed_count} items',
+                processed_count
+            )
+        elif self.socketio:
+            # LEGACY: Fallback to direct SocketIO
             self.socketio.emit('progress_update', {
                 'phase': 'process_content',
                 'processed_count': processed_count,
