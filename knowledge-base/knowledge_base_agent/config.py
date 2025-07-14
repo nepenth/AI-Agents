@@ -2,7 +2,7 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pydantic_settings import BaseSettings
 from pydantic import HttpUrl, Field, field_validator, model_validator
 from knowledge_base_agent.exceptions import ConfigurationError
@@ -94,6 +94,10 @@ class Config(BaseSettings):
     x_password: str = Field(..., alias="X_PASSWORD")
     x_bookmarks_url: str = Field(..., alias="X_BOOKMARKS_URL")
     
+    # Web Server Settings
+    web_server_host: str = Field("0.0.0.0", alias="WEB_SERVER_HOST", description="Host for the Flask development server")
+    web_server_port: int = Field(5000, alias="WEB_SERVER_PORT", description="Port for the Flask development server")
+
     # Logging and performance
     log_level: str = Field("DEBUG", alias="LOG_LEVEL")
     log_format: str = Field("%(asctime)s - %(levelname)s - %(message)s", alias="LOG_FORMAT")
@@ -201,9 +205,58 @@ class Config(BaseSettings):
     ollama_text_model_gpu_layers: int = Field(-1, alias="OLLAMA_TEXT_MODEL_GPU_LAYERS", description="GPU layers for text model (-1 for auto)")
     ollama_embedding_model_gpu_layers: int = Field(-1, alias="OLLAMA_EMBEDDING_MODEL_GPU_LAYERS", description="GPU layers for embedding model (-1 for auto)")
 
+    # === Database Configuration ===
+    database_url: str = Field(f"sqlite:///{get_project_root() / 'instance' / 'knowledge_base.db'}", alias="DATABASE_URL", description="Database connection string")
+
+    # === Celery Configuration (NEW) ===
+    # Celery Feature Flag
+    use_celery: bool = Field(True, alias="USE_CELERY", description="Enable Celery task queue for asynchronous processing")
+    
+    # Celery Broker and Backend
+    celery_broker_url: str = Field("redis://localhost:6379/0", alias="CELERY_BROKER_URL", description="Celery broker URL for task queue")
+    celery_result_backend: str = Field("redis://localhost:6379/0", alias="CELERY_RESULT_BACKEND", description="Celery result backend for storing task results")
+    celery_task_serializer: str = Field("json", alias="CELERY_TASK_SERIALIZER", description="Serializer for task payloads")
+    celery_accept_content: List[str] = Field(["json"], alias="CELERY_ACCEPT_CONTENT", description="Accepted content types for tasks")
+    celery_result_serializer: str = Field("json", alias="CELERY_RESULT_SERIALIZER", description="Serializer for task results")
+    
+    # Redis Configuration for Progress/Logs
+    redis_progress_url: str = Field("redis://localhost:6379/1", alias="REDIS_PROGRESS_URL", description="Redis URL for progress tracking")
+    redis_logs_url: str = Field("redis://localhost:6379/2", alias="REDIS_LOGS_URL", description="Redis URL for log streaming")
+    
+    # Enhanced Task Configuration
+    celery_task_track_started: bool = Field(True, alias="CELERY_TASK_TRACK_STARTED", description="Track when tasks are started")
+    celery_task_time_limit: int = Field(7200, alias="CELERY_TASK_TIME_LIMIT", description="Maximum task execution time in seconds (2 hours)")
+    celery_worker_prefetch_multiplier: int = Field(1, alias="CELERY_WORKER_PREFETCH_MULTIPLIER", description="Number of tasks worker prefetches")
+
+    @property
+    def celery_config(self) -> Dict[str, Any]:
+        """Returns a dictionary of Celery configuration settings."""
+        return {
+            'broker_url': self.celery_broker_url,
+            'result_backend': self.celery_result_backend,
+            'task_serializer': self.celery_task_serializer,
+            'accept_content': self.celery_accept_content,
+            'result_serializer': self.celery_result_serializer,
+            'timezone': 'UTC',
+            'enable_utc': True,
+            'task_track_started': self.celery_task_track_started,
+            'task_time_limit': self.celery_task_time_limit,
+            'worker_prefetch_multiplier': self.celery_worker_prefetch_multiplier,
+            'task_routes': {
+                'knowledge_base_agent.tasks.agent.*': {'queue': 'agent'},
+                'knowledge_base_agent.tasks.processing.*': {'queue': 'processing'},
+                'knowledge_base_agent.tasks.chat.*': {'queue': 'chat'},
+            },
+            'result_expires': 3600,
+            'task_ignore_result': False,
+            'worker_max_tasks_per_child': 1000,
+            'worker_disable_rate_limits': True,
+            'broker_connection_retry_on_startup': True,
+        }
+
     @model_validator(mode='after')
     def resolve_paths(self):
-        """Resolve relative paths to absolute paths based on project_root."""
+        """Resolve all relative path configurations to absolute paths based on project_root."""
         
         # Ensure that the project_root has been set by something valid
         if self.project_root is None:
@@ -352,22 +405,42 @@ class Config(BaseSettings):
 
     @classmethod
     def from_env(cls, project_root_path: Optional[Path] = None) -> "Config":
-        """Create Config from environment variables."""
+        """Create Config from environment variables with dynamic project root detection."""
         global PROJECT_ROOT
+        
         if project_root_path:
+            # Legacy support: if explicitly provided, use it
             PROJECT_ROOT = project_root_path
             logging.info(f"PROJECT_ROOT explicitly set to: {PROJECT_ROOT}")
         else:
+            # Dynamic detection for portability
             if PROJECT_ROOT is None:
-                PROJECT_ROOT = get_project_root()
-            logging.info(f"Using project_root: {PROJECT_ROOT}")
+                current_file_dir = Path(__file__).parent  # knowledge_base_agent/
+                potential_roots = [
+                    current_file_dir.parent,  # Parent of knowledge_base_agent/
+                    Path.cwd(),  # Current working directory
+                ]
+                
+                for root_candidate in potential_roots:
+                    # Check for project indicators
+                    if (root_candidate / '.env').exists() and (root_candidate / 'knowledge_base_agent').is_dir():
+                        PROJECT_ROOT = root_candidate
+                        break
+                
+                # Fallback if no clear indicators found
+                if PROJECT_ROOT is None:
+                    PROJECT_ROOT = current_file_dir.parent
+                    logging.warning(f"Could not detect project root from indicators. Using fallback: {PROJECT_ROOT}")
+                
+                logging.info(f"PROJECT_ROOT dynamically detected: {PROJECT_ROOT}")
 
         # Drop inherited AVAILABLE_CHAT_MODELS env var so Pydantic Settings can read the JSON array from .env
         os.environ.pop("AVAILABLE_CHAT_MODELS", None)
         logging.info("Loading environment variables for Config via Pydantic .env settings file")
 
         # Instantiate and return the settings; Pydantic will JSON-decode AVAILABLE_CHAT_MODELS
-        return cls(project_root=PROJECT_ROOT)
+        # The Config constructor will automatically load from environment variables and .env file
+        return cls()  # type: ignore[call-arg]  # BaseSettings loads from env automatically
 
     def get_relative_path(self, absolute_path: Path) -> Path:
         """Converts an absolute path to a path relative to the project root."""

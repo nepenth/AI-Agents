@@ -1,25 +1,28 @@
 # knowledge_base_agent/main.py
 import asyncio
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from pathlib import Path
 from datetime import datetime
 import os
+from flask_socketio import SocketIO
+import multiprocessing as mp
 
 from .config import Config, PROJECT_ROOT as global_project_root_ref
 from .agent import KnowledgeBaseAgent
 from .exceptions import KnowledgeBaseError, ConfigurationError
-from .prompts import LLMPrompts, UserPreferences
+from .prompts import LLMPrompts, UserPreferences, load_user_preferences
 
+logger = logging.getLogger(__name__)
 
-
-
+# Store a single agent instance
+agent_instance: Optional[KnowledgeBaseAgent] = None
 
 async def load_config() -> Config:
     """Load configuration and initialize logging."""
     try:
-        determined_project_root = Path(__file__).parent.parent
-        config = Config.from_env(project_root_path=determined_project_root)
+        # Use dynamic project root detection from config.py instead of explicit setting
+        config = Config.from_env()  # Let Config.from_env() handle dynamic detection
         config.ensure_directories()
         # Note: Logging is already configured by the main application
         return config
@@ -51,62 +54,60 @@ async def cleanup(config: Config) -> None:
     except Exception as e:
         logging.warning(f"Cleanup failed: {e}")
 
-async def run_agent_from_preferences(preferences: dict, status_queue=None, socketio_instance=None):
-    """Configures and runs the agent based on preferences from the UI.
-    
-    Args:
-        preferences: Dictionary of user preferences
-        status_queue: Kept for backward compatibility but not used
-        socketio_instance: SocketIO instance for real-time updates
+async def run_agent_from_preferences(preferences: Dict[str, Any], socketio_instance: Optional[SocketIO] = None):
     """
-    config = await load_config()
-    user_prefs = UserPreferences(**preferences)
-    
-    # Pass the socketio instance to enable real-time updates
-    agent = KnowledgeBaseAgent(app=None, config=config, socketio=socketio_instance)
-    
-    await agent.initialize()
-    await agent.run(user_prefs)
-
-async def main(preferences: Optional[dict] = None):
-    """Main entry point for running the agent."""
-    config = None
-    agent = None
+    Initializes and runs the agent with a given set of user preferences.
+    This is the main entry point for starting an agent run.
+    """
+    logger.info("Executing agent from preferences...")
     try:
+        # Import Flask app here to avoid circular imports - web.py imports from main.py
+        from flask import Flask
+        from .models import db
+        
+        # Create a minimal Flask app for database context
+        flask_app = Flask(__name__)
+        flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/knowledge_base.db'
+        flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        db.init_app(flask_app)
+        
         config = await load_config()
-
-        if preferences:
-            user_prefs = UserPreferences(**preferences)
-        else:
-            # This part can be enhanced to take CLI args
-            print("Running with default preferences as no CLI arguments were provided.")
-            user_prefs = UserPreferences()
-
-        prompts = LLMPrompts(config.prompts_file)
-        agent = KnowledgeBaseAgent(app=None, config=config, socketio=None)
-
+        user_prefs = UserPreferences(**preferences)
+        
+        # In a multiprocessing scenario, a new agent is created for each run.
+        # The app context and update queue are passed for DB access and communication.
+        agent = KnowledgeBaseAgent(app=flask_app, config=config, socketio=socketio_instance)
+        
         await agent.run(user_prefs)
-
-    except ConfigurationError as e:
-        logging.error(f"Configuration error: {e}")
-    except KnowledgeBaseError as e:
-        logging.error(f"Knowledge base error: {e}")
+        logger.info("Agent run from preferences completed.")
+        
     except Exception as e:
-        logging.error(f"An unexpected error occurred in main: {e}", exc_info=True)
-    finally:
-        if agent:
-            if agent.http_client:
-                await agent.http_client.close()
-                logging.debug("HTTP client session closed")
-            await agent.cleanup()
-            logging.debug("Agent cleanup called.")
+        logger.error(f"Error running agent from preferences: {e}", exc_info=True)
+        # Error logging is now handled by the Celery task a
+        pass
 
-        if config:
-            await cleanup(config)
-        else:
-            logging.info("Skipping file cleanup as config was not initialized")
+async def main_cli():
+    """Main entry point for command-line execution."""
+    # This function is for CLI usage and does not use the web UI's state or queue.
+    try:
+        # Import Flask app here to avoid circular imports - web.py imports from main.py  
+        from flask import Flask
+        from .models import db
+        
+        # Create a minimal Flask app for database context
+        flask_app = Flask(__name__)
+        flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/knowledge_base.db'
+        flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        db.init_app(flask_app)
+        
+        config = await load_config()
+        user_prefs = UserPreferences() # Load default preferences for CLI
+        agent = KnowledgeBaseAgent(app=flask_app, config=config)
+        await agent.run(user_prefs)
+    except Exception as e:
+        logger.critical(f"A critical error occurred in CLI mode: {e}", exc_info=True)
 
-        logging.info("Agent run finished.")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+if __name__ == '__main__':
+    # This allows running the agent directly from the command line.
+    # Example: python -m knowledge_base_agent.main
+    asyncio.run(main_cli())

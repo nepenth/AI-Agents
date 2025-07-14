@@ -5,7 +5,7 @@ This module contains the core logic for the Knowledge Base Agent, which automate
 """
 
 import logging
-from typing import Set, List, Dict, Any, Optional
+from typing import Set, List, Dict, Any, Optional, Callable
 from pathlib import Path
 import asyncio
 from datetime import datetime, timezone
@@ -18,35 +18,25 @@ from flask import current_app
 import math
 from statistics import mean, median
 from collections import defaultdict
+import multiprocessing as mp
 
+# Core imports needed at module level
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import AgentError, MarkdownGenerationError
 from knowledge_base_agent.state_manager import StateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
-from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
-from knowledge_base_agent.markdown_writer import MarkdownWriter
-from knowledge_base_agent.readme_generator import generate_root_readme, generate_static_root_readme
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.custom_types import TweetData, KnowledgeBaseItem
 from knowledge_base_agent.prompts import UserPreferences, load_user_preferences
 from knowledge_base_agent.progress import ProcessingStats, PhaseDetail
 from knowledge_base_agent.content_processor import ContentProcessingError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
-from knowledge_base_agent.file_utils import async_json_load
 from knowledge_base_agent.http_client import HTTPClient
-from knowledge_base_agent.content_processor import ContentProcessor
-from knowledge_base_agent.tweet_cacher import cache_tweets, TweetCacheValidator
 from knowledge_base_agent.shared_globals import stop_flag, clear_stop_flag, sg_get_project_root, sg_set_project_root
 from knowledge_base_agent.models import db
-from knowledge_base_agent.synthesis_generator import generate_syntheses
-from knowledge_base_agent.api.logs import list_logs
-from knowledge_base_agent.api.log_content import get_log_content
-from knowledge_base_agent.synthesis_generator import SynthesisGenerator
 from knowledge_base_agent.stats_manager import DynamicPhaseEstimator, get_historical_phase_average, format_duration_to_hhmm
-from knowledge_base_agent.embedding_manager import EmbeddingManager
-from knowledge_base_agent.content_processor import StreamlinedContentProcessor
-from knowledge_base_agent.phase_execution_helper import PhaseExecutionHelper
-from knowledge_base_agent.chat_manager import ChatManager
+
+# Heavy imports moved to functions where they're used
 
 # Default phase IDs - ensure these match your UI elements' IDs
 DEFAULT_PHASE_IDS = [
@@ -75,39 +65,12 @@ def setup_logging(config: Config) -> None:
 
 class KnowledgeBaseAgent:
     """
-    Main agent coordinating knowledge base operations.
-
-    The KnowledgeBaseAgent class is the central component of the knowledge base system. It orchestrates
-    the fetching of content from various sources, processes and categorizes this content, manages state,
-    and generates structured outputs. It integrates with other modules to ensure a seamless workflow.
-
-    Attributes:
-        config (Config): Configuration object for the agent.
-        http_client (HTTPClient): Client for making HTTP requests.
-        state_manager (StateManager): Manages the state of processed and unprocessed content.
-        category_manager (CategoryManager): Handles content categorization.
-        content_processor (ContentProcessor): Processes content for the knowledge base.
-        _processing_lock (asyncio.Lock): Lock to prevent concurrent processing issues.
-        git_handler (GitSyncHandler): Handles synchronization with Git repositories.
-        stats (ProcessingStats): Tracks processing statistics.
-        _initialized (bool): Flag indicating if the agent has been initialized.
-        socketio (SocketIO, optional): SocketIO instance for real-time updates.
-        _is_running (bool): Flag indicating if the agent is currently running.
-        _current_phase_id (Optional[str]): Current phase ID.
-        _current_phase_message (Optional[str]): Current phase message.
-        _current_phase_status (Optional[str]): Current phase status.
-        _current_run_preferences (Optional[UserPreferences]): Current run preferences.
-        _plan_statuses (Dict[str, Dict[str, str]]): Stores {'phase_id': {'status': '...', 'message': '...'}}
-        
-        # Time estimation tracking
-        _phase_start_times = {}
-        _phase_item_processing_times = defaultdict(list)
-        _phase_total_items = {}
-        _phase_processed_items = {}
-        _phase_estimated_completion_times = {}
+    The main agent responsible for the knowledge base creation process.
     """
     
-    def __init__(self, app, config: Config, socketio: Optional[SocketIO] = None):
+    def __init__(self, app, config: Config, socketio: Optional[SocketIO] = None,
+                 phase_callback: Optional[Callable[..., None]] = None,
+                 log_callback: Optional[Callable[[str, str], None]] = None):
         """
         Initialize the agent with configuration.
 
@@ -121,15 +84,24 @@ class KnowledgeBaseAgent:
         self.state_manager = StateManager(config)
         self.category_manager = CategoryManager(config, http_client=self.http_client)
         self.socketio = socketio
+        # Optional external callbacks (e.g. Celery → Redis pipeline).  If provided, they
+        # will be invoked in addition to the built-in Socket.IO emission so that the
+        # caller can receive progress without monkey-patching these methods.
+        self._external_phase_cb = phase_callback
+        self._external_log_cb   = log_callback
         # Debug: Log socketio initialization
         if socketio:
             logging.info(f"Agent initialized WITH socketio: {type(socketio).__name__}")
         else:
             logging.warning("Agent initialized WITHOUT socketio - real-time updates will not work")
+        # Initialize phase execution helper here to avoid import at module level
+        from knowledge_base_agent.phase_execution_helper import PhaseExecutionHelper
+        from knowledge_base_agent.tweet_cacher import TweetCacheValidator
+        
         self.phase_execution_helper = PhaseExecutionHelper()
-        self.content_processor: Optional[StreamlinedContentProcessor] = None
-        self.chat_manager: Optional[ChatManager] = None
-        self.embedding_manager: Optional[EmbeddingManager] = None
+        self.content_processor = None  # Type hints removed to avoid import issues
+        self.chat_manager = None
+        self.embedding_manager = None
         self._processing_lock = asyncio.Lock()
         self.git_handler = GitSyncHandler(config)
         self.stats = ProcessingStats(start_time=datetime.now())
@@ -155,17 +127,60 @@ class KnowledgeBaseAgent:
         self.logger = logging.getLogger(__name__)
         self.logger.info("KnowledgeBaseAgent initialized with dynamic phase estimation")
 
+    def _update_state_in_db(self, **kwargs):
+        """Helper to update the agent's state in the database."""
+        if not self.app:
+            self.logger.warning("Cannot update state in DB: No Flask app context.")
+            return
+
+        with self.app.app_context():
+            from .models import AgentState, db
+            
+            state = AgentState.query.first()
+            if not state:
+                self.logger.error("Could not find AgentState row in database to update.")
+                return
+
+            # Update fields from kwargs
+            for key, value in kwargs.items():
+                if hasattr(state, key):
+                    # Serialize dicts/lists to JSON strings for Text fields
+                    if isinstance(value, (dict, list)):
+                        setattr(state, key, json.dumps(value))
+                    else:
+                        setattr(state, key, value)
+
+            state.last_update = datetime.now(timezone.utc)
+            
+            try:
+                db.session.commit()
+                self.logger.debug(f"Agent state updated in DB with keys: {list(kwargs.keys())}")
+            except Exception as e:
+                self.logger.error(f"Failed to commit agent state to DB: {e}")
+                db.session.rollback()
+
     def socketio_emit_log(self, message: str, level: str = "INFO") -> None:
-        """Emit a log message via socketio and logging module."""
+        """Emit a log message via socketio and also log it."""
+        # Always log to the local logger first
         logging.log(getattr(logging, level.upper(), logging.INFO), message)
         
+        log_data = {'message': message, 'level': level.upper()}
+
+        # Socket.IO path (web-server run) -----------------------------------
         if self.socketio:
             try:
-                self.socketio.emit('log', {'message': message, 'level': level.upper()})
+                self.socketio.emit('log', log_data)
             except Exception as e:
                 logging.error(f"Failed to emit log via socketio: {e}")
-        else:
-            logging.warning("socketio_emit_log called but self.socketio is None")
+
+        # External callback path (Celery run) -------------------------------
+        if self._external_log_cb:
+            try:
+                self._external_log_cb(message, level)
+            except Exception:
+                logging.debug("External log callback failed", exc_info=True)
+
+        # For CLI runs with neither socketio nor external callback we just log locally
 
     def socketio_emit_phase_update(self, 
                                  phase_id: str, 
@@ -260,6 +275,18 @@ class KnowledgeBaseAgent:
             if phase_id in DEFAULT_PHASE_IDS or phase_id.startswith("subphase_cp_"):
                 self._plan_statuses[phase_id] = {'status': status, 'message': message, 'sub_step': False}
 
+        # External callback (Celery worker) ---------------------------------
+        if self._external_phase_cb:
+            try:
+                self._external_phase_cb(phase_id, status, message,
+                                        is_sub_step_update=is_sub_step_update,
+                                        processed_count=processed_count,
+                                        total_count=total_count,
+                                        error_count=error_count,
+                                        initial_estimated_duration_seconds=initial_estimated_duration_seconds)
+            except Exception:
+                logging.debug("External phase callback failed", exc_info=True)
+
         # Prepare enhanced data for SocketIO emit
         data_to_emit = {
             'phase_id': phase_id,
@@ -291,6 +318,21 @@ class KnowledgeBaseAgent:
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             logging.debug(f"Emitting phase_update for '{phase_id}': {json.dumps(data_to_emit, default=str)}")
         
+        # --- Persist state to DB ---
+        db_updates = {
+            'current_phase_id': self._current_phase_id,
+            'current_phase_message': self._current_phase_message,
+            'current_phase_status': self._current_phase_status,
+            'plan_statuses': self._plan_statuses,
+        }
+        # Add dynamic estimates if available
+        if not is_sub_step_update:
+            active_estimates = self.phase_estimator.get_all_active_estimates()
+            if active_estimates:
+                db_updates['phase_estimates'] = active_estimates
+        self._update_state_in_db(**db_updates)
+        # --- End DB Persistence ---
+
         if self.socketio:
             try:
                 self.socketio.emit('phase_update', data_to_emit)
@@ -299,13 +341,19 @@ class KnowledgeBaseAgent:
         else:
             logging.warning(f"socketio_emit_phase_update called for {phase_id} but self.socketio is None")
 
-    async def initialize(self) -> None:
+    async def initialize(self) -> tuple:
         """Initialize or re-initialize agent components."""
-        if self._initialized:
+        if self._initialized and self.content_processor and self.embedding_manager and self.chat_manager:
             self.logger.info("Agent already initialized. Skipping re-initialization.")
-            return
+            return self.content_processor, self.embedding_manager, self.chat_manager
 
         self.logger.info("Initializing agent components...")
+        
+        # Import components here to avoid circular imports
+        from knowledge_base_agent.content_processor import StreamlinedContentProcessor
+        from knowledge_base_agent.markdown_writer import MarkdownWriter
+        from knowledge_base_agent.embedding_manager import EmbeddingManager
+        from knowledge_base_agent.chat_manager import ChatManager
         
         # Initialize the streamlined content processor
         self.content_processor = StreamlinedContentProcessor(
@@ -335,6 +383,7 @@ class KnowledgeBaseAgent:
         await self.state_manager.initialize()
         self._initialized = True
         self.logger.info("Agent initialization complete.")
+        return self.content_processor, self.embedding_manager, self.chat_manager
 
     async def fetch_and_queue_bookmarks(self, preferences: UserPreferences) -> int:
         """
@@ -352,6 +401,9 @@ class KnowledgeBaseAgent:
 
         self.socketio_emit_phase_update('fetch_bookmarks', 'in_progress', 'Starting bookmark fetching...')
         self.socketio_emit_log("Fetching and queuing bookmarks...", "INFO")
+        
+        # Import here to avoid circular imports
+        from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
         bookmark_fetcher = BookmarksFetcher(self.config)
         try:
             await bookmark_fetcher.initialize()
@@ -432,6 +484,7 @@ class KnowledgeBaseAgent:
             # Optionally emit a socket event here if this phase is distinct in UI
             return
 
+        from knowledge_base_agent.fetch_bookmarks import BookmarksFetcher
         logging.info("Starting bookmark processing")
         bookmark_fetcher = BookmarksFetcher(self.config)
         try:
@@ -479,6 +532,7 @@ class KnowledgeBaseAgent:
                 # Ensure content processor is initialized before use
                 if not self.content_processor:
                     await self.initialize()
+                assert self.content_processor is not None
                 
                 await self.content_processor.process_all_tweets(
                     preferences=current_prefs, 
@@ -581,6 +635,8 @@ class KnowledgeBaseAgent:
         self.socketio_emit_log(f"DEBUG_AGENT_RUN: In run(), hasattr skip_fetch_bookmarks: {hasattr(preferences, 'skip_fetch_bookmarks')}", "DEBUG")
         self.socketio_emit_log(f"DEBUG_AGENT_RUN: In run(), hasattr skip_fetching_new_bookmarks: {hasattr(preferences, 'skip_fetching_new_bookmarks')}", "DEBUG")
 
+        content_processor, embedding_manager, chat_manager = await self.initialize()
+        
         if self._is_running:
             self.socketio_emit_log("Agent is already running.", "WARNING")
             return {"status": "already_running", "message": "Agent is already running."}
@@ -719,11 +775,7 @@ class KnowledgeBaseAgent:
                             # Update with initial count info
                             self.socketio_emit_phase_update('content_processing_overall', 'in_progress', f'Processing {total_tweets_count} items...', False, 0, total_tweets_count, 0)
                             
-                            # Ensure content processor is initialized before use
-                            if not self.content_processor:
-                                await self.initialize()
-                            
-                            phase_details_from_content_processor = await self.content_processor.process_all_tweets(
+                            phase_details_from_content_processor = await content_processor.process_all_tweets(
                                 preferences=preferences,
                                 unprocessed_tweets=tweets_to_process,
                                 total_tweets_for_processing=total_tweets_count,
@@ -833,24 +885,36 @@ class KnowledgeBaseAgent:
             )
             self.socketio_emit_log(summary_message, "INFO")
             
+            # --- Finalize state in DB ---
             self._is_running = False
-            self._current_phase_id = None
-            self._current_phase_message = None
-            self._current_phase_status = None
+            final_db_state = {
+                'is_running': False,
+                'stop_flag_status': False,
+                'current_phase_id': None,
+                'current_phase_message': summary_message,
+                'current_phase_status': 'completed' if stats.error_count == 0 else 'completed_with_errors'
+            }
+            self._update_state_in_db(**final_db_state)
+            # --- End DB Finalization ---
+
             active_prefs_at_stop = self._current_run_preferences
             self._current_run_preferences = None
 
             final_plan_statuses = self._plan_statuses.copy() # Get final state of the plan
 
             completion_data = {
-                'is_running': False,
                 'summary_message': summary_message,
                 'plan_statuses': final_plan_statuses,
-                # active_run_preferences is implicitly handled by client setting it to null on this event
-                # final_run_preferences_for_plan is not a standard field for this event, handled internally if needed
             }
             if self.socketio:
                 self.socketio.emit('agent_run_completed', completion_data)
+                # Also emit a final status update from the DB state
+                with self.app.app_context():
+                    from .models import AgentState
+                    final_state = AgentState.query.first()
+                    if final_state:
+                        self.socketio.emit('agent_status_update', final_state.to_dict())
+
             
             if self.http_client:
                 await self.http_client.close() # This remains async as http_client.close is async
@@ -863,46 +927,34 @@ class KnowledgeBaseAgent:
         }
 
     def get_current_state(self) -> Dict[str, Any]:
-        """Returns the current operational state of the agent with enhanced dynamic phase estimates."""
-        # Make sure current_run_preferences is serializable if it's not None
-        serializable_preferences = None
-        if self._current_run_preferences:
-            try:
-                serializable_preferences = asdict(self._current_run_preferences)
-            except Exception as e:
-                self.logger.warning(f"Could not serialize current_run_preferences: {e}")
-                serializable_preferences = str(self._current_run_preferences) # Fallback to string
+        """Returns the current operational state of the agent from the database."""
+        if not self.app:
+            self.logger.warning("Cannot get state from DB: No Flask app context.")
+            # Fallback to in-memory state if no app context
+            serializable_preferences = None
+            if self._current_run_preferences:
+                try:
+                    serializable_preferences = asdict(self._current_run_preferences)
+                except Exception:
+                    serializable_preferences = str(self._current_run_preferences)
+            return {
+                'is_running': self._is_running,
+                'current_phase_id': self._current_phase_id,
+                'current_phase_message': self._current_phase_message,
+                'current_phase_status': self._current_phase_status,
+                'current_run_preferences': serializable_preferences,
+                'plan_statuses': self._plan_statuses,
+                'stop_flag_status': stop_flag.is_set(),
+            }
 
-        # Get all active dynamic phase estimates
-        dynamic_estimates = self.phase_estimator.get_all_active_estimates()
-        
-        # Convert dynamic estimates to a format the frontend expects
-        phase_estimates_for_frontend = {}
-        for phase_id, estimate_data in dynamic_estimates.items():
-            if estimate_data.get("estimated_completion_timestamp"):
-                phase_estimates_for_frontend[phase_id] = {
-                    "estimated_completion_timestamp": estimate_data["estimated_completion_timestamp"],
-                    "estimated_remaining_minutes": estimate_data.get("estimated_remaining_minutes", 0.0),
-                    "current_avg_time_per_item": estimate_data.get("current_avg_time_per_item", 0.0),
-                    "progress_percentage": (estimate_data.get("processed_items", 0) / estimate_data.get("total_items", 1)) * 100 if estimate_data.get("total_items", 0) > 0 else 0,
-                    "processed_items": estimate_data.get("processed_items", 0),
-                    "total_items": estimate_data.get("total_items", 0)
-                }
-
-        state = {
-            'is_running': self._is_running,
-            'current_phase_id': self._current_phase_id,
-            'current_phase_message': self._current_phase_message,
-            'current_phase_status': self._current_phase_status,
-            'current_run_preferences': serializable_preferences,
-            'plan_statuses': self._plan_statuses, # For execution plan visualization
-            'stop_flag_status': stop_flag.is_set(),
-            'phase_estimated_completion_times': self._phase_estimated_completion_times, # Legacy support
-            'dynamic_phase_estimates': phase_estimates_for_frontend, # New: Enhanced dynamic estimates
-            'phase_estimates_timestamp': time.time()  # Timestamp for cache invalidation
-        }
-        self.logger.debug(f"Reporting current state - Running: {self._is_running}, Phase: {self._current_phase_id}, Plan items: {len(self._plan_statuses)}, Dynamic estimates: {len(dynamic_estimates)}")
-        return state
+        with self.app.app_context():
+            from .models import AgentState
+            state = AgentState.query.first()
+            if state:
+                return state.to_dict()
+            else:
+                self.logger.error("AgentState not found in database, returning empty state.")
+                return {'is_running': False, 'current_phase_message': 'Error: State not found in DB'}
 
     def _initialize_plan_statuses(self, preferences: Optional[UserPreferences] = None):
         """Initializes or resets plan statuses, optionally considering user preferences for initial 'skipped' states."""
@@ -986,6 +1038,7 @@ class KnowledgeBaseAgent:
         try:
             with current_app.app_context():
                 tweet_data = await self.state_manager.get_tweet(tweet_id)
+                from knowledge_base_agent.tweet_cacher import cache_tweets
                 if not tweet_data or not tweet_data.get('cache_complete'):
                     self.socketio_emit_log(f"Tweet {tweet_id} not fully cached, attempting to cache now...", "INFO")
                     await cache_tweets([tweet_id], self.config, self.http_client, self.state_manager, force_recache=True) 
@@ -1015,7 +1068,8 @@ class KnowledgeBaseAgent:
                 # Ensure content processor is initialized before use
                 if not self.content_processor:
                     await self.initialize()
-
+                assert self.content_processor is not None
+                
                 phase_details = await self.content_processor.process_all_tweets(
                     preferences=effective_prefs, # Pass the potentially modified preferences
                     unprocessed_tweets=[tweet_id],
@@ -1054,6 +1108,7 @@ class KnowledgeBaseAgent:
             self.socketio_emit_phase_update('readme_generation', 'skipped', 'Stop flag active.')
             return
         
+        from knowledge_base_agent.readme_generator import generate_root_readme, generate_static_root_readme
         self.socketio_emit_log("Starting README dependency analysis...", "INFO")
         
         # Import and initialize README dependency tracker
@@ -1201,130 +1256,10 @@ class KnowledgeBaseAgent:
             
             raise MarkdownGenerationError(f"Failed to regenerate README: {e}")
 
-    async def _verify_tweet_cached(self, tweet_id: str) -> bool:
-        """
-        Verify that a tweet exists in the cache.
-
-        Args:
-            tweet_id (str): The ID of the tweet to verify.
-
-        Returns:
-            bool: True if the tweet is in the cache, False otherwise.
-        """
-        try:
-            cache_file = Path(self.config.tweet_cache_file)
-            if not cache_file.exists():
-                logging.error("Tweet cache file does not exist")
-                return False
-            
-            cache_data = await async_json_load(cache_file)
-            return tweet_id in cache_data
-            
-        except Exception as e:
-            logging.error(f"Error verifying tweet cache for {tweet_id}: {e}")
-            return False
-
-    async def _verify_kb_item_created(self, tweet_id: str) -> bool:
-        """
-        Verify that a knowledge base item was created for the tweet.
-
-        Args:
-            tweet_id (str): The ID of the tweet to verify.
-
-        Returns:
-            bool: True if a knowledge base item exists for the tweet, False otherwise.
-        """
-        try:
-            cache_file = Path(self.config.tweet_cache_file)
-            if not cache_file.exists():
-                logging.error("Tweet cache file does not exist")
-                return False
-            
-            cache_data = await async_json_load(cache_file)
-            if tweet_id not in cache_data:
-                logging.error(f"Tweet {tweet_id} not found in cache")
-                return False
-            
-            tweet_data = cache_data[tweet_id]
-            if 'kb_item_path' in tweet_data:
-                kb_path = Path(tweet_data['kb_item_path'])
-                if kb_path.exists():
-                    return True
-            
-            logging.error(f"No knowledge base item found for tweet {tweet_id}")
-            return False
-            
-        except Exception as e:
-            logging.error(f"Error verifying KB item for tweet {tweet_id}: {e}")
-            return False
-
-    async def _count_media_items(self) -> int:
-        """
-        Count total media items that need processing.
-
-        Returns:
-            int: The number of media items across all tweets in the cache.
-        """
-        try:
-            cache_data = await async_json_load(self.config.tweet_cache_file)
-            return sum(len(tweet_data.get('media', [])) for tweet_data in cache_data.values())
-        except Exception:
-            return 0
-
-    async def process_tweets(self, tweet_urls: List[str]) -> None:
-        """
-        Process tweets while preserving existing cache.
-
-        This method processes a list of tweet URLs, skipping already processed tweets unless forced,
-        and updates progress via SocketIO if available.
-
-        Args:
-            tweet_urls (List[str]): List of tweet URLs or IDs to process.
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        stats = ProcessingStats(datetime.now())
-        total_tweets = len(tweet_urls)
-        
-        for i, tweet_url in enumerate(tweet_urls):
-            if stop_flag.is_set():
-                logging.info("Stopping tweet processing due to stop request")
-                break
-            tweet_id = parse_tweet_id_from_url(tweet_url)
-            if not tweet_id:
-                continue
-
-            if await self.state_manager.is_tweet_processed(tweet_id) and not self.config.force_update:
-                logging.info(f"Tweet {tweet_id} already processed, skipping")
-                stats.skipped_count += 1
-                if self.socketio:
-                    self.socketio.emit('progress', {'processed': stats.processed_count, 'total': total_tweets, 'errors': stats.error_count, 'skipped': stats.skipped_count, 'current_item_id': tweet_id, 'status_message': f'Skipped {tweet_id}'})
-                continue
-
-            try:
-                cached_data = await self.state_manager.get_tweet_cache(tweet_id)
-                if cached_data and not self.config.force_update:
-                    stats.cache_hits += 1
-                    logging.debug(f"Cache hit for {tweet_id}")
-                else:
-                    logging.debug(f"Cache miss or force update for {tweet_id}. Fetching...")
-                    tweet_data = await self._fetch_tweet_data(tweet_url)
-                    await self.state_manager.save_tweet_cache(tweet_id, tweet_data)
-                    stats.cache_misses += 1
-                stats.processed_count += 1
-                if self.socketio:
-                    self.socketio.emit('progress', {'processed': stats.processed_count, 'total': total_tweets, 'errors': stats.error_count, 'skipped': stats.skipped_count, 'current_item_id': tweet_id, 'status_message': f'Processed {tweet_id}'})
-            except Exception as e:
-                logging.error(f"Failed to process tweet {tweet_id}: {e}")
-                stats.error_count += 1
-                if self.socketio:
-                    self.socketio.emit('progress', {'processed': stats.processed_count, 'total': total_tweets, 'errors': stats.error_count, 'skipped': stats.skipped_count, 'current_item_id': tweet_id, 'status_message': f'Error processing {tweet_id}'})
-                continue
-
     async def generate_synthesis(self, preferences: UserPreferences) -> None:
         """Generates synthesis documents for all eligible subcategories with proper phase tracking."""
         
+        from knowledge_base_agent.synthesis_generator import generate_syntheses
         # Check if we have access to Flask app context (required for database operations)
         if not self.app:
             self.logger.info("Skipping synthesis generation - no Flask app context available (running in subprocess mode)")

@@ -13,8 +13,8 @@ The Knowledge Base Agent is an AI-driven system designed to automate the process
 - **Integration**: Synchronize the knowledge base with a GitHub repository for version control and public access.
 - **User Interface**: Provide a web interface for initiating agent runs, monitoring progress, and viewing generated content.
 - **Portability**: Ensure all paths are managed relative to PROJECT_ROOT - no hardcoded system paths. PROJECT_ROOT is determined at startup and all paths are resolved dynamically for deployment portability.
-- **Process Isolation**: Agent execution runs in separate multiprocess for stability, resource isolation, and to prevent blocking the web interface.
-- **Real-time Updates**: Offer real-time logging, phase updates, and agent status synchronization across multiple UI clients.
+- **Process Isolation**: Agent execution runs in a Celery worker process for stability, resource isolation, and to prevent blocking the web interface.
+- **Real-time Updates**: Offer real-time logging, phase updates, and agent status synchronization via a Redis-backed real-time manager and SocketIO.
 - **Subcategory Synthesis**: Generate synthesized learning documents for each subcategory that combine insights from all knowledge base items within that subcategory.
 
 ## Architectural Highlights
@@ -52,6 +52,12 @@ The Knowledge Base Agent is an AI-driven system designed to automate the process
 - **Historical Performance-Based ETC**: The system now collects processing time statistics for major phases (e.g., LLM Categorization) into `data/processing_stats.json` (managed by `stats_manager.py`) to provide more accurate Estimated Time to Completion (ETC) to the UI.
 
 - **Filtered Debug Logging**: WebSocket handler filters out DEBUG level logs from Live Logs display while maintaining them in log files.
+
+- **Database-Backed State Management**: The agent's core operational state (e.g., running status, current phase, user preferences for the run) is persisted in a dedicated `AgentState` database table. This ensures state consistency across application restarts and provides a single source of truth, eliminating reliance on transient in-memory variables.
+
+- **Asynchronous Task Execution with Celery**: The agent runs in a dedicated Celery worker process, completely isolated from the main Flask web server. This prevents the web UI from becoming unresponsive during long-running tasks and enhances overall stability. A Redis message broker is used for reliable task queuing, and a Redis-based real-time manager handles communication back to the web server for real-time updates.
+
+- **Serializable Tracebacks**: In the event of a crash in the agent's Celery task, full, rich tracebacks are serialized, stored, and made available for debugging, providing comprehensive error details that would otherwise be lost in a separate process.
 
 ## Recent Bug Fixes and Improvements
 
@@ -275,15 +281,12 @@ The logical flow of the Knowledge Base Agent follows a phased approach to ensure
 
 - **`agent.py` (KnowledgeBaseAgent)**:
   - **Purpose**: Central orchestrator, managing the workflow, state, and communication.
-  - **Key Attributes**: `config`, `http_client`, `state_manager`, `category_manager`, `content_processor`, `socketio` (SocketIO instance), `_is_running`, `_current_phase_id`, `_current_phase_message`, `_current_phase_status`, `_current_run_preferences`.
+  - **Key Attributes**: `config`, `http_client`, `state_manager`, `category_manager`, `content_processor`, `progress_callback` (function to send updates).
   - **Key Functions**:
     - `initialize()`: Sets up dependencies, including `ChatManager` and `EmbeddingManager`.
-    - `run()`: Executes the main workflow, coordinating phases based on `UserPreferences`. Manages agent running state (`_is_running`, etc.) via `set_initial_run_state()` and `set_final_run_state()`. Supports new run modes like `embedding_only`.
-    - `process_tweet()`: Processes a single tweet end-to-end. Uses `current_app.app_context()` for Flask context.
-    - `socketio_emit_log()`: Helper to emit logs via SocketIO.
-    - `socketio_emit_phase_update()`: Helper to emit phase updates and set internal agent phase.
-    - Getter methods for agent state (e.g., `is_agent_running()`, `get_current_phase_info()`).
-  - **Interaction**: Coordinates with most other modules. Passes `socketio` instance and `socketio_emit_phase_update` method to `StreamlinedContentProcessor`.
+    - `run()`: Executes the main workflow, coordinating phases based on `UserPreferences`.
+    - `_update_state_in_db()`: Persists the agent's operational state to the `AgentState` table in the database.
+  - **Interaction**: Coordinates with most other modules. When running in a Celery task, it uses the `progress_callback` for all communication.
 
 - **`config.py` (Config)**:
   - **Purpose**: Manages system-wide configuration (Pydantic `BaseSettings`) loaded from `.env` and environment variables.
@@ -403,18 +406,14 @@ The logical flow of the Knowledge Base Agent follows a phased approach to ensure
 - **`web.py`**:
   - **Purpose**: Flask/SocketIO web application for UI, agent control, and content viewing.
   - **Key Features**:
-    - **SPA-like Architecture**: Serves the main `index.html` which uses a master `_layout.html` template. Subsequent navigation is handled client-side by `layout.js`, which fetches HTML content for different pages (`chat.html`, `logs.html`, etc.) and dynamically inserts it into the main content area without a full page reload.
-    - **Multiprocess Agent Execution**: Agent runs are executed in separate processes using multiprocessing.spawn for stability, resource isolation, and to prevent blocking the web interface. The `run_agent_sync_wrapper` handles process setup, path configuration, and logging.
-    - **Portable Path Management**: Uses PROJECT_ROOT-relative paths throughout. Agent subprocess receives proper PROJECT_ROOT and loads config to resolve all paths dynamically.
+    - **SPA-like Architecture**: Serves the main `index.html` which uses a master `_layout.html` template. Subsequent navigation is handled client-side by `layout.js`.
+    - **Asynchronous Task Queuing**: Agent runs are initiated via API calls that queue tasks in Celery.
+    - **Real-time Manager**: A dedicated `RealtimeManager` listens for messages from Redis (published by Celery tasks) and broadcasts them to clients via SocketIO.
+    - **Robust Error Handling**: The Celery result backend stores task state, including any errors and tracebacks.
     - Initializes Flask app, SocketIO, SQLAlchemy (`db.init_app(app)`), and Flask-Migrate (`migrate.init_app(app, db)`).
     - Initializes `ChatManager` and `EmbeddingManager`.
-    - **WebSocket Logging Filter**: `WebSocketHandler` now filters out DEBUG level logs from Live Logs display while maintaining them in log files.
-    - Routes for main page, item details, media serving, and synthesis viewing.
-    - New routes for the chat interface (`/chat`) and its API endpoint (`/api/chat`).
-    - SocketIO handlers for real-time communication
-    - GPU stats monitoring and emission
-    - Agent state synchronization across multiple clients
-  - **Interaction**: Determines `PROJECT_ROOT` on startup, spawns agent processes with proper path configuration.
+    - Routes for main pages, API endpoints, and content serving.
+  - **Interaction**: Determines `PROJECT_ROOT` on startup, queues Celery tasks. The `RealtimeManager` is the bridge between the background tasks and the clients.
 
 - **`main.py`**: Entry point for command-line execution
 - **`routes.py`**: Additional web routes
@@ -838,11 +837,293 @@ This implementation plan provides a comprehensive and current overview of the Kn
 
 The recent debugging and stabilization efforts have resolved critical issues with frontend UI components, backend process management, and real-time communication, resulting in a robust and reliable system. The enhanced logging and monitoring capabilities provide comprehensive debugging tools for ongoing development and maintenance.
 
-Recent enhancements include intelligent phase state synchronization and README generation dependency tracking, which improve both user experience and system efficiency. The sub-phase status synchronization ensures accurate visual feedback in the Agent Execution Plan, while the README generation tracking prevents unnecessary regeneration when no changes have occurred.
+Recent enhancements include intelligent phase state synchronization, README generation dependency tracking, comprehensive UI improvements, and advanced agent control systems. The sub-phase status synchronization ensures accurate visual feedback in the Agent Execution Plan, while the README generation tracking prevents unnecessary regeneration when no changes have occurred. The new collapsible Agent Controls interface with real-time execution plan updates provides intuitive control over all aspects of the agent's behavior, and the intelligent log filtering ensures the Live Logs display focuses on relevant information without HTTP request noise.
 
-The plan serves as a roadmap for extending the agent's capabilities and understanding its refined architecture, with particular emphasis on the debugging tools, error recovery mechanisms, performance monitoring systems, and the new intelligent tracking features that ensure stable and efficient operation in production environments.
+The plan serves as a roadmap for extending the agent's capabilities and understanding its refined architecture, with particular emphasis on the debugging tools, error recovery mechanisms, performance monitoring systems, comprehensive user interface controls, and the new intelligent tracking features that ensure stable and efficient operation in production environments.
+
+## Agent Controls and Execution Plan Management
+
+### Overview
+
+The Agent Controls system provides comprehensive control over the knowledge base agent's execution through a sophisticated preference system that directly updates the visual execution plan. This system uses the `UserPreferences` dataclass to configure every aspect of the agent's behavior.
+
+### Agent Controls Interface Architecture
+
+#### **Collapsible Design**
+- **Always Visible**: Run Agent, Stop Agent, Clear All Options, and Preferences toggle button
+- **Collapsible Section**: Run Mode, Skip Options, and Force Options (hidden by default)
+- **Dynamic Updates**: All preference changes immediately update the execution plan visualization
+
+#### **Real-time Execution Plan Updates**
+The execution plan dynamically updates to show which phases will run, be skipped, or force re-run based on user preferences:
+- **Will Run**: Phase will execute normally
+- **Skipped**: Phase will be bypassed
+- **Force Re-run**: Phase will execute even if already complete
+
+### Phase Definitions
+
+The knowledge base agent processes content through a structured 7-phase pipeline:
+
+1. **Initialization** (and validation) - System startup and state validation
+2. **Fetch Bookmarks** - Retrieve new bookmarks from source
+3. **Content Processing** - Multi-step content processing pipeline:
+   - 3.1 **Tweet Caching** - Download and cache tweet data
+   - 3.2 **Media Analysis** - Process and describe media files
+   - 3.3 **LLM Processing** - AI categorization and naming
+   - 3.4 **KB Item Generation** - Generate knowledge base items
+   - 3.5 **Database Sync** - Update database records
+4. **Synthesis Generation** - Create synthesis documents for subcategories
+5. **Embedding Generation** - Generate vector embeddings for RAG chat
+6. **README Generation** - Update root README file
+7. **Git Sync** - Push changes to remote repository
+
+### Run Mode Favorites
+
+#### **Full Pipeline (Default)**
+- **Phases**: Runs all phases 1-7
+- **Use Case**: Complete knowledge base processing from bookmarks to git sync
+- **Execution**: All phases execute in sequence
+
+#### **Fetch Only**
+- **Phases**: Only runs Phase 2 (Fetch Bookmarks) + Phase 1 (Initialization)
+- **Skipped**: Phases 3-7
+- **Use Case**: Only fetch new bookmarks without any processing
+- **Execution**: Initialization → Fetch Bookmarks
+
+#### **Synthesis Only**
+- **Phases**: Only runs Phase 4 (Synthesis Generation) + Phase 1 (Initialization)
+- **Skipped**: Phases 2, 3, 5, 6, 7
+- **Use Case**: Generate synthesis documents from existing knowledge base items
+- **Execution**: Initialization → Synthesis Generation
+
+#### **Embedding Only**
+- **Phases**: Only runs Phase 5 (Embedding Generation) + Phase 1 (Initialization)
+- **Skipped**: Phases 2, 3, 4, 6, 7
+- **Use Case**: Generate or update vector embeddings for RAG chat functionality
+- **Execution**: Initialization → Embedding Generation
+
+#### **Git Sync Only**
+- **Phases**: Only runs Phase 7 (Git Sync) + Phase 1 (Initialization)
+- **Skipped**: Phases 2, 3, 4, 5, 6
+- **Use Case**: Push existing changes to remote repository without processing
+- **Execution**: Initialization → Git Sync
+
+### Skip Options
+
+Skip options apply only to **Full Pipeline** mode and skip specific phases from the complete 1-7 sequence:
+
+- **Skip Fetch Bookmarks**: Runs all phases 1-7 except Phase 2 (Fetch Bookmarks)
+- **Skip Process Content**: Runs all phases 1-7 except Phase 3 (Content Processing)
+- **Skip README Generation**: Runs all phases 1-7 except Phase 6 (README Generation) - *Default enabled*
+- **Skip Git Push**: Runs all phases 1-7 except Phase 7 (Git Sync)  
+- **Skip Synthesis**: Runs all phases 1-7 except Phase 4 (Synthesis Generation)
+- **Skip Embedding**: Runs all phases 1-7 except Phase 5 (Embedding Generation)
+
+### Force Options
+
+Force options work as **phase modifiers** that can be combined with any run mode to force reprocessing of specific phases:
+
+#### **Granular Force Modifiers**
+- **Force Recache Tweets**: Forces Phase 3.1 (Tweet Caching) to reprocess all cached and uncached tweets
+- **Force Reprocess Media**: Forces Phase 3.2 (Media Analysis) to reprocess all media files
+- **Force Reprocess LLM**: Forces Phase 3.3 (LLM Processing) to re-categorize all content
+- **Force Reprocess KB Items**: Forces Phase 3.4 (KB Item Generation) to regenerate all KB items
+- **Force Regenerate Synthesis**: Forces Phase 4 (Synthesis Generation) to recreate all synthesis documents
+- **Force Regenerate Embeddings**: Forces Phase 5 (Embedding Generation) to rebuild all embeddings
+- **Force Regenerate README**: Forces Phase 6 (README Generation) to recreate README files
+
+#### **Combined Force Modifier**
+- **Force Reprocess All Content**: Applies force flags to all eligible phases in the selected run mode
+
+#### **Force Option Behavior**
+- **Combinable**: Multiple force options can be selected simultaneously
+- **Phase Modifiers**: Only affect phases that are already enabled by the selected run mode
+- **Example**: "Synthesis Only" + "Force Regenerate Synthesis" = Only run synthesis with forced reprocessing
+- **Example**: "Full Pipeline" + "Force Recache Tweets" + "Force Regenerate Embeddings" = Run all phases with forced tweet caching and embedding regeneration
+
+### Control Hierarchy and Behavior
+
+The Agent Controls follow a layered approach where options build upon each other:
+
+#### **Application Order**
+1. **Run Mode Favorites** - Determine base set of phases to execute
+2. **Skip Options** - Remove specific phases from the run mode (Full Pipeline only)
+3. **Force Options** - Modify enabled phases to force reprocessing
+
+#### **Control Behavior Examples**
+- **Selecting "Synthesis Only"**: Only Phases 1 and 4 run, all others skipped
+- **Selecting "Full Pipeline" + "Skip Synthesis"**: Phases 1, 2, 3, 5, 6, 7 run, Phase 4 skipped
+- **Selecting "Synthesis Only" + "Force Regenerate Synthesis"**: Only Phases 1 and 4 run, with Phase 4 forced to reprocess
+- **Selecting "Full Pipeline" + "Force Recache Tweets" + "Force Regenerate Embeddings"**: All phases run with forced reprocessing of tweet caching and embeddings
+
+#### **Mutual Exclusivity and Combination Rules**
+- **Run Mode Favorites**: Only one can be active at a time (exclusive selection)
+- **Skip Options**: Multiple can be active simultaneously (additive, Full Pipeline only)
+- **Force Options**: Multiple can be active simultaneously (additive, only affects enabled phases)
+
+#### **Visual Feedback**
+- **Will Run**: Normal phase execution (green indicators)
+- **Skipped**: Phase bypassed (gray indicators)  
+- **Force Re-run**: Phase forced to reprocess all content (orange/warning indicators)
+
+### Design Consistency and User Experience
+
+#### **Glass Morphism Button System**
+The Agent Controls utilize a consistent glass morphism design language:
+
+- **Primary Actions**: `glass-button--primary` (blue gradient) - Run Agent button
+- **Run Modes**: `glass-button--secondary` (subtle glass) - mode selection buttons
+- **Skip Options**: `glass-button--ghost` (transparent) - lightweight skip controls
+- **Force Options**: `glass-button--warning` (orange tint) - force reprocessing controls  
+- **Critical Actions**: `glass-button--danger` (red gradient) - Force Reprocess All Content
+- **Size Variants**: `--small` and `--large` for hierarchy and space efficiency
+
+#### **Interactive Effects**
+- **Hover States**: Subtle lift animation with enhanced border glow
+- **Active States**: Pressed-down effect with internal shadow
+- **Focus Indicators**: Accessible outline for keyboard navigation
+- **Shimmer Animation**: Sliding light effect on hover for premium feel
+
+#### **Collapsible Interface**
+- **Always Visible**: Primary controls (Run, Stop, Clear, Preferences toggle)
+- **Collapsible Section**: Advanced preferences with smooth height animation
+- **Chevron Rotation**: Visual indicator of expand/collapse state
+- **Space Efficiency**: Reduces cognitive load while maintaining full functionality
+
+#### **Real-time Responsiveness**  
+- **Immediate Updates**: Execution plan updates instantly when preferences change
+- **Visual Hierarchy**: Clear distinction between different control types
+- **Professional Aesthetics**: Consistent with overall application design language
+
+### Implementation Details
+
+#### **UserPreferences Dataclass**
+```python
+@dataclass
+class UserPreferences:
+    # Run mode selection
+    run_mode: str = "full_pipeline"
+    
+    # Skip flags
+    skip_fetch_bookmarks: bool = False
+    skip_process_content: bool = False
+    skip_readme_generation: bool = True  # Default enabled
+    skip_git_push: bool = False
+    skip_synthesis_generation: bool = False
+    skip_embedding_generation: bool = False
+    
+    # Force flags
+    force_recache_tweets: bool = False
+    force_regenerate_synthesis: bool = False
+    force_regenerate_embeddings: bool = False
+    force_regenerate_readme: bool = False
+    
+    # Granular force flags
+    force_reprocess_media: bool = False
+    force_reprocess_llm: bool = False
+    force_reprocess_kb_item: bool = False
+    
+    # Legacy combined flag
+    force_reprocess_content: bool = False
+    
+    # Synthesis configuration
+    synthesis_mode: str = "comprehensive"
+    synthesis_min_items: int = 3
+    synthesis_max_items: int = 50
+```
+
+#### **ExecutionPlanManager Class**
+Handles dynamic visualization updates:
+- **Phase Status Management**: Updates visual indicators based on preferences
+- **Run Mode Logic**: Applies appropriate phase configurations for each run mode
+- **Skip/Force Handling**: Properly handles override logic and conflicts
+- **Real-time Updates**: Immediate visual feedback when preferences change
+
+#### **Agent Integration**
+The agent uses UserPreferences to:
+- **Phase Selection**: Determine which phases to execute
+- **Processing Logic**: Apply force reprocessing when specified
+- **Skip Logic**: Bypass phases marked for skipping
+- **Conflict Resolution**: Handle conflicting preferences appropriately
+
+### User Experience Features
+
+#### **Visual Feedback**
+- **Immediate Updates**: Execution plan updates instantly when preferences change
+- **Status Indicators**: Clear visual distinction between Will Run, Skipped, and Force Re-run states
+- **Sub-phase Alignment**: Sub-phases under Content Processing are right-aligned to show hierarchy
+- **Professional Icons**: Consistent FontAwesome icons for all phases
+
+#### **Interaction Design**
+- **Exclusive Run Modes**: Only one run mode can be active at a time
+- **Toggle Skip/Force Options**: Multiple skip and force options can be combined
+- **Special Logic**: Force Reprocess All Content automatically activates granular force flags
+- **Validation**: Prevents conflicting configurations (e.g., Synthesis Only + Skip Synthesis)
+
+#### **Responsive Behavior**
+- **Collapsible Interface**: Reduces clutter while maintaining full functionality
+- **State Persistence**: Preferences are saved and restored between sessions
+- **Loading States**: Clear feedback during agent execution
+- **Error Handling**: Graceful handling of invalid configurations
 
 ## Recent Updates and Bug Fixes
+
+### 2025-07-09: Comprehensive UI and Architecture Improvements
+
+#### **Live Logs and Layout Fixes**
+- **Fixed Infinite Height Stretching**: Corrected CSS issues causing Live Logs to expand infinitely
+- **Height Synchronization**: Live Logs now properly match Agent Execution Plan height using flex layout
+- **Grid Layout Enhancement**: Improved dashboard grid with `align-items: stretch` for equal panel heights
+- **Log Filtering**: Implemented intelligent filtering to remove noisy HTTP request logs from Live Logs display
+
+#### **Agent Controls Collapsible Interface**
+- **Collapsible Design**: Restructured Agent Controls with always-visible primary buttons and collapsible preferences
+- **Smooth Animations**: Added CSS transitions for expand/collapse with rotating chevron icon
+- **Space Efficiency**: Reduced interface clutter while maintaining full functionality
+- **Toggle Functionality**: JavaScript implementation for seamless expand/collapse behavior
+
+#### **Execution Plan Visual Improvements**
+- **Sub-phase Restructuring**: Improved sub-phase layout with proper right-alignment to show hierarchy
+- **Icon Consistency**: Fixed icon positioning and ensured consistent FontAwesome usage across all phases
+- **Visual Hierarchy**: Added visual connectors and proper indentation for sub-phases
+- **Professional Styling**: Enhanced spacing, typography, and visual organization
+
+#### **Dynamic Execution Plan Management**
+- **Real-time Updates**: Implemented ExecutionPlanManager class for immediate preference-to-plan synchronization
+- **Comprehensive Run Mode Support**: Full implementation of all run modes (Full Pipeline, Fetch Only, Synthesis Only, Embedding Only, Git Sync Only)
+- **Skip/Force Logic**: Proper handling of skip options and force flags with visual feedback
+- **Conflict Detection**: Validation to prevent incompatible preference combinations
+
+#### **Run Mode Button Fixes**
+- **Activation Logic**: Fixed exclusive run mode button behavior to ensure proper highlighting
+- **State Management**: Corrected JavaScript logic to always activate clicked run mode buttons
+- **Visual Feedback**: Ensured proper active state indication for selected run modes
+
+#### **Force Options as Phase Modifiers**
+- **Behavioral Change**: Force options now work as phase modifiers instead of standalone operations
+- **Combinable**: Multiple force options can be selected simultaneously
+- **Phase Modifier Logic**: Force options only affect phases that are enabled by the selected run mode
+- **UI Consistency**: Moved "Force Reprocess All Content" to match other force options styling
+- **Button Active States**: Added comprehensive CSS active states for all glass button variants
+
+#### **Enhanced Control System**
+- **Renamed Run Modes**: Changed to "Run Mode Favorites" to better reflect their purpose as preset configurations
+- **Layered Application**: Controls now apply in order: Run Mode → Skip Options → Force Options
+- **Improved Documentation**: Updated help text to clarify that force options modify the selected run mode
+- **Better User Experience**: More intuitive and flexible control over agent execution phases
+
+#### **Visual Improvements**
+- **Live Logs Panel Height**: Fixed Live Logs to properly fill the System Logs window, matching the Agent Execution Plan layout using flex: 1 and height: 100%
+- **Icon Alignment**: Improved phase icon backgrounds with proper borders and centering
+- **Sub-phase Icon Positioning**: Moved sub-phase icons to be positioned next to their text rather than on the far left
+- **Consistent Button Styling**: Force Reprocess All Content button now uses consistent small button styling with danger (red) coloring
+- **Better Visual Hierarchy**: Enhanced spacing and alignment throughout the execution plan display
+
+#### **Enhanced Log Filtering**
+- **Comprehensive HTTP Filtering**: Expanded log filtering to remove all HTTP request noise including favicon requests, static assets, page requests, and API polling
+- **Agent-Focused Logging**: Live Logs now display only relevant agent execution logs, filtering out web server and infrastructure noise
+- **Cleaner Monitoring**: Removed repetitive patterns like template rendering, IP address logs, and generic INFO messages
+- **Better Signal-to-Noise**: Live Logs now focus exclusively on agent operations and meaningful events
 
 ### 2025-06-18: Fixed Embedding Generation Error for Empty Content
 
@@ -924,3 +1205,172 @@ The plan serves as a roadmap for extending the agent's capabilities and understa
 - This provides ample time for large models like `magistral:24b` to generate responses
 
 **Result**: Synthesis generation with short name creation now works properly with large models, respecting the configured timeout instead of failing prematurely after 30 seconds.
+
+### 2025-07-08: Circular Import Resolution and API Consolidation
+
+**Issues Addressed**: 
+1. Circular import issues between `web.py`, `main.py`, and `agent.py` were causing import errors during startup
+2. Mixed-purpose routes in `web.py` were serving both HTML and JSON, violating separation of concerns
+3. Frontend JavaScript was calling old routes with `?format=json` parameters
+
+**Root Causes**: 
+1. **Circular Imports**: Heavy imports at module level were creating circular dependencies during module initialization
+2. **Mixed-Purpose Routes**: Routes like `/item/<id>` and `/synthesis/<id>` were handling both HTML page serving and JSON API responses
+3. **API Fragmentation**: API endpoints were scattered across multiple files instead of being centralized
+
+**Solutions Implemented**:
+
+1. **Function-Level Import Optimization** (`agent.py`):
+   - Moved `BookmarksFetcher` imports to `fetch_and_queue_bookmarks()` and `process_bookmarks()` functions
+   - Moved `cache_tweets` import to `process_tweet()` function
+   - Moved `generate_root_readme`, `generate_static_root_readme` imports to `regenerate_readme()` function
+   - Moved `generate_syntheses` import to `generate_synthesis()` function
+   - Cleaned up duplicate imports at module level
+
+2. **API Route Consolidation** (`api/routes.py`):
+   - Created dedicated JSON API endpoints: `/api/items/<id>` and `/api/synthesis/<id>`
+   - Removed JSON handling from HTML routes in `web.py`
+   - Centralized all data APIs in the `api` blueprint
+   - Maintained clean separation: `web.py` serves HTML, `routes.py` serves JSON
+
+3. **Frontend API Updates**:
+   - Updated `knowledge_base_agent/static/v2/js/kb.js` to use new API endpoints
+   - Updated `knowledge_base_agent/static/js/kb_display.js` to convert old URLs to new API endpoints
+   - Updated `knowledge_base_agent/static/js/synthesis_display.js` to use new API endpoints
+   - Removed dependency on `?format=json` parameters
+
+4. **Import Structure Cleanup** (`web.py`, `main.py`):
+   - Fixed non-existent imports that were causing errors
+   - Moved Flask app imports in `main.py` to avoid circular dependencies
+   - Removed hardcoded imports and replaced with function-level imports where appropriate
+
+**Validation Results**:
+- ✅ All modules (`web.py`, `main.py`, `agent.py`) import successfully without circular import errors
+- ✅ Flask app initialization works correctly
+- ✅ Database access functions properly (167 items, 33 syntheses accessible)
+- ✅ HTML routes render correctly (main page: 200, chat page: 200)
+- ✅ API endpoints are properly consolidated in `routes.py`
+- ✅ Frontend JavaScript successfully uses new API endpoints
+
+**Files Modified**:
+- `knowledge_base_agent/agent.py` - Function-level imports, duplicate import cleanup
+- `knowledge_base_agent/web.py` - Removed mixed-purpose route logic, import fixes
+- `knowledge_base_agent/main.py` - Circular import fixes
+- `knowledge_base_agent/api/routes.py` - New consolidated API endpoints
+- `knowledge_base_agent/static/v2/js/kb.js` - Updated to use `/api/items/` and `/api/synthesis/`
+- `knowledge_base_agent/static/js/kb_display.js` - URL conversion for new API endpoints
+- `knowledge_base_agent/static/js/synthesis_display.js` - Updated to use new synthesis API
+
+**Architecture Benefits**:
+- **Improved Modularity**: Clear separation between HTML serving and JSON APIs
+- **Better Maintainability**: All API logic centralized in one location
+- **Eliminated Circular Dependencies**: Function-level imports prevent module-level circular references
+- **Enhanced Testability**: APIs can be tested independently of HTML rendering
+- **Consistent API Design**: All data APIs now follow `/api/` prefix convention
+
+**Result**: The system now has a clean separation of concerns with no circular import issues, centralized API endpoints, and updated frontend code that uses the proper API architecture.
+
+### 2025-07-08 (Part 2): Comprehensive API Consolidation and REST Alternatives
+
+**Issue**: While the main API consolidation was successful, several important functions remained only accessible via SocketIO, limiting API accessibility for automation, testing, and external integrations.
+
+**Root Cause**: Key system functions like agent control (start/stop), state management, preferences, and system information were only available through real-time SocketIO events, lacking REST API alternatives.
+
+**Solution Implemented**:
+
+1. **Agent Control APIs** (`api/routes.py`):
+   - Added `/api/agent/status` (GET) - Get current agent state and status from database
+   - Added `/api/agent/start` (POST) - Start agent with preferences (REST alternative to SocketIO `run_agent`)
+   - Added `/api/agent/stop` (POST) - Stop running agent (REST alternative to SocketIO `stop_agent`)
+
+2. **Enhanced Preferences Management** (`api/routes.py`):
+   - Added `/api/preferences` (GET) - Get current user preferences from configuration
+   - Enhanced `/api/preferences` (POST) - Validate and save user preferences with proper error handling
+
+3. **System Information APIs** (`api/routes.py`):
+   - Added `/api/system/info` (GET) - Comprehensive system information (platform, memory, CPU, GPU, config status)
+   - Added `/api/logs/recent` (GET) - Get recent logs from in-memory buffer (REST alternative to SocketIO)
+   - Added `/api/logs/clear` (POST) - Clear in-memory log buffer (REST alternative to SocketIO)
+
+4. **Documentation Updates** (`docs/API.md`):
+   - Updated Agent & Environment section with all new endpoints
+   - Enhanced Logging section with new REST alternatives
+   - Marked new endpoints clearly for identification
+   - Maintained clear separation between HTML routes and JSON APIs
+
+**Files Modified**:
+- `knowledge_base_agent/api/routes.py` - Added 8 new API endpoints
+- `docs/API.md` - Updated documentation with new endpoints
+
+**Benefits Achieved**:
+- **Complete API Coverage**: All major system functions now accessible via REST APIs
+- **Automation Friendly**: External tools can now control agent operations without SocketIO
+- **Testing Enhancement**: Unit/integration tests can use standard HTTP calls
+- **Fallback Options**: REST endpoints provide reliable alternatives to real-time SocketIO
+- **External Integration**: Third-party systems can easily integrate with the knowledge base
+- **Consistency**: All APIs follow standard REST conventions with proper error handling
+
+**Result**: The system now provides comprehensive REST API coverage for all major functionality, making it fully accessible for automation, testing, and external integrations while maintaining the existing SocketIO real-time capabilities.
+
+### 2025-07-08 (Part 3): Hybrid Architecture Optimization - REST-First with SocketIO Notifications
+
+**Issue**: While API consolidation was successful, the system had inconsistent behavior between REST and SocketIO endpoints, with business logic duplicated across both interfaces and no clear architectural boundaries.
+
+**Root Cause**: Business logic was embedded directly in SocketIO handlers, creating code duplication, inconsistent behavior, and making testing difficult. The roles of REST vs SocketIO were not clearly defined.
+
+**Solution Implemented**:
+
+1. **Centralized Business Logic** (`web.py`):
+   - Created shared business logic functions that both REST and SocketIO endpoints call
+   - Functions accept `socketio_emit` parameter to control notification behavior
+   - Added comprehensive architecture documentation explaining the hybrid approach
+   - Functions: `start_agent_operation()`, `stop_agent_operation()`, `get_gpu_stats_operation()`, `clear_logs_operation()`
+
+2. **SocketIO Handler Refactoring** (`web.py`):
+   - Converted SocketIO handlers to thin wrappers that delegate to shared business logic
+   - Removed all business logic from SocketIO handlers
+   - Added clear documentation for each handler's role as "notification layer"
+   - SocketIO handlers now call shared functions with `socketio_emit=True`
+
+3. **REST Endpoint Updates** (`api/routes.py`):
+   - Updated REST endpoints to use shared business logic functions
+   - REST endpoints call shared functions with `socketio_emit=False`
+   - Ensured consistent return structures between REST and SocketIO
+   - Added "REST API:" prefixes to endpoint documentation
+
+4. **Architectural Principles Established**:
+   - **REST APIs**: Primary interface for all operations and state management
+   - **SocketIO**: Pure notification layer for real-time updates and live streaming
+   - **Shared Logic**: All operations use centralized business functions
+   - **Comprehensive Fallbacks**: Every SocketIO operation has a REST alternative
+   - **Clear Boundaries**: Never mix responsibilities between the two interfaces
+
+5. **Documentation Updates** (`docs/API.md`):
+   - Updated guiding principles to reflect REST-first architecture
+   - Added comprehensive architecture implementation example
+   - Documented hybrid architecture benefits and patterns
+   - Clarified roles and responsibilities of each interface
+
+**Validation Results**:
+- ✅ All shared business logic functions return consistent structures
+- ✅ Both REST and SocketIO endpoints use identical business logic
+- ✅ SocketIO emission can be controlled independently
+- ✅ REST endpoints work without SocketIO dependencies
+- ✅ Agent operations (start/stop) work correctly through both interfaces
+
+**Files Modified**:
+- `knowledge_base_agent/web.py` - Added shared business logic, refactored SocketIO handlers
+- `knowledge_base_agent/api/routes.py` - Updated REST endpoints to use shared logic
+- `docs/API.md` - Updated architecture documentation and principles
+- `docs/implementation_plan.md` - Documented architectural changes
+
+**Benefits Achieved**:
+- **Consistent Behavior**: Identical results from REST and SocketIO interfaces
+- **Improved Testability**: All functionality testable through standard HTTP
+- **Reduced Code Duplication**: Single implementation for each operation
+- **Better Maintainability**: Changes to business logic update both interfaces
+- **Enhanced Reliability**: REST fallbacks available when SocketIO fails
+- **External Integration**: Complete functionality accessible via REST APIs
+- **Clear Architecture**: Well-defined roles and boundaries between interfaces
+
+**Result**: The system now implements a mature hybrid architecture with REST APIs as the primary interface and SocketIO as a pure notification layer, ensuring consistent behavior, comprehensive fallbacks, and excellent external integration capabilities.

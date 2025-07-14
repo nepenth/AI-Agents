@@ -1,0 +1,2555 @@
+/* ===== SCOPED COMPONENTS CSS ===== */
+/* This file contains styles that are scoped to specific pages to avoid conflicts with the Agent Dashboard */
+
+/* ===== UNIFIED THEME VARIABLES ===== */
+:root {
+    /* Enhanced color palette that harmonizes existing theme with new features */
+    --nexus-primary: #3b82f6;        /* Keep dashboard blue */
+    --nexus-secondary: #8b5cf6;      /* Keep dashboard purple */
+    --nexus-accent-teal: #0891b2;    /* Primary teal accent */
+    --nexus-accent-cyan: #06b6d4;    /* Secondary cyan accent */
+    --nexus-success: #10b981;        /* Success green */
+    --nexus-warning: #f59e0b;        /* Warning orange */
+    --nexus-danger: #ef4444;         /* Error red */
+    
+    /* Glass effects - enhanced for all pages */
+    --nexus-glass-bg: rgba(255, 255, 255, 0.05);
+    --nexus-glass-bg-hover: rgba(255, 255, 255, 0.08);
+    --nexus-glass-border: rgba(255, 255, 255, 0.1);
+    --nexus-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    
+    /* Nexus-specific colors for special pages */
+    --nexus-tree-primary: rgba(91, 192, 190, 1);
+    --nexus-tree-secondary: rgba(111, 255, 233, 1);
+    --nexus-tree-bg: rgba(58, 80, 107, 0.4);
+    --nexus-tree-border: rgba(111, 255, 233, 0.2);
+}
+
+/* ===== GLOBAL THEME ENHANCEMENTS ===== */
+/* These enhance the existing dashboard while maintaining its identity */
+
+/* Enhanced glass effects for all pages */
+body.page-dashboard .glass-panel {
+    box-shadow: 
+        var(--glass-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Subtle accent color integration */
+body.page-dashboard .status-indicator--running,
+body.page-dashboard .status-indicator--online {
+    background: linear-gradient(135deg, var(--nexus-success), var(--nexus-accent-cyan));
+}
+
+body.page-dashboard .panel-title i[style*="--primary-blue"] {
+    background: linear-gradient(135deg, var(--nexus-primary), var(--nexus-accent-teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* =================
+   CHAT PAGE STYLING - PROFESSIONAL MODERN DESIGN
+   ================= */
+
+/* Main Chat Container */
+body.page-chat .modern-chat-container {
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    background: linear-gradient(135deg, 
+        rgba(20, 25, 40, 0.95) 0%, 
+        rgba(15, 20, 35, 0.98) 50%,
+        rgba(10, 15, 30, 1.0) 100%);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    margin: 1rem;
+    height: calc(100vh - 2rem);
+    overflow: hidden;
+}
+
+/* Chat Sessions Sidebar */
+body.page-chat .chat-sessions-sidebar {
+    background: linear-gradient(135deg, 
+        rgba(59, 130, 246, 0.1) 0%, 
+        rgba(139, 92, 246, 0.1) 50%,
+        rgba(20, 25, 40, 0.9) 100%);
+    border-right: 1px solid var(--border-subtle);
+    border-radius: 12px 0 0 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Main Chat Area */
+body.page-chat .chat-main-area {
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 20, 35, 0.8);
+    border-radius: 0 12px 12px 0;
+    overflow: hidden;
+}
+
+/* Sessions Header */
+body.page-chat .sessions-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+body.page-chat .sessions-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+body.page-chat .new-chat-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--nexus-tree-primary);
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .new-chat-btn:hover {
+    background: var(--nexus-tree-accent);
+    transform: translateY(-1px);
+}
+
+/* Chat Header */
+body.page-chat .chat-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 80px;
+}
+
+body.page-chat .session-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    margin-bottom: 0.25rem;
+}
+
+body.page-chat .session-metadata {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+body.page-chat .model-display {
+    color: var(--nexus-tree-primary);
+    font-weight: 500;
+}
+
+body.page-chat .separator {
+    color: var(--border-subtle);
+}
+
+/* Sessions List Container */
+body.page-chat .sessions-list-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+/* Sessions Search */
+body.page-chat .sessions-search {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+body.page-chat .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+body.page-chat .search-container i {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    z-index: 1;
+}
+
+body.page-chat .search-input {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--glass-input-bg);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .search-input:focus {
+    outline: none;
+    border-color: var(--nexus-tree-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: var(--glass-input-focus-bg);
+}
+
+/* Chat Messages Area */
+body.page-chat .chat-messages-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.page-chat .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    scroll-behavior: smooth;
+}
+
+/* Chat Messages - Add proper scrolling */
+body.page-chat .chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+body.page-chat .chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body.page-chat .chat-messages::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 4px;
+}
+
+body.page-chat .chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Message Styling */
+body.page-chat .message-wrapper {
+    margin-bottom: 1.5rem;
+    animation: slideInMessage 0.3s ease-out;
+}
+
+body.page-chat .message {
+    display: flex;
+    gap: 1rem;
+    max-width: 100%;
+    animation: slideInMessage 0.3s ease-out;
+}
+
+body.page-chat .message.user {
+    flex-direction: row-reverse;
+}
+
+body.page-chat .message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--border-subtle);
+}
+
+body.page-chat .message.user .message-avatar {
+    background: var(--nexus-tree-primary);
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+body.page-chat .message.assistant .message-avatar {
+    background: var(--glass-accent-bg);
+    color: var(--nexus-tree-accent);
+    border-color: var(--nexus-tree-accent);
+}
+
+body.page-chat .message-content {
+    flex: 1;
+    min-width: 0;
+    background: var(--glass-message-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-chat .message.user .message-content {
+    background: var(--nexus-tree-primary);
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+/* Chat Input Area */
+body.page-chat .chat-input-area {
+    padding: 1.5rem;
+    background: var(--glass-input-area-bg);
+    border-top: 1px solid var(--border-subtle);
+}
+
+body.page-chat .input-container {
+    max-width: 100%;
+}
+
+body.page-chat .input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    background: var(--glass-input-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .input-wrapper:focus-within {
+    border-color: var(--nexus-tree-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+body.page-chat .chat-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    min-height: 24px;
+    max-height: 120px;
+    font-family: inherit;
+}
+
+body.page-chat .chat-input::placeholder {
+    color: var(--text-muted);
+}
+
+body.page-chat .input-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+body.page-chat .input-action-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .input-action-btn:hover {
+    background: var(--glass-hover-bg);
+    color: var(--text-primary);
+}
+
+body.page-chat .send-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: var(--nexus-tree-primary);
+    color: white;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .send-btn:hover:not(:disabled) {
+    background: var(--nexus-tree-accent);
+    transform: translateY(-1px);
+}
+
+body.page-chat .send-btn:disabled {
+    background: var(--border-subtle);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+body.page-chat .input-footer {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+body.page-chat .input-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+body.page-chat .char-count {
+    color: var(--text-secondary);
+}
+
+/* Header Action Buttons */
+body.page-chat .chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+body.page-chat .header-action-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-subtle);
+    background: var(--glass-button-bg);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-chat .header-action-btn:hover {
+    background: var(--glass-hover-bg);
+    color: var(--text-primary);
+    border-color: var(--border-focus);
+}
+
+body.page-chat .header-action-btn.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+/* Welcome State */
+body.page-chat .chat-welcome {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    margin: 2rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-chat .welcome-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--nexus-tree-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 2rem;
+}
+
+body.page-chat .welcome-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+
+body.page-chat .welcome-description {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+body.page-chat .suggestion-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+body.page-chat .suggestion-btn {
+    padding: 1rem;
+    border: 1px solid var(--border-subtle);
+    background: var(--glass-card-bg);
+    color: var(--text-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-chat .suggestion-btn:hover {
+    background: var(--glass-hover-bg);
+    border-color: var(--nexus-tree-primary);
+    transform: translateY(-1px);
+}
+
+body.page-chat .suggestion-btn i {
+    color: var(--nexus-tree-primary);
+    font-size: 1.1rem;
+}
+
+/* Typing Indicator */
+body.page-chat .typing-indicator {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+}
+
+body.page-chat .typing-indicator.hidden {
+    display: none;
+}
+
+body.page-chat .typing-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--glass-accent-bg);
+    color: var(--nexus-tree-accent);
+    border: 1px solid var(--nexus-tree-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+body.page-chat .typing-content {
+    background: var(--glass-message-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-chat .typing-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+body.page-chat .typing-dots {
+    display: flex;
+    gap: 4px;
+}
+
+body.page-chat .typing-dots span {
+    width: 6px;
+    height: 6px;
+    background: var(--nexus-tree-primary);
+    border-radius: 50%;
+    animation: pulse 1.4s ease-in-out infinite both;
+}
+
+body.page-chat .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+body.page-chat .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+body.page-chat .typing-dots span:nth-child(3) { animation-delay: 0s; }
+
+/* ===== KNOWLEDGE BASE PAGE STYLES ===== */
+/* Knowledge Base uses the same nexus structure as Synthesis page */
+body.page-kb .synthesis-nexus-container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: calc(100vh - 120px);
+    gap: 1px;
+    padding: var(--space-4);
+    background: linear-gradient(135deg, 
+        rgba(20, 25, 40, 0.95) 0%, 
+        rgba(15, 20, 35, 0.98) 50%,
+        rgba(10, 15, 30, 1.0) 100%);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-radius: var(--border-radius-xl);
+    overflow: hidden;
+}
+
+body.page-kb .synthesis-nexus-sidebar {
+    background: linear-gradient(135deg, 
+        rgba(59, 130, 246, 0.1) 0%, 
+        rgba(139, 92, 246, 0.1) 50%,
+        rgba(20, 25, 40, 0.9) 100%);
+    border-right: 1px solid var(--border-subtle);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border-radius: var(--border-radius-lg) 0 0 var(--border-radius-lg);
+    overflow: hidden;
+}
+
+body.page-kb .synthesis-nexus-main {
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 20, 35, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: relative;
+    border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+    overflow: hidden;
+}
+
+body.page-kb .nexus-header {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+    border-bottom: 1px solid var(--nexus-tree-border);
+    position: relative;
+}
+
+body.page-kb .nexus-title {
+    color: var(--nexus-tree-secondary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-4) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    letter-spacing: 0.5px;
+}
+
+body.page-kb .nexus-icon {
+    color: var(--nexus-tree-primary);
+}
+
+body.page-kb .search-container {
+    position: relative;
+}
+
+body.page-kb .search-icon {
+    position: absolute;
+    left: var(--space-3);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+
+body.page-kb .nexus-search {
+    width: 100%;
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 8px;
+    padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-7) + var(--space-1));
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+body.page-kb .nexus-search:focus {
+    outline: none;
+    border-color: var(--nexus-tree-secondary);
+    background: var(--nexus-glass-bg-hover);
+}
+
+body.page-kb .nexus-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4) var(--space-3);
+    border-bottom: 1px solid var(--nexus-tree-border);
+}
+
+body.page-kb .stat {
+    text-align: center;
+}
+
+body.page-kb .stat-value {
+    color: var(--nexus-tree-secondary);
+    font-size: 1.4rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+}
+
+body.page-kb .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: var(--space-1);
+}
+
+body.page-kb .nexus-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.page-kb .tree-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-3);
+}
+
+body.page-kb .tree-category {
+    margin-bottom: var(--space-2);
+}
+
+body.page-kb .category-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: rgba(58, 80, 107, 0.3);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: var(--space-2);
+    color: var(--text-primary);
+}
+
+body.page-kb .category-header:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-kb .category-toggle {
+    color: var(--nexus-tree-primary);
+    transition: transform 0.2s ease;
+}
+
+body.page-kb .category-icon {
+    color: var(--nexus-tree-primary);
+}
+
+body.page-kb .category-name {
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+body.page-kb .category-count {
+    background: rgba(91, 192, 190, 0.2);
+    color: var(--nexus-tree-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+body.page-kb .subcategory-list {
+    margin-left: var(--space-4);
+    display: none;
+}
+
+body.page-kb .synthesis-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.page-kb .synthesis-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--nexus-tree-primary);
+    transform: translateX(4px);
+}
+
+body.page-kb .synthesis-item.active {
+    background: rgba(91, 192, 190, 0.3);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-kb .item-icon {
+    color: var(--nexus-tree-primary);
+    font-size: 1rem;
+    min-width: 20px;
+    text-align: center;
+}
+
+body.page-kb .item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+body.page-kb .item-title {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-bottom: var(--space-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.page-kb .item-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+body.page-kb .item-count,
+body.page-kb .item-updated {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+}
+
+body.page-kb .item-actions {
+    display: flex;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+body.page-kb .synthesis-item:hover .item-actions {
+    opacity: 1;
+}
+
+body.page-kb .item-action-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-1);
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+}
+
+body.page-kb .item-action-btn:hover {
+    background: var(--nexus-tree-secondary);
+    color: var(--nexus-dark-bg);
+}
+
+body.page-kb .content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--nexus-glass-border);
+    background: rgba(15, 20, 35, 0.5);
+}
+
+body.page-kb .breadcrumb-container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+body.page-kb .breadcrumb-btn {
+    background: transparent;
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+body.page-kb .breadcrumb-btn:hover,
+body.page-kb .breadcrumb-btn.active {
+    background: var(--nexus-tree-secondary);
+    color: var(--nexus-dark-bg);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-kb .content-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+body.page-kb .action-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+body.page-kb .action-btn:hover {
+    background: var(--nexus-tree-secondary);
+    color: var(--nexus-dark-bg);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-kb .action-btn.primary {
+    background: var(--nexus-accent-teal);
+    border-color: var(--nexus-accent-teal);
+    color: var(--nexus-dark-bg);
+}
+
+body.page-kb .action-btn.warning {
+    background: #ff6b6b;
+    border-color: #ff6b6b;
+    color: white;
+}
+
+body.page-kb .content-area {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+body.page-kb .content-view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    padding: var(--space-4);
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+body.page-kb .content-view.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+}
+
+body.page-kb .overview-welcome {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+body.page-kb .welcome-visual {
+    position: relative;
+    margin-bottom: var(--space-6);
+}
+
+body.page-kb .welcome-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--nexus-dark-bg);
+    font-size: 2rem;
+    margin: 0 auto var(--space-4);
+    position: relative;
+    z-index: 2;
+}
+
+body.page-kb .welcome-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, rgba(91, 192, 190, 0.3) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: 1;
+}
+
+body.page-kb .welcome-title {
+    color: var(--text-primary);
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: var(--space-3);
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.page-kb .welcome-description {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: var(--space-6);
+}
+
+body.page-kb .overview-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+body.page-kb .metric-card {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--space-4);
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+body.page-kb .metric-card:hover {
+    background: var(--nexus-glass-bg-hover);
+    border-color: var(--nexus-tree-secondary);
+    transform: translateY(-2px);
+}
+
+body.page-kb .metric-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--nexus-dark-bg);
+    font-size: 1.2rem;
+    margin: 0 auto var(--space-3);
+}
+
+body.page-kb .metric-info {
+    text-align: center;
+}
+
+body.page-kb .metric-number {
+    color: var(--nexus-tree-secondary);
+    font-size: 1.8rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+    margin-bottom: var(--space-1);
+}
+
+body.page-kb .metric-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+body.page-kb .quick-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+}
+
+body.page-kb .quick-action-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: var(--border-radius-lg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-3) var(--space-4);
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+    min-width: 140px;
+    justify-content: center;
+}
+
+body.page-kb .quick-action-btn:hover {
+    background: var(--nexus-tree-secondary);
+    color: var(--nexus-dark-bg);
+    border-color: var(--nexus-tree-secondary);
+    transform: translateY(-2px);
+}
+
+body.page-kb .quick-action-btn.primary {
+    background: var(--nexus-accent-teal);
+    border-color: var(--nexus-accent-teal);
+    color: var(--nexus-dark-bg);
+}
+
+body.page-kb .document-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--nexus-tree-border);
+}
+
+body.page-kb .back-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+}
+
+body.page-kb .back-btn:hover {
+    background: var(--nexus-tree-secondary);
+    color: var(--nexus-dark-bg);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-kb .document-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+body.page-kb .document-content-body {
+    color: var(--text-primary);
+    line-height: 1.7;
+    font-size: 1rem;
+}
+
+body.page-kb .document-content-body h1,
+body.page-kb .document-content-body h2,
+body.page-kb .document-content-body h3,
+body.page-kb .document-content-body h4 {
+    color: var(--nexus-tree-secondary);
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-2);
+}
+
+body.page-kb .document-content-body p {
+    margin-bottom: var(--space-3);
+}
+
+body.page-kb .document-content-body ul,
+body.page-kb .document-content-body ol {
+    margin-bottom: var(--space-3);
+    padding-left: var(--space-5);
+}
+
+body.page-kb .document-content-body code {
+    background: rgba(91, 192, 190, 0.1);
+    color: var(--nexus-tree-secondary);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+body.page-kb .document-content-body pre {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 8px;
+    padding: var(--space-4);
+    margin: var(--space-4) 0;
+    overflow-x: auto;
+}
+
+body.page-kb .loading-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    color: var(--text-secondary);
+}
+
+body.page-kb .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--nexus-tree-border);
+    border-top-color: var(--nexus-tree-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: var(--space-3);
+}
+
+body.page-kb .loading-text {
+    font-size: 0.9rem;
+    color: var(--text-tertiary);
+}
+
+body.page-kb .tree-controls {
+    padding: var(--space-3);
+    border-top: 1px solid var(--nexus-tree-border);
+    display: flex;
+    gap: var(--space-2);
+}
+
+body.page-kb .tree-control-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2);
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex: 1;
+    justify-content: center;
+}
+
+body.page-kb .tree-control-btn:hover {
+    background: var(--nexus-tree-secondary);
+    color: var(--nexus-dark-bg);
+    border-color: var(--nexus-tree-secondary);
+}
+
+/* ===== SYNTHESIS PAGE STYLES ===== */
+body.page-synthesis .synthesis-nexus-container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: calc(100vh - 120px);
+    gap: 1px;
+    padding: var(--space-4);
+    background: linear-gradient(135deg, 
+        rgba(20, 25, 40, 0.95) 0%, 
+        rgba(15, 20, 35, 0.98) 50%,
+        rgba(10, 15, 30, 1.0) 100%);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-radius: var(--border-radius-xl);
+    overflow: hidden;
+}
+
+body.page-synthesis .synthesis-nexus-sidebar {
+    background: linear-gradient(135deg, 
+        rgba(59, 130, 246, 0.1) 0%, 
+        rgba(139, 92, 246, 0.1) 50%,
+        rgba(20, 25, 40, 0.9) 100%);
+    border-right: 1px solid var(--border-subtle);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border-radius: var(--border-radius-lg) 0 0 var(--border-radius-lg);
+    overflow: hidden;
+}
+
+body.page-synthesis .synthesis-nexus-main {
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 20, 35, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: relative;
+    border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+    overflow: hidden;
+}
+
+/* Apply same nexus styles to synthesis page */
+body.page-synthesis .nexus-header {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+    border-bottom: 1px solid var(--nexus-tree-border);
+    position: relative;
+}
+
+body.page-synthesis .nexus-title {
+    color: var(--nexus-tree-secondary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-4) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    letter-spacing: 0.5px;
+}
+
+body.page-synthesis .nexus-icon {
+    color: var(--nexus-tree-primary);
+    font-size: 1.2rem;
+}
+
+body.page-synthesis .search-container {
+    position: relative;
+    margin-top: var(--space-3);
+}
+
+body.page-synthesis .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+}
+
+body.page-synthesis .nexus-search {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 8px;
+    padding: 10px 40px 10px 36px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+body.page-synthesis .nexus-search:focus {
+    outline: none;
+    border-color: var(--nexus-tree-primary);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.page-synthesis .nexus-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--nexus-tree-border);
+}
+
+body.page-synthesis .stat {
+    text-align: center;
+    padding: var(--space-2);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid var(--nexus-tree-border);
+}
+
+body.page-synthesis .stat-value {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--nexus-tree-secondary);
+    display: block;
+    line-height: 1;
+}
+
+body.page-synthesis .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: var(--space-1);
+}
+
+body.page-synthesis .nexus-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.page-synthesis .tree-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-3);
+}
+
+/* Synthesis Tree Styles */
+body.page-synthesis .synthesis-tree {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    color: var(--text-primary);
+}
+
+body.page-synthesis .tree-category {
+    margin-bottom: var(--space-2);
+}
+
+body.page-synthesis .category-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: rgba(58, 80, 107, 0.3);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: var(--space-2);
+    color: var(--text-primary);
+}
+
+body.page-synthesis .category-header:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-synthesis .category-toggle {
+    color: var(--nexus-tree-primary);
+    transition: transform 0.2s ease;
+}
+
+body.page-synthesis .category-icon {
+    color: var(--nexus-tree-primary);
+}
+
+body.page-synthesis .category-name {
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+body.page-synthesis .category-count {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+body.page-synthesis .subcategory-list {
+    margin-left: var(--space-4);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--nexus-tree-border);
+}
+
+body.page-synthesis .synthesis-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-1);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+}
+
+body.page-synthesis .synthesis-item:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: var(--nexus-tree-border);
+    transform: translateX(4px);
+}
+
+body.page-synthesis .synthesis-item.active {
+    background: rgba(91, 192, 190, 0.3);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-synthesis .item-icon {
+    color: var(--nexus-tree-primary);
+    font-size: 0.9rem;
+    width: 16px;
+    text-align: center;
+}
+
+body.page-synthesis .item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+body.page-synthesis .item-title {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.page-synthesis .item-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+body.page-synthesis .item-count,
+body.page-synthesis .item-updated {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+body.page-synthesis .item-actions {
+    display: flex;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+body.page-synthesis .synthesis-item:hover .item-actions {
+    opacity: 1;
+}
+
+body.page-synthesis .item-action-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 6px;
+    transition: all 0.2s ease;
+    font-size: 0.75rem;
+}
+
+body.page-synthesis .item-action-btn:hover {
+    background: var(--nexus-tree-primary);
+    color: white;
+}
+
+/* Content Views */
+body.page-synthesis .content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--nexus-glass-border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+body.page-synthesis .breadcrumb-container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+body.page-synthesis .breadcrumb-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+body.page-synthesis .breadcrumb-btn:hover,
+body.page-synthesis .breadcrumb-btn.active {
+    background: var(--nexus-tree-primary);
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+body.page-synthesis .content-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+body.page-synthesis .action-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+body.page-synthesis .action-btn:hover {
+    background: var(--nexus-glass-bg-hover);
+    border-color: var(--nexus-tree-primary);
+    color: var(--text-primary);
+}
+
+body.page-synthesis .action-btn.primary {
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+body.page-synthesis .action-btn.warning {
+    background: linear-gradient(135deg, var(--nexus-warning), #fb923c);
+    color: white;
+    border-color: var(--nexus-warning);
+}
+
+/* Content Area */
+body.page-synthesis .content-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+body.page-synthesis .content-view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    overflow-y: auto;
+    padding: var(--space-4);
+}
+
+body.page-synthesis .content-view.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Overview View */
+body.page-synthesis .overview-welcome {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--space-6);
+}
+
+body.page-synthesis .welcome-visual {
+    position: relative;
+    margin-bottom: var(--space-6);
+}
+
+body.page-synthesis .welcome-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-4) auto;
+    font-size: 2rem;
+    color: white;
+    position: relative;
+    z-index: 2;
+}
+
+body.page-synthesis .welcome-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(91, 192, 190, 0.3) 0%, transparent 70%);
+    animation: pulse 3s ease-in-out infinite;
+}
+
+body.page-synthesis .welcome-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.page-synthesis .welcome-description {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: var(--space-6);
+}
+
+body.page-synthesis .overview-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+body.page-synthesis .metric-card {
+    background: rgba(58, 80, 107, 0.3);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 12px;
+    padding: var(--space-4);
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+body.page-synthesis .metric-card:hover {
+    background: rgba(58, 80, 107, 0.4);
+    border-color: var(--nexus-tree-secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+body.page-synthesis .metric-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-3) auto;
+    font-size: 1.5rem;
+    color: white;
+}
+
+body.page-synthesis .metric-info {
+    text-align: center;
+}
+
+body.page-synthesis .metric-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--nexus-tree-secondary);
+    display: block;
+    line-height: 1;
+}
+
+body.page-synthesis .metric-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: var(--space-1);
+}
+
+body.page-synthesis .quick-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+body.page-synthesis .quick-action-btn {
+    background: rgba(58, 80, 107, 0.4);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 12px;
+    padding: var(--space-3) var(--space-4);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+body.page-synthesis .quick-action-btn:hover {
+    background: rgba(91, 192, 190, 0.3);
+    border-color: var(--nexus-tree-secondary);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+body.page-synthesis .quick-action-btn.primary {
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+/* Document View */
+body.page-synthesis .document-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--nexus-glass-border);
+}
+
+body.page-synthesis .back-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.9rem;
+}
+
+body.page-synthesis .back-btn:hover {
+    background: var(--nexus-tree-primary);
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+body.page-synthesis .document-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+body.page-synthesis .document-header-info {
+    margin-bottom: var(--space-6);
+}
+
+body.page-synthesis .document-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+    line-height: 1.2;
+}
+
+body.page-synthesis .document-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+body.page-synthesis .meta-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+body.page-synthesis .meta-item i {
+    color: var(--nexus-tree-primary);
+}
+
+body.page-synthesis .document-content-body {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: 12px;
+    padding: var(--space-6);
+    line-height: 1.7;
+}
+
+body.page-synthesis .document-content-body h1,
+body.page-synthesis .document-content-body h2,
+body.page-synthesis .document-content-body h3,
+body.page-synthesis .document-content-body h4 {
+    color: var(--text-primary);
+    margin-top: var(--space-5);
+    margin-bottom: var(--space-3);
+}
+
+body.page-synthesis .document-content-body p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+body.page-synthesis .document-content-body ul,
+body.page-synthesis .document-content-body ol {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+    padding-left: var(--space-5);
+}
+
+body.page-synthesis .document-content-body code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+body.page-synthesis .document-content-body pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: 8px;
+    padding: var(--space-4);
+    overflow-x: auto;
+    margin: var(--space-4) 0;
+}
+
+/* Loading and Error States */
+body.page-synthesis .loading-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    color: var(--text-secondary);
+}
+
+body.page-synthesis .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--nexus-tree-border);
+    border-top-color: var(--nexus-tree-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: var(--space-3);
+}
+
+body.page-synthesis .loading-text {
+    font-size: 0.9rem;
+    color: var(--text-tertiary);
+}
+
+body.page-synthesis .placeholder-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+body.page-synthesis .placeholder-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(58, 80, 107, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-4);
+    font-size: 2rem;
+    color: var(--nexus-tree-primary);
+}
+
+body.page-synthesis .placeholder-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+body.page-synthesis .placeholder-description {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: var(--space-4);
+    max-width: 400px;
+}
+
+body.page-synthesis .placeholder-actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+body.page-synthesis .tree-controls {
+    padding: var(--space-3);
+    border-top: 1px solid var(--nexus-tree-border);
+    display: flex;
+    gap: var(--space-2);
+}
+
+body.page-synthesis .tree-control-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-tree-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2);
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+}
+
+body.page-synthesis .tree-control-btn:hover {
+    background: var(--nexus-tree-bg);
+    color: var(--nexus-tree-secondary);
+}
+
+/* ===== CHAT FORM ELEMENTS AND MODALS ===== */
+/* Chat Form Elements */
+body.page-chat .model-label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
+}
+
+body.page-chat .model-select,
+body.page-chat .form-input {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: var(--border-radius-md);
+    color: var(--text-primary);
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.9rem;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .model-select:focus,
+body.page-chat .form-input:focus {
+    outline: none;
+    border-color: var(--nexus-accent-teal);
+    background: var(--nexus-glass-bg-hover);
+}
+
+body.page-chat .model-select option {
+    background: var(--nexus-dark-bg);
+    color: var(--text-primary);
+    border: none;
+}
+
+/* Fix for select dropdown styling */
+body.page-chat .model-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235bc0be' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+    padding-right: 40px;
+}
+
+/* Additional Chat button styling fixes */
+body.page-chat .sessions-footer .model-label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: var(--space-2);
+}
+
+body.page-chat .sessions-footer .model-select {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: var(--border-radius-md);
+    color: var(--text-primary);
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+/* Modal Styles */
+body.page-chat .chat-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+body.page-chat .chat-modal.hidden {
+    display: none;
+}
+
+body.page-chat .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+body.page-chat .modal-content {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: var(--border-radius-xl);
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+    z-index: 1001;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+body.page-chat .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--nexus-glass-border);
+}
+
+body.page-chat .modal-header h3 {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+body.page-chat .modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-1);
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s ease;
+}
+
+body.page-chat .modal-close-btn:hover {
+    background: var(--nexus-glass-bg-hover);
+    color: var(--text-primary);
+}
+
+body.page-chat .modal-body {
+    padding: var(--space-4);
+}
+
+body.page-chat .form-group {
+    margin-bottom: var(--space-4);
+}
+
+body.page-chat .form-group label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: var(--space-2);
+}
+
+body.page-chat .session-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+body.page-chat .info-item {
+    background: var(--nexus-glass-bg-hover);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--space-3);
+}
+
+body.page-chat .info-label {
+    display: block;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    margin-bottom: var(--space-1);
+}
+
+body.page-chat .info-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+body.page-chat .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border-top: 1px solid var(--nexus-glass-border);
+}
+
+body.page-chat .modal-btn {
+    background: var(--nexus-glass-bg);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: var(--border-radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+body.page-chat .modal-btn:hover {
+    background: var(--nexus-glass-bg-hover);
+    border-color: var(--nexus-accent-teal);
+    color: var(--text-primary);
+}
+
+body.page-chat .modal-btn.primary {
+    background: var(--nexus-accent-teal);
+    border-color: var(--nexus-accent-teal);
+    color: var(--nexus-dark-bg);
+}
+
+body.page-chat .modal-btn.primary:hover {
+    background: var(--nexus-tree-secondary);
+    border-color: var(--nexus-tree-secondary);
+}
+
+body.page-chat .modal-btn.secondary {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+/* ===== SHARED GLASS BUTTON ENHANCEMENTS ===== */
+/* These enhance the existing glass buttons across all pages */
+body.page-chat .glass-button,
+body.page-kb .glass-button,
+body.page-synthesis .glass-button {
+    position: relative;
+    background: var(--nexus-glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--nexus-glass-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--space-3) var(--space-4);
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    text-decoration: none;
+    outline: none;
+}
+
+body.page-chat .glass-button:hover,
+body.page-kb .glass-button:hover,
+body.page-synthesis .glass-button:hover {
+    background: var(--nexus-glass-bg-hover);
+    border-color: var(--nexus-accent-teal);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+body.page-chat .glass-button--primary,
+body.page-kb .glass-button--primary,
+body.page-synthesis .glass-button--primary {
+    background: linear-gradient(135deg, var(--nexus-primary), var(--nexus-accent-teal));
+    color: white;
+    border-color: var(--nexus-primary);
+}
+
+body.page-chat .glass-button--secondary,
+body.page-kb .glass-button--secondary,
+body.page-synthesis .glass-button--secondary {
+    background: linear-gradient(135deg, var(--nexus-tree-primary), var(--nexus-tree-secondary));
+    color: white;
+    border-color: var(--nexus-tree-primary);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1024px) {
+    body.page-chat .modern-chat-container,
+    body.page-kb .kb-nexus-container,
+    body.page-synthesis .synthesis-nexus-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+    
+    body.page-chat .chat-sessions-sidebar,
+    body.page-kb .kb-nexus-sidebar,
+    body.page-synthesis .synthesis-nexus-sidebar {
+        max-height: 200px;
+        border-right: none;
+        border-bottom: 1px solid var(--nexus-glass-border);
+        border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    }
+    
+    body.page-chat .chat-main-area,
+    body.page-kb .kb-nexus-main,
+    body.page-synthesis .synthesis-nexus-main {
+        border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+    }
+}
+
+@media (max-width: 768px) {
+    body.page-chat .modern-chat-container,
+    body.page-kb .kb-nexus-container,
+    body.page-synthesis .synthesis-nexus-container {
+        padding: var(--space-2);
+        height: calc(100vh - 80px);
+    }
+    
+    body.page-chat .message {
+        max-width: 95%;
+    }
+    
+    body.page-chat .message-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+    }
+}
+
+/* ===== ANIMATION KEYFRAMES ===== */
+@keyframes slideInMessage {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Sessions Footer Model Selector - Enhanced styling */
+body.page-chat .sessions-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+body.page-chat .model-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+body.page-chat .model-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* CRITICAL: Fix model selector white text on white background issue */
+body.page-chat .model-select,
+body.page-chat .sessions-footer .model-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: rgba(20, 25, 40, 0.9) !important;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-primary) !important;
+    font-size: 0.875rem;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2359A3D3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+}
+
+body.page-chat .model-select:focus,
+body.page-chat .sessions-footer .model-select:focus {
+    outline: none;
+    border-color: var(--nexus-tree-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* CRITICAL: Fix dropdown options styling */
+body.page-chat .model-select option {
+    background: rgba(20, 25, 40, 0.95) !important;
+    color: var(--text-primary) !important;
+    padding: 0.5rem;
+    border: none;
+}
+
+/* Ensure optgroups are also properly styled */
+body.page-chat .model-select optgroup {
+    background: rgba(20, 25, 40, 0.95) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600;
+}
+
+/* Enhanced responsive design for all pages */
+@media (max-width: 1024px) {
+    body.page-chat .modern-chat-container,
+    body.page-kb .synthesis-nexus-container,
+    body.page-synthesis .synthesis-nexus-container {
+        grid-template-columns: 240px 1fr;
+        margin: 0.5rem;
+        height: calc(100vh - 1rem);
+    }
+    
+    body.page-chat .chat-sessions-sidebar,
+    body.page-kb .synthesis-nexus-sidebar,
+    body.page-synthesis .synthesis-nexus-sidebar {
+        min-width: 240px;
+    }
+}
+
+@media (max-width: 768px) {
+    body.page-chat .modern-chat-container,
+    body.page-kb .synthesis-nexus-container,
+    body.page-synthesis .synthesis-nexus-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        margin: 0.25rem;
+        height: calc(100vh - 0.5rem);
+        border-radius: 8px;
+    }
+    
+    body.page-chat .chat-sessions-sidebar,
+    body.page-kb .synthesis-nexus-sidebar,
+    body.page-synthesis .synthesis-nexus-sidebar {
+        max-height: 200px;
+        border-radius: 8px 8px 0 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    body.page-chat .chat-main-area,
+    body.page-kb .synthesis-nexus-main,
+    body.page-synthesis .synthesis-nexus-main {
+        border-radius: 0 0 8px 8px;
+    }
+    
+    body.page-chat .message-wrapper {
+        margin-bottom: 1rem;
+    }
+    
+    body.page-chat .message-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Additional improvements for document detail views */
+body.page-kb .synthesis-document-view,
+body.page-synthesis .synthesis-document-view {
+    overflow-y: auto;
+    height: 100%;
+}
+
+body.page-kb .document-detail-content,
+body.page-synthesis .document-detail-content {
+    max-width: none;
+    height: 100%;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+/* Fix for knowledge base item content styling */
+body.page-kb .document-detail-content h1,
+body.page-kb .document-detail-content h2,
+body.page-kb .document-detail-content h3 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+body.page-kb .document-detail-content p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+body.page-kb .document-detail-content code {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    color: var(--nexus-tree-accent);
+}
+
+body.page-kb .document-detail-content pre {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+/* Synthesis tree item layout improvements */
+body.page-kb .synthesis-item,
+body.page-synthesis .synthesis-item {
+    padding: 0.75rem;
+    margin: 0.25rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+body.page-kb .item-content,
+body.page-synthesis .item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+body.page-kb .item-title,
+body.page-synthesis .item-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.page-kb .item-meta,
+body.page-synthesis .item-meta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+body.page-kb .item-actions,
+body.page-synthesis .item-actions {
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+body.page-kb .synthesis-item:hover .item-actions,
+body.page-synthesis .synthesis-item:hover .item-actions {
+    opacity: 1;
+}
+
+body.page-kb .item-action-btn,
+body.page-synthesis .item-action-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+body.page-kb .item-action-btn:hover,
+body.page-synthesis .item-action-btn:hover {
+    background: var(--nexus-tree-primary);
+    color: white;
+} 

@@ -1,0 +1,103 @@
+<div class="panel execution-plan-panel">
+    <ul id="phase-list" class="phase-list">
+        <!-- Initialization -->
+        <li id="phase-initialization" class="phase-item" data-phase-id="initialization" data-run-full="true" data-run-synthesis="true" data-run-embedding="true" data-run-fetch="true" data-run-git="true">
+            <div class="phase-header">
+                <i class="fas fa-power-off phase-icon"></i>
+                <span class="phase-name">Initialization</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+        </li>
+        
+        <!-- Fetch Bookmarks -->
+        <li id="phase-fetch-bookmarks" class="phase-item" data-phase-id="fetch_bookmarks" data-run-full="true" data-run-fetch="true">
+            <div class="phase-header">
+                <i class="fas fa-bookmark phase-icon"></i>
+                <span class="phase-name">Fetch Bookmarks</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+        </li>
+
+        <!-- Content Processing (Parent) -->
+        <li id="phase-content-processing" class="phase-item parent-phase" data-phase-id="content_processing" data-run-full="true">
+            <div class="phase-header">
+                <i class="fas fa-cogs phase-icon"></i>
+                <span class="phase-name">Content Processing</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+            <ul class="sub-phase-list">
+                <li id="phase-tweet-caching" class="phase-item sub-phase" data-phase-id="tweet_caching" data-run-full="true">
+                    <div class="sub-phase-header">
+                        <i class="fas fa-archive sub-phase-icon"></i>
+                        <span class="sub-phase-name">Tweet Caching</span>
+                        <span class="phase-status" data-status="pending">Will Run</span>
+                    </div>
+                </li>
+                <li id="phase-media-analysis" class="phase-item sub-phase" data-phase-id="media_analysis" data-run-full="true">
+                    <div class="sub-phase-header">
+                        <i class="fas fa-image sub-phase-icon"></i>
+                        <span class="sub-phase-name">Media Analysis</span>
+                        <span class="phase-status" data-status="pending">Will Run</span>
+                    </div>
+                </li>
+                <li id="phase-llm-processing" class="phase-item sub-phase" data-phase-id="llm_processing" data-run-full="true">
+                    <div class="sub-phase-header">
+                        <i class="fas fa-brain sub-phase-icon"></i>
+                        <span class="sub-phase-name">LLM Processing</span>
+                        <span class="phase-status" data-status="pending">Will Run</span>
+                    </div>
+                </li>
+                <li id="phase-kb-item-generation" class="phase-item sub-phase" data-phase-id="kb_item_generation" data-run-full="true">
+                    <div class="sub-phase-header">
+                        <i class="fas fa-file-alt sub-phase-icon"></i>
+                        <span class="sub-phase-name">KB Item Generation</span>
+                        <span class="phase-status" data-status="pending">Will Run</span>
+                    </div>
+                </li>
+                <li id="phase-database-sync" class="phase-item sub-phase" data-phase-id="database_sync" data-run-full="true">
+                    <div class="sub-phase-header">
+                        <i class="fas fa-database sub-phase-icon"></i>
+                        <span class="sub-phase-name">Database Sync</span>
+                        <span class="phase-status" data-status="pending">Will Run</span>
+                    </div>
+                </li>
+            </ul>
+        </li>
+
+        <!-- Synthesis Generation -->
+        <li id="phase-synthesis-generation" class="phase-item" data-phase-id="synthesis_generation" data-run-full="true" data-run-synthesis="true">
+            <div class="phase-header">
+                <i class="fas fa-lightbulb phase-icon"></i>
+                <span class="phase-name">Synthesis Generation</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+        </li>
+        
+        <!-- Embedding Generation -->
+        <li id="phase-embedding-generation" class="phase-item" data-phase-id="embedding_generation" data-run-full="true" data-run-embedding="true">
+            <div class="phase-header">
+                <i class="fas fa-project-diagram phase-icon"></i>
+                <span class="phase-name">Embedding Generation</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+        </li>
+
+        <!-- README Generation -->
+        <li id="phase-readme-generation" class="phase-item" data-phase-id="readme_generation" data-run-full="true">
+            <div class="phase-header">
+                <i class="fas fa-file-text phase-icon"></i>
+                <span class="phase-name">README Generation</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+        </li>
+
+        <!-- Git Sync -->
+        <li id="phase-git-sync" class="phase-item" data-phase-id="git_sync" data-run-full="true" data-run-synthesis="true" data-run-embedding="true" data-run-git="true">
+            <div class="phase-header">
+                <i class="fas fa-code-branch phase-icon"></i>
+                <span class="phase-name">Git Sync</span>
+                <span class="phase-status" data-status="pending">Will Run</span>
+            </div>
+        </li>
+    </ul>
+</div> 

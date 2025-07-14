@@ -1,0 +1,306 @@
+<div class="modern-chat-container">
+    <!-- Chat Sessions Sidebar -->
+    <aside class="chat-sessions-sidebar">
+        <div class="sessions-header">
+            <div class="sessions-title">
+                <i class="fas fa-comments"></i>
+                <span>Chat Sessions</span>
+            </div>
+            <button id="v2-new-chat-btn" class="new-chat-btn" title="Start New Chat">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+        
+        <div class="sessions-search">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input 
+                    type="text" 
+                    id="v2-session-search" 
+                    placeholder="Search conversations..."
+                    class="search-input"
+                >
+            </div>
+        </div>
+        
+        <div class="sessions-list-container">
+            <div id="v2-session-list" class="sessions-list">
+                <div class="loading-sessions">
+                    <div class="loading-spinner"></div>
+                    <span>Loading conversations...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sessions-footer">
+            <div class="model-selection">
+                <label for="v2-chat-model-selector" class="model-label">
+                    <i class="fas fa-brain"></i>
+                    <span>AI Model</span>
+                </label>
+                <select id="v2-chat-model-selector" class="model-select">
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="chat-main-area">
+        <!-- Chat Header -->
+        <header class="chat-header">
+            <div class="chat-session-info">
+                <h1 id="v2-chat-title" class="session-title">New Conversation</h1>
+                <div class="session-metadata">
+                    <span id="v2-chat-model-display" class="model-display">Select a model to start</span>
+                    <span class="separator">•</span>
+                    <span id="v2-message-count" class="message-count">0 messages</span>
+                    <span class="separator">•</span>
+                    <span id="v2-session-time" class="session-time">--</span>
+                </div>
+            </div>
+            <div class="chat-header-actions">
+                <button id="v2-toggle-sidebar" class="header-action-btn" title="Toggle Sidebar">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <button id="v2-archive-session-btn" class="header-action-btn" title="Archive Session">
+                    <i class="fas fa-archive"></i>
+                </button>
+                <button id="v2-share-session-btn" class="header-action-btn" title="Share Session">
+                    <i class="fas fa-share"></i>
+                </button>
+                <button id="v2-export-chat-btn" class="header-action-btn" title="Export Chat">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button id="v2-delete-session-btn" class="header-action-btn danger" title="Delete Session">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages-area">
+            <div id="v2-chat-history" class="chat-messages">
+                <!-- Welcome State -->
+                <div class="chat-welcome" id="chat-welcome">
+                    <div class="welcome-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h2 class="welcome-title">Welcome to Knowledge Base Chat</h2>
+                    <p class="welcome-description">
+                        I'm your AI assistant with access to your knowledge base. I can help you find information, 
+                        analyze documents, and provide insights based on your content.
+                    </p>
+                    <div class="welcome-suggestions">
+                        <div class="suggestion-category">
+                            <h4>Try asking me:</h4>
+                            <div class="suggestion-grid">
+                                <button class="suggestion-btn" data-prompt="What are the main categories in my knowledge base?">
+                                    <i class="fas fa-folder"></i>
+                                    <span>Explore Categories</span>
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Summarize the latest developments in [topic]">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span>Summarize Topics</span>
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Find examples of [concept] from my documents">
+                                    <i class="fas fa-search"></i>
+                                    <span>Find Examples</span>
+                                </button>
+                                <button class="suggestion-btn" data-prompt="What insights can you provide about [subject]?">
+                                    <i class="fas fa-lightbulb"></i>
+                                    <span>Get Insights</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Messages will be dynamically inserted here -->
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="v2-typing-indicator" class="typing-indicator hidden">
+                <div class="typing-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="typing-content">
+                    <div class="typing-text">AI is thinking</div>
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input Area -->
+        <div class="chat-input-area">
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="v2-chat-input" 
+                        class="chat-input"
+                        placeholder="Message..." 
+                        rows="1"
+                        maxlength="4000"
+                    ></textarea>
+                    
+                    <div class="input-actions">
+                        <button id="v2-attach-file-btn" class="input-action-btn" title="Attach File">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                        <button id="v2-voice-input-btn" class="input-action-btn" title="Voice Input">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button id="v2-send-btn" class="send-btn" disabled title="Send Message">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="input-footer">
+                    <div class="input-info">
+                        <span id="v2-char-count" class="char-count">0/4000</span>
+                        <span class="input-tip">Press Enter to send, Shift+Enter for new line</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Message Templates -->
+<template id="v2-message-template">
+    <div class="message-wrapper">
+        <div class="message">
+            <div class="message-avatar">
+                <i class="message-avatar-icon"></i>
+            </div>
+            <div class="message-content">
+                <div class="message-header">
+                    <span class="message-sender"></span>
+                    <span class="message-timestamp"></span>
+                </div>
+                <div class="message-text"></div>
+                <div class="message-metadata hidden">
+                    <!-- Performance metrics, sources, etc. -->
+                </div>
+                <div class="message-actions">
+                    <button class="message-action-btn" title="Copy">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="message-action-btn" title="Regenerate">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <button class="message-action-btn" title="Show Details" data-toggle="metadata">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="v2-session-template">
+    <div class="session-item">
+        <div class="session-content">
+            <div class="session-title"></div>
+            <div class="session-preview"></div>
+            <div class="session-metadata">
+                <span class="session-time"></span>
+                <span class="session-message-count"></span>
+            </div>
+        </div>
+        <div class="session-actions">
+            <button class="session-action-btn archive-btn" title="Archive">
+                <i class="fas fa-archive"></i>
+            </button>
+            <button class="session-action-btn delete-btn" title="Delete">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- Performance Metrics Template -->
+<template id="v2-performance-metrics-template">
+    <div class="performance-metrics">
+        <div class="metrics-header">
+            <i class="fas fa-chart-bar"></i>
+            <span>Response Metrics</span>
+        </div>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <div class="metric-label">Response Time</div>
+                <div class="metric-value response-time">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Tokens Used</div>
+                <div class="metric-value tokens-used">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Sources Found</div>
+                <div class="metric-value sources-count">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Confidence</div>
+                <div class="metric-value confidence-score">--</div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Sources Template -->
+<template id="v2-sources-template">
+    <div class="message-sources">
+        <div class="sources-header">
+            <i class="fas fa-book-open"></i>
+            <span>Sources</span>
+        </div>
+        <div class="sources-list">
+            <!-- Sources will be populated here -->
+        </div>
+    </div>
+</template>
+
+<!-- Modal for Session Management -->
+<div id="v2-session-modal" class="chat-modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="v2-modal-title">Session Settings</h3>
+            <button id="v2-modal-close" class="modal-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="v2-session-title-input">Session Title</label>
+                <input type="text" id="v2-session-title-input" class="form-input" placeholder="Enter session title...">
+            </div>
+            <div class="form-group">
+                <label>Session Info</label>
+                <div class="session-info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Created:</span>
+                        <span id="v2-session-created" class="info-value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Messages:</span>
+                        <span id="v2-session-message-count" class="info-value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Model:</span>
+                        <span id="v2-session-model" class="info-value">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="v2-modal-cancel" class="modal-btn secondary">Cancel</button>
+            <button id="v2-modal-save" class="modal-btn primary">Save Changes</button>
+        </div>
+    </div>
+</div> 

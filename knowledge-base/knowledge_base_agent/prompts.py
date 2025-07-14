@@ -157,6 +157,21 @@ def load_user_preferences(config: Optional[Config] = None) -> UserPreferences:
     # logging.debug(f"Loading default UserPreferences. Config provided: {bool(config)}")
     return UserPreferences()
 
+
+def save_user_preferences(preferences: dict, config: Optional[Config] = None) -> UserPreferences:
+    """
+    Validates and saves user preferences.
+    For now, this validates and returns the dataclass.
+    Can be extended to save to a file.
+    """
+    try:
+        # Validate by creating a UserPreferences instance
+        prefs_instance = UserPreferences(**preferences)
+        return prefs_instance
+    except TypeError as e:
+        raise ValueError(f"Invalid preferences data provided: {e}")
+
+
 class LLMPrompts:
     @staticmethod
     def get_categorization_prompt_standard(context_content: str, formatted_existing_categories: str, is_thread: bool = False) -> str:
