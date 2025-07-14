@@ -1,0 +1,119 @@
+<div id="agent-control-panel" class="panel">
+    <div class="panel-content">
+        <!-- Primary Agent Controls - Always Visible -->
+        <div class="preference-section" style="margin-bottom: var(--space-4);">
+            <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Agent Controls</h4>
+            <div class="control-group" style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+                <!-- Primary Action - Run Agent -->
+                <button id="run-agent-btn" class="glass-button glass-button--primary glass-button--large">
+                    <i class="fas fa-play"></i> Run Agent
+                </button>
+                <button id="stop-agent-btn" class="glass-button glass-button--danger glass-button--large" style="display: none;">
+                    <i class="fas fa-stop"></i> Stop Agent
+                </button>
+                
+                <!-- Separator -->
+                <div style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--border-color), transparent); margin: 0 var(--space-2);"></div>
+                
+                <!-- Clear Action -->
+                <button id="clear-all-options" class="glass-button glass-button--ghost">
+                    <i class="fas fa-times"></i> Clear All Options
+                </button>
+                
+                <!-- Separator -->
+                <div style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--border-color), transparent); margin: 0 var(--space-2);"></div>
+                
+                <!-- Expand/Collapse Toggle -->
+                <button id="toggle-preferences-btn" class="glass-button glass-button--ghost">
+                    <i class="fas fa-chevron-down" id="toggle-preferences-icon"></i> Preferences
+                </button>
+            </div>
+        </div>
+
+        <!-- Collapsible Preferences Section -->
+        <div id="collapsible-preferences" class="preferences-collapsible collapsed" style="overflow: hidden; transition: all 0.3s ease;">
+            <!-- Run Mode Selection -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Run Mode Favorites</h4>
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="full-pipeline-btn" data-pref="full_pipeline" data-mode="true" class="glass-button glass-button--primary active">
+                        <i class="fas fa-cogs"></i> Full Pipeline
+                    </button>
+                    <button id="fetch-only-btn" data-pref="fetch_only" data-mode="true" class="glass-button glass-button--secondary">
+                        <i class="fas fa-download"></i> Fetch Only
+                    </button>
+                    <button id="synthesis-only-btn" data-pref="synthesis_only" data-mode="true" class="glass-button glass-button--secondary">
+                        <i class="fas fa-lightbulb"></i> Synthesis Only
+                    </button>
+                    <button id="embedding-only-btn" data-pref="embedding_only" data-mode="true" class="glass-button glass-button--secondary">
+                        <i class="fas fa-project-diagram"></i> Embedding Only
+                    </button>
+                    <button id="git-sync-only-btn" data-pref="git_sync_only" data-mode="true" class="glass-button glass-button--secondary">
+                        <i class="fas fa-code-branch"></i> Git Sync Only
+                    </button>
+                </div>
+            </div>
+
+            <!-- Skip Options -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Skip Options</h4>
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="skip-fetch-bookmarks-btn" data-pref="skip_fetch_bookmarks" class="glass-button glass-button--ghost glass-button--small">
+                        <i class="fas fa-bookmark"></i> Skip Fetch Bookmarks
+                    </button>
+                    <button id="skip-process-content-btn" data-pref="skip_process_content" class="glass-button glass-button--ghost glass-button--small">
+                        <i class="fas fa-file-alt"></i> Skip Process Content
+                    </button>
+                    <button id="skip-readme-generation-btn" data-pref="skip_readme_generation" class="glass-button glass-button--ghost glass-button--small">
+                        <i class="fas fa-readme"></i> Skip README Generation
+                    </button>
+                    <button id="skip-git-push-btn" data-pref="skip_git_push" class="glass-button glass-button--ghost glass-button--small">
+                        <i class="fas fa-upload"></i> Skip Git Push
+                    </button>
+                    <button id="skip-synthesis-generation-btn" data-pref="skip_synthesis_generation" class="glass-button glass-button--ghost glass-button--small">
+                        <i class="fas fa-lightbulb"></i> Skip Synthesis
+                    </button>
+                    <button id="skip-embedding-generation-btn" data-pref="skip_embedding_generation" class="glass-button glass-button--ghost glass-button--small">
+                        <i class="fas fa-project-diagram"></i> Skip Embedding
+                    </button>
+                </div>
+            </div>
+
+            <!-- Force Options -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Force Options</h4>
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="force-recache-tweets-btn" data-pref="force_recache_tweets" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-sync-alt"></i> Force Recache Tweets
+                    </button>
+                    <button id="force-reprocess-media-btn" data-pref="force_reprocess_media" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-images"></i> Force Reprocess Media
+                    </button>
+                    <button id="force-reprocess-llm-btn" data-pref="force_reprocess_llm" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-brain"></i> Force Reprocess LLM
+                    </button>
+                    <button id="force-reprocess-kb-item-btn" data-pref="force_reprocess_kb_item" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-file-text"></i> Force Reprocess KB Items
+                    </button>
+                    <button id="force-regenerate-synthesis-btn" data-pref="force_regenerate_synthesis" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-lightbulb"></i> Force Regenerate Synthesis
+                    </button>
+                    <button id="force-regenerate-embeddings-btn" data-pref="force_regenerate_embeddings" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-project-diagram"></i> Force Regenerate Embeddings
+                    </button>
+                    <button id="force-regenerate-readme-btn" data-pref="force_regenerate_readme" class="glass-button glass-button--warning glass-button--small">
+                        <i class="fas fa-readme"></i> Force Regenerate README
+                    </button>
+                    <button id="force-reprocess-content-btn" data-pref="force_reprocess_content" class="glass-button glass-button--danger glass-button--small">
+                        <i class="fas fa-exclamation-triangle"></i> Force Reprocess All Content
+                    </button>
+                </div>
+                <div style="margin-top: var(--space-2);">
+                    <small style="color: var(--text-secondary); font-style: italic;">
+                        Force options modify the selected run mode to reprocess specific phases
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

@@ -6,335 +6,420 @@ print(f"WEB.PY LOADED: __name__={__name__}, cwd={os.getcwd()}", flush=True)
 import asyncio
 import logging
 import sys
-
-from typing import Optional
+import threading
+from typing import Optional, Iterable
 from collections import deque
+from datetime import datetime
+import json
+from logging import handlers
+import pickle
+import traceback
+import tblib.pickling_support
+from pathlib import Path
 
 # Third-party imports
-from flask import Flask, render_template, request, jsonify, current_app, url_for, send_file, abort
+from flask import Flask, render_template, request, jsonify, current_app, url_for, send_file, abort, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_migrate import Migrate
 import markdown
 from markupsafe import Markup
+from jinja2 import TemplateNotFound
+from flask_sqlalchemy import SQLAlchemy
 
-# Local imports
-from .config import Config
-from .models import db, KnowledgeBaseItem, SubcategorySynthesis
-from .main import load_config, run_agent_from_preferences
-from .gpu_utils import get_gpu_stats
+# Celery Migration Imports
+from .celery_app import init_celery
+from .realtime_manager import RealtimeManager
+
+# Local imports - only import what's needed at module level
+from .config import Config, PROJECT_ROOT
+from .prompts import load_user_preferences
+from .models import db, KnowledgeBaseItem, SubcategorySynthesis, Setting, AgentState
 from .api.routes import bp as api_bp
-from .chat_manager import ChatManager
+from knowledge_base_agent.monitoring import initialize_monitoring
 
-# --- Helper Functions ---
-
-
-
-# --- Globals and App Initialization ---
-
-app = Flask(__name__, template_folder='templates', static_folder='static')
-app.config['SECRET_KEY'] = 'secret!' # Replace with a real secret key
-
-# Explicitly construct the database path to avoid Flask-SQLAlchemy fallback behavior
-# This resolves to: /path/to/project/instance/knowledge_base.db
-db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "instance", "knowledge_base.db")
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Log the database URI for debugging
-print(f"DATABASE URI: {app.config['SQLALCHEMY_DATABASE_URI']}", flush=True)
-
-db.init_app(app)
-socketio = SocketIO(app, async_mode='gevent', logger=False, engineio_logger=False)
-migrate = Migrate(app, db)
-app.register_blueprint(api_bp, url_prefix='/api')
-
-# Global state
-agent_is_running = False
-agent_thread = None
-current_run_preferences: Optional[dict] = None
+# --- Globals & App Initialization ---
+logger = logging.getLogger(__name__)
 recent_logs = deque(maxlen=400)
 
-# Initialize ChatManager if not already done
-chat_manager = None
-
-def get_chat_manager():
-    """Get or create ChatManager instance."""
-    global chat_manager
-    if chat_manager is None:
-        config = current_app.config.get('APP_CONFIG')
-        if config:
-            from .http_client import HTTPClient
-            from .embedding_manager import EmbeddingManager
-            
-            http_client = HTTPClient(config)
-            embedding_manager = EmbeddingManager(config, http_client)
-            chat_manager = ChatManager(config, http_client, embedding_manager)
-    return chat_manager
-
-# --- Template Filters ---
-
-@app.template_filter('markdown')
-def markdown_filter(text):
-    """Convert markdown text to HTML."""
-    if not text:
-        return ""
-    return Markup(markdown.markdown(text, extensions=['extra', 'codehilite']))
-
-@app.template_filter('fromjson')
-def fromjson_filter(text):
-    """Parse JSON string to Python object."""
-    if not text:
-        return None
-    try:
-        import json
-        return json.loads(text)
-    except (json.JSONDecodeError, TypeError):
-        return None
-
 # --- Logging Setup ---
-
 class WebSocketHandler(logging.Handler):
     def emit(self, record):
         try:
-            # Filter out noisy log messages
             message = record.getMessage()
-            
-            # Filter out HTTP request logs from Werkzeug/Flask
-            if any(pattern in message for pattern in [
-                ' - - [',  # HTTP request log pattern from Werkzeug
-                'GET /',
-                'POST /',
-                'PUT /',
-                'DELETE /',
-                'GET /socket.io/',
+            # FIX: Filter out noisy, repetitive system messages from the UI
+            ignore_patterns = [
+                'GET /socket.io/', 
                 'POST /socket.io/',
-                'GET /static/',
-                'HTTP/1.1" 200',
-                'HTTP/1.1" 404',
-                'HTTP/1.1" 301',
-                'HTTP/1.1" 302',
-                'HTTP/1.1" 304',
-                'transport=polling',
-                '/apple-touch-icon'
-            ]):
-                return
-            
-            # Filter out other noisy messages
-            if any(noise in message.lower() for noise in [
-                "emitting event", 
-                "gpu stats result", 
-                "gpu stats requested",
-                "emitting gpu stats",
-                "client connected",
-                "client disconnected",
-                "gpu stats for",
-                "emitting gpu",
-                "received initial_status_and_git_config",
-                "agent status update",
-                "web logging re-configured",
-                "starting flask-socketio server",
-                "requesting updated gpu stats",  # Add this specific pattern
-                "socketio connected successfully",
-                "requesting initial gpu stats"
-            ]) or "gpu stats" in message.lower():
+                'Starting gevent server',
+                'GPU memory configuration',
+                'TaskProgressManager: Redis connections established'
+            ]
+            if any(pattern in message for pattern in ignore_patterns):
                 return
                 
-            # Only show INFO level and above
-            if record.levelno < logging.INFO: 
-                return
-                
+            if record.levelno < logging.INFO: return
             msg = self.format(record)
             recent_logs.append({'message': msg, 'level': record.levelname})
             socketio.emit('log', {'message': msg, 'level': record.levelname})
         except Exception as e:
             print(f"CRITICAL: WebSocketHandler failed: {e}", file=sys.stderr)
 
-def setup_web_logging(config_instance: Config):
+class WsgiLogFilter:
+    """A file-like object that filters WSGI log messages."""
+    def __init__(self, target_logger, paths_to_ignore):
+        self.target_logger = target_logger
+        self.paths_to_ignore = paths_to_ignore
+
+    def write(self, message: str):
+        """
+        Intercepts raw log messages from the WSGI server, filters them,
+        and writes the desired ones to the target logger.
+        """
+        message = message.strip()
+        if not message:
+            return
+        
+        # Suppress noisy, successful polling requests
+        if any(ignored_path in message for ignored_path in self.paths_to_ignore):
+            # Also check for ' 200 ' or ' 304 ' to ensure we only suppress successful requests
+            if ' 200 ' in message or ' 304 ' in message:
+                return
+        
+        # Write the filtered message to the actual application logger
+        self.target_logger.info(message)
+
+    def flush(self):
+        """Required method for file-like objects."""
+        pass
+
+    def writelines(self, lines: Iterable[str]):
+        """Required for file-like object protocol compliance."""
+        for line in lines:
+            self.write(line)
+
+
+class IgnoreLoggersFilter(logging.Filter):
+    """A filter to ignore log records from specific loggers."""
+    def __init__(self, loggers_to_ignore):
+        super().__init__()
+        self.loggers_to_ignore = set(loggers_to_ignore)
+
+    def filter(self, record):
+        return record.name not in self.loggers_to_ignore
+
+def setup_web_logging(config_instance: Config, add_ws_handler: bool = True):
     root_logger = logging.getLogger()
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(config_instance.log_level.upper())
-    console_handler.setFormatter(logging.Formatter(config_instance.log_format))
-    root_logger.addHandler(console_handler)
-
-    if config_instance.log_file:
-        file_handler = logging.FileHandler(config_instance.log_file, mode='a')
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(logging.Formatter(config_instance.log_format))
-        root_logger.addHandler(file_handler)
-
-    ws_handler = WebSocketHandler()
-    ws_handler.setLevel(logging.INFO)
-    ws_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    root_logger.addHandler(ws_handler)
     
-    root_logger.setLevel(logging.DEBUG)
-    logging.info("Web logging re-configured.")
+    # This function is now simplified. Most setup is done in config.py.
+    # We only add the real-time handler here.
+    
+    # Configure SocketIO handler if needed
+    if add_ws_handler:
+        socketio_handler = WebSocketHandler()
+        socketio_handler.setLevel(logging.INFO)
+        # Add a filter to prevent the socketio/werkzeug logger from creating a feedback loop
+        loggers_to_ignore = {'socketio', 'engineio', 'werkzeug'}
+        socketio_handler.addFilter(IgnoreLoggersFilter(loggers_to_ignore))
+        root_logger.addHandler(socketio_handler)
 
-# --- Main Application Routes ---
+    # All other logger configuration is removed as it was ineffective.
+    # The WSGI server's access logging is now controlled via the `log` parameter
+    # in the gevent.pywsgi.WSGIServer instance created in main().
+    
+    # --- DEPRECATED: Old Werkzeug logging configuration ---
+    # This code is left here as a reference but is no longer used.
+    # It was causing a NameError because RequestPathFilter was removed.
+    # The new gevent server uses the WsgiLogFilter passed in main().
+    #
+    # werkzeug_logger = logging.getLogger('werkzeug')
+    # werkzeug_logger.setLevel(logging.INFO) 
+    # paths_to_ignore = ['/api/agent/status', '/api/logs/recent', '/api/gpu-stats', '/api/system/info']
+    # werkzeug_logger.addFilter(RequestPathFilter(paths_to_ignore))
+    
+    logging.info("Web logging re-configured for real-time handler.")
 
+# Move setup_project_root here
+def setup_project_root():
+    """Determines and sets the project root directory dynamically for portability."""
+    try:
+        from .shared_globals import sg_set_project_root
+        from . import config
+        current_file_dir = Path(__file__).parent
+        potential_roots = [
+            current_file_dir.parent,
+            Path.cwd(),
+            current_file_dir.parent.parent,
+        ]
+        project_root = None
+        for root_candidate in potential_roots:
+            if (root_candidate / '.env').exists() and (root_candidate / 'knowledge_base_agent').is_dir():
+                project_root = root_candidate
+                break
+        if project_root is None:
+            project_root = current_file_dir.parent
+            logging.warning(f"Could not detect project root from indicators. Using fallback: {project_root}")
+        sg_set_project_root(project_root)
+        config.PROJECT_ROOT = project_root
+        logging.info(f"PROJECT_ROOT dynamically detected: {project_root}")
+        sys.path.insert(0, str(project_root))
+    except Exception as e:
+        logging.error(f"Error setting up project root: {e}", exc_info=True)
+
+def create_app():
+    """Create and configure the Flask application."""
+    app = Flask(__name__, template_folder='templates', static_folder='static')
+    
+    # Set the project root directory
+    project_root = setup_project_root()
+    app.config['PROJECT_ROOT'] = project_root
+    
+    # Load configuration
+    try:
+        config_instance = Config()  # type: ignore[call-arg]  # Suppress linter false positive: Pydantic loads from env
+        app.config.from_object(config_instance)
+        app.config['APP_CONFIG'] = config_instance
+        # Add this line to set the SQLAlchemy URI from the Config's database_url
+        app.config['SQLALCHEMY_DATABASE_URI'] = config_instance.database_url
+        
+        # Configure logging as early as possible
+        setup_web_logging(config_instance, add_ws_handler=True)
+        
+    except Exception as e:
+        # Use basicConfig for fatal errors before full logging is set up
+        logging.basicConfig()
+        logging.critical(f"FATAL: Could not load configuration. Error: {e}", exc_info=True)
+        sys.exit(1)
+
+    # FIX 1: Enable CORS to allow the frontend to connect to Socket.IO
+    socketio = SocketIO(async_mode='gevent', logger=False, engineio_logger=False, cors_allowed_origins="*")
+    migrate = Migrate()
+    realtime_manager = RealtimeManager(socketio)
+
+    db.init_app(app)
+    socketio.init_app(app)
+    migrate.init_app(app, db)
+    
+    # The new Celery implementation is now the only path.
+    # No conditional logic is needed.
+    init_celery(app)
+    app.register_blueprint(api_bp, url_prefix='/api')
+    
+    return app, socketio, migrate, realtime_manager
+
+app, socketio, migrate, realtime_manager = create_app()
+
+# Install tblib support for serializing tracebacks
+tblib.pickling_support.install()
+
+# --- State Management Helper ---
+def get_or_create_agent_state():
+    """Gets the agent state from DB, creating it if it doesn't exist."""
+    state = AgentState.query.first()
+    if not state:
+        logging.info("No agent state found in database, creating a new default one.")
+        state = AgentState(
+            is_running=False,
+            current_phase_message="Idle",
+            last_update=datetime.utcnow()
+        )
+        db.session.add(state)
+        db.session.commit()
+        logging.info("Default agent state created.")
+    return state
+
+# --- Global State ---
+# DEPRECATED: These are now managed in the AgentState model in the database.
+# agent_is_running = False
+# agent_thread = None
+# current_run_preferences: Optional[dict] = None
+chat_manager = None
+
+# --- Helper Functions & Template Filters ---
+def get_chat_manager():
+    global chat_manager
+    if chat_manager is None:
+        config = current_app.config.get('APP_CONFIG')
+        if config:
+            # Import here to avoid circular imports
+            from .http_client import HTTPClient
+            from .embedding_manager import EmbeddingManager
+            from .chat_manager import ChatManager
+            http_client = HTTPClient(config)
+            embedding_manager = EmbeddingManager(config, http_client)
+            chat_manager = ChatManager(config, http_client, embedding_manager)
+    return chat_manager
+
+def get_gpu_stats():
+    """Get GPU statistics - import here to avoid circular imports"""
+    from .gpu_utils import get_gpu_stats as _get_gpu_stats
+    return _get_gpu_stats()
+
+@app.template_filter('markdown')
+def markdown_filter(text):
+    if not text: return ""
+    return Markup(markdown.markdown(text, extensions=['extra', 'codehilite']))
+
+@app.template_filter('fromjson')
+def fromjson_filter(text):
+    if not text: return None
+    try:
+        import json
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+# --- Main Application Routes (V1 & V2 Pages) ---
 @app.route('/')
 def index():
-    app_config = current_app.config.get('APP_CONFIG')
-    items = []
-    syntheses = []
-    try:
-        items = KnowledgeBaseItem.query.order_by(KnowledgeBaseItem.last_updated.desc()).all()
-        syntheses = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
-    except Exception as e:
-        logging.error(f"Error retrieving sidebar items: {e}", exc_info=True)
-    return render_template('index.html', running=agent_is_running, items=items, syntheses=syntheses, config=app_config)
+    return render_template('v2/_layout.html')
+
+@app.route('/v2/')
+def index_v2():
+    # Filter favicon.ico requests at the view level before they hit the logger
+    if request.path == '/favicon.ico':
+        return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return render_template('v2/_layout.html')
+
+@app.route('/v2/page/<string:page_name>')
+def serve_v2_page(page_name):
+    """Serves the HTML content for different pages of the V2 UI."""
+    logging.info(f"V2 page request received: {page_name}")
     
-@app.route('/agent_control_panel')
-def agent_control_panel():
-    return render_template('agent_control_panel.html')
-
-@app.route('/item/<int:item_id>')
-def item_detail(item_id):
-    item = KnowledgeBaseItem.query.get_or_404(item_id)
+    template_map = {
+        'index': 'v2/index.html',
+        'chat': 'v2/chat_content.html',
+        'kb': 'v2/kb_content.html',
+        'synthesis': 'v2/synthesis_content.html',
+        'schedule': 'v2/schedule_content.html',
+        'logs': 'v2/logs_content.html',
+        'environment': 'v2/environment_content.html',
+    }
     
-    # Check if JSON response is requested
-    if request.args.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
-        # Parse raw JSON content if it exists
-        raw_json_content_parsed = None
-        if item.raw_json_content:
-            try:
-                import json
-                raw_json_content_parsed = json.loads(item.raw_json_content)
-            except (json.JSONDecodeError, TypeError):
-                raw_json_content_parsed = None
-        
-        # Parse media paths
-        media_files_for_template = []
-        if item.kb_media_paths:
-            try:
-                import json
-                media_paths = json.loads(item.kb_media_paths)
-                if isinstance(media_paths, list):
-                    for media_path in media_paths:
-                        filename = media_path.split('/')[-1] if media_path else 'unknown'
-                        media_type = 'image' if any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']) else 'video' if any(filename.lower().endswith(ext) for ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']) else 'other'
-                        media_files_for_template.append({
-                            'name': filename,
-                            'url': url_for('serve_kb_media_generic', path=media_path),
-                            'type': media_type
-                        })
-            except (json.JSONDecodeError, TypeError):
-                pass
-        
-        item_data = {
-            'id': item.id,
-            'tweet_id': item.tweet_id,
-            'title': item.title,
-            'display_title': item.display_title,
-            'description': item.description,
-            'content': item.content,
-            'main_category': item.main_category,
-            'sub_category': item.sub_category,
-            'item_name': item.item_name,
-            'source_url': item.source_url,
-            'created_at': item.created_at.isoformat() if item.created_at else None,
-            'last_updated': item.last_updated.isoformat() if item.last_updated else None,
-            'file_path': item.file_path,
-            'kb_media_paths': item.kb_media_paths,
-            'raw_json_content': item.raw_json_content,
-            'raw_json_content_parsed': raw_json_content_parsed,
-            'media_files_for_template': media_files_for_template
-        }
-        return jsonify(item_data)
-    
-    return render_template('item_detail_content.html', item=item)
-
-@app.route('/synthesis/<int:synthesis_id>')
-def synthesis_detail(synthesis_id):
-    synth = SubcategorySynthesis.query.get_or_404(synthesis_id)
-    
-    # Check if JSON response is requested
-    if request.args.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
-        # Parse raw JSON content if it exists
-        raw_json_content_parsed = None
-        if synth.raw_json_content:
-            try:
-                import json
-                raw_json_content_parsed = json.loads(synth.raw_json_content)
-            except (json.JSONDecodeError, TypeError):
-                raw_json_content_parsed = None
-        
-        synthesis_data = {
-            'id': synth.id,
-            'synthesis_title': synth.synthesis_title,
-            'synthesis_short_name': synth.synthesis_short_name,
-            'main_category': synth.main_category,
-            'sub_category': synth.sub_category,
-            'synthesis_content': synth.synthesis_content,
-            'raw_json_content': synth.raw_json_content,
-            'raw_json_content_parsed': raw_json_content_parsed,
-            'item_count': synth.item_count,
-            'file_path': synth.file_path,
-            'created_at': synth.created_at.isoformat() if synth.created_at else None,
-            'last_updated': synth.last_updated.isoformat() if synth.last_updated else None
-        }
-        return jsonify(synthesis_data)
-    
-    return render_template('synthesis_detail_content.html', synthesis=synth)
-
-@app.route('/syntheses')
-def syntheses_list_page():
-    return render_template('syntheses_list_content.html')
-
-@app.route('/chat')
-def chat_page():
-    return render_template('chat_content.html')
-
-@app.route('/schedule')
-def schedule_page():
-    return render_template('schedule_content.html')
-
-@app.route('/environment')
-def environment_page():
-    return render_template('environment_content.html')
-
-@app.route('/logs')
-def logs_page():
-    return render_template('logs_content.html')
-
-@app.route('/media/<path:path>')
-def serve_kb_media_generic(path):
-    """Serve media files from the knowledge base."""
-    try:
-        config = current_app.config.get('APP_CONFIG')
-        if not config:
-            abort(500, description="App config not available")
-        
-        # Construct full path to media file
-        media_file_path = config.knowledge_base_dir / path
-        
-        # Security check - ensure path is within knowledge base directory
+    template_name = template_map.get(page_name)
+    if template_name:
         try:
-            media_file_path.resolve().relative_to(config.knowledge_base_dir.resolve())
-        except ValueError:
-            abort(403, description="Access forbidden")
+            logging.debug(f"Attempting to load template: {template_name}")
+            # This is the correct way to check if a template exists with Flask
+            template = app.jinja_env.get_template(template_name)
+            logging.debug(f"Template {template_name} found, rendering...")
+            result = render_template(template_name)
+            logging.info(f"Successfully rendered template {template_name}, length: {len(result)}")
+            return result
+        except TemplateNotFound as e:
+            logging.error(f"Template not found: {template_name} - {e}")
+            # If the template doesn't exist, fall through to abort
+            pass
+        except Exception as e:
+            logging.error(f"Error rendering template {template_name}: {e}", exc_info=True)
+            abort(500)
+    
+    logging.warning(f"Page name not found in template map: {page_name}")
+    abort(404)
+
+# --- Shared Business Logic Functions ---
+"""
+HYBRID ARCHITECTURE: REST-First with SocketIO Notifications
+
+This section implements our hybrid approach where:
+1. REST APIs are the PRIMARY interface for all operations and state management
+2. SocketIO serves as a PURE NOTIFICATION LAYER for real-time updates
+3. All business logic is centralized in shared functions
+4. Both REST and SocketIO endpoints call the same underlying business logic
+5. SocketIO handlers are thin wrappers that delegate to shared functions
+
+Benefits:
+- Consistent behavior between REST and SocketIO
+- Easy testing through REST endpoints
+- Reliable fallbacks when SocketIO is unavailable  
+- External integrations possible via REST
+- Real-time UX through SocketIO notifications
+
+Usage Pattern:
+- Frontend uses REST for primary operations (CRUD, state changes)
+- Frontend uses SocketIO for real-time notifications (logs, progress, status)
+- All SocketIO handlers have REST equivalents
+- Business logic functions accept socketio_emit parameter to control notifications
+"""
+
+# DEPRECATED and will be removed after full migration
+def start_agent_operation(preferences_data, socketio_emit=True):
+    """DEPRECATED: Shared business logic for starting agent."""
+    logger.warning("Using deprecated start_agent_operation. This will be removed.")
+    return {'success': False, 'error': 'Multiprocessing agent start is disabled.'}
+
+def stop_agent_operation(socketio_emit=True):
+    """DEPRECATED: Shared business logic for stopping agent."""
+    logger.warning("Using deprecated stop_agent_operation. This will be removed.")
+    return {'success': False, 'error': 'Multiprocessing agent stop is disabled.'}
+
+
+def get_gpu_stats_operation(socketio_emit=True):
+    """Shared business logic for getting GPU stats. Used by both REST and SocketIO."""
+    try:
+        stats = get_gpu_stats()
         
-        if not media_file_path.exists():
-            abort(404, description="Media file not found")
-        
-        return send_file(str(media_file_path))
+        if stats is None:
+            error_msg = 'GPU stats not available - nvidia-smi not found or failed'
+            logging.warning(error_msg)
+            if socketio_emit:
+                socketio.emit('gpu_stats', {'error': error_msg})
+            return {'success': False, 'error': error_msg}
+        else:
+            if socketio_emit:
+                socketio.emit('gpu_stats', {'gpus': stats})
+            return {'success': True, 'gpus': stats}
+            
     except Exception as e:
-        logging.error(f"Error serving media file {path}: {e}", exc_info=True)
-        abort(500, description="Failed to serve media file")
+        error_msg = f'Failed to get GPU stats: {str(e)}'
+        logging.error(f"Error getting GPU stats: {e}", exc_info=True)
+        if socketio_emit:
+            socketio.emit('gpu_stats', {'error': error_msg})
+        return {'success': False, 'error': error_msg}
 
-# --- API Routes ---
+def clear_logs_operation(socketio_emit=True):
+    """Shared business logic for clearing logs. Used by both REST and SocketIO."""
+    global recent_logs
+    recent_logs.clear()
+    logging.info("Server logs cleared")
+    
+    if socketio_emit:
+        # Notify all clients to clear their logs too
+        socketio.emit('logs_cleared')
+    
+    return {'success': True, 'message': 'Server logs cleared successfully'}
 
-# API routes moved to api/routes.py for better organization
+# --- Socket.IO Handlers (Now Thin Notification Layer) ---
 
-# --- Socket.IO Handlers ---
+# Track if background tasks are started
+_background_tasks_started = False
+_realtime_listener_started = False
 
 @socketio.on('connect')
 def handle_connect(auth=None):
+    """SocketIO: Notify client of connection and send initial state."""
+    global _background_tasks_started, _realtime_listener_started
+    
     logging.info("Client connected")
-    emit('agent_status', {'is_running': agent_is_running, 'preferences': current_run_preferences})
+    
+    # Start background tasks on first client connection only
+    if not _background_tasks_started:
+        if get_gpu_stats() is not None:
+            socketio.start_background_task(monitor_gpu_stats, socketio)
+        _background_tasks_started = True
+        logging.info("GPU monitoring task started on first client connection.")
+
+    if not _realtime_listener_started:
+        try:
+            # RealtimeManager handles the Redis pub/sub listener
+            realtime_manager.start_listener()
+            _realtime_listener_started = True
+            logging.info("RealtimeManager Redis listener started on first client connection.")
+        except Exception as e:
+            logging.error(f"Error starting RealtimeManager listener: {e}", exc_info=True)
+    
+    state = get_or_create_agent_state()
+    emit('agent_status', state.to_dict())
     emit('initial_logs', {'logs': list(recent_logs)})
     config = current_app.config.get('APP_CONFIG')
     if config:
@@ -345,6 +430,8 @@ def handle_connect(auth=None):
 
 @socketio.on('request_initial_status_and_git_config')
 def handle_request_initial_status_and_git_config():
+    """SocketIO: Send initial status and git config (notification only)."""
+    state = get_or_create_agent_state()
     config = current_app.config.get('APP_CONFIG')
     git_config = {}
     if config:
@@ -353,158 +440,119 @@ def handle_request_initial_status_and_git_config():
         git_auto_push = getattr(config, 'git_auto_push', False)      # Default to manual control
         git_config = {'auto_commit': git_auto_commit, 'auto_push': git_auto_push}
     
-    emit('initial_status_and_git_config', {
-        'agent_is_running': agent_is_running,
-        'is_running': agent_is_running,
-        'current_phase_id': None,  # This would need to be tracked if needed
-        'active_run_preferences': current_run_preferences,
-        'git_config': git_config
-    })
+    status_data = state.to_dict()
+    status_data['git_config'] = git_config
+    
+    emit('initial_status_and_git_config', status_data)
     
     # Also send current logs
     emit('initial_logs', {'logs': list(recent_logs)})
 
 @socketio.on('request_initial_logs')
 def handle_request_initial_logs():
-    """Send current logs to the requesting client"""
+    """SocketIO: Send current logs to the requesting client (notification only)."""
     emit('initial_logs', {'logs': list(recent_logs)})
 
 @socketio.on('clear_server_logs')
 def handle_clear_server_logs():
-    """Clear the server-side log buffer"""
-    global recent_logs
-    recent_logs.clear()
-    logging.info("Server logs cleared by client request")
-    # Notify all clients to clear their logs too
-    emit('logs_cleared', broadcast=True)
+    """SocketIO: Delegate to shared business logic for clearing logs."""
+    clear_logs_operation(socketio_emit=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    """SocketIO: Handle client disconnection (notification only)."""
     logging.info("Client disconnected")
 
 @socketio.on('run_agent')
 def handle_run_agent(data):
-    global agent_is_running, agent_thread, current_run_preferences
-    if agent_is_running:
-        emit('error', {'message': 'Agent is already running.'})
-        return
-
-    logging.info(f"Agent run initiated with preferences: {data}")
+    """SocketIO handler now delegates to Celery."""
+    from .tasks import run_agent_task, generate_task_id
     
-    # Set initial state
-    agent_is_running = True
-    current_run_preferences = data
+    preferences = data.get('preferences', {})
+    task_id = generate_task_id()
+    
+    # Queue Celery task
+    run_agent_task.apply_async(
+        args=[task_id, preferences],
+        task_id=task_id
+    )
 
-    def run_agent_in_thread():
-        """Run the agent in a background thread with direct SocketIO access."""
-        global agent_is_running, agent_thread, current_run_preferences
-        # Push an application context to make 'current_app' and other Flask globals available.
-        with app.app_context():
-            try:
-                # Set running state immediately
-                agent_is_running = True
-                current_run_preferences = data
-                socketio.emit('agent_status_update', {'is_running': True, 'preferences': data})
-                
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                app_config = current_app.config.get('APP_CONFIG')
-                if not app_config:
-                    logging.error("Failed to get APP_CONFIG for agent thread.")
-                    return
-
-                # Re-apply WebSocket logging to this new thread
-                setup_web_logging(app_config)
-                
-                logging.info("Agent thread started. Executing agent from preferences.")
-                
-                # Pass the received preferences and socketio instance to the agent runner
-                loop.run_until_complete(run_agent_from_preferences(preferences=data, socketio_instance=socketio))
-                
-                # If we get here, the agent completed successfully
-                socketio.emit('agent_completed', {'message': 'Agent run completed successfully'})
-                
-            except Exception as e:
-                logging.error(f"Exception in agent thread: {e}", exc_info=True)
-                socketio.emit('agent_error', {'message': f'An error occurred: {e}'})
-            finally:
-                # Ensure state is always reset, regardless of success or failure
-                logging.info("Agent thread finished, resetting global state.")
-                agent_is_running = False
-                agent_thread = None
-                current_run_preferences = None
-                socketio.emit('agent_status_update', {'is_running': False})
-
-    agent_thread = socketio.start_background_task(run_agent_in_thread)
+    # Emit immediate response (preserves current UI behavior)
+    emit('agent_status_update', {
+        'is_running': True,
+        'task_id': task_id,
+        'current_phase_message': 'Agent execution queued'
+    })
 
 @socketio.on('stop_agent')
-def handle_stop_agent():
-    global agent_is_running, agent_thread, current_run_preferences
-    logging.info("'stop_agent' event received.")
+def handle_stop_agent(data):
+    """SocketIO handler to stop a Celery task."""
+    from .celery_app import celery_app
     
-    # Set the stop flag for the agent
-    from .agent import stop_flag
-    stop_flag.set()
-    
-    agent_is_running = False
-    current_run_preferences = None
-    emit('agent_status', {'is_running': False, 'preferences': None})
-    emit('info', {'message': 'Agent run stopped by user.'})
-    logging.info("Stop flag set, agent should stop gracefully.")
+    task_id = data.get('task_id')
+    if task_id:
+        celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+        emit('agent_status_update', {'is_running': False, 'current_phase_message': 'Agent stop requested.'})
 
 @socketio.on('request_gpu_stats')
 def handle_request_gpu_stats():
-    try:
-        logging.debug("GPU stats requested via SocketIO")
-        stats = get_gpu_stats()
-        logging.debug(f"GPU stats result: {stats}")
-        
-        if stats is None:
-            logging.warning("GPU stats returned None - nvidia-smi not available or failed")
-            emit('gpu_stats', {'error': 'GPU stats not available - nvidia-smi not found or failed'})
-        else:
-            logging.debug(f"Emitting GPU stats for {len(stats)} GPU(s)")
-            emit('gpu_stats', {'gpus': stats})
-    except Exception as e:
-        logging.error(f"Error getting GPU stats: {e}", exc_info=True)
-        emit('gpu_stats', {'error': f'Failed to get GPU stats: {str(e)}'})
-
-# Chat API routes moved to api/routes.py
-
-# Schedule API routes moved to api/routes.py
-
-# Environment variable endpoints moved to api/routes.py to avoid conflicts
-
-# Chat session API routes moved to api/routes.py
+    """SocketIO: Delegate to shared business logic for GPU stats."""
+    get_gpu_stats_operation(socketio_emit=True)
 
 # --- Main Execution ---
 
-if __name__ == "__main__":
-    # Ensure basic logging is configured early so configuration errors are shown
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    try:
-        config_instance = asyncio.run(load_config())
-        print("CONFIG LOADED OK", flush=True)
-        app.config['APP_CONFIG'] = config_instance
-        
-        with app.app_context():
-            db.create_all()
-            logging.info("Database tables verified/created.")
-            print("DB create_all OK", flush=True)
+def monitor_gpu_stats(socketio_instance):
+    """Monitors GPU stats and emits them periodically."""
+    # This function remains as it is, independent of Celery migration
+    while True:
+        try:
+            stats = get_gpu_stats()
+            if stats:
+                socketio_instance.emit('gpu_stats', stats)
+        except Exception as e:
+            logger.error(f"Error in GPU monitor: {e}", exc_info=True)
+        socketio_instance.sleep(5) 
 
-        setup_web_logging(config_instance)
-        print("SETUP_WEB_LOGGING OK", flush=True)
-        
-        # Provide clear console feedback and start server without undefined debug attribute
-        print("=== Starting Flask-SocketIO server on http://0.0.0.0:5000 ===", flush=True)
-        logging.info("Starting Flask-SocketIO server...")
-        socketio.run(app, host='0.0.0.0', port=5000, use_reloader=False)
+# DEPRECATED BY CELERY: queue_listener and run_agent_process are no longer needed
+# def queue_listener(queue: mp.Queue):
+#     ...
+#
+# def run_agent_process(queue: mp.Queue, preferences: dict):
+#     ...
 
-    except Exception:
-        # Print full traceback to stderr so we see what went wrong during startup
-        import traceback, sys as _sys
-        _sys.stderr.write("Startup exception in web.py. Full traceback below:\n")
-        traceback.print_exc(file=_sys.stderr)
-        _sys.exit(1)
+def main():
+    """
+    Main entry point for running the web server.
+    Uses the globally initialized app and socketio instances.
+    """
+    config = app.config.get('APP_CONFIG')
+    if not config:
+        logging.error("APP_CONFIG not found in Flask app config. Cannot start server.")
+        return
+
+    # FIX: Add the real-time WebSocket logging handler, only when running as a web server.
+        setup_web_logging(config, add_ws_handler=True)
+
+    logging.info(f"Starting gevent server on {config.web_server_host}:{config.web_server_port}")
+    
+    # FIX: Manually create the gevent WSGI server to pass our custom logger.
+    # This avoids the 'multiple values for keyword argument "log"' TypeError
+    # that occurs with some versions of flask-socketio's run() method.
+    from gevent import pywsgi
+
+    paths_to_ignore = ['/api/agent/status', '/api/logs/recent', '/api/gpu-stats', '/api/system/info', '/socket.io/']
+    wsgi_log_filter = WsgiLogFilter(logging.getLogger(), paths_to_ignore)
+    
+    # The Flask `app` object is already patched by `socketio.init_app(app)`,
+    # so it can handle WebSocket requests when served this way.
+    server = pywsgi.WSGIServer(
+        (config.web_server_host, config.web_server_port), 
+        app,
+        log=wsgi_log_filter
+    )
+    
+    server.serve_forever()
+
+
+if __name__ == '__main__':
+    main()

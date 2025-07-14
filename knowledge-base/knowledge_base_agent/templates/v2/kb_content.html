@@ -1,0 +1,249 @@
+<div class="synthesis-nexus-container">
+    <!-- Navigation Tree Panel -->
+    <aside class="synthesis-nexus-sidebar">
+        <div class="nexus-header">
+            <h1 class="nexus-title">
+                <i class="fas fa-book-open nexus-icon"></i>
+                Knowledge Base Explorer
+            </h1>
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input 
+                    type="text" 
+                    id="v2-synthesis-search" 
+                    class="nexus-search" 
+                    placeholder="Search knowledge..."
+                    autocomplete="off"
+                >
+            </div>
+        </div>
+        
+        <div class="nexus-stats">
+            <div class="stat">
+                <div class="stat-value" id="synthesis-total-docs">0</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="synthesis-categories">0</div>
+                <div class="stat-label">Categories</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="synthesis-items-analyzed">0</div>
+                <div class="stat-label">Subcategories</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="synthesis-last-generated">0</div>
+                <div class="stat-label">Items</div>
+            </div>
+        </div>
+        
+        <div class="nexus-main">
+            <div class="tree-container" id="synthesis-tree-container">
+                <div class="loading-tree">
+                    <div class="loading-spinner"></div>
+                    <span class="loading-text">Loading knowledge structure...</span>
+                </div>
+            </div>
+            
+            <div class="tree-controls">
+                <button id="synthesis-expand-all" class="tree-control-btn">
+                    <i class="fas fa-expand-alt"></i>
+                    <span>Expand All</span>
+                </button>
+                <button id="synthesis-collapse-all" class="tree-control-btn">
+                    <i class="fas fa-compress-alt"></i>
+                    <span>Collapse All</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Content Display Panel -->
+    <main class="synthesis-nexus-main">
+        <div class="content-header">
+            <div class="breadcrumb-container">
+                <button id="synthesis-home-breadcrumb" class="breadcrumb-btn active">
+                    <i class="fas fa-home"></i>
+                    <span>Knowledge Base</span>
+                </button>
+                <div id="synthesis-breadcrumb-trail" class="breadcrumb-trail"></div>
+            </div>
+            
+            <div class="content-actions">
+                <button id="synthesis-view-mode" class="action-btn" title="Toggle view mode">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button id="synthesis-refresh-data" class="action-btn" title="Refresh data">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button id="synthesis-export-all" class="action-btn" title="Export knowledge base">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button id="synthesis-generate-new" class="action-btn primary" title="Add new item">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <!-- Overview Mode (Default) -->
+            <div id="synthesis-overview-view" class="content-view active">
+                <div class="overview-welcome">
+                    <div class="welcome-visual">
+                        <div class="welcome-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div class="welcome-glow"></div>
+                    </div>
+                    <h2 class="welcome-title">Knowledge Base Explorer</h2>
+                    <p class="welcome-description">
+                        Navigate your organized knowledge collection using the interactive tree on the left. 
+                        Click on categories to explore, or search to find specific content instantly.
+                    </p>
+                    
+                    <div class="overview-metrics">
+                        <div class="metric-card">
+                            <div class="metric-icon">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-number" id="overview-synthesis-total">0</div>
+                                <div class="metric-label">Categories</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-number" id="overview-synthesis-categories">0</div>
+                                <div class="metric-label">Subcategories</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-number" id="overview-items-synthesized">0</div>
+                                <div class="metric-label">Items</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-number" id="overview-recent-count">0</div>
+                                <div class="metric-label">Syntheses</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <button id="browse-recent-syntheses" class="quick-action-btn">
+                            <i class="fas fa-history"></i>
+                            <span>Browse Recent</span>
+                        </button>
+                        <button id="generate-new-synthesis" class="quick-action-btn">
+                            <i class="fas fa-search"></i>
+                            <span>Search KB</span>
+                        </button>
+                        <button id="view-all-categories" class="quick-action-btn">
+                            <i class="fas fa-sitemap"></i>
+                            <span>All Categories</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category View -->
+            <div id="synthesis-category-view" class="content-view">
+                <div class="category-detail-header">
+                    <div class="category-info">
+                        <h2 id="synthesis-category-title" class="category-name">Category Name</h2>
+                        <p id="synthesis-category-description" class="category-description">Knowledge base items for this category</p>
+                    </div>
+                    <div class="category-stats">
+                        <div class="stat-chip">
+                            <i class="fas fa-file-alt"></i>
+                            <span id="synthesis-category-docs">0 items</span>
+                        </div>
+                        <div class="stat-chip">
+                            <i class="fas fa-calendar"></i>
+                            <span id="synthesis-category-updated">Last updated</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="synthesis-category-content" class="category-content"></div>
+            </div>
+
+            <!-- Document Detail View -->
+            <div id="synthesis-document-view" class="content-view">
+                <div class="document-header">
+                    <button id="synthesis-back-to-category" class="back-btn">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Back to Category</span>
+                    </button>
+                    <div class="document-actions">
+                        <button id="synthesis-regenerate-doc" class="action-btn" title="Edit item">
+                            <i class="fas fa-edit"></i>
+                            <span>Edit</span>
+                        </button>
+                        <button id="synthesis-export-doc" class="action-btn" title="Export item">
+                            <i class="fas fa-download"></i>
+                            <span>Export</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="synthesis-document-content" class="document-detail-content"></div>
+            </div>
+
+            <!-- Search Results View -->
+            <div id="synthesis-search-view" class="content-view">
+                <div class="search-results-header">
+                    <h2>Search Results</h2>
+                    <p id="synthesis-search-results-count">Found 0 results</p>
+                </div>
+                <div id="synthesis-search-results-content" class="search-results-content"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Document Detail Modal -->
+<div id="synthesis-document-modal" class="nexus-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3 id="modal-document-title" class="modal-title">Item Title</h3>
+            <div class="modal-header-actions">
+                <button id="modal-export-doc" class="modal-action-btn" title="Export">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button id="close-document-modal" class="modal-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="modal-content">
+            <div id="modal-document-content" class="document-modal-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Suggestions -->
+<div id="synthesis-search-suggestions" class="search-suggestions hidden">
+    <div class="suggestion-item" data-suggestion="Show all recent items">
+        <i class="fas fa-clock"></i>
+        <span>Show all recent items</span>
+    </div>
+    <div class="suggestion-item" data-suggestion="Browse by category">
+        <i class="fas fa-folder"></i>
+        <span>Browse by category</span>
+    </div>
+    <div class="suggestion-item" data-suggestion="Find synthesis documents">
+        <i class="fas fa-lightbulb"></i>
+        <span>Find synthesis documents</span>
+    </div>
+</div> 

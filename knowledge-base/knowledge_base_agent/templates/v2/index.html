@@ -1,0 +1,58 @@
+<!-- Row 1: Agent Controls -->
+<div class="glass-panel" id="agent-controls-panel">
+    <div class="agent-controls-header">
+        <h1 class="agent-controls-title">
+            <i class="fas fa-robot"></i>
+        Agent Dashboard
+    </h1>
+        <div id="agent-status-indicator" class="status-indicator status-indicator--offline">
+            <span id="agent-status-text-main">Idle</span>
+        </div>
+    </div>
+    {% include 'v2/agent_control_panel.html' %}
+</div>
+
+<!-- Row 2: Main Content Area -->
+<div class="dashboard-main-area">
+    <!-- Left Column: Execution Plan -->
+    <div class="glass-panel dashboard-panel">
+        <div class="panel-header">
+            <h3 class="panel-title">
+            <i class="fas fa-tasks" style="color: var(--primary-blue);"></i>
+                Agent Execution Plan
+            </h3>
+        </div>
+        <div class="panel-content">
+        {% include 'v2/execution_plan.html' %}
+        </div>
+    </div>
+    <!-- Right Column: Logs -->
+    <div class="glass-panel dashboard-panel" id="logs-panel-container">
+        <div class="panel-header">
+             <h3 class="panel-title">
+            <i class="fas fa-terminal" style="color: var(--accent-orange);"></i>
+                 Live Logs
+             </h3>
+        </div>
+        <div class="panel-content">
+        {% include 'v2/logs_panel.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- Row 3: GPU Status -->
+<div class="glass-panel" id="gpu-status-panel">
+    <div class="panel-header">
+        <h3 class="panel-title">
+        <i class="fas fa-microchip" style="color: var(--primary-purple);"></i>
+            GPU Status
+        </h3>
+    </div>
+    {% include 'v2/gpu_status.html' %}
+</div>
+
+<!-- Quick Actions Floating Button - REMOVED
+<button class="fab" onclick="document.querySelector('[data-page=\'chat\']').click()" aria-label="Open Chat">
+    <i class="fas fa-comments"></i>
+</button>
+--> 

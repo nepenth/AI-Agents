@@ -30,18 +30,35 @@ from knowledge_base_agent.file_utils import (
     async_json_dump,
 )
 
+# Celery Migration Imports
+from flask import current_app
+from datetime import datetime
+from .task_progress import get_progress_manager
+from .models import db, CeleryTaskState
+
 
 class StateManager:
     """
-    New State Manager with organized validation phases.
+    Enhanced StateManager with Celery task integration.
     
-    This implementation focuses on clear, separate validation phases that can be
-    run independently or together during initialization.
+    Preserves all current validation phases while adding distributed
+    task state management through Redis and a persistent database backend.
     """
 
-    def __init__(self, config: Config):
-        """Initialize the state manager with configuration."""
+    def __init__(self, config: Config, task_id: Optional[str] = None):
+        """
+        Initialize the state manager with configuration and an optional task ID.
+        
+        Args:
+            config: The application configuration object.
+            task_id: The unique identifier for the Celery task, if this
+                     instance is running within a task context.
+        """
         self.config = config
+        self.task_id = task_id
+        
+        # Initialize progress manager only if a task_id is provided
+        self.progress_manager = get_progress_manager() if task_id else None
         
         # State file paths (absolute)
         self.tweet_cache_file = config.tweet_cache_file
@@ -66,6 +83,43 @@ class StateManager:
             "tweets_moved_to_unprocessed": 0,
             "tweets_moved_to_processed": 0
         }
+
+    def update_task_progress(self, phase_id: str, status: str, message: str, progress: int = 0):
+        """
+        Update task progress in both Redis for real-time updates and the 
+        database for persistent state tracking.
+        
+        This method should be called from within a Celery task context where
+        `task_id` is available.
+        """
+        if not self.task_id:
+            logging.warning("update_task_progress called without a task_id. Skipping.")
+            return
+
+        # 1. Update Redis for real-time frontend updates via RealtimeManager
+        if self.progress_manager:
+            self.progress_manager.update_progress(self.task_id, progress, phase_id, message)
+            
+        # 2. Update the persistent CeleryTaskState model in the database
+        # This requires an active Flask application context to access the database.
+        try:
+            with current_app.app_context():
+                task_state = CeleryTaskState.query.filter_by(task_id=self.task_id).first()
+                if task_state:
+                    task_state.current_phase_id = phase_id
+                    task_state.current_phase_message = message
+                    task_state.progress_percentage = progress
+                    task_state.status = 'PROGRESS' # Or determine based on phase
+                    task_state.updated_at = datetime.utcnow()
+                    db.session.commit()
+                else:
+                    logging.warning(f"Could not find CeleryTaskState for task_id: {self.task_id}")
+        except Exception as e:
+            # This might happen if called outside of a request/app context.
+            # The Redis update is more critical for real-time feedback, so we log
+            # this as a non-fatal error.
+            logging.error(f"Failed to update CeleryTaskState in DB for task {self.task_id}: {e}", exc_info=True)
+
 
     async def initialize(self) -> None:
         """Initialize the state manager and run all validation phases."""

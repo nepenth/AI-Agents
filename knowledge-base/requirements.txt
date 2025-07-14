@@ -1,43 +1,56 @@
+# Core Dependencies
 nest_asyncio>=1.5.6
 python-dotenv>=1.0.0
-requests>=2.28.2
+requests>=2.32.3
 Pillow>=11.0.0
 playwright>=1.50.0
-tenacity>=8.0.0
-pydantic>=2.0.0
+tenacity>=9.0.0
+pydantic>=2.8.2
+pydantic_settings>=2.0.0
 aiofiles>=23.2.1
-pydantic>=2.0.0
-requests>=2.31.0
 ratelimit>=2.2.1
 httpx>=0.25.0
 gitpython>=3.1.40
-aiohttp>=3.8.5
-aiofiles>=23.2.1
-pydantic_settings>=2.0.0
-pyyaml>=6.0.1
-flask>=3.0.2
-flask-socketio>=5.3.5
-eventlet>=0.36.0
-flask_sqlalchemy>=3.0.0
-markdown>=3.4.1
-gevent>=22.10.0
-flask-migrate>=4.0.4
-psutil>=6.0.0
-alembic>=1.13.0
-Flask-SQLAlchemy>=3.1.1
-Flask-SocketIO>=5.3.6
-Flask-Migrate>=4.0.7
-Werkzeug>=3.0.3
-flask-cors>=4.0.0
-python-dotenv>=1.0.0
-pydantic>=2.8.2
 aiohttp>=3.10.3
-asyncio-mqtt>=0.16.2
-opencv-python>=4.10.0.84
+pyyaml>=6.0.1
 python-dateutil>=2.9.0.post0
-requests>=2.32.3
-tenacity>=9.0.0
 numpy>=2.0.1
 psutil>=6.0.0
-chromadb>=0.5.15
+opencv-python>=4.10.0.84
+asyncio-mqtt>=0.16.2
+tblib>=1.7.0
+
+# Flask Web Framework
+flask>=3.0.2
+flask-socketio>=5.3.6
+flask_sqlalchemy>=3.1.1
+flask-migrate>=4.0.7
+flask-cors>=4.0.0
+Werkzeug>=3.0.3
+eventlet>=0.36.0
+gevent>=22.10.0
 gevent-websocket>=0.10.1
+
+# Database & Data Processing
+alembic>=1.13.0
+markdown>=3.4.1
+chromadb>=0.5.15
+
+# Celery and monitoring dependencies
+celery[redis]>=5.3.4
+redis>=4.6.0,<5.0
+flower>=2.0.1
+
+# Observability & Monitoring
+# --------------------------
+flower>=2.0.1
+
+# Web Server & WSGI
+# -----------------
+gunicorn>=22.0.0
+gevent>=24.2.1
+gevent-websocket>=0.10.1
+uvicorn>=0.34.0
+
+# Utilities
+# ---------

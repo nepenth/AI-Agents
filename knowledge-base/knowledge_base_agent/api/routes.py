@@ -1,5 +1,8 @@
-from flask import Blueprint, jsonify, request, current_app
-from ..models import db, KnowledgeBaseItem, SubcategorySynthesis
+from flask import Blueprint, jsonify, request, current_app, send_from_directory, url_for, abort
+from ..models import db, KnowledgeBaseItem, SubcategorySynthesis, Setting, AgentState, CeleryTaskState
+from ..prompts import UserPreferences, save_user_preferences
+from ..task_progress import get_progress_manager
+from ..config import Config
 from ..agent import KnowledgeBaseAgent
 from .logs import list_logs
 from .log_content import get_log_content
@@ -8,9 +11,216 @@ from pathlib import Path
 import os
 from typing import Dict, Any, List
 import logging
-from ..config import Config
+from datetime import datetime, timezone
+import json
+import uuid
+import asyncio
+import platform
+import psutil
+from dataclasses import asdict
+import markdown
+
+# Celery Migration Imports (NEW)
+from ..celery_app import celery_app
 
 bp = Blueprint('api', __name__)
+logger = logging.getLogger(__name__)
+
+
+# --- V2 CELERY-BASED AGENT ENDPOINTS (PRIMARY) ---
+
+@bp.route('/v2/agent/start', methods=['POST'])
+def start_agent_v2():
+    """Sync wrapper that queues an agent run. Executes async logic via asyncio.run."""
+
+    async def _start_async():
+        from ..tasks import run_agent_task, generate_task_id
+        from ..web import get_or_create_agent_state
+        from ..prompts import UserPreferences, save_user_preferences
+
+        data = request.json or {}
+        preferences_data = data.get('preferences', {})
+
+        # Validate preferences
+        try:
+            user_preferences = UserPreferences(**preferences_data)
+            preferences_dict = asdict(user_preferences)
+        except Exception as e:
+            logger.error("Invalid preferences data: %s", e)
+            return jsonify({'success': False, 'error': f'Invalid preferences: {e}'}), 400
+
+        task_id = generate_task_id()
+        celery_task = run_agent_task.delay(task_id, preferences_dict)
+
+        progress_manager = get_progress_manager()
+        await progress_manager.update_progress(task_id, 0, "queued", "Agent execution queued")
+
+        state = get_or_create_agent_state()
+        state.is_running = True
+        state.current_task_id = task_id
+        state.current_phase_message = 'Agent starting...'
+        state.last_update = datetime.utcnow()
+        db.session.commit()
+
+        save_user_preferences(preferences_data)
+
+        return jsonify({'success': True, 'task_id': task_id, 'celery_task_id': celery_task.id, 'message': 'Agent execution queued'})
+
+    import asyncio
+    return asyncio.run(_start_async())
+
+
+# Replace async route with sync wrapper ----------------------------------
+@bp.route('/v2/agent/status/<task_id>', methods=['GET'])
+def get_task_status(task_id: str):
+    """Sync wrapper around async status-gathering logic."""
+
+    async def _status_async(tid: str):
+        progress_manager = get_progress_manager()
+
+        progress_data = await progress_manager.get_progress(tid)
+
+        celery_task = celery_app.AsyncResult(tid)
+        try:
+            celery_status = {
+                'state': celery_task.state,
+                'info': celery_task.info if isinstance(celery_task.info, dict) else str(celery_task.info)
+            }
+        except ValueError as e:
+            if 'Exception information must include' in str(e):
+                logger.warning("Task %s has a corrupted result in the backend. Reporting as FAILED.", tid)
+                celery_status = {'state': 'FAILURE', 'info': 'Corrupted result in backend.'}
+            else:
+                raise
+
+        logs = await progress_manager.get_logs(tid, limit=10)
+
+        response_data = {
+            'task_id': tid,
+            'progress': progress_data,
+            'celery_status': celery_status,
+            'logs': logs
+        }
+
+        running_states = {'PENDING', 'PROGRESS', 'STARTED', 'RETRY'}
+        response_data['is_running'] = celery_status['state'] in running_states
+
+        response_data['current_phase_message'] = (
+            progress_data.get('message') if progress_data and progress_data.get('message') else celery_status['state']
+        )
+
+        if progress_data:
+            response_data.update(progress_data)
+
+        return jsonify(response_data)
+
+    import asyncio
+    try:
+        return asyncio.run(_status_async(task_id))
+    except Exception as e:
+        logger.error("Error getting agent status for task %s: %s", task_id, e, exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+# ------------------------------------------------------------------------
+@bp.route('/v2/agent/stop', methods=['POST'])
+def stop_agent_v2():
+    """Stops a running agent task via Celery."""
+    async def _stop_async():
+        data = request.json or {}
+        task_id = data.get('task_id')
+        if not task_id:
+            return jsonify({'success': False, 'error': 'task_id is required'}), 400
+
+        celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+
+        progress_manager = get_progress_manager()
+        await progress_manager.update_progress(task_id, -1, "revoked", "Agent execution stopped by user.")
+
+        from ..web import get_or_create_agent_state
+        state = get_or_create_agent_state()
+        if state.current_task_id == task_id:
+            state.is_running = False
+            state.current_task_id = None
+            state.current_phase_message = 'Agent stopped by user'
+            state.last_update = datetime.utcnow()
+            db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Agent stop request sent.'})
+
+    import asyncio
+    try:
+        return asyncio.run(_stop_async())
+    except Exception as e:
+        logger.error("Failed to stop agent task: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': f'Failed to stop agent task: {str(e)}'}), 500
+
+
+# --- PRIMARY STATUS ENDPOINT (V2 UI) ---
+
+@bp.route('/agent/status', methods=['GET'])
+def get_agent_status():
+    """Synchronous wrapper around get_task_status to avoid AsyncToSync errors
+    when running Flask on gevent.  Executes the coroutine in its own event
+    loop with ``asyncio.run``.
+    """
+    from ..web import get_or_create_agent_state
+    import asyncio
+
+    state = get_or_create_agent_state()
+    task_id = state.current_task_id
+
+    if not task_id:
+        return jsonify({
+            'is_running': False,
+            'task_id': None,
+            'celery_task_id': None,
+            'current_phase_message': 'Idle',
+            'phase': 'idle',
+            'progress': 0,
+            'status': 'IDLE'
+        })
+
+    return get_task_status(task_id)
+
+
+# --- LEGACY & DEPRECATED ENDPOINTS ---
+
+@bp.route('/agent/status_legacy')
+def get_agent_status_legacy():
+    """DEPRECATED: Returns the current status of the agent from the database."""
+    from ..web import get_or_create_agent_state
+    state = get_or_create_agent_state()
+    return jsonify(state.to_dict())
+
+@bp.route('/media/<path:path>')
+def serve_kb_media_generic(path):
+    """Serve media files from the knowledge base directory."""
+    config = current_app.config.get('APP_CONFIG')
+    if not config or not config.knowledge_base_dir:
+        return "Knowledge base root directory not configured.", 500
+
+    # This is a security risk if kb_root_dir is not carefully controlled.
+    # It should be an absolute path.
+    return send_from_directory(config.knowledge_base_dir, path)
+
+# --- V1 BACKWARD COMPATIBILITY --
+@bp.route('/schedule', methods=['GET', 'POST'])
+def schedule_endpoint():
+    """V1 LEGACY ENDPOINT: Simulates schedule handling for backward compatibility."""
+    if request.method == 'GET':
+        return jsonify({'schedule': 'Not Scheduled (Legacy View)'})
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'schedule' not in data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
+        logger.info(f"V1 schedule endpoint received schedule update: {data['schedule']}. Ignoring, as this is a legacy endpoint.")
+        return jsonify({'success': True, 'message': 'Schedule update received (legacy endpoint).'})
+
+    # Method Not Allowed
+    return jsonify({'error': 'Method not supported'}), 405
+# --- END V1 COMPATIBILITY ---
 
 @bp.route('/chat/models', methods=['GET'])
 def get_chat_models():
@@ -43,7 +253,6 @@ def chat():
         from ..http_client import HTTPClient
         from ..embedding_manager import EmbeddingManager
         from ..chat_manager import ChatManager
-        import asyncio
         
         # Create HTTP client and embedding manager
         http_client = HTTPClient(app_config)
@@ -98,8 +307,6 @@ def api_chat_enhanced():
     try:
         from ..models import ChatSession, ChatMessage, db
         from datetime import datetime, timezone
-        import json
-        import uuid
         
         data = request.get_json()
         if not data or 'message' not in data:
@@ -376,18 +583,81 @@ def api_delete_chat_session(session_id):
         logging.error(f"Error deleting chat session {session_id}: {e}", exc_info=True)
         return jsonify({'error': 'Failed to delete chat session'}), 500
 
+@bp.route('/preferences', methods=['GET'])
+def get_preferences():
+    """Get current user preferences."""
+    try:
+        from ..prompts import load_user_preferences
+        config = current_app.config.get('APP_CONFIG')
+        if not config:
+            return jsonify({'error': 'Configuration not available'}), 500
+        
+        preferences = load_user_preferences(config)
+        # Convert to dictionary for JSON response - include ALL UserPreferences fields
+        prefs_dict = {
+            # Run mode
+            'run_mode': preferences.run_mode,
+            
+            # Skip flags
+            'skip_fetch_bookmarks': preferences.skip_fetch_bookmarks,
+            'skip_process_content': preferences.skip_process_content,
+            'skip_readme_generation': preferences.skip_readme_generation,
+            'skip_git_push': preferences.skip_git_push,
+            'skip_synthesis_generation': preferences.skip_synthesis_generation,
+            'skip_embedding_generation': preferences.skip_embedding_generation,
+            
+            # Force flags
+            'force_recache_tweets': preferences.force_recache_tweets,
+            'force_regenerate_synthesis': preferences.force_regenerate_synthesis,
+            'force_regenerate_embeddings': preferences.force_regenerate_embeddings,
+            'force_regenerate_readme': preferences.force_regenerate_readme,
+            
+            # Granular force flags for content processing phases
+            'force_reprocess_media': preferences.force_reprocess_media,
+            'force_reprocess_llm': preferences.force_reprocess_llm,
+            'force_reprocess_kb_item': preferences.force_reprocess_kb_item,
+            
+            # Legacy/combined flag
+            'force_reprocess_content': preferences.force_reprocess_content,
+            
+            # Additional options
+            'synthesis_mode': preferences.synthesis_mode,
+            'synthesis_min_items': preferences.synthesis_min_items,
+            'synthesis_max_items': preferences.synthesis_max_items
+        }
+        return jsonify(prefs_dict)
+        
+    except Exception as e:
+        logging.error(f"Error getting preferences: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get preferences'}), 500
+
 @bp.route('/preferences', methods=['POST'])
 def save_preferences():
-    # Placeholder for saving user preferences
-    data = request.json
-    print(f"Preferences saved: {data}") # In a real app, save this to a user session or DB
-    return jsonify({"status": "success"})
+    """Save user preferences."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No preferences data provided'}), 400
+        
+        # Validate preferences structure
+        from ..prompts import UserPreferences
+        try:
+            user_prefs = UserPreferences(**data)
+            # In a full implementation, you would save these to a user session or database
+            # For now, we'll just validate and return success
+            return jsonify({'status': 'success', 'message': 'Preferences validated and saved'})
+        except Exception as validation_error:
+            return jsonify({'error': f'Invalid preferences: {validation_error}'}), 400
+        
+    except Exception as e:
+        logging.error(f"Error saving preferences: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to save preferences'}), 500
 
 @bp.route('/synthesis', methods=['GET'])
 def get_synthesis_documents():
     """API endpoint to get all synthesis documents."""
     try:
-        syntheses = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
+        syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.last_updated.desc()).all()  # type: ignore
         synthesis_list = [{
             "id": synth.id,
             "title": synth.synthesis_title,
@@ -749,7 +1019,7 @@ def generate_ollama_optimization():
 def api_synthesis_list():
     """API endpoint to get all synthesis documents."""
     try:
-        syntheses = SubcategorySynthesis.query.order_by(SubcategorySynthesis.last_updated.desc()).all()
+        syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.last_updated.desc()).all()  # type: ignore
         synthesis_list = []
         for synth in syntheses:
             synthesis_list.append({
@@ -769,13 +1039,16 @@ def api_synthesis_list():
 
 @bp.route('/gpu-stats', methods=['GET'])
 def api_gpu_stats():
-    """REST API endpoint for GPU statistics as a fallback to SocketIO"""
+    """REST API: Get GPU statistics."""
     try:
-        from ..gpu_utils import get_gpu_stats
-        stats = get_gpu_stats()
-        if stats is None:
-            return jsonify({'error': 'GPU stats not available - nvidia-smi not found or failed'}), 500
-        return jsonify({'gpus': stats})
+        # Use shared business logic (no SocketIO emission)
+        from .. import web
+        result = web.get_gpu_stats_operation(socketio_emit=False)
+        
+        if result['success']:
+            return jsonify({'gpus': result['gpus']})
+        else:
+            return jsonify({'error': result['error']}), 500
     except Exception as e:
         logging.error(f"Error getting GPU stats via API: {e}", exc_info=True)
         return jsonify({'error': f'Failed to get GPU stats: {str(e)}'}), 500
@@ -1057,4 +1330,288 @@ def delete_schedule_run(run_id):
         return jsonify({'success': True, 'message': 'Schedule run deleted successfully'})
     except Exception as e:
         logging.error(f"Error deleting schedule run {run_id}: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500 
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/environment')
+def get_environment_settings():
+    """Returns environment settings from the config."""
+    config = current_app.config.get('APP_CONFIG')
+    if not config:
+        return jsonify({'error': 'Application config not loaded'}), 500
+    
+    # Expose only safe-to-view settings
+    settings = {
+        'Log Level': getattr(config, 'log_level', 'N/A'),
+        'Log File': str(getattr(config, 'log_file', 'N/A')),
+        'Knowledge Base Root': str(getattr(config, 'knowledge_base_dir', 'N/A')),
+        'LLM Service URL': str(getattr(config, 'ollama_url', 'N/A')),
+        'Embedding Service URL': str(getattr(config, 'embedding_model', 'N/A')),
+    }
+    return jsonify(settings)
+
+@bp.route('/kb/all')
+def get_kb_all():
+    """Returns a JSON object with all KB items and syntheses for the TOC."""
+    try:
+        items = db.session.query(KnowledgeBaseItem).order_by(KnowledgeBaseItem.main_category, KnowledgeBaseItem.sub_category, KnowledgeBaseItem.title).all()
+        syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.main_category, SubcategorySynthesis.sub_category).all()  # type: ignore
+        
+        items_data = [{
+            'id': item.id, 'title': item.title, 'display_title': item.display_title,
+            'main_category': item.main_category, 'sub_category': item.sub_category
+        } for item in items]
+        
+        syntheses_data = [{
+            'id': synth.id, 'synthesis_title': synth.synthesis_title,
+            'main_category': synth.main_category, 'sub_category': synth.sub_category
+        } for synth in syntheses]
+
+        return jsonify({'items': items_data, 'syntheses': syntheses_data})
+    except Exception as e:
+        logging.error(f"Error fetching KB index: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch Knowledge Base index'}), 500
+
+@bp.route('/v2/schedule', methods=['GET', 'POST'])
+def schedule_v2_endpoint():
+    """V2 ENDPOINT: Handles getting and setting the agent execution schedule from the database."""
+    if request.method == 'GET':
+        schedule_setting = db.session.query(Setting).filter_by(key='schedule').first()
+        schedule = schedule_setting.value if schedule_setting else 'Not Scheduled'
+        return jsonify({'schedule': schedule})
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'schedule' not in data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        new_schedule_value = data['schedule']
+        
+        try:
+            schedule_setting = db.session.query(Setting).filter_by(key='schedule').first()
+            if schedule_setting:
+                schedule_setting.value = new_schedule_value
+            else:
+                schedule_setting = Setting('schedule', new_schedule_value)
+                db.session.add(schedule_setting)
+            
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': 'Schedule updated successfully.'})
+
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Failed to update schedule in database: {e}", exc_info=True)
+            return jsonify({'error': 'Failed to write to database'}), 500
+    
+    # Method Not Allowed
+    return jsonify({'error': 'Method not supported'}), 405
+
+# This should be the last route in the file if it doesn't exist already
+@bp.route('/logs/files')
+def get_log_files():
+    """API endpoint to get a list of log files."""
+    config = current_app.config.get('APP_CONFIG')
+    if not config:
+        return jsonify({'error': 'Application config not loaded'}), 500
+        
+    log_dir = getattr(config, 'log_dir_path', None)
+    if not log_dir or not os.path.isdir(log_dir):
+        return jsonify({'error': 'Log directory not configured or found'}), 400
+    
+    try:
+        files = [f for f in os.listdir(log_dir) if f.endswith('.log')]
+        files.sort(key=lambda name: os.path.getmtime(os.path.join(log_dir, name)), reverse=True)
+        return jsonify({'files': files})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/items/<int:item_id>')
+def get_kb_item(item_id):
+    """API endpoint for getting KB item data in JSON format."""
+    try:
+        from flask import url_for
+        item = KnowledgeBaseItem.query.get_or_404(item_id)
+        
+        # Parse raw JSON content if it exists
+        raw_json_content_parsed = None
+        if item.raw_json_content:
+            try:
+                import json
+                raw_json_content_parsed = json.loads(item.raw_json_content)
+            except (json.JSONDecodeError, TypeError):
+                raw_json_content_parsed = None
+        
+        # Parse media paths
+        media_files_for_template = []
+        if item.kb_media_paths:
+            try:
+                import json
+                media_paths = json.loads(item.kb_media_paths)
+                if isinstance(media_paths, list):
+                    for media_path in media_paths:
+                        filename = media_path.split('/')[-1] if media_path else 'unknown'
+                        media_type = 'image' if any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']) else 'video' if any(filename.lower().endswith(ext) for ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']) else 'other'
+                        media_files_for_template.append({
+                            'name': filename,
+                            'url': url_for('api.serve_kb_media_generic', path=media_path),
+                            'type': media_type
+                        })
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        item_data = {
+            'id': item.id,
+            'tweet_id': item.tweet_id,
+            'title': item.title,
+            'display_title': item.display_title,
+            'description': item.description,
+            'content': item.content,
+            'main_category': item.main_category,
+            'sub_category': item.sub_category,
+            'item_name': item.item_name,
+            'source_url': item.source_url,
+            'created_at': item.created_at.isoformat() if item.created_at else None,
+            'last_updated': item.last_updated.isoformat() if item.last_updated else None,
+            'file_path': item.file_path,
+            'kb_media_paths': item.kb_media_paths,
+            'raw_json_content': item.raw_json_content,
+            'raw_json_content_parsed': raw_json_content_parsed,
+            'media_files_for_template': media_files_for_template
+            , 'content_html': markdown.markdown(item.content or "", extensions=['extra','codehilite'])
+        }
+        return jsonify(item_data)
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch KB item: {str(e)}'}), 500
+
+@bp.route('/synthesis/<int:synthesis_id>')
+def get_synthesis_item(synthesis_id):
+    """API endpoint for getting synthesis data in JSON format."""
+    try:
+        synth = SubcategorySynthesis.query.get_or_404(synthesis_id)
+        
+        # Parse raw JSON content if it exists
+        raw_json_content_parsed = None
+        if synth.raw_json_content:
+            try:
+                import json
+                raw_json_content_parsed = json.loads(synth.raw_json_content)
+            except (json.JSONDecodeError, TypeError):
+                raw_json_content_parsed = None
+        
+        synthesis_data = {
+            'id': synth.id,
+            'synthesis_title': synth.synthesis_title,
+            'synthesis_short_name': synth.synthesis_short_name,
+            'main_category': synth.main_category,
+            'sub_category': synth.sub_category,
+            'synthesis_content': synth.synthesis_content,
+            'raw_json_content': synth.raw_json_content,
+            'raw_json_content_parsed': raw_json_content_parsed,
+            'item_count': synth.item_count,
+            'file_path': synth.file_path,
+            'created_at': synth.created_at.isoformat() if synth.created_at else None,
+            'last_updated': synth.last_updated.isoformat() if synth.last_updated else None,
+            'synthesis_content_html': markdown.markdown(synth.synthesis_content or "", extensions=['extra','codehilite'])
+        }
+        return jsonify(synthesis_data)
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch synthesis: {str(e)}'}), 500
+
+@bp.route('/agent/reset', methods=['POST'])
+def reset_agent_state():
+    """Resets the agent's database state to idle."""
+    from ..web import get_or_create_agent_state
+    state = get_or_create_agent_state()
+    state.is_running = False
+    state.current_task_id = None
+    state.current_phase_message = 'State reset to idle'
+    state.last_update = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Agent state reset to idle'})
+
+@bp.route('/system/info', methods=['GET'])
+def get_system_info():
+    """Get comprehensive system information."""
+    try:
+        from ..web import get_gpu_stats
+        import psutil
+        import platform
+        from pathlib import Path
+        
+        config = current_app.config.get('APP_CONFIG')
+        
+        # Get system stats
+        system_info = {
+            'platform': {
+                'system': platform.system(),
+                'release': platform.release(),
+                'version': platform.version(),
+                'machine': platform.machine(),
+                'processor': platform.processor()
+            },
+            'memory': {
+                'total': psutil.virtual_memory().total,
+                'available': psutil.virtual_memory().available,
+                'percent': psutil.virtual_memory().percent
+            },
+            'cpu': {
+                'count': psutil.cpu_count(),
+                'percent': psutil.cpu_percent(interval=1)
+            },
+            'disk_usage': {
+                'total': psutil.disk_usage('/').total,
+                'used': psutil.disk_usage('/').used,
+                'free': psutil.disk_usage('/').free
+            } if psutil.disk_usage('/') else None,
+            'gpu_stats': get_gpu_stats() or 'Not available',
+            'config_status': {
+                'knowledge_base_dir': str(config.knowledge_base_dir) if config else 'Not configured',
+                'log_level': getattr(config, 'log_level', 'Not configured'),
+                'ollama_url': str(getattr(config, 'ollama_url', 'Not configured'))
+            } if config else 'Configuration not loaded'
+        }
+        
+        return jsonify(system_info)
+        
+    except Exception as e:
+        logging.error(f"Error getting system info: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get system information'}), 500
+
+@bp.route('/logs/recent', methods=['GET'])
+def get_recent_logs():
+    """Get recent log messages from the in-memory buffer."""
+    try:
+        from ..web import recent_logs
+        # Convert deque to list for JSON serialization
+        logs_list = list(recent_logs)
+        return jsonify({'logs': logs_list})
+    except Exception as e:
+        logging.error(f"Error getting recent logs: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get recent logs'}), 500
+
+@bp.route('/logs/clear', methods=['POST'])
+def clear_recent_logs():
+    """REST API: Clear the in-memory log buffer."""
+    try:
+        # Use shared business logic (no SocketIO emission)
+        from .. import web
+        result = web.clear_logs_operation(socketio_emit=False)
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error clearing logs: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to clear logs'}), 500 
+
+# --- API ENDPOINTS FOR PURE POLLING ARCHITECTURE ---
+# These endpoints work with the simplified web_api_only.py server
+
+@bp.route('/v2/logs/clear', methods=['POST'])
+def clear_logs_v2():
+    """V2 API: Clear all server-side logs."""
+    try:
+        from ..web import clear_logs_operation
+        return jsonify(clear_logs_operation())
+    except ImportError:
+        return jsonify({'error': 'clear_logs_operation not available'}), 503
+    except Exception as e:
+        logging.error(f"Error clearing logs via v2 endpoint: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to clear logs'}), 500

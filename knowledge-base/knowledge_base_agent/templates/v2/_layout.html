@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Base Agent v2</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/v2.css', v='1.3') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components.css', v='1.0') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body class="light-mode">
+    <div style="position:absolute;top:-9999px;left:-9999px">
+        <svg id="effectSvg" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <filter id="displacementFilter">
+                <feImage xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%230001' /%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23FFF' style='filter:blur(5px)' /%3E%3C/svg%3E" x="0%" y="0%" width="100%" height="100%" result="thing9" id="thing9" />
+                <feImage xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23FFF1' style='filter:blur(15px)' /%3E%3C/svg%3E" x="0%" y="0%" width="100%" height="100%" result="thing0" id="thing0" />
+                <feImage xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23000' /%3E%3C/svg%3E" x="0%" y="0%" width="100%" height="100%" result="thing1" id="thing1" />
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="1" result="turbulence" />
+                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="50" xChannelSelector="R" yChannelSelector="G" result="disp" />
+                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="50" xChannelSelector="R" yChannelSelector="G" result="disp1" />
+                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="25" xChannelSelector="R" yChannelSelector="G" result="disp2" />
+                <feColorMatrix in="disp" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0" result="disp3" />
+                <feBlend in2="disp2" mode="screen"/>
+                <feBlend in2="disp1" mode="screen"/>
+                <feGaussianBlur stdDeviation="0.7" />
+                <feBlend in2="thing0" mode="screen"/>
+                <feBlend in2="thing9" mode="multiply"/>
+                <feComposite in2="thing1" operator="in"/>
+                <feOffset dx="43" dy="43"/>
+            </filter>
+        </svg>
+    </div>
+    <div class="background-gradient"></div>
+    <div class="page-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            {% include 'v2/sidebar_content.html' %}
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-content" class="main-content">
+             <!-- V2 content will be loaded here by ui.js -->
+        </main>
+    </div>
+
+    <!-- JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='v2/js/effects.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/staticPages.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/synthesis.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/schedule.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/agentControls.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/gpuStatus.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/liveLogs.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/executionPlan.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/kb.js') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/ui.js', v='1.4') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

@@ -1,0 +1,153 @@
+<div class="schedule-page">
+    <div class="glass-panel schedule-panel">
+        <div class="panel-header">
+            <h3 class="panel-title">
+                <i class="fas fa-calendar-alt"></i>
+                Scheduled Tasks
+            </h3>
+            <div class="header-actions">
+                <button id="v2-add-schedule-btn" class="glass-button glass-button--primary">
+                    <i class="fas fa-plus"></i>
+                    <span>New Schedule</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="schedule-stats">
+            <div class="stat-item">
+                <span class="stat-value" id="total-schedules">0</span>
+                <span class="stat-label">Total Schedules</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="active-schedules">0</span>
+                <span class="stat-label">Active</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="next-run">--</span>
+                <span class="stat-label">Next Run</span>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="v2-schedule-table" class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>
+                            <i class="fas fa-tag"></i>
+                            Name
+                        </th>
+                        <th>
+                            <i class="fas fa-clock"></i>
+                            Frequency
+                        </th>
+                        <th>
+                            <i class="fas fa-calendar"></i>
+                            Next Run
+                        </th>
+                        <th>
+                            <i class="fas fa-toggle-on"></i>
+                            Status
+                        </th>
+                        <th>
+                            <i class="fas fa-cog"></i>
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="loading-state">
+                        <td colspan="5">
+                            <div class="loading-container">
+                                <div class="loading-spinner"></div>
+                                <span>Loading schedules...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Enhanced Modal -->
+    <div id="v2-schedule-modal" class="modal-overlay" style="display: none;">
+        <div class="glass-panel modal-content">
+            <div class="modal-header">
+                <h3 id="schedule-modal-title" class="modal-title">
+                    <i class="fas fa-plus-circle"></i>
+                    New Schedule
+                </h3>
+                <button type="button" class="glass-button glass-button--ghost modal-close" id="schedule-cancel-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="v2-schedule-form" class="schedule-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="schedule-name" class="form-label">
+                            <i class="fas fa-tag"></i>
+                            Schedule Name
+                        </label>
+                        <input 
+                            required 
+                            type="text" 
+                            id="schedule-name"
+                            name="name" 
+                            placeholder="Enter schedule name" 
+                            class="glass-input"
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="schedule-frequency" class="form-label">
+                            <i class="fas fa-clock"></i>
+                            Frequency
+                        </label>
+                        <select id="schedule-frequency" name="frequency" class="glass-input">
+                            <option value="hourly">Every Hour</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="cron">Custom (Cron)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group form-group--full">
+                        <label for="schedule-description" class="form-label">
+                            <i class="fas fa-align-left"></i>
+                            Description
+                        </label>
+                        <textarea 
+                            id="schedule-description"
+                            name="description" 
+                            placeholder="Describe what this schedule does..." 
+                            class="glass-input"
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="schedule-enabled" name="enabled" checked class="glass-checkbox">
+                            <label for="schedule-enabled" class="checkbox-label">
+                                <i class="fas fa-check"></i>
+                                Enable schedule immediately
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" id="schedule-cancel-btn-footer" class="glass-button glass-button--secondary">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button type="submit" class="glass-button glass-button--primary">
+                        <i class="fas fa-save"></i>
+                        Save Schedule
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 
