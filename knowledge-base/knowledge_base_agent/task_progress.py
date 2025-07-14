@@ -65,13 +65,20 @@ class TaskProgressManager:
             await self.logs_redis.lpush(log_key, json.dumps(log_entry))
             await self.logs_redis.ltrim(log_key, 0, 999)
             await self.logs_redis.expire(log_key, 86400)
-            await self.logs_redis.publish('task_logs', json.dumps({
+            
+            # Publish to Redis channel for real-time updates
+            publish_data = {
                 'type': 'log_message', 'task_id': task_id, 'data': log_entry
-            }))
+            }
+            await self.logs_redis.publish('task_logs', json.dumps(publish_data))
+            
+            # Debug logging to verify Redis publishing
+            logging.info(f"TaskProgressManager: Published log to Redis channel 'task_logs' for task {task_id}: {level} - {message}")
+            
             python_level = getattr(logging, level.upper(), logging.INFO)
             logging.getLogger('task_progress_internal').log(python_level, f"[Task {task_id}] {message}")
         except Exception as e:
-            logging.error(f"Failed to log message for task {task_id}: {e}")
+            logging.error(f"Failed to log message for task {task_id}: {e}", exc_info=True)
     
     async def get_progress(self, task_id: str) -> Optional[Dict[str, Any]]:
         """

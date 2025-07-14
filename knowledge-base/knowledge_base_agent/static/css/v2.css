@@ -925,33 +925,44 @@ button[data-pref].active.glass-button--danger {
 }
 
 .log-message {
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--border-radius-sm);
-    margin-bottom: var(--space-2);
+    padding: 2px 8px;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    border-left: 2px solid transparent;
+    background: transparent;
+    transition: background-color 0.2s ease;
+}
+
+.log-message:hover {
+    background: rgba(255, 255, 255, 0.05);
     white-space: pre-wrap;
-    word-break: break-word;
-    border-left: 3px solid;
-    background: rgba(255, 255, 255, 0.02);
+    overflow: visible;
+    text-overflow: unset;
 }
 
 .log-message.log-level-info {
     border-left-color: var(--primary-blue);
-    background: rgba(59, 130, 246, 0.08);
+    color: var(--text-primary);
 }
 
 .log-message.log-level-warning {
     border-left-color: var(--accent-orange);
-    background: rgba(245, 158, 11, 0.08);
+    color: var(--accent-orange);
 }
 
 .log-message.log-level-error {
     border-left-color: var(--accent-red);
-    background: rgba(239, 68, 68, 0.08);
+    color: var(--accent-red);
+    font-weight: 500;
 }
 
 .log-message.log-level-debug {
     border-left-color: var(--primary-purple);
-    background: rgba(139, 92, 246, 0.08);
+    color: var(--text-tertiary);
 }
 
 /* === Form Components === */

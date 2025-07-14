@@ -39,7 +39,8 @@ from knowledge_base_agent.monitoring import initialize_monitoring
 
 # --- Globals & App Initialization ---
 logger = logging.getLogger(__name__)
-recent_logs = deque(maxlen=400)
+# LEGACY: recent_logs deque removed - logs now handled by Redis via TaskProgressManager
+# recent_logs = deque(maxlen=400)
 
 # --- Logging Setup ---
 class WebSocketHandler(logging.Handler):
@@ -59,8 +60,9 @@ class WebSocketHandler(logging.Handler):
                 
             if record.levelno < logging.INFO: return
             msg = self.format(record)
-            recent_logs.append({'message': msg, 'level': record.levelname})
-            socketio.emit('log', {'message': msg, 'level': record.levelname})
+            # LEGACY: Direct SocketIO emission removed - logs now go through Redis/TaskProgressManager
+            # recent_logs.append({'message': msg, 'level': record.levelname})
+            # socketio.emit('log', {'message': msg, 'level': record.levelname})
         except Exception as e:
             print(f"CRITICAL: WebSocketHandler failed: {e}", file=sys.stderr)
 
@@ -379,8 +381,7 @@ def get_gpu_stats_operation(socketio_emit=True):
 
 def clear_logs_operation(socketio_emit=True):
     """Shared business logic for clearing logs. Used by both REST and SocketIO."""
-    global recent_logs
-    recent_logs.clear()
+    # LEGACY: recent_logs removed - now handled by Redis via TaskProgressManager
     logging.info("Server logs cleared")
     
     if socketio_emit:
@@ -420,7 +421,8 @@ def handle_connect(auth=None):
     
     state = get_or_create_agent_state()
     emit('agent_status', state.to_dict())
-    emit('initial_logs', {'logs': list(recent_logs)})
+    # LEGACY: recent_logs removed - initial logs now come from Redis via TaskProgressManager
+    emit('initial_logs', {'logs': []})
     config = current_app.config.get('APP_CONFIG')
     if config:
         # Use safe attribute access with defaults - Git is now always available
@@ -445,13 +447,14 @@ def handle_request_initial_status_and_git_config():
     
     emit('initial_status_and_git_config', status_data)
     
-    # Also send current logs
-    emit('initial_logs', {'logs': list(recent_logs)})
+    # LEGACY: recent_logs removed - initial logs now come from Redis via TaskProgressManager
+    emit('initial_logs', {'logs': []})
 
 @socketio.on('request_initial_logs')
 def handle_request_initial_logs():
     """SocketIO: Send current logs to the requesting client (notification only)."""
-    emit('initial_logs', {'logs': list(recent_logs)})
+    # LEGACY: recent_logs removed - initial logs now come from Redis via TaskProgressManager
+    emit('initial_logs', {'logs': []})
 
 @socketio.on('clear_server_logs')
 def handle_clear_server_logs():

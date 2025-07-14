@@ -127,8 +127,21 @@ class RealtimeManager:
         if event_name:
             try:
                 logging.debug(f"Broadcasting SocketIO event '{event_name}' with data: {data}")
-                # Primary event
-                self.socketio.emit(event_name, data)
+                
+                # Handle task_logs specially to normalize format
+                if channel == "task_logs" and data.get("type") == "log_message":
+                    log_data = data.get("data", {})
+                    normalized_log = {
+                        'message': log_data.get('message', ''),
+                        'level': log_data.get('level', 'INFO'),
+                        'timestamp': log_data.get('timestamp')
+                    }
+                    
+                    # Emit normalized format to SocketIO (single source of truth)
+                    self.socketio.emit(event_name, normalized_log)
+                else:
+                    # Primary event for non-log events
+                    self.socketio.emit(event_name, data)
 
                 # Back-compat aliases for older front-end handlers
                 if event_name == "phase_update":

@@ -14,7 +14,7 @@ Pipfile.lock
 
 # VS Code
 .vscode/
-.kro
+.kiro/
 
 # Playwright artifacts
 playwright-report/

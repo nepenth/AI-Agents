@@ -128,13 +128,29 @@ def stop_agent_v2():
     async def _stop_async():
         data = request.json or {}
         task_id = data.get('task_id')
+        
+        # If no task_id provided, get it from agent state
         if not task_id:
-            return jsonify({'success': False, 'error': 'task_id is required'}), 400
+            from ..web import get_or_create_agent_state
+            state = get_or_create_agent_state()
+            task_id = state.current_task_id
+            
+        if not task_id:
+            return jsonify({'success': False, 'error': 'No running task found to stop'}), 400
 
+        logger.info(f"Stopping agent task: {task_id}")
+        
+        # Revoke the Celery task
         celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+        
+        # Also try to revoke by Celery task ID if different
+        celery_task = celery_app.AsyncResult(task_id)
+        if celery_task.id != task_id:
+            celery_app.control.revoke(celery_task.id, terminate=True, signal='SIGTERM')
 
         progress_manager = get_progress_manager()
         await progress_manager.update_progress(task_id, -1, "revoked", "Agent execution stopped by user.")
+        await progress_manager.log_message(task_id, "🛑 Agent execution stopped by user request", "WARNING")
 
         from ..web import get_or_create_agent_state
         state = get_or_create_agent_state()
@@ -145,7 +161,7 @@ def stop_agent_v2():
             state.last_update = datetime.utcnow()
             db.session.commit()
 
-        return jsonify({'success': True, 'message': 'Agent stop request sent.'})
+        return jsonify({'success': True, 'message': f'Agent stop request sent for task {task_id}'})
 
     import asyncio
     try:
@@ -1579,11 +1595,33 @@ def get_system_info():
 
 @bp.route('/logs/recent', methods=['GET'])
 def get_recent_logs():
-    """Get recent log messages from the in-memory buffer."""
+    """Get recent log messages from Redis via TaskProgressManager."""
     try:
-        from ..web import recent_logs
-        # Convert deque to list for JSON serialization
-        logs_list = list(recent_logs)
+        # MODERN: Get logs from Redis instead of legacy in-memory buffer
+        from ..task_progress import get_progress_manager
+        from ..config import Config
+        import asyncio
+        
+        config = Config()
+        progress_manager = get_progress_manager(config)
+        
+        # Get logs from all active tasks
+        async def fetch_logs():
+            active_tasks = await progress_manager.get_all_active_tasks()
+            all_logs = []
+            for task_id in active_tasks[-5:]:  # Last 5 tasks
+                task_logs = await progress_manager.get_logs(task_id, limit=50)
+                all_logs.extend(task_logs)
+            # Sort by timestamp, most recent first
+            all_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            return all_logs[:100]  # Return last 100 logs
+        
+        # Run async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        logs_list = loop.run_until_complete(fetch_logs())
+        loop.close()
+        
         return jsonify({'logs': logs_list})
     except Exception as e:
         logging.error(f"Error getting recent logs: {e}", exc_info=True)
