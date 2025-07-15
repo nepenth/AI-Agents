@@ -91,7 +91,7 @@ class StreamlinedContentProcessor:
             self.socketio.emit('log', {'message': message, 'level': level.upper()})
         # Standard logging will also occur via Python's logging module
         logger_level = getattr(logging, level.upper(), logging.INFO)
-        logging.log(logger_level, f"[StreamlinedContentProcessor] {message}")
+        logging.log(logger_level, f"[ContentProcessor] {message}")
 
     async def process_all_tweets(
         self,
@@ -115,14 +115,10 @@ class StreamlinedContentProcessor:
             # This handles force reprocessing flags and database sync needs properly
             unprocessed_tweets = []  # Set to empty list but continue with execution plan evaluation
             
-        self.socketio_emit_log(
-            f"Starting to process {len(unprocessed_tweets)} tweets phase-by-phase. "
-            f"Force flags: recache={preferences.force_recache_tweets}, "
-            f"media={preferences.force_reprocess_media}, "
-            f"llm={preferences.force_reprocess_llm}, "
-            f"kb_item={preferences.force_reprocess_kb_item}", 
-            "INFO"
-        )
+        if len(unprocessed_tweets) > 0:
+            self.socketio_emit_log(f"🔄 Processing {len(unprocessed_tweets)} tweets through content pipeline", "INFO")
+        else:
+            self.socketio_emit_log("🔄 Evaluating cached tweets for reprocessing", "INFO")
         if self.phase_emitter_func: 
             self.phase_emitter_func('content_processing_overall', 'in_progress', 
                                    f'Evaluating processing needs for all cached tweets...')
@@ -200,22 +196,33 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"Skipping cache phase - all {plan.already_complete_count} tweets already cached", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_cache', 'active', f'Checking {plan.already_complete_count} tweets...')
+                self.phase_emitter_func('tweet_caching', 'active', f'Checking {plan.already_complete_count} tweets...')
             # Brief delay to allow UI to register the active status
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_cache', 'completed', 
+                self.phase_emitter_func('tweet_caching', 'completed', 
                                        f'All {plan.already_complete_count} tweets already cached')
             return
 
         self.socketio_emit_log(f"Cache phase: processing {plan.needs_processing_count} tweets, {plan.already_complete_count} already complete", "INFO")
         
         if self.phase_emitter_func:
-            self.phase_emitter_func('subphase_cp_cache', 'active', 
+            self.phase_emitter_func('tweet_caching', 'active', 
                                    f'Caching {plan.needs_processing_count} tweets...')
 
         try:
             if plan.tweets_needing_processing:
+                # Emit initial progress with total count
+                if self.phase_emitter_func:
+                    self.phase_emitter_func(
+                        'tweet_caching', 'in_progress', 
+                        f'Caching tweets...',
+                        False,  # is_sub_step_update
+                        0,  # processed_count
+                        plan.needs_processing_count,  # total_count
+                        0   # error_count
+                    )
+                
                 await cache_tweets(plan.tweets_needing_processing, self.config, self.http_client, 
                                  self.state_manager, preferences.force_recache_tweets)
                 
@@ -225,14 +232,20 @@ class StreamlinedContentProcessor:
                     if updated_data:
                         tweets_data_map[tweet_id] = updated_data
 
-            self.socketio_emit_log(f"✅ Tweet caching completed for {plan.needs_processing_count} tweets", "INFO")
+            self.socketio_emit_log(f"✅ Cached {plan.needs_processing_count} tweets successfully", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_cache', 'completed', 
-                                       f'Cached {plan.needs_processing_count} tweets')
+                self.phase_emitter_func(
+                    'tweet_caching', 'completed', 
+                    f'Cached {plan.needs_processing_count} tweets',
+                    False,  # is_sub_step_update
+                    plan.needs_processing_count,  # processed_count
+                    plan.needs_processing_count,  # total_count
+                    0   # error_count
+                )
         except Exception as e:
             self.socketio_emit_log(f"Error in Tweet Caching: {e}", "ERROR")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_cache', 'error', f'Caching failed: {e}')
+                self.phase_emitter_func('tweet_caching', 'error', f'Caching failed: {e}')
             stats.error_count += 1
 
     async def _execute_media_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], preferences, stats):
@@ -241,11 +254,11 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"Skipping media phase - all {plan.already_complete_count} tweets already processed", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_media', 'active', f'Checking {plan.already_complete_count} tweets...')
+                self.phase_emitter_func('media_analysis', 'active', f'Checking {plan.already_complete_count} tweets...')
             # Brief delay to allow UI to register the active status
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_media', 'completed', 
+                self.phase_emitter_func('media_analysis', 'completed', 
                                        f'All {plan.already_complete_count} tweets already have media processed')
             return
 
@@ -254,13 +267,13 @@ class StreamlinedContentProcessor:
         # Load historical stats for ETC calculation
         from knowledge_base_agent.stats_manager import load_processing_stats
         processing_stats_data = load_processing_stats()
-        phase_historical_stats = processing_stats_data.get("phases", {}).get("subphase_cp_media", {})
+        phase_historical_stats = processing_stats_data.get("phases", {}).get("media_analysis", {})
         avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
         initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
 
         if self.phase_emitter_func:
             self.phase_emitter_func(
-                'subphase_cp_media', 
+                'media_analysis', 
                 'active', 
                 f'Processing media for {plan.needs_processing_count} tweets...',
                 False,
@@ -274,17 +287,17 @@ class StreamlinedContentProcessor:
             if stop_flag.is_set():
                 self.socketio_emit_log("Media processing stopped by flag.", "WARNING")
                 if self.phase_emitter_func:
-                    self.phase_emitter_func('subphase_cp_media', 'interrupted', 'Media processing stopped.')
+                    self.phase_emitter_func('media_analysis', 'interrupted', 'Media processing stopped.')
                 break
 
             try:
                 tweet_data = tweets_data_map[tweet_id]
-                self.socketio_emit_log(f"Processing media for tweet {tweet_id} ({i+1}/{plan.needs_processing_count})", "DEBUG")
+                self.socketio_emit_log(f"🔄 Processing media ({i+1} of {plan.needs_processing_count})", "INFO")
                 
                 # Emit progress update as we start processing this item
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
-                        'subphase_cp_media', 
+                        'media_analysis', 
                         'in_progress', 
                         f'Processing media for tweet {tweet_id}...',
                         False,
@@ -302,12 +315,12 @@ class StreamlinedContentProcessor:
                 tweets_data_map[tweet_id] = updated_tweet_data
                 await self.state_manager.update_tweet_data(tweet_id, updated_tweet_data)
                 
-                self.socketio_emit_log(f"Media processing complete for {tweet_id}", "INFO")
+                # Don't log individual completions - too verbose for Live Logs
                 
                 # Emit progress update after completing this item
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
-                        'subphase_cp_media', 
+                        'media_analysis', 
                         'in_progress', 
                         f'Completed media processing for tweet {tweet_id}',
                         False,
@@ -324,10 +337,10 @@ class StreamlinedContentProcessor:
                 tweets_data_map[tweet_id]['media_processed'] = False
 
         if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ Media processing completed for {plan.needs_processing_count} tweets", "INFO")
+            self.socketio_emit_log(f"✅ Media processed for {plan.needs_processing_count} tweets", "INFO")
             if self.phase_emitter_func:
                 self.phase_emitter_func(
-                    'subphase_cp_media', 
+                    'media_analysis', 
                     'completed', 
                     f'Processed media for {plan.needs_processing_count} tweets',
                     False,
@@ -343,11 +356,11 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"Skipping LLM phase - all {plan.already_complete_count} tweets already categorized", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_llm', 'active', f'Checking {plan.already_complete_count} tweets...')
+                self.phase_emitter_func('llm_processing', 'active', f'Checking {plan.already_complete_count} tweets...')
             # Brief delay to allow UI to register the active status
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_llm', 'completed', 
+                self.phase_emitter_func('llm_processing', 'completed', 
                                        f'All {plan.already_complete_count} tweets already categorized')
             return
 
@@ -369,7 +382,7 @@ class StreamlinedContentProcessor:
         
         if self.phase_emitter_func:
             self.phase_emitter_func(
-                'subphase_cp_llm', 
+                'llm_processing', 
                 'active', 
                 f'Categorizing {plan.needs_processing_count} tweets using {num_parallel_jobs} worker(s)...',
                 False,
@@ -445,9 +458,9 @@ class StreamlinedContentProcessor:
             )
 
         if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ LLM categorization completed for {plan.needs_processing_count} tweets", "INFO")
+            self.socketio_emit_log(f"✅ Categorized {plan.needs_processing_count} tweets with LLM", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_llm', 'completed', 
+                self.phase_emitter_func('llm_processing', 'completed', 
                                        f'Categorized {plan.needs_processing_count} tweets')
 
     async def _execute_kb_item_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], preferences, stats):
@@ -456,11 +469,11 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"Skipping KB item phase - all {plan.already_complete_count} tweets already have KB items", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_kbitem', 'active', f'Checking {plan.already_complete_count} tweets...')
+                self.phase_emitter_func('kb_item_generation', 'active', f'Checking {plan.already_complete_count} tweets...')
             # Brief delay to allow UI to register the active status
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_kbitem', 'completed', 
+                self.phase_emitter_func('kb_item_generation', 'completed', 
                                        f'All {plan.already_complete_count} KB items already exist')
             return
 
@@ -468,13 +481,13 @@ class StreamlinedContentProcessor:
         
         # Load historical stats for ETC calculation
         processing_stats_data = load_processing_stats()
-        phase_historical_stats = processing_stats_data.get("phases", {}).get("subphase_cp_kbitem", {})
+        phase_historical_stats = processing_stats_data.get("phases", {}).get("kb_item_generation", {})
         avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
         initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
 
         if self.phase_emitter_func:
             self.phase_emitter_func(
-                'subphase_cp_kbitem', 
+                'kb_item_generation', 
                 'active', 
                 f'Generating {plan.needs_processing_count} KB items...',
                 False,
@@ -491,17 +504,17 @@ class StreamlinedContentProcessor:
             if stop_flag.is_set():
                 self.socketio_emit_log("KB item generation stopped by flag.", "WARNING")
                 if self.phase_emitter_func:
-                    self.phase_emitter_func('subphase_cp_kbitem', 'interrupted', 'KB item generation stopped.')
+                    self.phase_emitter_func('kb_item_generation', 'interrupted', 'KB item generation stopped.')
                 break
 
             try:
                 tweet_data = tweets_data_map[tweet_id]
-                self.socketio_emit_log(f"Generating KB item for tweet {tweet_id} ({i+1}/{plan.needs_processing_count})", "DEBUG")
+                self.socketio_emit_log(f"🔄 Generating KB item ({i+1} of {plan.needs_processing_count})", "INFO")
                 
                 # Update progress when starting to process this item
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
-                        'subphase_cp_kbitem', 
+                        'kb_item_generation', 
                         'active', 
                         f'Generating KB item for tweet {tweet_id}...',
                         False,
@@ -536,7 +549,7 @@ class StreamlinedContentProcessor:
                 # Update progress when completing this item
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
-                        'subphase_cp_kbitem', 
+                        'kb_item_generation', 
                         'active', 
                         f'Completed KB item for tweet {tweet_id}',
                         False,
@@ -545,7 +558,7 @@ class StreamlinedContentProcessor:
                         stats.error_count
                     )
                 
-                self.socketio_emit_log(f"KB item generation complete for {tweet_id}. Path: {tweet_data['kb_item_path']}", "INFO")
+                # Don't log individual completions - too verbose for Live Logs
                 
             except Exception as e:
                 logging.error(f"Error in KB item generation for tweet {tweet_id}: {e}", exc_info=True)
@@ -560,15 +573,15 @@ class StreamlinedContentProcessor:
         
         if items_successfully_processed > 0:
             update_phase_stats(
-                phase_id="subphase_cp_kbitem",
+                phase_id="kb_item_generation",
                 items_processed_this_run=items_successfully_processed,
                 duration_this_run_seconds=duration_this_run
             )
 
         if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ KB item generation completed for {plan.needs_processing_count} tweets", "INFO")
+            self.socketio_emit_log(f"✅ Generated {plan.needs_processing_count} KB items", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_kbitem', 'completed', 
+                self.phase_emitter_func('kb_item_generation', 'completed', 
                                        f'Generated {plan.needs_processing_count} KB items')
 
     async def _execute_db_sync_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], 
@@ -578,11 +591,11 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"Skipping DB sync phase - all {plan.already_complete_count} tweets already synced", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_db', 'active', f'Checking {plan.already_complete_count} tweets...')
+                self.phase_emitter_func('database_sync', 'active', f'Checking {plan.already_complete_count} tweets...')
             # Brief delay to allow UI to register the active status
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_db', 'completed', 
+                self.phase_emitter_func('database_sync', 'completed', 
                                        f'All {plan.already_complete_count} tweets already synced to database')
             return
 
@@ -590,13 +603,13 @@ class StreamlinedContentProcessor:
         
         # Load historical stats for ETC calculation
         processing_stats_data = load_processing_stats()
-        phase_historical_stats = processing_stats_data.get("phases", {}).get("subphase_cp_db", {})
+        phase_historical_stats = processing_stats_data.get("phases", {}).get("database_sync", {})
         avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
         initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
 
         if self.phase_emitter_func:
             self.phase_emitter_func(
-                'subphase_cp_db', 
+                'database_sync', 
                 'active', 
                 f'Syncing {plan.needs_processing_count} tweets to database...',
                 False,
@@ -613,7 +626,7 @@ class StreamlinedContentProcessor:
             if stop_flag.is_set():
                 self.socketio_emit_log("Database sync stopped by flag.", "WARNING")
                 if self.phase_emitter_func:
-                    self.phase_emitter_func('subphase_cp_db', 'interrupted', 'Database sync stopped.')
+                    self.phase_emitter_func('database_sync', 'interrupted', 'Database sync stopped.')
                 break
 
             try:
@@ -623,7 +636,7 @@ class StreamlinedContentProcessor:
                 # Update progress when starting to process this item
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
-                        'subphase_cp_db', 
+                        'database_sync', 
                         'active', 
                         f'Syncing tweet {tweet_id} to database...',
                         False,
@@ -640,7 +653,7 @@ class StreamlinedContentProcessor:
                 # Update progress when completing this item
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
-                        'subphase_cp_db', 
+                        'database_sync', 
                         'active', 
                         f'Completed database sync for tweet {tweet_id}',
                         False,
@@ -664,7 +677,7 @@ class StreamlinedContentProcessor:
         
         if items_successfully_processed > 0:
             update_phase_stats(
-                phase_id="subphase_cp_db",
+                phase_id="database_sync",
                 items_processed_this_run=items_successfully_processed,
                 duration_this_run_seconds=duration_this_run
             )
@@ -672,7 +685,7 @@ class StreamlinedContentProcessor:
         if not stop_flag.is_set():
             self.socketio_emit_log(f"✅ Database sync completed for {plan.needs_processing_count} tweets", "INFO")
             if self.phase_emitter_func:
-                self.phase_emitter_func('subphase_cp_db', 'completed', 
+                self.phase_emitter_func('database_sync', 'completed', 
                                        f'Synced {plan.needs_processing_count} tweets to database')
 
     async def _finalize_processing(self, tweets_data_map: Dict[str, Any], unprocessed_tweets: List[str], stats):

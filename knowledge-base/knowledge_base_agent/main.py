@@ -6,7 +6,6 @@ from pathlib import Path
 from datetime import datetime
 import os
 from flask_socketio import SocketIO
-import multiprocessing as mp
 
 from .config import Config, PROJECT_ROOT as global_project_root_ref
 from .agent import KnowledgeBaseAgent

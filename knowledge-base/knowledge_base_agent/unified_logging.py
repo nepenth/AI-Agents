@@ -38,10 +38,16 @@ class UnifiedLogger:
         try:
             self._ensure_loop()
             if self._loop.is_running():
-                # If loop is already running, schedule the coroutine
-                asyncio.create_task(
-                    self.progress_manager.log_message(self.task_id, message, level, **extra_data)
+                # If loop is already running, use run_coroutine_threadsafe for proper execution
+                future = asyncio.run_coroutine_threadsafe(
+                    self.progress_manager.log_message(self.task_id, message, level, **extra_data),
+                    self._loop
                 )
+                # Don't wait for the result to avoid blocking, but ensure it gets scheduled
+                try:
+                    future.result(timeout=0.1)  # Quick timeout to avoid blocking
+                except:
+                    pass  # Log was scheduled, that's what matters
             else:
                 # Run the coroutine in the loop
                 self._loop.run_until_complete(
@@ -57,9 +63,14 @@ class UnifiedLogger:
         try:
             self._ensure_loop()
             if self._loop.is_running():
-                asyncio.create_task(
-                    self.progress_manager.update_progress(self.task_id, progress, phase_id, message, status)
+                future = asyncio.run_coroutine_threadsafe(
+                    self.progress_manager.update_progress(self.task_id, progress, phase_id, message, status),
+                    self._loop
                 )
+                try:
+                    future.result(timeout=0.1)
+                except:
+                    pass
             else:
                 self._loop.run_until_complete(
                     self.progress_manager.update_progress(self.task_id, progress, phase_id, message, status)
@@ -72,9 +83,14 @@ class UnifiedLogger:
         try:
             self._ensure_loop()
             if self._loop.is_running():
-                asyncio.create_task(
-                    self.progress_manager.publish_phase_update(self.task_id, phase_id, status, message, progress)
+                future = asyncio.run_coroutine_threadsafe(
+                    self.progress_manager.publish_phase_update(self.task_id, phase_id, status, message, progress),
+                    self._loop
                 )
+                try:
+                    future.result(timeout=0.1)
+                except:
+                    pass
             else:
                 self._loop.run_until_complete(
                     self.progress_manager.publish_phase_update(self.task_id, phase_id, status, message, progress)
@@ -88,9 +104,14 @@ class UnifiedLogger:
             status_data['task_id'] = self.task_id
             self._ensure_loop()
             if self._loop.is_running():
-                asyncio.create_task(
-                    self.progress_manager.publish_agent_status_update(status_data)
+                future = asyncio.run_coroutine_threadsafe(
+                    self.progress_manager.publish_agent_status_update(status_data),
+                    self._loop
                 )
+                try:
+                    future.result(timeout=0.1)
+                except:
+                    pass
             else:
                 self._loop.run_until_complete(
                     self.progress_manager.publish_agent_status_update(status_data)

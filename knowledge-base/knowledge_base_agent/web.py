@@ -39,30 +39,88 @@ from knowledge_base_agent.monitoring import initialize_monitoring
 
 # --- Globals & App Initialization ---
 logger = logging.getLogger(__name__)
-# LEGACY: recent_logs deque removed - logs now handled by Redis via TaskProgressManager
-# recent_logs = deque(maxlen=400)
 
 # --- Logging Setup ---
 class WebSocketHandler(logging.Handler):
     def emit(self, record):
         try:
             message = record.getMessage()
-            # FIX: Filter out noisy, repetitive system messages from the UI
+            
+            # ENHANCED: Filter out system/debug messages - only show agent execution logs
             ignore_patterns = [
                 'GET /socket.io/', 
                 'POST /socket.io/',
                 'Starting gevent server',
                 'GPU memory configuration',
-                'TaskProgressManager: Redis connections established'
+                'TaskProgressManager: Redis connections established',
+                'RealtimeManager Redis listener started',
+                'GPU monitoring task started',
+                'Subscribed to Redis channels',
+                'Redis pub/sub connection closed',
+                'TaskProgressManager: Redis connections closed',
+                'Debug logging removed',
+                'Successfully loaded processing stats',
+                'Successfully saved processing stats',
+                'Processing categorization for',
+                'Finished media processing for tweet',
+                'KB item validation failed during final processing'
             ]
+            
+            # Filter out system logger messages that aren't agent-relevant
+            system_loggers = [
+                'werkzeug',
+                'socketio',
+                'engineio', 
+                'gevent',
+                'urllib3',
+                'requests'
+            ]
+            
             if any(pattern in message for pattern in ignore_patterns):
                 return
                 
-            if record.levelno < logging.INFO: return
-            msg = self.format(record)
-            # LEGACY: Direct SocketIO emission removed - logs now go through Redis/TaskProgressManager
-            # recent_logs.append({'message': msg, 'level': record.levelname})
-            # socketio.emit('log', {'message': msg, 'level': record.levelname})
+            if any(logger_name in record.name for logger_name in system_loggers):
+                return
+                
+            # Only show INFO and above for Live Logs
+            if record.levelno < logging.INFO: 
+                return
+                
+            # Only show agent execution relevant logs
+            agent_relevant_patterns = [
+                '🚀',  # Agent start/execution
+                '✅',  # Success messages
+                '❌',  # Error messages  
+                '📚',  # Bookmark operations
+                '💾',  # Database operations
+                '🔄',  # Processing operations
+                '⚡',  # Performance/speed indicators
+                'Agent',  # Agent-related messages
+                'Phase',  # Phase updates
+                'Processing',  # Processing updates
+                'Completed',  # Completion messages
+                'Failed',  # Failure messages
+                'Error',  # Error messages
+                'Starting',  # Starting operations (agent-level)
+                'Finished',  # Finished operations (agent-level)
+                'cached',  # Caching operations
+                'processed',  # Processing operations
+                'generated',  # Generation operations
+                'synced',  # Sync operations
+                'out of',  # Progress indicators (e.g., "5 out of 10")
+                'Celery worker',  # Celery task messages
+                'task started',  # Task execution
+                'task completed',  # Task completion
+            ]
+            
+            # Only emit if it's agent-relevant or an error/warning
+            if (record.levelno >= logging.WARNING or 
+                any(pattern.lower() in message.lower() for pattern in agent_relevant_patterns)):
+                msg = self.format(record)
+                # Additional filtering could be added here if needed
+            else:
+                return
+                
         except Exception as e:
             print(f"CRITICAL: WebSocketHandler failed: {e}", file=sys.stderr)
 
@@ -182,6 +240,8 @@ def create_app():
         app.config['APP_CONFIG'] = config_instance
         # Add this line to set the SQLAlchemy URI from the Config's database_url
         app.config['SQLALCHEMY_DATABASE_URI'] = config_instance.database_url
+        # Set the Celery configuration for init_celery() to find
+        app.config['CELERY_CONFIG'] = config_instance.celery_config
         
         # Configure logging as early as possible
         setup_web_logging(config_instance, add_ws_handler=True)
@@ -381,7 +441,6 @@ def get_gpu_stats_operation(socketio_emit=True):
 
 def clear_logs_operation(socketio_emit=True):
     """Shared business logic for clearing logs. Used by both REST and SocketIO."""
-    # LEGACY: recent_logs removed - now handled by Redis via TaskProgressManager
     logging.info("Server logs cleared")
     
     if socketio_emit:
@@ -408,7 +467,7 @@ def handle_connect(auth=None):
         if get_gpu_stats() is not None:
             socketio.start_background_task(monitor_gpu_stats, socketio)
         _background_tasks_started = True
-        logging.info("GPU monitoring task started on first client connection.")
+        logging.debug("GPU monitoring task started on first client connection.")
 
     if not _realtime_listener_started:
         try:
@@ -421,7 +480,6 @@ def handle_connect(auth=None):
     
     state = get_or_create_agent_state()
     emit('agent_status', state.to_dict())
-    # LEGACY: recent_logs removed - initial logs now come from Redis via TaskProgressManager
     emit('initial_logs', {'logs': []})
     config = current_app.config.get('APP_CONFIG')
     if config:
@@ -447,13 +505,11 @@ def handle_request_initial_status_and_git_config():
     
     emit('initial_status_and_git_config', status_data)
     
-    # LEGACY: recent_logs removed - initial logs now come from Redis via TaskProgressManager
     emit('initial_logs', {'logs': []})
 
 @socketio.on('request_initial_logs')
 def handle_request_initial_logs():
     """SocketIO: Send current logs to the requesting client (notification only)."""
-    # LEGACY: recent_logs removed - initial logs now come from Redis via TaskProgressManager
     emit('initial_logs', {'logs': []})
 
 @socketio.on('clear_server_logs')
@@ -516,12 +572,7 @@ def monitor_gpu_stats(socketio_instance):
             logger.error(f"Error in GPU monitor: {e}", exc_info=True)
         socketio_instance.sleep(5) 
 
-# DEPRECATED BY CELERY: queue_listener and run_agent_process are no longer needed
-# def queue_listener(queue: mp.Queue):
-#     ...
-#
-# def run_agent_process(queue: mp.Queue, preferences: dict):
-#     ...
+
 
 def main():
     """

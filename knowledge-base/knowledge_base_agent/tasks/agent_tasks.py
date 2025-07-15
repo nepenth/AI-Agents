@@ -68,7 +68,7 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
         root_logger.addHandler(log_handler)
         
         # Initialize progress tracking
-        loop.run_until_complete(progress_manager.log_message(task_id, "🚀 Agent task started in Celery worker", "INFO"))
+        loop.run_until_complete(progress_manager.log_message(task_id, "🚀 Agent execution started", "INFO"))
         loop.run_until_complete(progress_manager.update_progress(task_id, 0, "initialization", "Agent task started"))
         
         # Update Celery task state for monitoring
@@ -240,14 +240,21 @@ def fetch_bookmarks_task(self, task_id: str):
         await progress_manager.log_message(task_id, f"✅ Fetched {len(bookmarks)} bookmarks successfully", "INFO")
         return {'status': 'completed', 'task_id': task_id, 'bookmarks_fetched': len(bookmarks)}
     
+    # Create event loop for async operations
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     try:
-        return asyncio.run(async_main())
+        return loop.run_until_complete(async_main())
     except Exception as e:
         error_msg = f"Bookmark fetch failed: {str(e)}"
-        asyncio.run(progress_manager.log_message(task_id, f"❌ {error_msg}", "ERROR"))
-        asyncio.run(progress_manager.update_progress(task_id, 0, "error", error_msg))
+        loop.run_until_complete(progress_manager.log_message(task_id, f"❌ {error_msg}", "ERROR"))
+        loop.run_until_complete(progress_manager.update_progress(task_id, 0, "error", error_msg))
         logging.error(f"Bookmark fetch task failed: {error_msg}", exc_info=True)
         raise KnowledgeBaseError(error_msg) from e
+    finally:
+        if loop and not loop.is_closed():
+            loop.close()
 
 
 @celery_app.task(bind=True, name='knowledge_base_agent.tasks.agent.git_sync')

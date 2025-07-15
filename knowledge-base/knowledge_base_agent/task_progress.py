@@ -24,12 +24,15 @@ class TaskProgressManager:
         """Initialize Redis connections for progress and logging."""
         self.progress_redis = redis.Redis.from_url(config.redis_progress_url, decode_responses=True)
         self.logs_redis = redis.Redis.from_url(config.redis_logs_url, decode_responses=True)
+        # Circuit breaker to prevent recursive logging
+        self._logging_in_progress = False
 
     async def test_connections(self):
         try:
             await self.progress_redis.ping()
             await self.logs_redis.ping()
-            logging.info("TaskProgressManager: Redis connections established")
+            # Connection success logged at debug level only
+            logging.debug("TaskProgressManager: Redis connections established")
         except redis.ConnectionError as e:
             logging.error(f"TaskProgressManager: Failed to connect to Redis: {e}")
             raise
@@ -56,7 +59,13 @@ class TaskProgressManager:
         """
         Add log message to Redis list.
         """
+        # Circuit breaker to prevent recursive logging
+        if self._logging_in_progress:
+            return
+            
         try:
+            self._logging_in_progress = True
+            
             log_entry = {
                 'timestamp': datetime.utcnow().isoformat(), 'level': level,
                 'message': message, 'task_id': task_id, **extra_data
@@ -72,13 +81,13 @@ class TaskProgressManager:
             }
             await self.logs_redis.publish('task_logs', json.dumps(publish_data))
             
-            # Debug logging to verify Redis publishing
-            logging.info(f"TaskProgressManager: Published log to Redis channel 'task_logs' for task {task_id}: {level} - {message}")
-            
-            python_level = getattr(logging, level.upper(), logging.INFO)
-            logging.getLogger('task_progress_internal').log(python_level, f"[Task {task_id}] {message}")
+            # Debug logging removed - too verbose for Live Logs
+            # Internal logging removed to prevent recursive loop with RedisTaskLogHandler
         except Exception as e:
-            logging.error(f"Failed to log message for task {task_id}: {e}", exc_info=True)
+            # Use print instead of logging to avoid potential recursion
+            print(f"Failed to log message for task {task_id}: {e}", file=__import__('sys').stderr)
+        finally:
+            self._logging_in_progress = False
     
     async def get_progress(self, task_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -123,7 +132,8 @@ class TaskProgressManager:
         """
         try:
             keys = await self.progress_redis.keys("progress:*")
-            return [key.decode('utf-8').split(":", 1)[1] for key in keys]
+            # Keys are already decoded strings when decode_responses=True
+            return [key.split(":", 1)[1] for key in keys]
         except Exception as e:
             logging.error(f"Failed to get active tasks: {e}")
             return []
@@ -200,7 +210,7 @@ def get_progress_manager(config: Optional[Config] = None) -> TaskProgressManager
     """
     if config is None:
         # This path is generally used by Celery workers or scripts
-        logging.info("TaskProgressManager created without explicit config. Loading from env.")
+        logging.debug("TaskProgressManager created without explicit config. Loading from env.")
         config = Config.from_env()
     
     # Always create a new instance to ensure connection pools are tied

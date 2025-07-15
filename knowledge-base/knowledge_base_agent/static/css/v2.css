@@ -452,6 +452,37 @@ input:checked + .slider:before {
     transform: rotate(180deg);
 }
 
+/* === Utilities Collapsible === */
+.utilities-collapsible {
+    overflow: hidden;
+    transition: all var(--transition-normal);
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.utilities-collapsible.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.utilities-collapsible:not(.collapsed) {
+    max-height: 2000px;
+    opacity: 1;
+}
+
+#toggle-utilities-icon {
+    transition: transform var(--transition-normal);
+}
+
+.utilities-collapsible.collapsed ~ .preference-section #toggle-utilities-icon,
+#toggle-utilities-icon.rotated {
+    transform: rotate(180deg);
+}
+
 /* === Main Dashboard Area === */
 .dashboard-main-area {
     grid-row: 2;

@@ -515,9 +515,9 @@ class UIManager {
         this.initializePolling();
         
         // Initialize core UI components only
-        this.router = new Router(this.api); // Pure API polling approach
         this.sidebarManager = new SidebarManager();
         this.themeManager = new ThemeManager('theme-toggle');
+        this.dashboardManager = null; // Will be initialized when dashboard loads
         
         // Initialize UI effects if available
         if (window.UIEffects) {
@@ -657,6 +657,14 @@ class UIManager {
                 window.socket.on('phase_update', (data) => this.dispatchCustomEvent('phase_update', data));
             }
 
+            // Initialize dashboard manager if we're on the dashboard page
+            if (window.location.pathname === '/' || window.location.pathname === '/v2/' || window.location.pathname.includes('index')) {
+                console.log('🎛️ Initializing dashboard manager...');
+                this.dashboardManager = new DashboardManager(this.api);
+                await this.dashboardManager.initialize();
+                console.log('✅ Dashboard manager initialized');
+            }
+
             console.log('✅ V2 UI core initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize V2 UI:', error);
@@ -686,6 +694,104 @@ class UIManager {
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(20px); }
                     to { opacity: 1; transform: translateY(0); }
+                }
+                
+                /* Fix log entries - remove hover effects and ensure proper scrolling */
+                .log-message {
+                    transition: none !important;
+                    transform: none !important;
+                    padding: 0.5rem;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                    font-family: var(--font-mono, monospace);
+                    font-size: 0.8rem;
+                    line-height: 1.4;
+                    margin: 0;
+                }
+                
+                .log-message:hover {
+                    background: none !important;
+                    transform: none !important;
+                    scale: none !important;
+                }
+                
+                /* Ensure logs panel has proper layout */
+                .logs-panel-content {
+                    height: 100% !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                }
+                
+                #logs-container {
+                    scroll-behavior: smooth;
+                    overflow-y: auto;
+                    flex: 1 !important;
+                    max-height: none !important;
+                    min-height: 200px;
+                }
+                
+                #logs-container::-webkit-scrollbar {
+                    width: 6px;
+                }
+                
+                #logs-container::-webkit-scrollbar-track {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 3px;
+                }
+                
+                #logs-container::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.2);
+                    border-radius: 3px;
+                }
+                
+                #logs-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                }
+                
+                /* Fixed footer styling */
+                #agent-status-footer {
+                    position: sticky !important;
+                    bottom: 0 !important;
+                    z-index: 10 !important;
+                }
+                
+                /* Reduce spacing on dashboard panels */
+                .dashboard-main-area {
+                    gap: 1rem !important;
+                    margin-bottom: 1rem !important;
+                }
+                
+                .dashboard-panel {
+                    padding: 1rem !important;
+                }
+                
+                .dashboard-panel .panel-header {
+                    margin-bottom: 0.75rem !important;
+                    padding-bottom: 0.5rem !important;
+                }
+                
+                .dashboard-panel .panel-content {
+                    padding: 0 !important;
+                }
+                
+                /* Reduce GPU status panel spacing */
+                #gpu-status-panel {
+                    padding: 1rem !important;
+                    margin-bottom: 1rem !important;
+                }
+                
+                #gpu-status-panel .panel-header {
+                    margin-bottom: 0.75rem !important;
+                    padding-bottom: 0.5rem !important;
+                }
+                
+                /* Reduce agent controls panel spacing */
+                #agent-controls-panel {
+                    padding: 1rem !important;
+                    margin-bottom: 1rem !important;
+                }
+                
+                .agent-controls-header {
+                    margin-bottom: 0.75rem !important;
                 }
             `;
             document.head.appendChild(style);
@@ -725,6 +831,11 @@ class UIManager {
         document.addEventListener('log', (event) => {
             this.handleLogEvent(event.detail);
         });
+
+        // Listen for phase updates from the agent
+        document.addEventListener('phase_update', (event) => {
+            this.handlePhaseUpdateEvent(event.detail);
+        });
     }
 
     handleAgentStatusEvent(data) {
@@ -743,6 +854,15 @@ class UIManager {
         // Handle new log entries
         console.log('📊 New log entry:', data);
         // Forward to any components that need it
+    }
+
+    handlePhaseUpdateEvent(data) {
+        // Handle phase update events
+        console.log('📊 Phase update:', data);
+        // Forward to LiveLogsManager for status display
+        if (this.dashboardManager && this.dashboardManager.managers.liveLogs) {
+            this.dashboardManager.managers.liveLogs.updateAgentStatus(true, data.message, data);
+        }
     }
 
     async emitAPIEvent(eventType, data) {

@@ -1,0 +1,32 @@
+[Unit]
+Description=Knowledge Base Agent Worker
+Documentation=https://github.com/your-org/knowledge-base
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=nepenthe
+Group=nepenthe
+WorkingDirectory=/home/nepenthe/git_repos/agents/knowledge-base
+Environment=PATH=/home/nepenthe/git_repos/agents/knowledge-base/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=GIT_PYTHON_GIT_EXECUTABLE=/usr/bin/git
+ExecStart=/home/nepenthe/git_repos/agents/knowledge-base/venv/bin/python -m knowledge_base_agent.cli worker
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kb-worker
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/nepenthe/git_repos/agents/knowledge-base
+
+[Install]
+WantedBy=multi-user.target 

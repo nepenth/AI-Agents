@@ -16,14 +16,21 @@ class LiveLogsManager {
         // UI Elements
         this.logsContainer = document.getElementById('logs-container');
         this.clearLogsBtn = document.getElementById('clear-logs-btn');
-        this.agentStatusText = document.getElementById('agent-status-text');
+        this.agentStatusText = document.getElementById('agent-status-text-logs');
         this.logCount = document.getElementById('log-count');
+        this.etcDisplay = document.getElementById('agent-etc-display');
+        this.etcTime = document.getElementById('agent-etc-time');
+        this.phaseProgress = document.getElementById('agent-phase-progress');
+        this.phaseProgressText = document.getElementById('phase-progress-text');
+        this.phaseProgressBar = document.getElementById('phase-progress-bar');
         
         // State management
         this.logs = [];
         this.maxLogs = 500; // Limit number of logs in memory
         this.autoScroll = true;
         this.isClearing = false;
+        this.currentPhase = null;
+        this.phaseStartTime = null;
 
         if (!this.logsContainer) return;
         this.init();
@@ -88,6 +95,18 @@ class LiveLogsManager {
         document.addEventListener('logs_cleared', (event) => {
             this.handleLogsCleared();
         });
+
+        // Listen for agent status updates from polling
+        document.addEventListener('agent_status_update', (event) => {
+            const statusData = event.detail;
+            this.updateAgentStatus(statusData.is_running, statusData.current_phase_message, statusData);
+        });
+
+        // Listen for phase updates from execution plan
+        document.addEventListener('phase_update', (event) => {
+            const phaseData = event.detail;
+            this.updateAgentStatus(true, phaseData.message, phaseData);
+        });
     }
 
     addLog(log) {
@@ -98,10 +117,12 @@ class LiveLogsManager {
             return;
         }
         
-        // Create log element with enhanced styling
+        // Create log element with enhanced styling (remove any hover effects)
         const logElement = document.createElement('div');
         logElement.className = 'log-message';
         logElement.dataset.level = level;
+        logElement.style.transition = 'none'; // Remove any hover transitions
+        logElement.style.transform = 'none'; // Prevent any transform effects
         
         // Add timestamp if available
         const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
@@ -124,9 +145,14 @@ class LiveLogsManager {
             }
         }
 
-        // Auto-scroll if enabled
+        // Auto-scroll if enabled - force scroll to bottom
         if (this.autoScroll) {
-            this.scrollToBottom();
+            // Use multiple methods to ensure scrolling works
+            requestAnimationFrame(() => {
+                this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
+                // Also try scrollIntoView as backup
+                logElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            });
         }
 
         // Update log count
@@ -166,8 +192,25 @@ class LiveLogsManager {
             return httpPatterns.some(pattern => message.includes(pattern));
         }
         
-        // Filter out other web server noise
-        const webServerPatterns = [
+        // CRITICAL: Filter out repetitive Phase Update messages, but allow some through
+        if (message.includes('Phase Update: ID=')) {
+            // Extract phase update data and update status display
+            this.handlePhaseUpdateMessage(message);
+            
+            // Only filter out if it's a repetitive status update, allow important ones through
+            if (message.includes('Status=\'in_progress\'') && 
+                (message.includes('Completed media processing') || 
+                 message.includes('already cached') ||
+                 message.includes('Processing media for tweet'))) {
+                return true; // Filter out repetitive progress updates
+            }
+            
+            // Allow important phase updates through (completed, error, etc.)
+            return false; // Don't filter - show in logs
+        }
+        
+        // Filter out repetitive setup/initialization logs that clutter the display
+        const repetitivePatterns = [
             'Invalid Date', // Date parsing issues in frontend
             'Web logging re-configured',
             'Application configuration loaded',
@@ -175,10 +218,32 @@ class LiveLogsManager {
             'V2 page request',
             'template v2/index.html',
             '- INFO -', // Generic INFO logs that are usually HTTP
-            '10.0.11.66 -' // IP address logs (usually HTTP)
+            '10.0.11.66 -', // IP address logs (usually HTTP)
+            // Filter repetitive agent setup logs
+            'DEBUG_AGENT_RUN: Prefs object received by run()',
+            'UserPreferences(run_mode=',
+            'Initializing HTTPClient with Ollama URL:',
+            '💾 Flask app context created for database operations',
+            '[initialization] Initializing agent components',
+            '✅ UserPreferences loaded:',
+            '🚀 Agent execution started',
+            '🚀 Starting agent execution...',
+            // Filter repetitive state manager logs
+            'StateManager initialization complete. Validation stats:',
+            'Final processing validation: moved',
+            'KB item phase validation complete',
+            'Loaded 384 processed tweets', // This specific count keeps repeating
+            'Loaded.*processed tweets', // Generic version
         ];
         
-        return webServerPatterns.some(pattern => message.includes(pattern));
+        return repetitivePatterns.some(pattern => {
+            if (pattern.includes('.*')) {
+                // Handle regex patterns
+                const regex = new RegExp(pattern);
+                return regex.test(message);
+            }
+            return message.includes(pattern);
+        });
     }
 
     addInitialLogs(logs) {
@@ -230,7 +295,10 @@ class LiveLogsManager {
     }
 
     scrollToBottom() {
-        this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
+        // Use requestAnimationFrame for smooth scrolling
+        requestAnimationFrame(() => {
+            this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
+        });
     }
 
     updateLogCount() {
@@ -245,15 +313,133 @@ class LiveLogsManager {
         return div.innerHTML;
     }
     
-    updateAgentStatus(isRunning, statusMessage = null) {
+    updateAgentStatus(isRunning, statusMessage = null, phaseData = null) {
         if (!this.agentStatusText) return;
 
         if (isRunning) {
             this.agentStatusText.textContent = statusMessage || 'Running';
             this.agentStatusText.className = 'status-text status-running';
+            
+            // Show phase progress if available
+            if (phaseData && this.phaseProgress) {
+                this.updatePhaseProgress(phaseData);
+            }
         } else {
             this.agentStatusText.textContent = statusMessage || 'Idle';
             this.agentStatusText.className = 'status-text status-idle';
+            
+            // Hide progress displays when idle
+            if (this.phaseProgress) {
+                this.phaseProgress.style.display = 'none';
+            }
+            if (this.etcDisplay) {
+                this.etcDisplay.style.display = 'none';
+            }
+        }
+    }
+
+    updatePhaseProgress(phaseData) {
+        if (!this.phaseProgress || !this.phaseProgressText || !this.phaseProgressBar) return;
+
+        const { phase_id, message, progress, total, processed_count, total_count } = phaseData;
+        
+        // Determine progress values
+        let progressValue = 0;
+        let progressText = message || 'Processing...';
+        
+        if (processed_count !== undefined && total_count !== undefined && total_count > 0) {
+            progressValue = (processed_count / total_count) * 100;
+            progressText = `${message || phase_id}: ${processed_count}/${total_count}`;
+        } else if (progress !== undefined && total !== undefined && total > 0) {
+            progressValue = (progress / total) * 100;
+            progressText = `${message || phase_id}: ${progress}/${total}`;
+        }
+        
+        // Update progress display
+        this.phaseProgressText.textContent = progressText;
+        this.phaseProgressBar.style.width = `${Math.min(100, Math.max(0, progressValue))}%`;
+        this.phaseProgress.style.display = 'block';
+        
+        // Update ETC if we have progress data
+        if (progressValue > 0 && progressValue < 100) {
+            this.updateETC(phase_id, progressValue);
+        }
+    }
+
+    updateETC(phaseId, progressPercent) {
+        if (!this.etcDisplay || !this.etcTime) return;
+
+        // Track phase start time
+        if (this.currentPhase !== phaseId) {
+            this.currentPhase = phaseId;
+            this.phaseStartTime = Date.now();
+        }
+
+        if (this.phaseStartTime && progressPercent > 5) { // Only calculate ETC after 5% progress
+            const elapsed = Date.now() - this.phaseStartTime;
+            const estimatedTotal = (elapsed / progressPercent) * 100;
+            const remaining = estimatedTotal - elapsed;
+            
+            if (remaining > 0) {
+                const etcText = this.formatDuration(remaining);
+                this.etcTime.textContent = etcText;
+                this.etcDisplay.style.display = 'block';
+            }
+        }
+    }
+
+    formatDuration(milliseconds) {
+        const seconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        
+        if (hours > 0) {
+            return `${hours}h ${minutes % 60}m`;
+        } else if (minutes > 0) {
+            return `${minutes}m ${seconds % 60}s`;
+        } else {
+            return `${seconds}s`;
+        }
+    }
+
+    handlePhaseUpdateMessage(message) {
+        // Parse phase update message and extract data
+        // Example: "Phase Update: ID='media_analysis', Status='in_progress', Message='Completed media processing for tweet 1870838148789633295', SubStep='False', Processed=1, Total=3, Errors=0"
+        
+        try {
+            const phaseData = {};
+            
+            // Extract phase ID
+            const idMatch = message.match(/ID='([^']+)'/);
+            if (idMatch) phaseData.phase_id = idMatch[1];
+            
+            // Extract status
+            const statusMatch = message.match(/Status='([^']+)'/);
+            if (statusMatch) phaseData.status = statusMatch[1];
+            
+            // Extract message
+            const messageMatch = message.match(/Message='([^']+)'/);
+            if (messageMatch) phaseData.message = messageMatch[1];
+            
+            // Extract processed count
+            const processedMatch = message.match(/Processed=(\d+)/);
+            if (processedMatch) phaseData.processed_count = parseInt(processedMatch[1]);
+            
+            // Extract total count
+            const totalMatch = message.match(/Total=(\d+)/);
+            if (totalMatch) phaseData.total_count = parseInt(totalMatch[1]);
+            
+            // Extract error count
+            const errorMatch = message.match(/Errors=(\d+)/);
+            if (errorMatch) phaseData.error_count = parseInt(errorMatch[1]);
+            
+            // Update the status display with this data
+            if (phaseData.phase_id && phaseData.status) {
+                this.updateAgentStatus(true, phaseData.message, phaseData);
+            }
+            
+        } catch (error) {
+            console.warn('Failed to parse phase update message:', error);
         }
     }
 
