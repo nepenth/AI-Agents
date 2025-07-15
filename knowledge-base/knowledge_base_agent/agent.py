@@ -18,7 +18,6 @@ from flask import current_app
 import math
 from statistics import mean, median
 from collections import defaultdict
-import multiprocessing as mp
 
 # Core imports needed at module level
 from knowledge_base_agent.config import Config
@@ -354,7 +353,11 @@ class KnowledgeBaseAgent:
             except Exception as e:
                 logging.error(f"Failed to emit phase_update via socketio: {e}")
         else:
-            logging.warning(f"socketio_emit_phase_update called for {phase_id} but self.socketio is None")
+            # Don't log warnings in Celery worker context - this is expected behavior
+            # Only log if we're not in a Celery worker (check for Celery task context)
+            import os
+            if not os.environ.get('CELERY_WORKER_RUNNING') and not hasattr(self, '_is_celery_task'):
+                logging.debug(f"socketio_emit_phase_update called for {phase_id} but self.socketio is None (non-web context)")
 
     async def initialize(self) -> tuple:
         """Initialize or re-initialize agent components."""
@@ -684,9 +687,10 @@ class KnowledgeBaseAgent:
         clear_stop_flag() # Clear stop flag at the beginning of a run
         self._initialize_plan_statuses(preferences) # Initialize/reset with current preferences
         self.socketio_emit_log("Knowledge Base Agent run started.", "INFO")
-        # Emit initial state for all plan items based on preferences
-        for phase_id, status_info in self._plan_statuses.items():
-            self.socketio_emit_phase_update(phase_id, status_info['status'], status_info['message'])
+        # Emit initial state for all plan items based on preferences (only if socketio is available)
+        if self.socketio:
+            for phase_id, status_info in self._plan_statuses.items():
+                self.socketio_emit_phase_update(phase_id, status_info['status'], status_info['message'])
 
         stats = ProcessingStats(start_time=datetime.now())
         phase_details_from_content_processor: List[PhaseDetail] = []

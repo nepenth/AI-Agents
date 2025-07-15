@@ -45,11 +45,11 @@ class RealtimeManager:
             logging.warning("RealtimeManager listener is already running.")
             return
 
-        logging.info("Starting RealtimeManager Redis pub/sub listener...")
+        logging.debug("Starting RealtimeManager Redis pub/sub listener...")
         self._stop_event.clear()
         self.pubsub_thread = threading.Thread(target=self._listen_for_updates, daemon=True)
         self.pubsub_thread.start()
-        logging.info("RealtimeManager listener started.")
+        logging.debug("RealtimeManager listener started.")
 
     def stop_listener(self):
         """Stop the Redis pub/sub listener."""
@@ -73,7 +73,7 @@ class RealtimeManager:
                 "task_status_updates",
                 "task_logs"
             )
-            logging.info("Subscribed to Redis channels: task_phase_updates, task_status_updates, task_logs")
+            logging.debug("Subscribed to Redis channels: task_phase_updates, task_status_updates, task_logs")
 
             while not self._stop_event.is_set():
                 try:

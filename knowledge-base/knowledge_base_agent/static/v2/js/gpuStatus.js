@@ -85,6 +85,7 @@ class GpuStatusManager {
         const memoryTotalGB = memoryTotalMB / 1024;
         const memoryPercentage = (memoryUsedMB / memoryTotalMB) * 100;
         const tempCelsius = parseFloat(gpu.temperature_gpu || 0);
+        const tempFahrenheit = (tempCelsius * 9/5) + 32; // Convert to Fahrenheit
         
         // Determine CSS classes for progress bars and temperature
         const getLoadClass = (load) => {
@@ -99,15 +100,15 @@ class GpuStatusManager {
             return 'memory-low';
         };
         
-        const getTempClass = (temp) => {
-            if (temp >= 80) return 'temp-hot';
-            if (temp >= 65) return 'temp-warm';
+        const getTempClass = (tempF) => {
+            if (tempF >= 176) return 'temp-hot';    // 80°C = 176°F
+            if (tempF >= 149) return 'temp-warm';   // 65°C = 149°F
             return 'temp-cool';
         };
         
         const loadClass = getLoadClass(loadPercentage);
         const memoryClass = getMemoryClass(memoryPercentage);
-        const tempClass = getTempClass(tempCelsius);
+        const tempClass = getTempClass(tempFahrenheit);
         
         card.innerHTML = `
             <div class="gpu-card-header">
@@ -134,7 +135,7 @@ class GpuStatusManager {
                 
                 <div class="gpu-stat">
                     <div class="gpu-stat-label">Temperature</div>
-                    <div class="gpu-stat-value ${tempClass}">${tempCelsius.toFixed(1)}<span class="gpu-stat-unit">°C</span></div>
+                    <div class="gpu-stat-value ${tempClass}">${tempFahrenheit.toFixed(1)}<span class="gpu-stat-unit">°F</span></div>
                 </div>
             </div>
         `;

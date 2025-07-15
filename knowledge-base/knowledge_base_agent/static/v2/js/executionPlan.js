@@ -24,15 +24,16 @@ class ExecutionPlanManager {
     }
 
     initSocketListeners() {
-        if (!window.socket) {
-            console.error("Socket.IO not initialized. Real-time updates disabled.");
-            return;
-        }
+        // Updated to use custom events from polling system instead of SocketIO
+        console.log('Setting up ExecutionPlan event listeners for polling-based updates...');
 
-        socket.on('phase_update', (data) => {
+        // Listen for phase updates from the polling system
+        document.addEventListener('phase_update', (event) => {
+            const data = event.detail;
             console.log('Received phase_update:', data);
             const phaseId = data.phase_id || data.phase;
             this.updatePhase(phaseId, data.status, data.message);
+            
             // Handle progress bar if counts provided
             if (data.processed_count !== undefined && data.total_count !== undefined) {
                 this.updatePhaseProgress(phaseId, data.processed_count, data.total_count, data.message);
@@ -41,13 +42,16 @@ class ExecutionPlanManager {
             }
         });
 
-        // Listen for overall agent status to reset the plan on completion/error
-        socket.on('agent_status', (data) => {
+        // Listen for agent status updates from the polling system
+        document.addEventListener('agent_status_update', (event) => {
+            const data = event.detail;
             if (!data.is_running && (data.status === 'completed' || data.status === 'error' || data.status === 'idle')) {
                 // Use a timeout to give final updates time to arrive
                 setTimeout(() => this.resetAllPhases(), 2000);
             }
         });
+
+        console.log('ExecutionPlan event listeners set up for polling-based updates');
     }
 
     initPhases() {
@@ -235,6 +239,64 @@ class ExecutionPlanManager {
         
         phase.statusElement.textContent = message || displayStatus;
         phase.statusElement.dataset.status = status;
+        
+        // Handle parent-child phase relationships
+        this.updateParentPhaseStatus(phaseId, status);
+    }
+
+    updateParentPhaseStatus(childPhaseId, childStatus) {
+        // Define parent-child relationships
+        const parentChildMap = {
+            'tweet_caching': 'content_processing',
+            'media_analysis': 'content_processing', 
+            'llm_processing': 'content_processing',
+            'kb_item_generation': 'content_processing',
+            'database_sync': 'content_processing'
+        };
+        
+        const parentPhaseId = parentChildMap[childPhaseId];
+        if (!parentPhaseId || !this.phases[parentPhaseId]) {
+            return; // No parent or parent not found
+        }
+        
+        // If child is running/active/in_progress, parent should be running
+        if (['running', 'active', 'in_progress', 'in-progress'].includes(childStatus.toLowerCase())) {
+            const parentPhase = this.phases[parentPhaseId];
+            if (parentPhase.statusElement.dataset.status !== 'running') {
+                parentPhase.statusElement.textContent = 'Running';
+                parentPhase.statusElement.dataset.status = 'running';
+            }
+        }
+        
+        // If child completes, check if all children are complete to mark parent complete
+        if (['completed', 'skipped'].includes(childStatus.toLowerCase())) {
+            this.checkParentCompletion(parentPhaseId);
+        }
+    }
+
+    checkParentCompletion(parentPhaseId) {
+        // Define which children belong to each parent
+        const childrenMap = {
+            'content_processing': ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation', 'database_sync']
+        };
+        
+        const children = childrenMap[parentPhaseId];
+        if (!children) return;
+        
+        // Check if all children are completed or skipped
+        const allChildrenComplete = children.every(childId => {
+            const childPhase = this.phases[childId];
+            if (!childPhase) return true; // If child doesn't exist, consider it complete
+            
+            const status = childPhase.statusElement.dataset.status;
+            return ['completed', 'skipped'].includes(status);
+        });
+        
+        if (allChildrenComplete) {
+            const parentPhase = this.phases[parentPhaseId];
+            parentPhase.statusElement.textContent = 'Completed';
+            parentPhase.statusElement.dataset.status = 'completed';
+        }
     }
 
     resetAllPhases() {

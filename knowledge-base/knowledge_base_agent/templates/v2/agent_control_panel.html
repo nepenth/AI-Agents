@@ -27,6 +27,11 @@
                 <button id="toggle-preferences-btn" class="glass-button glass-button--ghost">
                     <i class="fas fa-chevron-down" id="toggle-preferences-icon"></i> Preferences
                 </button>
+                
+                <!-- Utility Dropdown -->
+                <button id="toggle-utilities-btn" class="glass-button glass-button--ghost">
+                    <i class="fas fa-chevron-down" id="toggle-utilities-icon"></i> Utilities
+                </button>
             </div>
         </div>
 
@@ -111,6 +116,75 @@
                 <div style="margin-top: var(--space-2);">
                     <small style="color: var(--text-secondary); font-style: italic;">
                         Force options modify the selected run mode to reprocess specific phases
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Utilities Section -->
+        <div id="collapsible-utilities" class="utilities-collapsible collapsed" style="overflow: hidden; transition: all 0.3s ease;">
+            <!-- Celery Management -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Celery Task Management</h4>
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="clear-celery-queue-btn" class="glass-button glass-button--warning">
+                        <i class="fas fa-broom"></i> Clear Task Queue
+                    </button>
+                    <button id="purge-celery-tasks-btn" class="glass-button glass-button--danger">
+                        <i class="fas fa-trash-alt"></i> Purge All Tasks
+                    </button>
+                    <button id="restart-celery-workers-btn" class="glass-button glass-button--secondary">
+                        <i class="fas fa-sync-alt"></i> Restart Workers
+                    </button>
+                    <button id="celery-status-btn" class="glass-button glass-button--ghost">
+                        <i class="fas fa-info-circle"></i> Worker Status
+                    </button>
+                </div>
+                <div style="margin-top: var(--space-2);">
+                    <small style="color: var(--text-secondary); font-style: italic;">
+                        Manage Celery task queue and worker processes
+                    </small>
+                </div>
+            </div>
+
+            <!-- System Utilities -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">System Utilities</h4>
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="clear-redis-cache-btn" class="glass-button glass-button--warning">
+                        <i class="fas fa-database"></i> Clear Redis Cache
+                    </button>
+                    <button id="cleanup-temp-files-btn" class="glass-button glass-button--secondary">
+                        <i class="fas fa-file-alt"></i> Cleanup Temp Files
+                    </button>
+                    <button id="system-health-check-btn" class="glass-button glass-button--ghost">
+                        <i class="fas fa-heartbeat"></i> Health Check
+                    </button>
+                </div>
+                <div style="margin-top: var(--space-2);">
+                    <small style="color: var(--text-secondary); font-style: italic;">
+                        System maintenance and diagnostic utilities
+                    </small>
+                </div>
+            </div>
+
+            <!-- Debug Tools -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Debug Tools</h4>
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="export-logs-btn" class="glass-button glass-button--ghost">
+                        <i class="fas fa-download"></i> Export Logs
+                    </button>
+                    <button id="test-connections-btn" class="glass-button glass-button--ghost">
+                        <i class="fas fa-plug"></i> Test Connections
+                    </button>
+                    <button id="debug-info-btn" class="glass-button glass-button--ghost">
+                        <i class="fas fa-bug"></i> Debug Info
+                    </button>
+                </div>
+                <div style="margin-top: var(--space-2);">
+                    <small style="color: var(--text-secondary); font-style: italic;">
+                        Development and debugging utilities
                     </small>
                 </div>
             </div>

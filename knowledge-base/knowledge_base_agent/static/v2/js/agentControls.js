@@ -20,6 +20,11 @@ class AgentControlManager {
         this.preferencesSection = document.getElementById('collapsible-preferences');
         this.toggleIcon = document.getElementById('toggle-preferences-icon');
         
+        // Collapsible utilities elements
+        this.toggleUtilitiesBtn = document.getElementById('toggle-utilities-btn');
+        this.utilitiesSection = document.getElementById('collapsible-utilities');
+        this.utilitiesIcon = document.getElementById('toggle-utilities-icon');
+        
         // Get all preference buttons
         this.prefButtons = document.querySelectorAll('[data-pref]');
         this.modeButtons = document.querySelectorAll('[data-mode="true"]');
@@ -71,10 +76,16 @@ class AgentControlManager {
         // Toggle preferences button
         this.togglePreferencesBtn?.addEventListener('click', () => this.togglePreferences());
         
+        // Toggle utilities button
+        this.toggleUtilitiesBtn?.addEventListener('click', () => this.toggleUtilities());
+        
         // Preference buttons
         this.prefButtons.forEach(button => {
             button.addEventListener('click', (e) => this.handlePrefButtonClick(e));
         });
+        
+        // Utility buttons
+        this.attachUtilityEventListeners();
     }
 
     setupEventListeners() {
@@ -536,6 +547,273 @@ class AgentControlManager {
     showNotification(message, type) {
         console.log(`[${type.toUpperCase()}] ${message}`);
         // You can implement actual notification UI here if needed
+    }
+
+    // === UTILITY DROPDOWN FUNCTIONALITY ===
+
+    toggleUtilities() {
+        const isCollapsed = this.utilitiesSection?.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // Expand
+            this.utilitiesSection.classList.remove('collapsed');
+            this.utilitiesIcon?.classList.add('rotated');
+        } else {
+            // Collapse
+            this.utilitiesSection?.classList.add('collapsed');
+            this.utilitiesIcon?.classList.remove('rotated');
+        }
+        
+        console.log(`🔧 Utilities ${isCollapsed ? 'expanded' : 'collapsed'}`);
+    }
+
+    attachUtilityEventListeners() {
+        // Celery Management
+        document.getElementById('clear-celery-queue-btn')?.addEventListener('click', () => this.clearCeleryQueue());
+        document.getElementById('purge-celery-tasks-btn')?.addEventListener('click', () => this.purgeCeleryTasks());
+        document.getElementById('restart-celery-workers-btn')?.addEventListener('click', () => this.restartCeleryWorkers());
+        document.getElementById('celery-status-btn')?.addEventListener('click', () => this.getCeleryStatus());
+
+        // System Utilities
+        document.getElementById('clear-redis-cache-btn')?.addEventListener('click', () => this.clearRedisCache());
+        document.getElementById('cleanup-temp-files-btn')?.addEventListener('click', () => this.cleanupTempFiles());
+        document.getElementById('system-health-check-btn')?.addEventListener('click', () => this.systemHealthCheck());
+
+        // Debug Tools
+        document.getElementById('export-logs-btn')?.addEventListener('click', () => this.exportLogs());
+        document.getElementById('test-connections-btn')?.addEventListener('click', () => this.testConnections());
+        document.getElementById('debug-info-btn')?.addEventListener('click', () => this.getDebugInfo());
+    }
+
+    // === CELERY MANAGEMENT UTILITIES ===
+
+    async clearCeleryQueue() {
+        if (!confirm('Are you sure you want to clear the Celery task queue? This will remove all pending tasks.')) {
+            return;
+        }
+
+        try {
+            this.showInfo('Clearing Celery task queue...');
+            const result = await this.api.request('/utilities/celery/clear-queue', { method: 'POST' });
+            
+            if (result.success) {
+                this.showSuccess(`Queue cleared: ${result.message}`);
+            } else {
+                throw new Error(result.error || 'Failed to clear queue');
+            }
+        } catch (error) {
+            console.error('Failed to clear Celery queue:', error);
+            this.showError(`Failed to clear queue: ${error.message}`);
+        }
+    }
+
+    async purgeCeleryTasks() {
+        if (!confirm('Are you sure you want to purge ALL Celery tasks? This will remove all pending, active, and reserved tasks. This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            this.showInfo('Purging all Celery tasks...');
+            const result = await this.api.request('/utilities/celery/purge-all', { method: 'POST' });
+            
+            if (result.success) {
+                this.showSuccess(`Tasks purged: ${result.message}`);
+            } else {
+                throw new Error(result.error || 'Failed to purge tasks');
+            }
+        } catch (error) {
+            console.error('Failed to purge Celery tasks:', error);
+            this.showError(`Failed to purge tasks: ${error.message}`);
+        }
+    }
+
+    async restartCeleryWorkers() {
+        if (!confirm('Are you sure you want to restart Celery workers? This will interrupt any running tasks.')) {
+            return;
+        }
+
+        try {
+            this.showInfo('Restarting Celery workers...');
+            const result = await this.api.request('/utilities/celery/restart-workers', { method: 'POST' });
+            
+            if (result.success) {
+                this.showSuccess(`Workers restarted: ${result.message}`);
+            } else {
+                throw new Error(result.error || 'Failed to restart workers');
+            }
+        } catch (error) {
+            console.error('Failed to restart Celery workers:', error);
+            this.showError(`Failed to restart workers: ${error.message}`);
+        }
+    }
+
+    async getCeleryStatus() {
+        try {
+            this.showInfo('Getting Celery worker status...');
+            const result = await this.api.request('/utilities/celery/status');
+            
+            if (result.success) {
+                const status = result.data;
+                let message = `Workers: ${status.active_workers || 0} active, ${status.total_workers || 0} total\n`;
+                message += `Tasks: ${status.active_tasks || 0} active, ${status.pending_tasks || 0} pending`;
+                
+                alert(`Celery Status:\n\n${message}`);
+                this.showSuccess('Celery status retrieved');
+            } else {
+                throw new Error(result.error || 'Failed to get status');
+            }
+        } catch (error) {
+            console.error('Failed to get Celery status:', error);
+            this.showError(`Failed to get status: ${error.message}`);
+        }
+    }
+
+    // === SYSTEM UTILITIES ===
+
+    async clearRedisCache() {
+        if (!confirm('Are you sure you want to clear the Redis cache? This will remove all cached data.')) {
+            return;
+        }
+
+        try {
+            this.showInfo('Clearing Redis cache...');
+            const result = await this.api.request('/utilities/system/clear-redis', { method: 'POST' });
+            
+            if (result.success) {
+                this.showSuccess(`Redis cache cleared: ${result.message}`);
+            } else {
+                throw new Error(result.error || 'Failed to clear cache');
+            }
+        } catch (error) {
+            console.error('Failed to clear Redis cache:', error);
+            this.showError(`Failed to clear cache: ${error.message}`);
+        }
+    }
+
+    async cleanupTempFiles() {
+        if (!confirm('Are you sure you want to cleanup temporary files? This will remove temporary processing files.')) {
+            return;
+        }
+
+        try {
+            this.showInfo('Cleaning up temporary files...');
+            const result = await this.api.request('/utilities/system/cleanup-temp', { method: 'POST' });
+            
+            if (result.success) {
+                this.showSuccess(`Cleanup completed: ${result.message}`);
+            } else {
+                throw new Error(result.error || 'Failed to cleanup files');
+            }
+        } catch (error) {
+            console.error('Failed to cleanup temp files:', error);
+            this.showError(`Failed to cleanup: ${error.message}`);
+        }
+    }
+
+    async systemHealthCheck() {
+        try {
+            this.showInfo('Running system health check...');
+            const result = await this.api.request('/utilities/system/health-check');
+            
+            if (result.success) {
+                const health = result.data;
+                let message = `System Health Check:\n\n`;
+                message += `Redis: ${health.redis ? '✅ Connected' : '❌ Disconnected'}\n`;
+                message += `Database: ${health.database ? '✅ Connected' : '❌ Disconnected'}\n`;
+                message += `Celery: ${health.celery ? '✅ Running' : '❌ Not Running'}\n`;
+                message += `Disk Space: ${health.disk_space || 'Unknown'}\n`;
+                message += `Memory Usage: ${health.memory_usage || 'Unknown'}`;
+                
+                alert(message);
+                this.showSuccess('Health check completed');
+            } else {
+                throw new Error(result.error || 'Failed to run health check');
+            }
+        } catch (error) {
+            console.error('Failed to run health check:', error);
+            this.showError(`Health check failed: ${error.message}`);
+        }
+    }
+
+    // === DEBUG TOOLS ===
+
+    async exportLogs() {
+        try {
+            this.showInfo('Exporting logs...');
+            const result = await this.api.request('/utilities/debug/export-logs');
+            
+            if (result.success) {
+                // Create download link
+                const blob = new Blob([result.data], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `knowledge-base-logs-${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                this.showSuccess('Logs exported successfully');
+            } else {
+                throw new Error(result.error || 'Failed to export logs');
+            }
+        } catch (error) {
+            console.error('Failed to export logs:', error);
+            this.showError(`Failed to export logs: ${error.message}`);
+        }
+    }
+
+    async testConnections() {
+        try {
+            this.showInfo('Testing connections...');
+            const result = await this.api.request('/utilities/debug/test-connections');
+            
+            if (result.success) {
+                const tests = result.data;
+                let message = `Connection Tests:\n\n`;
+                
+                Object.entries(tests).forEach(([service, status]) => {
+                    message += `${service}: ${status.connected ? '✅ Connected' : '❌ Failed'}\n`;
+                    if (status.error) {
+                        message += `  Error: ${status.error}\n`;
+                    }
+                });
+                
+                alert(message);
+                this.showSuccess('Connection tests completed');
+            } else {
+                throw new Error(result.error || 'Failed to test connections');
+            }
+        } catch (error) {
+            console.error('Failed to test connections:', error);
+            this.showError(`Connection tests failed: ${error.message}`);
+        }
+    }
+
+    async getDebugInfo() {
+        try {
+            this.showInfo('Gathering debug information...');
+            const result = await this.api.request('/utilities/debug/info');
+            
+            if (result.success) {
+                const info = result.data;
+                let message = `Debug Information:\n\n`;
+                message += `Version: ${info.version || 'Unknown'}\n`;
+                message += `Python: ${info.python_version || 'Unknown'}\n`;
+                message += `Platform: ${info.platform || 'Unknown'}\n`;
+                message += `Uptime: ${info.uptime || 'Unknown'}\n`;
+                message += `Active Tasks: ${info.active_tasks || 0}\n`;
+                message += `Memory Usage: ${info.memory_usage || 'Unknown'}\n`;
+                message += `CPU Usage: ${info.cpu_usage || 'Unknown'}`;
+                
+                alert(message);
+                this.showSuccess('Debug info retrieved');
+            } else {
+                throw new Error(result.error || 'Failed to get debug info');
+            }
+        } catch (error) {
+            console.error('Failed to get debug info:', error);
+            this.showError(`Failed to get debug info: ${error.message}`);
+        }
     }
 }
 

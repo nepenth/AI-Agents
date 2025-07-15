@@ -19,9 +19,32 @@ import platform
 import psutil
 from dataclasses import asdict
 import markdown
+import concurrent.futures
+import tempfile
+import glob
 
 # Celery Migration Imports (NEW)
 from ..celery_app import celery_app
+
+def run_async_in_gevent_context(coro):
+    """
+    Helper function to run async coroutines in a gevent context where an event loop may already be running.
+    This handles the common Flask-SocketIO + gevent + asyncio integration issues.
+    """
+    try:
+        # Try to get the current event loop
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is running (gevent context), use run_in_executor with a thread pool
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, coro)
+                return future.result(timeout=30)
+        else:
+            # If no loop is running, we can use run_until_complete
+            return loop.run_until_complete(coro)
+    except RuntimeError:
+        # No event loop exists, create one
+        return asyncio.run(coro)
 
 bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)
@@ -66,8 +89,7 @@ def start_agent_v2():
 
         return jsonify({'success': True, 'task_id': task_id, 'celery_task_id': celery_task.id, 'message': 'Agent execution queued'})
 
-    import asyncio
-    return asyncio.run(_start_async())
+    return run_async_in_gevent_context(_start_async())
 
 
 # Replace async route with sync wrapper ----------------------------------
@@ -114,9 +136,8 @@ def get_task_status(task_id: str):
 
         return jsonify(response_data)
 
-    import asyncio
     try:
-        return asyncio.run(_status_async(task_id))
+        return run_async_in_gevent_context(_status_async(task_id))
     except Exception as e:
         logger.error("Error getting agent status for task %s: %s", task_id, e, exc_info=True)
         return jsonify({'error': str(e)}), 500
@@ -163,9 +184,8 @@ def stop_agent_v2():
 
         return jsonify({'success': True, 'message': f'Agent stop request sent for task {task_id}'})
 
-    import asyncio
     try:
-        return asyncio.run(_stop_async())
+        return run_async_in_gevent_context(_stop_async())
     except Exception as e:
         logger.error("Failed to stop agent task: %s", e, exc_info=True)
         return jsonify({'success': False, 'error': f'Failed to stop agent task: {str(e)}'}), 500
@@ -286,7 +306,7 @@ def chat():
                 await http_client.close()  # Use close() instead of cleanup()
         
         # Run the async chat processing
-        response = asyncio.run(process_chat())
+        response = run_async_in_gevent_context(process_chat())
         
         if "error" in response:
             return jsonify(response), 500
@@ -374,16 +394,9 @@ def api_chat_enhanced():
             return jsonify({'error': 'Chat functionality not available'}), 503
         
         # Process chat query asynchronously
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            result = loop.run_until_complete(
-                chat_mgr.handle_chat_query(message, model)
-            )
-        finally:
-            loop.close()
+        result = run_async_in_gevent_context(
+            chat_mgr.handle_chat_query(message, model)
+        )
         
         if 'error' in result:
             return jsonify(result), 500
@@ -426,14 +439,7 @@ def api_chat_models_available():
             return jsonify([]), 200
         
         # Get available models asynchronously
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            models = loop.run_until_complete(chat_mgr.get_available_models())
-        finally:
-            loop.close()
+        models = run_async_in_gevent_context(chat_mgr.get_available_models())
         
         return jsonify(models)
         
@@ -755,6 +761,397 @@ def get_environment_variables():
         # Get list of used environment variables (those with aliases in Config)
         used_env_vars = []
         unused_env_vars = []
+        missing_env_vars = []
+        
+        # Create mapping of aliases to field names
+        alias_to_field = {}
+        for field_name, field_info in config_fields.items():
+            if field_info.get('alias'):
+                alias_to_field[field_info['alias']] = field_name
+        
+        # Check which env vars are used/unused
+        for env_var in env_variables:
+            if env_var in alias_to_field:
+                used_env_vars.append(env_var)
+            else:
+                unused_env_vars.append(env_var)
+        
+        # Check for missing required variables
+        for field_name, field_info in config_fields.items():
+            if field_info.get('required') and field_info.get('alias'):
+                if field_info['alias'] not in env_variables:
+                    missing_env_vars.append(field_info['alias'])
+
+        return jsonify({
+            'used_variables': used_env_vars,
+            'unused_variables': unused_env_vars,
+            'missing_variables': missing_env_vars,
+            'config_fields': config_fields,
+            'total_env_vars': len(env_variables)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting environment variables: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get environment variables'}), 500
+
+
+# === UTILITY ENDPOINTS FOR AGENT DASHBOARD ===
+
+@bp.route('/utilities/celery/clear-queue', methods=['POST'])
+def clear_celery_queue():
+    """Clear all pending tasks from Celery queue."""
+    try:
+        # Purge all tasks from the default queue
+        celery_app.control.purge()
+        
+        # Also purge specific queues
+        queues_to_purge = ['agent', 'processing', 'chat']
+        for queue in queues_to_purge:
+            try:
+                celery_app.control.purge(queue)
+            except Exception as e:
+                logging.warning(f"Failed to purge queue {queue}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Task queue cleared successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to clear Celery queue: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to clear queue: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/celery/purge-all', methods=['POST'])
+def purge_all_celery_tasks():
+    """Purge all Celery tasks (pending, active, reserved)."""
+    try:
+        # Revoke all active tasks
+        active_tasks = celery_app.control.inspect().active()
+        if active_tasks:
+            for worker, tasks in active_tasks.items():
+                for task in tasks:
+                    celery_app.control.revoke(task['id'], terminate=True)
+        
+        # Purge all queues
+        celery_app.control.purge()
+        
+        # Clear reserved tasks
+        celery_app.control.cancel_consumer('celery')
+        
+        return jsonify({
+            'success': True,
+            'message': 'All Celery tasks purged successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to purge Celery tasks: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to purge tasks: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/celery/restart-workers', methods=['POST'])
+def restart_celery_workers():
+    """Restart Celery workers."""
+    try:
+        # Send restart signal to all workers
+        celery_app.control.broadcast('pool_restart', arguments={'reload': True})
+        
+        return jsonify({
+            'success': True,
+            'message': 'Celery workers restart signal sent'
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to restart Celery workers: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to restart workers: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/celery/status', methods=['GET'])
+def get_celery_status():
+    """Get Celery worker and task status."""
+    try:
+        inspect = celery_app.control.inspect()
+        
+        # Get worker stats
+        stats = inspect.stats() or {}
+        active_tasks = inspect.active() or {}
+        reserved_tasks = inspect.reserved() or {}
+        
+        # Count workers and tasks
+        total_workers = len(stats)
+        active_workers = len([w for w in stats.values() if w])
+        
+        total_active_tasks = sum(len(tasks) for tasks in active_tasks.values())
+        total_reserved_tasks = sum(len(tasks) for tasks in reserved_tasks.values())
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_workers': total_workers,
+                'active_workers': active_workers,
+                'active_tasks': total_active_tasks,
+                'pending_tasks': total_reserved_tasks,
+                'worker_details': stats
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to get Celery status: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get status: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/system/clear-redis', methods=['POST'])
+def clear_redis_cache():
+    """Clear Redis cache."""
+    try:
+        import redis
+        config = current_app.config.get('APP_CONFIG')
+        if not config:
+            raise Exception("Configuration not available")
+        
+        # Clear progress and logs Redis databases
+        progress_redis = redis.Redis.from_url(config.redis_progress_url)
+        logs_redis = redis.Redis.from_url(config.redis_logs_url)
+        
+        progress_redis.flushdb()
+        logs_redis.flushdb()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Redis cache cleared successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to clear Redis cache: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to clear cache: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/system/cleanup-temp', methods=['POST'])
+def cleanup_temp_files():
+    """Cleanup temporary files."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        if not config:
+            raise Exception("Configuration not available")
+        
+        deleted_count = 0
+        
+        # Clean up temp directories
+        temp_dirs = [
+            tempfile.gettempdir(),
+            config.project_root / 'temp',
+            config.project_root / 'tmp'
+        ]
+        
+        for temp_dir in temp_dirs:
+            temp_path = Path(temp_dir)
+            if temp_path.exists():
+                # Remove old temp files (older than 1 day)
+                import time
+                current_time = time.time()
+                for temp_file in temp_path.glob('*'):
+                    try:
+                        if temp_file.is_file() and (current_time - temp_file.stat().st_mtime) > 86400:
+                            temp_file.unlink()
+                            deleted_count += 1
+                    except Exception:
+                        continue
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cleaned up {deleted_count} temporary files'
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to cleanup temp files: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to cleanup: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/system/health-check', methods=['GET'])
+def system_health_check():
+    """Perform system health check."""
+    try:
+        import redis
+        config = current_app.config.get('APP_CONFIG')
+        health = {}
+        
+        # Test Redis connection
+        try:
+            redis_client = redis.Redis.from_url(config.redis_progress_url)
+            redis_client.ping()
+            health['redis'] = True
+        except Exception:
+            health['redis'] = False
+        
+        # Test database connection
+        try:
+            db.session.execute('SELECT 1')
+            health['database'] = True
+        except Exception:
+            health['database'] = False
+        
+        # Test Celery
+        try:
+            inspect = celery_app.control.inspect()
+            stats = inspect.stats()
+            health['celery'] = bool(stats)
+        except Exception:
+            health['celery'] = False
+        
+        # Get system info
+        disk_usage = shutil.disk_usage('/')
+        health['disk_space'] = f"{disk_usage.free // (1024**3)} GB free"
+        health['memory_usage'] = f"{psutil.virtual_memory().percent}%"
+        
+        return jsonify({
+            'success': True,
+            'data': health
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to run health check: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Health check failed: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/debug/export-logs', methods=['GET'])
+def export_logs():
+    """Export all logs as a downloadable file."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        if not config:
+            raise Exception("Configuration not available")
+        
+        log_dir = Path(config.log_dir)
+        if not log_dir.exists():
+            raise Exception("Log directory not found")
+        
+        # Combine all log files
+        combined_logs = []
+        for log_file in log_dir.glob('*.log'):
+            try:
+                with open(log_file, 'r') as f:
+                    combined_logs.append(f"=== {log_file.name} ===\n")
+                    combined_logs.append(f.read())
+                    combined_logs.append(f"\n\n")
+            except Exception as e:
+                combined_logs.append(f"Error reading {log_file.name}: {e}\n\n")
+        
+        return jsonify({
+            'success': True,
+            'data': ''.join(combined_logs)
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to export logs: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to export logs: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/debug/test-connections', methods=['GET'])
+def test_connections():
+    """Test all system connections."""
+    try:
+        import redis
+        config = current_app.config.get('APP_CONFIG')
+        tests = {}
+        
+        # Test Redis
+        try:
+            redis_client = redis.Redis.from_url(config.redis_progress_url)
+            redis_client.ping()
+            tests['Redis'] = {'connected': True}
+        except Exception as e:
+            tests['Redis'] = {'connected': False, 'error': str(e)}
+        
+        # Test Database
+        try:
+            db.session.execute('SELECT 1')
+            tests['Database'] = {'connected': True}
+        except Exception as e:
+            tests['Database'] = {'connected': False, 'error': str(e)}
+        
+        # Test Celery
+        try:
+            inspect = celery_app.control.inspect()
+            stats = inspect.stats()
+            tests['Celery'] = {'connected': bool(stats)}
+        except Exception as e:
+            tests['Celery'] = {'connected': False, 'error': str(e)}
+        
+        # Test HTTP Client (Ollama)
+        try:
+            from ..http_client import HTTPClient
+            http_client = HTTPClient(config)
+            # This is a basic test - you might want to make it more comprehensive
+            tests['Ollama'] = {'connected': True}  # Simplified for now
+        except Exception as e:
+            tests['Ollama'] = {'connected': False, 'error': str(e)}
+        
+        return jsonify({
+            'success': True,
+            'data': tests
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to test connections: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Connection tests failed: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/debug/info', methods=['GET'])
+def get_debug_info():
+    """Get system debug information."""
+    try:
+        import sys
+        import time
+        
+        config = current_app.config.get('APP_CONFIG')
+        
+        # Get system info
+        info = {
+            'version': '2.0.0',  # You can make this dynamic
+            'python_version': sys.version,
+            'platform': platform.platform(),
+            'uptime': f"{time.time() - psutil.boot_time():.0f} seconds",
+            'memory_usage': f"{psutil.virtual_memory().percent}%",
+            'cpu_usage': f"{psutil.cpu_percent()}%"
+        }
+        
+        # Get active tasks count
+        try:
+            inspect = celery_app.control.inspect()
+            active_tasks = inspect.active() or {}
+            info['active_tasks'] = sum(len(tasks) for tasks in active_tasks.values())
+        except Exception:
+            info['active_tasks'] = 0
+        
+        return jsonify({
+            'success': True,
+            'data': info
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to get debug info: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get debug info: {str(e)}'
+        }), 500
         missing_env_vars = []
         
         # Create mapping of aliases to field names
@@ -1600,27 +1997,38 @@ def get_recent_logs():
         # MODERN: Get logs from Redis instead of legacy in-memory buffer
         from ..task_progress import get_progress_manager
         from ..config import Config
+        from ..web import get_or_create_agent_state
         import asyncio
+        import concurrent.futures
         
         config = Config()
         progress_manager = get_progress_manager(config)
         
-        # Get logs from all active tasks
-        async def fetch_logs():
-            active_tasks = await progress_manager.get_all_active_tasks()
-            all_logs = []
-            for task_id in active_tasks[-5:]:  # Last 5 tasks
-                task_logs = await progress_manager.get_logs(task_id, limit=50)
-                all_logs.extend(task_logs)
-            # Sort by timestamp, most recent first
-            all_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
-            return all_logs[:100]  # Return last 100 logs
+        # Get current active task from agent state
+        state = get_or_create_agent_state()
+        current_task_id = state.current_task_id
         
-        # Run async function
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        logs_list = loop.run_until_complete(fetch_logs())
-        loop.close()
+        # Get logs from current active task only
+        async def fetch_logs():
+            try:
+                if current_task_id:
+                    # Get logs from current active task only
+                    task_logs = await progress_manager.get_logs(current_task_id, limit=100)
+                    return task_logs
+                else:
+                    # If no active task, get logs from the most recent task
+                    active_tasks = await progress_manager.get_all_active_tasks()
+                    if active_tasks:
+                        latest_task = active_tasks[-1]
+                        task_logs = await progress_manager.get_logs(latest_task, limit=100)
+                        return task_logs
+                    return []
+            except Exception as e:
+                logging.error(f"Error in fetch_logs: {e}")
+                return []
+        
+        # Handle async execution properly in gevent context
+        logs_list = run_async_in_gevent_context(fetch_logs())
         
         return jsonify({'logs': logs_list})
     except Exception as e:

@@ -61,14 +61,12 @@ class EmbeddingManager:
                 store_path = Path(self.vector_store_path)
                 store_path.mkdir(parents=True, exist_ok=True)
             
-                # Initialize Chroma client without embedding function (we'll provide our own embeddings)
-                settings = Settings(
-                    chroma_db_impl="duckdb+parquet",
-                    persist_directory=str(store_path),
-                    anonymized_telemetry=False
+                # Initialize Chroma client using the new configuration method
+                # This fixes the deprecation warning about old configuration
+                self.chroma_client = chromadb.PersistentClient(
+                    path=str(store_path),
+                    settings=Settings(anonymized_telemetry=False)
                 )
-                
-                self.chroma_client = chromadb.Client(settings)
                 
                 # Get or create collection without embedding function
                 try:
