@@ -1,0 +1,669 @@
+/* LAYOUT REFINEMENT CSS - OPTIMIZED DASHBOARD LAYOUT */
+/* Ensures consistency with existing v2.css variables and styling patterns */
+
+/* === CSS VARIABLE CONSISTENCY === */
+:root {
+    /* Ensure consistency with existing variables */
+    --glass-bg-primary: var(--glass-bg, rgba(255, 255, 255, 0.05));
+    --glass-bg-secondary: var(--glass-bg-hover, rgba(255, 255, 255, 0.08));
+    --glass-bg-tertiary: rgba(255, 255, 255, 0.03);
+    --glass-border-primary: var(--glass-border, rgba(255, 255, 255, 0.1));
+    --glass-border-secondary: rgba(255, 255, 255, 0.06);
+    
+    /* Text colors */
+    --text-primary: var(--text-color-primary, #ffffff);
+    --text-secondary: var(--text-color-secondary, rgba(255, 255, 255, 0.8));
+    --text-tertiary: var(--text-muted, rgba(255, 255, 255, 0.6));
+    
+    /* Status colors */
+    --success-green: var(--accent-green, #10b981);
+    --warning-yellow: var(--accent-orange, #f59e0b);
+    --error-red: var(--accent-red, #ef4444);
+    --primary-blue: var(--primary-blue, #3b82f6);
+    --primary-blue-dark: #2563eb;
+    
+    /* Gradients */
+    --gradient-primary: var(--gradient-primary, linear-gradient(135deg, var(--primary-blue), var(--primary-purple)));
+    
+    /* Spacing and layout */
+    --radius-sm: var(--border-radius-sm, 12px);
+    --radius-base: var(--border-radius, 16px);
+    --radius-lg: var(--border-radius-lg, 20px);
+    
+    /* Animation */
+    --duration-fast: var(--transition-fast, 0.15s);
+    --duration-normal: var(--transition-normal, 0.3s);
+    --ease-smooth: ease;
+    
+    /* Font sizes */
+    --font-size-xs: 0.75rem;
+    --font-size-sm: var(--font-size-sm, 0.875rem);
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    
+    /* Font families */
+    --font-mono: var(--font-mono, 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace);
+}
+
+/* === LAYOUT STRUCTURE === */
+
+.dashboard-container {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* Main layout areas */
+.dashboard-header {
+    grid-column: 1 / -1;
+    margin-bottom: var(--space-4);
+}
+
+.dashboard-main-area {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--space-4);
+}
+
+/* Panel layouts */
+.panel-full {
+    grid-column: 1 / -1;
+}
+
+.panel-half {
+    grid-column: span 6;
+}
+
+.panel-third {
+    grid-column: span 4;
+}
+
+.panel-quarter {
+    grid-column: span 3;
+}
+
+.panel-two-thirds {
+    grid-column: span 8;
+}
+
+/* === STANDARDIZED PANEL STYLING === */
+
+.dashboard-panel {
+    background: var(--glass-bg-primary);
+    border: 1px solid var(--glass-border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    transition: all var(--duration-normal) var(--ease-smooth);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: var(--glass-bg-secondary);
+    border-bottom: 1px solid var(--glass-border-secondary);
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.panel-header h3 i {
+    color: var(--primary-blue);
+}
+
+.panel-controls {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.panel-control-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.panel-control-btn:hover {
+    color: var(--text-secondary);
+    background: var(--glass-bg-tertiary);
+}
+
+.panel-content {
+    padding: var(--space-4);
+    overflow: auto;
+    flex: 1;
+}
+
+/* Panel states */
+.panel-collapsed .panel-content {
+    display: none;
+}
+
+.panel-collapsed .panel-header {
+    border-bottom: none;
+}
+
+/* === COMPONENT-SPECIFIC FIXES === */
+
+/* Execution Plan fixes */
+#execution-plan-container {
+    height: 100%;
+    min-height: 300px;
+    overflow: auto;
+}
+
+/* Phase Display Integration */
+.phase-item {
+    position: relative;
+}
+
+.phase-progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--glass-bg-tertiary);
+    border-radius: 0 0 var(--radius-base) var(--radius-base);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity var(--duration-normal) var(--ease-smooth);
+}
+
+.phase-progress-bar:not([style*="display: none"]) {
+    opacity: 1;
+}
+
+.phase-progress-bar .progress-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    width: 0%;
+    transition: width var(--duration-normal) var(--ease-smooth);
+}
+
+.phase-progress-bar .progress-text {
+    position: absolute;
+    top: -20px;
+    right: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    background: var(--glass-bg-primary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border-secondary);
+}
+
+/* Live Logs fixes */
+#logs-container {
+    height: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: var(--space-3);
+    background: var(--glass-bg-tertiary);
+    border-radius: var(--radius-lg);
+    font-family: var(--font-mono, 'Courier New', monospace);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+}
+
+.log-message {
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin: 0;
+    word-wrap: break-word;
+    transition: none !important;
+    transform: none !important;
+}
+
+.log-message:hover {
+    background: none !important;
+    transform: none !important;
+    scale: none !important;
+}
+
+.log-message:last-child {
+    border-bottom: none;
+}
+
+.log-time {
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
+    margin-right: var(--space-2);
+    font-weight: 500;
+}
+
+.log-content {
+    color: var(--text-primary);
+}
+
+.log-message[data-level="ERROR"] .log-content {
+    color: var(--error-red);
+}
+
+.log-message[data-level="WARNING"] .log-content {
+    color: var(--warning-yellow);
+}
+
+.log-message[data-level="CRITICAL"] .log-content {
+    color: var(--error-red);
+    font-weight: 600;
+}
+
+.log-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+/* Logs panel content layout */
+.logs-panel-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.logs-panel-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--space-3);
+    flex-shrink: 0;
+}
+
+#agent-status-footer {
+    flex-shrink: 0;
+    padding: var(--space-3);
+    border-top: 1px solid var(--glass-border-primary);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    border-radius: var(--radius-lg);
+    margin-top: var(--space-2);
+    background: var(--glass-bg-secondary);
+}
+
+#agent-phase-progress {
+    margin-top: var(--space-3);
+}
+
+#phase-progress-bar {
+    background: var(--gradient-primary);
+    height: 100%;
+    width: 0%;
+    transition: width var(--duration-normal) var(--ease-smooth);
+    border-radius: var(--radius-sm);
+}
+
+/* Progress Display Integration */
+.integrated-progress {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--glass-border-secondary);
+}
+
+.progress-overlay {
+    background: var(--glass-bg-secondary);
+    border-top: 1px solid var(--glass-border-secondary);
+    backdrop-filter: blur(5px);
+}
+
+.progress-overlay-minimal {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.progress-item {
+    margin-bottom: var(--space-2);
+    padding: var(--space-2);
+    background: var(--glass-bg-tertiary);
+    border-radius: var(--radius-base);
+    border: 1px solid var(--glass-border-secondary);
+    transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.progress-item:hover {
+    background: var(--glass-bg-secondary);
+    border-color: var(--glass-border-primary);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-1);
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex: 1;
+}
+
+.progress-title {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.progress-percentage {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.progress-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.progress-etc {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    background: var(--glass-bg-primary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border-secondary);
+}
+
+.progress-hide-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.progress-hide-btn:hover {
+    color: var(--text-secondary);
+    background: var(--glass-bg-primary);
+}
+
+.progress-bar-container {
+    height: 4px;
+    background: var(--glass-bg-tertiary);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: var(--space-1);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    transition: width var(--duration-normal) var(--ease-smooth);
+    border-radius: var(--radius-sm);
+}
+
+.progress-bar-fill.progress-low {
+    background: var(--error-red);
+}
+
+.progress-bar-fill.progress-medium {
+    background: var(--warning-yellow);
+}
+
+.progress-bar-fill.progress-high {
+    background: var(--primary-blue);
+}
+
+.progress-bar-fill.progress-complete {
+    background: var(--success-green);
+}
+
+.progress-message {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    margin: 0;
+}
+
+.progress-status-completed {
+    opacity: 0.7;
+}
+
+.progress-status-error {
+    border-color: var(--error-red);
+    background: rgba(var(--error-red-rgb), 0.05);
+}
+
+.progress-error .progress-bar-fill {
+    background: var(--error-red);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Task Display Integration */
+.task-switcher-compact {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.task-switcher-compact .glass-select {
+    min-width: 150px;
+    font-size: var(--font-size-sm);
+}
+
+.task-switcher-compact .glass-button {
+    padding: var(--space-1) var(--space-2);
+}
+
+.task-info-integrated {
+    background: var(--glass-bg-tertiary);
+    border-radius: var(--radius-base);
+    padding: var(--space-2);
+}
+
+.task-switcher-minimal {
+    animation: slideInRight 0.3s ease-out;
+}
+
+.task-info-modal {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Task status colors */
+.task-status-running {
+    color: var(--success-green);
+}
+
+.task-status-completed {
+    color: var(--primary-blue);
+}
+
+.task-status-error {
+    color: var(--error-red);
+}
+
+.task-status-cancelled {
+    color: var(--text-tertiary);
+}
+
+/* Notification System Layout Integration */
+.notification-container {
+    /* Ensure notifications don't interfere with layout */
+    pointer-events: none;
+}
+
+.notification {
+    /* Individual notifications can be interacted with */
+    pointer-events: auto;
+}
+
+/* Adjust notification positioning to avoid header conflicts */
+.notification-top-right {
+    top: calc(var(--header-height, 60px) + var(--space-4));
+    right: var(--space-4);
+}
+
+.notification-top-left {
+    top: calc(var(--header-height, 60px) + var(--space-4));
+    left: var(--space-4);
+}
+
+/* Ensure notifications work well with glass theme */
+.notification {
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border-primary);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* Mobile notification adjustments */
+@media (max-width: 767px) {
+    .notification-container {
+        left: var(--space-2);
+        right: var(--space-2);
+        max-width: none;
+    }
+    
+    .notification-top-right,
+    .notification-top-left {
+        top: calc(var(--header-height, 60px) + var(--space-2));
+    }
+    
+    .notification {
+        padding: var(--space-3);
+        margin-bottom: var(--space-2);
+    }
+}
+
+/* GPU Status fixes */
+.gpu-status-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-3);
+}
+
+/* === RESPONSIVE LAYOUT === */
+
+/* Tablet layout */
+@media (max-width: 1199px) {
+    .dashboard-main-area {
+        grid-template-columns: 1fr;
+        gap: var(--space-3);
+    }
+}
+
+/* Mobile layout */
+@media (max-width: 767px) {
+    .dashboard-container {
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+    
+    .dashboard-main-area {
+        gap: var(--space-3);
+    }
+    
+    .panel-header {
+        padding: var(--space-2) var(--space-3);
+    }
+    
+    .panel-content {
+        padding: var(--space-3);
+    }
+}
+
+/* === ANIMATION REFINEMENTS === */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.dashboard-panel {
+    animation: fadeIn var(--duration-normal) var(--ease-smooth);
+}
+
+.panel-content {
+    animation: slideIn var(--duration-normal) var(--ease-smooth);
+}
+
+/* === THEME CONSISTENCY FIXES === */
+
+/* Standardize glass effect */
+.glass-panel-v3,
+.glass-panel-v3--primary,
+.glass-panel-v3--secondary {
+    background: var(--glass-bg-primary);
+    border: 1px solid var(--glass-border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.glass-panel-v3--secondary {
+    background: var(--glass-bg-secondary);
+}
+
+/* Standardize buttons */
+.glass-button {
+    background: var(--glass-bg-secondary);
+    border: 1px solid var(--glass-border-secondary);
+    border-radius: var(--radius-base);
+    color: var(--text-primary);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.glass-button:hover {
+    background: var(--glass-bg-tertiary);
+    border-color: var(--glass-border-primary);
+}
+
+.glass-button--primary {
+    background: var(--primary-blue);
+    border-color: var(--primary-blue);
+    color: white;
+}
+
+.glass-button--primary:hover {
+    background: var(--primary-blue-dark);
+    border-color: var(--primary-blue-dark);
+}

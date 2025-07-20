@@ -1,0 +1,368 @@
+/* ===== MOBILE OPTIMIZATIONS FOR GLASS EFFECTS ===== */
+
+/* Mobile-specific glass morphism optimizations */
+@media (max-width: 768px) {
+  /* Reduce backdrop-filter complexity on mobile for better performance */
+  .glass-panel-v3 {
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
+  }
+  
+  .glass-panel-v3--secondary {
+    backdrop-filter: blur(6px) saturate(140%);
+    -webkit-backdrop-filter: blur(6px) saturate(140%);
+  }
+  
+  .glass-panel-v3--tertiary {
+    backdrop-filter: blur(4px) saturate(130%);
+    -webkit-backdrop-filter: blur(4px) saturate(130%);
+  }
+  
+  /* Optimize glass shadows for mobile */
+  .glass-panel-v3 {
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Reduce animation complexity on mobile */
+  .animate-glass-slide-in {
+    animation-duration: 0.3s;
+  }
+  
+  .animate-glass-fade-in {
+    animation-duration: 0.2s;
+  }
+  
+  /* Optimize liquid buttons for touch */
+  .liquid-button {
+    min-height: 44px; /* iOS touch target minimum */
+    min-width: 44px;
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  .liquid-button--sm {
+    min-height: 36px;
+    min-width: 36px;
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .liquid-button--lg {
+    min-height: 52px;
+    padding: var(--space-4) var(--space-6);
+  }
+  
+  /* Touch-friendly hover states */
+  .liquid-button:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+  }
+  
+  /* Optimize glass input fields for mobile */
+  .glass-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: var(--space-3) var(--space-4);
+    min-height: 44px;
+  }
+  
+  /* Mobile-specific layout adjustments */
+  .synthesis-nexus-container {
+    flex-direction: column;
+  }
+  
+  .synthesis-nexus-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+    resize: none;
+  }
+  
+  .nexus-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+  
+  /* Chat interface mobile optimizations */
+  .chat-container {
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .chat-messages-container {
+    padding: var(--space-3);
+  }
+  
+  .message {
+    max-width: 95%;
+  }
+  
+  .chat-input-container {
+    padding: var(--space-3);
+  }
+  
+  /* Agent dashboard mobile layout */
+  .dashboard-main-area {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  
+  .dashboard-panel {
+    width: 100%;
+  }
+  
+  /* GPU status mobile layout */
+  .gpu-cards-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  
+  /* Schedule interface mobile optimizations */
+  .schedule-table {
+    font-size: var(--font-size-sm);
+  }
+  
+  .schedule-table th,
+  .schedule-table td {
+    padding: var(--space-2);
+  }
+  
+  /* Modal optimizations for mobile */
+  .modal-content {
+    width: 95vw;
+    max-width: none;
+    margin: var(--space-4);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .modal-header {
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+  
+  /* Form optimizations for mobile */
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-group--full {
+    grid-column: 1;
+  }
+  
+  /* Navigation optimizations */
+  .liquid-nav {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .liquid-nav-item {
+    justify-content: flex-start;
+    padding: var(--space-4);
+  }
+  
+  .nav-text {
+    display: block;
+  }
+  
+  /* Sidebar mobile behavior */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--duration-normal) var(--ease-smooth);
+    position: fixed;
+    z-index: 1000;
+    height: 100vh;
+  }
+  
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  
+  /* Mobile overlay for sidebar */
+  .mobile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--duration-normal) var(--ease-smooth);
+  }
+  
+  .mobile-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* Tablet-specific optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .synthesis-nexus-sidebar {
+    width: 280px;
+  }
+  
+  .dashboard-main-area {
+    gap: var(--space-4);
+  }
+  
+  .gpu-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .overview-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* High-DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .glass-panel-v3 {
+    border-width: 0.5px;
+  }
+  
+  .liquid-button {
+    border-width: 0.5px;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover effects on touch devices */
+  .animate-lift-hover:hover {
+    transform: none;
+  }
+  
+  .glass-panel-v3:hover {
+    background: var(--glass-bg-primary);
+    border-color: var(--glass-border-primary);
+  }
+  
+  .liquid-button:hover {
+    background: var(--glass-bg-primary);
+    border-color: var(--glass-border-primary);
+  }
+  
+  /* Add touch-specific active states */
+  .liquid-button:active {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+    transform: scale(0.95);
+  }
+  
+  .glass-panel-v3:active {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+  }
+}
+
+/* Landscape mobile optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+  .chat-container {
+    height: 100vh;
+  }
+  
+  .synthesis-nexus-sidebar {
+    max-height: 30vh;
+  }
+  
+  .modal-content {
+    max-height: 85vh;
+  }
+}
+
+/* Performance optimizations for older mobile devices */
+@media (max-width: 480px) {
+  /* Further reduce glass effects on very small screens */
+  .glass-panel-v3 {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  
+  .glass-panel-v3--secondary {
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  
+  .glass-panel-v3--tertiary {
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  
+  /* Simplify animations */
+  .animate-glass-slide-in,
+  .animate-glass-fade-in,
+  .animate-lift-hover {
+    animation-duration: 0.2s;
+  }
+  
+  /* Reduce shadow complexity */
+  .glass-panel-v3 {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Optimize typography */
+  .nexus-title {
+    font-size: var(--font-size-lg);
+  }
+  
+  .welcome-title {
+    font-size: var(--font-size-xl);
+  }
+  
+  /* Simplify grid layouts */
+  .overview-metrics {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  
+  .nexus-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .glass-input {
+    -webkit-appearance: none;
+    border-radius: var(--radius-lg);
+  }
+  
+  .liquid-button {
+    -webkit-appearance: none;
+  }
+  
+  /* Fix viewport height issues */
+  .chat-container {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Android Chrome specific fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .glass-panel-v3 {
+    -webkit-backdrop-filter: blur(10px) saturate(180%);
+  }
+}
+
+/* Reduce motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-glass-slide-in,
+  .animate-glass-fade-in,
+  .animate-lift-hover,
+  .animate-shimmer-strong {
+    animation: none;
+  }
+  
+  .liquid-button:active {
+    transform: none;
+  }
+  
+  .glass-panel-v3,
+  .liquid-button {
+    transition: none;
+  }
+}

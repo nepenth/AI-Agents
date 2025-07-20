@@ -7,26 +7,26 @@
     --glass-border: rgba(255, 255, 255, 0.1);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.4);
-    
+
     /* Color Palette */
     --text-primary: #ffffff;
     --text-secondary: rgba(255, 255, 255, 0.8);
     --text-muted: rgba(255, 255, 255, 0.6);
     --text-disabled: rgba(255, 255, 255, 0.4);
-    
+
     --primary-blue: #3b82f6;
     --primary-purple: #8b5cf6;
     --accent-green: #10b981;
     --accent-orange: #f59e0b;
     --accent-red: #ef4444;
     --accent-cyan: #06b6d4;
-    
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
     --gradient-success: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
     --gradient-warning: linear-gradient(135deg, var(--accent-orange), #fb923c);
     --gradient-danger: linear-gradient(135deg, var(--accent-red), #f87171);
-    
+
     /* Spacing */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
@@ -36,31 +36,62 @@
     --space-6: 1.5rem;
     --space-8: 2rem;
     --space-12: 3rem;
-    
+
     /* Layout */
     --sidebar-width: 224px;
     --sidebar-collapsed-width: 64px;
     --border-radius: 16px;
     --border-radius-lg: 20px;
     --border-radius-sm: 12px;
-    
+
     /* Typography */
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
     --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
-    
+
     /* Animation */
     --transition-fast: 0.15s ease;
     --transition-normal: 0.3s ease;
     --transition-slow: 0.5s ease;
-    
+
     /* Legacy compatibility */
     --color-warning: var(--accent-orange);
     --text-color-primary: var(--text-primary);
     --text-color-secondary: var(--text-secondary);
     --font-size-sm: 0.875rem;
+}
+
+/* === THEME ACCENT COLOR CLASSES === */
+/* Blue Theme (Default) */
+body.theme-blue {
+    --gradient-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    --primary-color: #3b82f6;
+}
+
+/* Purple Theme */
+body.theme-purple {
+    --gradient-primary: linear-gradient(135deg, #8b5cf6, #a855f7);
+    --primary-color: #8b5cf6;
+}
+
+/* Green Theme */
+body.theme-green {
+    --gradient-primary: linear-gradient(135deg, #10b981, #059669);
+    --primary-color: #10b981;
+}
+
+/* Orange Theme */
+body.theme-orange {
+    --gradient-primary: linear-gradient(135deg, #f59e0b, #d97706);
+    --primary-color: #f59e0b;
+}
+
+/* Pink Theme */
+body.theme-pink {
+    --gradient-primary: linear-gradient(135deg, #ec4899, #db2777);
+    --primary-color: #ec4899;
 }
 
 /* === Base Styles === */
@@ -301,12 +332,12 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-input:checked + .slider {
+input:checked+.slider {
     background: var(--gradient-primary);
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
     transform: translateX(22px);
 }
 
@@ -315,8 +346,8 @@ input:checked + .slider:before {
     grid-column: 2;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    gap: var(--space-6);
-    padding: var(--space-6);
+    gap: var(--space-3);
+    padding: var(--space-4);
     overflow: hidden;
     min-height: 0;
 }
@@ -331,6 +362,8 @@ input:checked + .slider:before {
     box-shadow: var(--glass-shadow);
     position: relative;
     overflow: hidden;
+    cursor: default; /* Remove pointer cursor */
+    user-select: text; /* Allow text selection */
 }
 
 .glass-panel:before {
@@ -369,27 +402,27 @@ input:checked + .slider:before {
 /* === Agent Controls Panel === */
 #agent-controls-panel {
     grid-row: 1;
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-3) var(--space-4);
 }
 
 .agent-controls-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-3);
 }
 
 .agent-controls-title {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: var(--font-weight-bold);
     color: var(--text-primary);
 }
 
 .agent-controls-title i {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     background: var(--gradient-success);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -447,7 +480,7 @@ input:checked + .slider:before {
     transition: transform var(--transition-normal);
 }
 
-.preferences-collapsible.collapsed ~ .preference-section #toggle-preferences-icon,
+.preferences-collapsible.collapsed~.preference-section #toggle-preferences-icon,
 #toggle-preferences-icon.rotated {
     transform: rotate(180deg);
 }
@@ -478,7 +511,7 @@ input:checked + .slider:before {
     transition: transform var(--transition-normal);
 }
 
-.utilities-collapsible.collapsed ~ .preference-section #toggle-utilities-icon,
+.utilities-collapsible.collapsed~.preference-section #toggle-utilities-icon,
 #toggle-utilities-icon.rotated {
     transform: rotate(180deg);
 }
@@ -568,7 +601,8 @@ input:checked + .slider:before {
     backdrop-filter: blur(3px);
     border: 1px solid var(--glass-border);
     transition: all var(--transition-fast);
-    min-width: 0; /* Allow cards to shrink */
+    min-width: 0;
+    /* Allow cards to shrink */
 }
 
 .gpu-status-container .gpu-card:hover {
@@ -714,7 +748,8 @@ input:checked + .slider:before {
 }
 
 /* Layout Helpers */
-.execution-plan, .live-logs {
+.execution-plan,
+.live-logs {
     flex: 1 1 auto;
     min-height: 200px;
     overflow-y: auto;
@@ -791,16 +826,16 @@ input:checked + .slider:before {
     backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius);
-    padding: calc(var(--space-3) * 0.85) calc(var(--space-5) * 0.85);
+    padding: calc(var(--space-2) * 0.9) calc(var(--space-4) * 0.9);
     color: var(--text-primary);
     cursor: pointer;
     transition: all var(--transition-fast);
     font-family: var(--font-sans);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: var(--font-weight-medium);
     display: inline-flex;
     align-items: center;
-    gap: calc(var(--space-2) * 0.85);
+    gap: calc(var(--space-2) * 0.8);
     text-decoration: none;
     position: relative;
     overflow: hidden;
@@ -968,12 +1003,7 @@ button[data-pref].active.glass-button--danger {
     transition: background-color 0.2s ease;
 }
 
-.log-message:hover {
-    background: rgba(255, 255, 255, 0.05);
-    white-space: pre-wrap;
-    overflow: visible;
-    text-overflow: unset;
-}
+/* Removed hover effect to improve text selection */
 
 .log-message.log-level-info {
     border-left-color: var(--primary-blue);
@@ -1028,19 +1058,19 @@ button[data-pref].active.glass-button--danger {
 }
 
 /* === Collapsed Sidebar === */
-.sidebar-collapsed .page-container {
+.page-container.sidebar-collapsed {
     grid-template-columns: var(--sidebar-collapsed-width) 1fr;
 }
 
-.sidebar-collapsed .sidebar {
-    padding: var(--space-3) var(--space-2);
+.page-container.sidebar-collapsed .sidebar {
+    padding: var(--space-4) var(--space-2);
     width: var(--sidebar-collapsed-width);
     align-items: center;
 }
 
-.sidebar-collapsed .nav-text,
-.sidebar-collapsed .sidebar-title,
-.sidebar-collapsed .theme-label {
+.page-container.sidebar-collapsed .nav-text,
+.page-container.sidebar-collapsed .sidebar-title,
+.page-container.sidebar-collapsed .theme-settings-label {
     opacity: 0;
     pointer-events: none;
     width: 0;
@@ -1048,43 +1078,51 @@ button[data-pref].active.glass-button--danger {
     transition: opacity var(--transition-normal);
 }
 
-.sidebar-collapsed .sidebar-header {
+.page-container.sidebar-collapsed .sidebar-header {
     justify-content: center;
     margin-bottom: var(--space-4);
     gap: 0;
     width: 100%;
 }
 
-.sidebar-collapsed .nav-item {
+.page-container.sidebar-collapsed .nav-item {
     justify-content: center;
-    padding: var(--space-2);
+    padding: var(--space-3);
     width: 100%;
 }
 
-.sidebar-collapsed .theme-switcher {
-    justify-content: center;
+.page-container.sidebar-collapsed .sidebar-toggle-btn {
     padding: var(--space-2);
-    width: 100%;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.sidebar-collapsed .sidebar-toggle-btn {
-    padding: var(--space-2);
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
 }
 
 /* Ensure proper spacing when collapsed */
-.sidebar-collapsed .sidebar-nav {
+.page-container.sidebar-collapsed .sidebar-nav {
     align-items: center;
     width: 100%;
 }
 
-.sidebar-collapsed .sidebar-footer {
+.page-container.sidebar-collapsed .sidebar-footer {
     width: 100%;
     display: flex;
     justify-content: center;
+}
+
+/* Theme settings adjustments when collapsed */
+.page-container.sidebar-collapsed .theme-settings-trigger-content {
+    justify-content: center;
+}
+
+.page-container.sidebar-collapsed .theme-settings-icons {
+    flex-direction: column;
+    gap: 2px;
+}
+
+.page-container.sidebar-collapsed .theme-settings-content {
+    left: calc(100% + var(--space-2));
+    bottom: 0;
+    width: 280px;
 }
 
 /* === Execution Plan Phases - Reduced by 10% === */
@@ -1104,7 +1142,8 @@ button[data-pref].active.glass-button--danger {
 }
 
 .phase-item {
-    margin-bottom: calc(var(--space-3) * 0.9); /* 10% reduction */
+    margin-bottom: calc(var(--space-3) * 0.9);
+    /* 10% reduction */
     position: relative;
 }
 
@@ -1112,11 +1151,13 @@ button[data-pref].active.glass-button--danger {
 .sub-phase-header {
     display: flex;
     align-items: center;
-    padding: calc(var(--space-3) * 0.9) calc(var(--space-4) * 0.9); /* 10% reduction */
+    padding: calc(var(--space-3) * 0.9) calc(var(--space-4) * 0.9);
+    /* 10% reduction */
     background: var(--glass-bg);
     backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    border-radius: calc(var(--border-radius) * 0.9); /* 10% reduction */
+    border-radius: calc(var(--border-radius) * 0.9);
+    /* 10% reduction */
     transition: all var(--transition-fast);
     cursor: pointer;
     position: relative;
@@ -1145,14 +1186,16 @@ button[data-pref].active.glass-button--danger {
 /* === Phase Icons - Reduced by 10% === */
 .phase-icon,
 .sub-phase-icon {
-    width: calc(32px * 0.9); /* 10% reduction: 28.8px */
+    width: calc(32px * 0.9);
+    /* 10% reduction: 28.8px */
     height: calc(32px * 0.9);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: calc(var(--border-radius-sm) * 0.9);
     margin-right: calc(var(--space-3) * 0.9);
-    font-size: calc(0.95rem * 0.9); /* 10% reduction */
+    font-size: calc(0.95rem * 0.9);
+    /* 10% reduction */
     flex-shrink: 0;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -1161,7 +1204,8 @@ button[data-pref].active.glass-button--danger {
 }
 
 .sub-phase-icon {
-    width: calc(28px * 0.9); /* 10% reduction: 25.2px */
+    width: calc(28px * 0.9);
+    /* 10% reduction: 25.2px */
     height: calc(28px * 0.9);
     font-size: calc(0.85rem * 0.9);
     margin-right: calc(var(--space-3) * 0.9);
@@ -1173,23 +1217,28 @@ button[data-pref].active.glass-button--danger {
     flex: 1;
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
-    font-size: calc(0.85rem * 0.9); /* 10% reduction */
+    font-size: calc(0.85rem * 0.9);
+    /* 10% reduction */
 }
 
 .sub-phase-name {
-    font-size: calc(0.8rem * 0.9); /* 10% reduction */
+    font-size: calc(0.8rem * 0.9);
+    /* 10% reduction */
     color: var(--text-secondary);
 }
 
 /* === Phase Status - Reduced by 10% === */
 .phase-status {
-    padding: calc(var(--space-1) * 0.9) calc(var(--space-3) * 0.9); /* 10% reduction */
+    padding: calc(var(--space-1) * 0.9) calc(var(--space-3) * 0.9);
+    /* 10% reduction */
     border-radius: calc(var(--border-radius-sm) * 0.9);
-    font-size: calc(0.75rem * 0.9); /* 10% reduction */
+    font-size: calc(0.75rem * 0.9);
+    /* 10% reduction */
     font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    min-width: calc(80px * 0.9); /* 10% reduction */
+    min-width: calc(80px * 0.9);
+    /* 10% reduction */
     text-align: center;
     border: 1px solid transparent;
     transition: all var(--transition-fast);
@@ -1246,14 +1295,16 @@ button[data-pref].active.glass-button--danger {
 .sub-phase-list {
     list-style: none;
     padding: 0;
-    margin: calc(var(--space-3) * 0.9) 0 0 calc(var(--space-8) * 0.9); /* 10% reduction */
+    margin: calc(var(--space-3) * 0.9) 0 0 calc(var(--space-8) * 0.9);
+    /* 10% reduction */
     position: relative;
 }
 
 .sub-phase-list:before {
     content: '';
     position: absolute;
-    left: calc(-20px * 0.9); /* 10% reduction */
+    left: calc(-20px * 0.9);
+    /* 10% reduction */
     top: 0;
     bottom: 0;
     width: 2px;
@@ -1261,24 +1312,30 @@ button[data-pref].active.glass-button--danger {
 }
 
 .sub-phase {
-    margin-bottom: calc(var(--space-2) * 0.9); /* 10% reduction */
+    margin-bottom: calc(var(--space-2) * 0.9);
+    /* 10% reduction */
     position: relative;
 }
 
 .sub-phase:before {
     content: '';
     position: absolute;
-    left: calc(-20px * 0.9); /* 10% reduction */
-    top: calc(16px * 0.9); /* 10% reduction */
-    width: calc(12px * 0.9); /* 10% reduction */
+    left: calc(-20px * 0.9);
+    /* 10% reduction */
+    top: calc(16px * 0.9);
+    /* 10% reduction */
+    width: calc(12px * 0.9);
+    /* 10% reduction */
     height: 2px;
     background: var(--glass-border);
 }
 
 .sub-phase-header {
-    padding: calc(var(--space-3) * 0.9) calc(var(--space-4) * 0.9); /* 10% reduction */
+    padding: calc(var(--space-3) * 0.9) calc(var(--space-4) * 0.9);
+    /* 10% reduction */
     background: rgba(255, 255, 255, 0.03);
-    border-radius: calc(var(--border-radius-sm) * 0.9); /* 10% reduction */
+    border-radius: calc(var(--border-radius-sm) * 0.9);
+    /* 10% reduction */
 }
 
 /* === Parent Phase States === */
@@ -1364,23 +1421,36 @@ button[data-pref].active.glass-button--danger {
 
 /* === Loading Animation === */
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 @keyframes slideIn {
-    from { 
-        opacity: 0; 
-        transform: translateY(-10px); 
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
     }
-    to { 
-        opacity: 1; 
-        transform: translateY(0); 
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
@@ -1390,7 +1460,7 @@ button[data-pref].active.glass-button--danger {
         grid-template-columns: 1fr;
         grid-template-rows: auto 1fr;
     }
-    
+
     .sidebar {
         grid-row: 1;
         grid-column: 1;
@@ -1399,24 +1469,24 @@ button[data-pref].active.glass-button--danger {
         flex-direction: row;
         align-items: center;
     }
-    
+
     .sidebar-nav {
         flex-direction: row;
         flex-grow: 1;
         justify-content: center;
         gap: var(--space-4);
     }
-    
+
     .main-content {
         grid-row: 2;
         grid-column: 1;
     }
-    
+
     .dashboard-main-area {
         grid-template-columns: 1fr;
         gap: var(--space-4);
     }
-    
+
     .sidebar-title,
     .nav-text {
         display: none;
@@ -1425,29 +1495,32 @@ button[data-pref].active.glass-button--danger {
 
 /* === Responsive Adjustments for Phases === */
 @media (max-width: 768px) {
+
     .phase-header,
     .sub-phase-header {
-        padding: calc(var(--space-3) * 0.8) calc(var(--space-4) * 0.8); /* Further reduction on mobile */
+        padding: calc(var(--space-3) * 0.8) calc(var(--space-4) * 0.8);
+        /* Further reduction on mobile */
     }
-    
+
     .phase-icon {
-        width: calc(32px * 0.8); /* Further reduction on mobile */
+        width: calc(32px * 0.8);
+        /* Further reduction on mobile */
         height: calc(32px * 0.8);
         font-size: calc(0.95rem * 0.8);
     }
-    
+
     .sub-phase-icon {
         width: calc(28px * 0.8);
         height: calc(28px * 0.8);
         font-size: calc(0.85rem * 0.8);
     }
-    
+
     .phase-name,
     .sub-phase-name {
         font-size: calc(0.85rem * 0.8);
     }
-    
+
     .sub-phase-name {
         font-size: calc(0.8rem * 0.8);
     }
-} 
+}

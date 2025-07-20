@@ -53,7 +53,8 @@ class PhaseExecutionPlan:
 class PhaseExecutionHelper:
     """Helper for creating phase execution plans."""
     
-    def __init__(self):
+    def __init__(self, config=None):
+        self.config = config
         self.logger = logging.getLogger(__name__)
     
     def create_all_execution_plans(
@@ -224,14 +225,32 @@ class PhaseExecutionHelper:
         
         if phase == ProcessingPhase.DB_SYNC:
             force_kb = force_flags.get('force_reprocess_kb_item', False)  # KB regeneration implies DB re-sync
+            force_db_sync = force_flags.get('force_reprocess_db_sync', False)  # Direct DB sync force
             db_synced = tweet_data.get('db_synced', False)
-            return force_kb or not db_synced
+            return force_kb or force_db_sync or not db_synced
 
         if phase == ProcessingPhase.SYNTHESIS:
             force_synthesis = force_flags.get('force_regenerate_synthesis', False)
-            # This is a global phase. It needs processing if forced.
-            # A more complex check could see if new items have been added since last run.
-            return force_synthesis
+            if force_synthesis:
+                return True
+            
+            # Use SynthesisDependencyTracker for intelligent synthesis planning
+            try:
+                from .synthesis_tracker import SynthesisDependencyTracker
+                dependency_tracker = SynthesisDependencyTracker(self.config)
+                execution_plan = dependency_tracker.create_synthesis_execution_plan(force_regenerate=False)
+                
+                # Return True if there are syntheses that need generation
+                needs_generation = len(execution_plan.get('needs_generation', [])) > 0
+                if needs_generation:
+                    self.logger.info(f"Synthesis phase needed: {len(execution_plan['needs_generation'])} syntheses require generation")
+                else:
+                    self.logger.info("Synthesis phase not needed: all syntheses are up to date")
+                return needs_generation
+                
+            except Exception as e:
+                self.logger.warning(f"Error checking synthesis dependencies, defaulting to force mode: {e}")
+                return force_synthesis
 
         if phase == ProcessingPhase.EMBEDDING:
             force_embedding = force_flags.get('force_regenerate_embeddings', False)

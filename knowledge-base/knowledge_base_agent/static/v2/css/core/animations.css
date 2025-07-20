@@ -1,0 +1,868 @@
+/* ===== PHYSICS-BASED ANIMATION LIBRARY ===== */
+
+/* ===== KEYFRAME ANIMATIONS ===== */
+
+/* Glass Panel Entrance Animations */
+@keyframes glassSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    backdrop-filter: var(--glass-blur-medium);
+  }
+}
+
+@keyframes glassSlideInFromLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-30px) scale(0.95);
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    backdrop-filter: var(--glass-blur-medium);
+  }
+}
+
+@keyframes glassSlideInFromRight {
+  0% {
+    opacity: 0;
+    transform: translateX(30px) scale(0.95);
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    backdrop-filter: var(--glass-blur-medium);
+  }
+}
+
+@keyframes glassFadeIn {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: var(--glass-blur-medium);
+  }
+}
+
+/* Shimmer Effects */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmerGlow {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Liquid Button Animations */
+@keyframes liquidRipple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes liquidPress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Floating Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Pulse Animations */
+@keyframes glassPulse {
+  0%, 100% {
+    box-shadow: var(--glass-shadow-md);
+    border-color: var(--glass-border-primary);
+  }
+  50% {
+    box-shadow: var(--glass-shadow-lg);
+    border-color: var(--glass-border-hover);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 
+      var(--glass-shadow-md),
+      0 0 0 0 rgba(59, 130, 246, 0);
+  }
+  50% {
+    box-shadow: 
+      var(--glass-shadow-lg),
+      0 0 0 8px rgba(59, 130, 246, 0.1);
+  }
+}
+
+/* Loading Animations */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinGlass {
+  0% {
+    transform: rotate(0deg);
+    backdrop-filter: var(--glass-blur-light);
+  }
+  50% {
+    backdrop-filter: var(--glass-blur-heavy);
+  }
+  100% {
+    transform: rotate(360deg);
+    backdrop-filter: var(--glass-blur-light);
+  }
+}
+
+/* Progress Animations */
+@keyframes progressFill {
+  0% {
+    width: 0%;
+    background: var(--gradient-glass-light);
+  }
+  100% {
+    width: var(--progress-width, 100%);
+    background: var(--gradient-primary);
+  }
+}
+
+@keyframes progressShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Navigation Indicator Animation */
+@keyframes navIndicatorSlide {
+  0% {
+    transform: translateX(var(--indicator-start, 0));
+    width: var(--indicator-start-width, 0);
+  }
+  100% {
+    transform: translateX(var(--indicator-end, 0));
+    width: var(--indicator-end-width, 0);
+  }
+}
+
+/* Modal Animations */
+@keyframes modalSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(50px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalSlideDown {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(50px) scale(0.95);
+  }
+}
+
+@keyframes backdropFadeIn {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Notification Animations */
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Typing Indicator Animation */
+@keyframes typingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* ===== ANIMATION UTILITY CLASSES ===== */
+
+/* Entrance Animations */
+.animate-glass-slide-in {
+  animation: glassSlideIn var(--duration-normal) var(--ease-smooth) forwards;
+}
+
+.animate-glass-slide-in-left {
+  animation: glassSlideInFromLeft var(--duration-normal) var(--ease-smooth) forwards;
+}
+
+.animate-glass-slide-in-right {
+  animation: glassSlideInFromRight var(--duration-normal) var(--ease-smooth) forwards;
+}
+
+.animate-glass-fade-in {
+  animation: glassFadeIn var(--duration-slow) var(--ease-gentle) forwards;
+}
+
+/* Hover Animations */
+.animate-lift-hover:hover {
+  transform: var(--transform-lift-md);
+  transition: transform var(--duration-fast) var(--ease-smooth);
+}
+
+.animate-scale-hover:hover {
+  transform: var(--transform-scale-up);
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+
+.animate-glow-hover:hover {
+  box-shadow: 
+    var(--glass-shadow-lg),
+    0 0 0 1px var(--glass-border-hover),
+    0 0 20px rgba(59, 130, 246, 0.15);
+  transition: box-shadow var(--duration-normal) var(--ease-smooth);
+}
+
+/* Active/Press Animations */
+.animate-press-active:active {
+  transform: var(--transform-press);
+  transition: transform var(--duration-fast) var(--ease-sharp);
+}
+
+.animate-liquid-press {
+  animation: liquidPress var(--duration-fast) var(--ease-spring);
+}
+
+/* Continuous Animations */
+.animate-float {
+  animation: float 3s var(--ease-gentle) infinite;
+}
+
+.animate-float-gentle {
+  animation: floatGentle 4s var(--ease-gentle) infinite;
+}
+
+.animate-pulse-glass {
+  animation: glassPulse 2s var(--ease-gentle) infinite;
+}
+
+.animate-pulse-glow {
+  animation: glowPulse 2s var(--ease-gentle) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-spin-glass {
+  animation: spinGlass 2s var(--ease-gentle) infinite;
+}
+
+/* Shimmer Effects */
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--gradient-shimmer);
+  animation: shimmer 2s var(--ease-smooth) infinite;
+}
+
+.animate-shimmer-strong {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer-strong::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--gradient-shimmer-strong);
+  animation: shimmer 1.5s var(--ease-smooth) infinite;
+}
+
+/* Loading States */
+.animate-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.1) 50%, 
+    transparent 100%);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Transition Utilities */
+.transition-glass {
+  transition: 
+    background-color var(--duration-normal) var(--ease-smooth),
+    border-color var(--duration-normal) var(--ease-smooth),
+    box-shadow var(--duration-normal) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-smooth),
+    backdrop-filter var(--duration-normal) var(--ease-smooth);
+}
+
+.transition-transform {
+  transition: transform var(--duration-fast) var(--ease-smooth);
+}
+
+.transition-colors {
+  transition: 
+    color var(--duration-normal) var(--ease-smooth),
+    background-color var(--duration-normal) var(--ease-smooth),
+    border-color var(--duration-normal) var(--ease-smooth);
+}
+
+.transition-opacity {
+  transition: opacity var(--duration-normal) var(--ease-smooth);
+}
+
+.transition-all {
+  transition: all var(--duration-normal) var(--ease-smooth);
+}
+
+/* Performance Optimizations */
+.gpu-accelerated {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.contain-layout {
+  contain: layout style paint;
+}
+
+/* ===== ANIMATION DELAYS ===== */
+
+.delay-75 { animation-delay: 75ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-1000 { animation-delay: 1000ms; }
+
+/* ===== STAGGERED ANIMATIONS ===== */
+
+.stagger-children > * {
+  animation-delay: calc(var(--stagger-delay, 100ms) * var(--index, 0));
+}
+
+.stagger-children-fast > * {
+  animation-delay: calc(50ms * var(--index, 0));
+}
+
+.stagger-children-slow > * {
+  animation-delay: calc(200ms * var(--index, 0));
+}
+
+/* ===== RESPONSIVE ANIMATIONS ===== */
+
+@media (max-width: 768px) {
+  /* Reduce animation intensity on mobile */
+  .animate-lift-hover:hover {
+    transform: var(--transform-lift-sm);
+  }
+  
+  .animate-scale-hover:hover {
+    transform: scale(1.02);
+  }
+  
+  /* Faster animations on mobile for better performance */
+  .transition-glass {
+    transition-duration: var(--duration-fast);
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+
+@media print {
+  /* Disable animations for print */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+}
+/* ===== AD
+VANCED PHYSICS-BASED ANIMATIONS ===== */
+
+/* Spring-based easing functions */
+:root {
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-elastic: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-back: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-anticipate: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-overshoot: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Advanced Glass Morphism Animations */
+@keyframes glassRipple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes glassShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes glassPulse {
+  0%, 100% {
+    box-shadow: 
+      var(--glass-shadow-md),
+      0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 
+      var(--glass-shadow-lg),
+      0 0 0 10px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes glassFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glassBreathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+  }
+}
+
+/* Liquid Button Animations */
+@keyframes liquidPress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes liquidRipple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes liquidShimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+/* Advanced Transform Animations */
+@keyframes elasticScale {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  75% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInElastic {
+  0% {
+    transform: translateX(-100%);
+  }
+  60% {
+    transform: translateX(10%);
+  }
+  80% {
+    transform: translateX(-5%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes rotateIn {
+  0% {
+    transform: rotate(-180deg) scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Physics-based Hover Effects */
+@keyframes magneticHover {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(2px, -2px);
+  }
+  50% {
+    transform: translate(-1px, 2px);
+  }
+  75% {
+    transform: translate(1px, 1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes floatHover {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Advanced Animation Classes */
+.animate-spring-in {
+  animation: elasticScale 0.6s var(--ease-spring) forwards;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.8s var(--ease-bounce) forwards;
+}
+
+.animate-slide-elastic {
+  animation: slideInElastic 0.8s var(--ease-elastic) forwards;
+}
+
+.animate-rotate-in {
+  animation: rotateIn 0.6s var(--ease-back) forwards;
+}
+
+.animate-glass-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-glass-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  animation: glassRipple 0.6s ease-out;
+}
+
+.animate-shimmer-strong {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: glassShimmer 2s infinite;
+}
+
+.animate-glass-pulse {
+  animation: glassPulse 2s infinite;
+}
+
+.animate-glass-float {
+  animation: glassFloat 3s ease-in-out infinite;
+}
+
+.animate-glass-breathe {
+  animation: glassBreathe 4s ease-in-out infinite;
+}
+
+.animate-liquid-press {
+  animation: liquidPress 0.3s var(--ease-spring);
+}
+
+.animate-liquid-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-liquid-ripple::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translate(-50%, -50%);
+  animation: liquidRipple 0.5s ease-out;
+}
+
+.animate-magnetic-hover:hover {
+  animation: magneticHover 0.3s ease-in-out;
+}
+
+.animate-float-hover:hover {
+  animation: floatHover 1s ease-in-out infinite;
+}
+
+/* Performance Optimizations */
+.animate-gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.animate-will-change {
+  will-change: transform, opacity, filter;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spring-in,
+  .animate-bounce-in,
+  .animate-slide-elastic,
+  .animate-rotate-in,
+  .animate-glass-ripple::after,
+  .animate-shimmer-strong,
+  .animate-glass-pulse,
+  .animate-glass-float,
+  .animate-glass-breathe,
+  .animate-liquid-press,
+  .animate-liquid-ripple::before,
+  .animate-magnetic-hover:hover,
+  .animate-float-hover:hover {
+    animation: none;
+  }
+  
+  .animate-lift-hover:hover,
+  .animate-lift-sm:hover,
+  .animate-lift-md:hover,
+  .animate-lift-lg:hover {
+    transform: none;
+  }
+}
+
+/* Interactive Feedback Animations */
+.animate-success-pulse {
+  animation: glassPulse 0.6s ease-out;
+  --glass-shadow-md: 0 4px 6px -1px rgba(34, 197, 94, 0.1), 
+                     0 2px 4px -1px rgba(34, 197, 94, 0.06);
+}
+
+.animate-error-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-warning-glow {
+  animation: glassPulse 1s ease-in-out infinite;
+  --glass-shadow-md: 0 4px 6px -1px rgba(245, 158, 11, 0.1), 
+                     0 2px 4px -1px rgba(245, 158, 11, 0.06);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Loading State Animations */
+.animate-loading-pulse {
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--glass-bg-secondary) 25%,
+    var(--glass-bg-primary) 50%,
+    var(--glass-bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: glassShimmer 1.5s infinite;
+}
+
+/* Stagger Animation Utilities */
+.animate-stagger-1 { animation-delay: 0.1s; }
+.animate-stagger-2 { animation-delay: 0.2s; }
+.animate-stagger-3 { animation-delay: 0.3s; }
+.animate-stagger-4 { animation-delay: 0.4s; }
+.animate-stagger-5 { animation-delay: 0.5s; }
+
+/* Complex Compound Animations */
+.animate-glass-entrance {
+  animation: 
+    glassSlideIn 0.6s var(--ease-spring) forwards,
+    glassFadeIn 0.4s ease-out forwards,
+    glassFloat 3s ease-in-out 0.6s infinite;
+}
+
+.animate-liquid-entrance {
+  animation:
+    bounceIn 0.8s var(--ease-bounce) forwards,
+    liquidShimmer 2s ease-in-out 0.8s infinite;
+}

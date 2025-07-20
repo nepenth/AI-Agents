@@ -1,0 +1,1327 @@
+{
+  "metadata": {
+    "generated_at": "2024-01-01T00:00:00Z",
+    "total_events": 20,
+    "incoming_events": 8,
+    "outgoing_events": 12,
+    "bidirectional_events": 0
+  },
+  "statistics": {
+    "by_category": {
+      "Connection Events": 2,
+      "Agent Events": 6,
+      "System Events": 8,
+      "Chat Events": 0,
+      "Log Events": 4
+    },
+    "by_direction": {
+      "incoming": 8,
+      "outgoing": 12,
+      "bidirectional": 0
+    }
+  },
+  "categories": {
+    "Connection Events": [
+      {
+        "name": "connect",
+        "direction": "incoming",
+        "description": "Client connection established",
+        "parameters": [
+          {
+            "name": "auth",
+            "type": "dict",
+            "required": false,
+            "description": "Authentication data (optional)",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "auth": null
+        },
+        "handler_function": "handle_connect",
+        "emitter_locations": []
+      },
+      {
+        "name": "disconnect",
+        "direction": "incoming",
+        "description": "Client disconnection",
+        "parameters": [],
+        "example_data": {},
+        "handler_function": "handle_disconnect",
+        "emitter_locations": []
+      }
+    ],
+    "Agent Events": [
+      {
+        "name": "run_agent",
+        "direction": "incoming",
+        "description": "Start agent execution with preferences",
+        "parameters": [
+          {
+            "name": "preferences",
+            "type": "dict",
+            "required": true,
+            "description": "Agent execution preferences",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "preferences": {
+            "run_mode": "full",
+            "skip_fetch_bookmarks": false,
+            "force_recache_tweets": false
+          }
+        },
+        "handler_function": "handle_run_agent",
+        "emitter_locations": []
+      },
+      {
+        "name": "stop_agent",
+        "direction": "incoming",
+        "description": "Stop running agent task",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": false,
+            "description": "Task ID to stop (optional)",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "task_id": "abc123"
+        },
+        "handler_function": "handle_stop_agent",
+        "emitter_locations": []
+      },
+      {
+        "name": "agent_status",
+        "direction": "outgoing",
+        "description": "Agent status update with current state",
+        "parameters": [
+          {
+            "name": "is_running",
+            "type": "boolean",
+            "required": true,
+            "description": "Whether agent is currently running",
+            "example": null
+          },
+          {
+            "name": "current_phase_message",
+            "type": "string",
+            "required": false,
+            "description": "Current phase description",
+            "example": null
+          },
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": false,
+            "description": "Current task identifier",
+            "example": null
+          },
+          {
+            "name": "progress",
+            "type": "integer",
+            "required": false,
+            "description": "Progress percentage (0-100)",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "is_running": true,
+          "current_phase_message": "Processing content...",
+          "task_id": "abc123",
+          "progress": 45
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "agent_status_update",
+        "direction": "outgoing",
+        "description": "Real-time agent status changes",
+        "parameters": [
+          {
+            "name": "is_running",
+            "type": "boolean",
+            "required": true,
+            "description": "Whether agent is currently running",
+            "example": null
+          },
+          {
+            "name": "current_phase_message",
+            "type": "string",
+            "required": false,
+            "description": "Current phase description",
+            "example": null
+          },
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": false,
+            "description": "Current task identifier",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "is_running": false,
+          "current_phase_message": "Agent stopped by user",
+          "task_id": null
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "agent_progress_update",
+        "direction": "outgoing",
+        "description": "Agent execution progress updates",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": true,
+            "description": "Task identifier",
+            "example": null
+          },
+          {
+            "name": "progress",
+            "type": "integer",
+            "required": true,
+            "description": "Progress percentage (0-100)",
+            "example": null
+          },
+          {
+            "name": "phase",
+            "type": "string",
+            "required": false,
+            "description": "Current processing phase",
+            "example": null
+          },
+          {
+            "name": "message",
+            "type": "string",
+            "required": false,
+            "description": "Progress message",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "task_id": "abc123",
+          "progress": 75,
+          "phase": "synthesis_generation",
+          "message": "Generating synthesis documents..."
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "agent_run_completed",
+        "direction": "outgoing",
+        "description": "Agent execution completion notification",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": true,
+            "description": "Completed task identifier",
+            "example": null
+          },
+          {
+            "name": "success",
+            "type": "boolean",
+            "required": true,
+            "description": "Whether execution was successful",
+            "example": null
+          },
+          {
+            "name": "duration",
+            "type": "string",
+            "required": false,
+            "description": "Execution duration",
+            "example": null
+          },
+          {
+            "name": "results",
+            "type": "dict",
+            "required": false,
+            "description": "Execution results summary",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "task_id": "abc123",
+          "success": true,
+          "duration": "5m 32s",
+          "results": {
+            "processed_items": 42,
+            "generated_syntheses": 8
+          }
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      }
+    ],
+    "System Events": [
+      {
+        "name": "request_initial_status_and_git_config",
+        "direction": "incoming",
+        "description": "Request initial status and git configuration",
+        "parameters": [],
+        "example_data": {},
+        "handler_function": "handle_request_initial_status_and_git_config",
+        "emitter_locations": []
+      },
+      {
+        "name": "request_initial_logs",
+        "direction": "incoming",
+        "description": "Request current logs from server",
+        "parameters": [],
+        "example_data": {},
+        "handler_function": "handle_request_initial_logs",
+        "emitter_locations": []
+      },
+      {
+        "name": "request_gpu_stats",
+        "direction": "incoming",
+        "description": "Request current GPU statistics",
+        "parameters": [],
+        "example_data": {},
+        "handler_function": "handle_request_gpu_stats",
+        "emitter_locations": []
+      },
+      {
+        "name": "phase_update",
+        "direction": "outgoing",
+        "description": "Agent phase transition updates",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": true,
+            "description": "Task identifier",
+            "example": null
+          },
+          {
+            "name": "phase_id",
+            "type": "string",
+            "required": true,
+            "description": "Phase identifier",
+            "example": null
+          },
+          {
+            "name": "phase_name",
+            "type": "string",
+            "required": true,
+            "description": "Human-readable phase name",
+            "example": null
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "required": true,
+            "description": "Phase status (started, completed, failed)",
+            "example": null
+          },
+          {
+            "name": "progress",
+            "type": "integer",
+            "required": false,
+            "description": "Overall progress percentage",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "task_id": "abc123",
+          "phase_id": "content_processing",
+          "phase_name": "Content Processing",
+          "status": "started",
+          "progress": 30
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "gpu_stats",
+        "direction": "outgoing",
+        "description": "GPU statistics and monitoring data",
+        "parameters": [
+          {
+            "name": "gpus",
+            "type": "array",
+            "required": false,
+            "description": "Array of GPU information",
+            "example": null
+          },
+          {
+            "name": "error",
+            "type": "string",
+            "required": false,
+            "description": "Error message if stats unavailable",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "gpus": [
+            {
+              "id": 0,
+              "name": "NVIDIA RTX 4090",
+              "memory_used": 8192,
+              "memory_total": 24576,
+              "utilization": 85,
+              "temperature": 72
+            }
+          ]
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "system_health_update",
+        "direction": "outgoing",
+        "description": "System health and status monitoring",
+        "parameters": [
+          {
+            "name": "status",
+            "type": "string",
+            "required": true,
+            "description": "Overall system status",
+            "example": null
+          },
+          {
+            "name": "services",
+            "type": "dict",
+            "required": false,
+            "description": "Service status breakdown",
+            "example": null
+          },
+          {
+            "name": "resources",
+            "type": "dict",
+            "required": false,
+            "description": "Resource utilization data",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "status": "healthy",
+          "services": {
+            "redis": "connected",
+            "database": "connected",
+            "ollama": "available"
+          },
+          "resources": {
+            "cpu_percent": 45,
+            "memory_percent": 62,
+            "disk_percent": 78
+          }
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "git_config_status",
+        "direction": "outgoing",
+        "description": "Git configuration status",
+        "parameters": [
+          {
+            "name": "auto_commit",
+            "type": "boolean",
+            "required": true,
+            "description": "Whether auto-commit is enabled",
+            "example": null
+          },
+          {
+            "name": "auto_push",
+            "type": "boolean",
+            "required": true,
+            "description": "Whether auto-push is enabled",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "auto_commit": false,
+          "auto_push": false
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "initial_status_and_git_config",
+        "direction": "outgoing",
+        "description": "Combined initial status and git configuration",
+        "parameters": [
+          {
+            "name": "is_running",
+            "type": "boolean",
+            "required": true,
+            "description": "Whether agent is running",
+            "example": null
+          },
+          {
+            "name": "git_config",
+            "type": "dict",
+            "required": true,
+            "description": "Git configuration settings",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "is_running": false,
+          "git_config": {
+            "auto_commit": false,
+            "auto_push": false
+          }
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      }
+    ],
+    "Chat Events": [],
+    "Log Events": [
+      {
+        "name": "clear_server_logs",
+        "direction": "incoming",
+        "description": "Clear server-side logs",
+        "parameters": [],
+        "example_data": {},
+        "handler_function": "handle_clear_server_logs",
+        "emitter_locations": []
+      },
+      {
+        "name": "log_message",
+        "direction": "outgoing",
+        "description": "Real-time log message streaming",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": false,
+            "description": "Associated task identifier",
+            "example": null
+          },
+          {
+            "name": "level",
+            "type": "string",
+            "required": true,
+            "description": "Log level (INFO, WARNING, ERROR)",
+            "example": null
+          },
+          {
+            "name": "message",
+            "type": "string",
+            "required": true,
+            "description": "Log message content",
+            "example": null
+          },
+          {
+            "name": "timestamp",
+            "type": "string",
+            "required": true,
+            "description": "ISO timestamp",
+            "example": null
+          },
+          {
+            "name": "module",
+            "type": "string",
+            "required": false,
+            "description": "Source module name",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "task_id": "abc123",
+          "level": "INFO",
+          "message": "\u2705 Processing completed successfully",
+          "timestamp": "2024-01-01T12:00:00Z",
+          "module": "content_processor"
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "initial_logs",
+        "direction": "outgoing",
+        "description": "Initial log data sent on connection",
+        "parameters": [
+          {
+            "name": "logs",
+            "type": "array",
+            "required": true,
+            "description": "Array of recent log messages",
+            "example": null
+          }
+        ],
+        "example_data": {
+          "logs": []
+        },
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      },
+      {
+        "name": "logs_cleared",
+        "direction": "outgoing",
+        "description": "Notification that logs have been cleared",
+        "parameters": [],
+        "example_data": {},
+        "handler_function": null,
+        "emitter_locations": [
+          "web.py",
+          "realtime_manager.py",
+          "agent.py"
+        ]
+      }
+    ]
+  },
+  "event_patterns": {
+    "Agent Control": [
+      "run_agent",
+      "stop_agent",
+      "agent_status",
+      "agent_status_update",
+      "agent_progress_update",
+      "agent_run_completed"
+    ],
+    "System Monitoring": [
+      "request_gpu_stats",
+      "gpu_stats",
+      "system_health_update"
+    ],
+    "Real-time Logging": [
+      "clear_server_logs",
+      "log_message",
+      "initial_logs",
+      "logs_cleared"
+    ],
+    "Connection Management": [
+      "connect",
+      "disconnect"
+    ]
+  },
+  "data_formats": {
+    "connect": {
+      "auth": null
+    },
+    "run_agent": {
+      "preferences": {
+        "run_mode": "full",
+        "skip_fetch_bookmarks": false,
+        "force_recache_tweets": false
+      }
+    },
+    "stop_agent": {
+      "task_id": "abc123"
+    },
+    "agent_status": {
+      "is_running": true,
+      "current_phase_message": "Processing content...",
+      "task_id": "abc123",
+      "progress": 45
+    },
+    "agent_status_update": {
+      "is_running": false,
+      "current_phase_message": "Agent stopped by user",
+      "task_id": null
+    },
+    "agent_progress_update": {
+      "task_id": "abc123",
+      "progress": 75,
+      "phase": "synthesis_generation",
+      "message": "Generating synthesis documents..."
+    },
+    "agent_run_completed": {
+      "task_id": "abc123",
+      "success": true,
+      "duration": "5m 32s",
+      "results": {
+        "processed_items": 42,
+        "generated_syntheses": 8
+      }
+    },
+    "log_message": {
+      "task_id": "abc123",
+      "level": "INFO",
+      "message": "\u2705 Processing completed successfully",
+      "timestamp": "2024-01-01T12:00:00Z",
+      "module": "content_processor"
+    },
+    "phase_update": {
+      "task_id": "abc123",
+      "phase_id": "content_processing",
+      "phase_name": "Content Processing",
+      "status": "started",
+      "progress": 30
+    },
+    "gpu_stats": {
+      "gpus": [
+        {
+          "id": 0,
+          "name": "NVIDIA RTX 4090",
+          "memory_used": 8192,
+          "memory_total": 24576,
+          "utilization": 85,
+          "temperature": 72
+        }
+      ]
+    },
+    "system_health_update": {
+      "status": "healthy",
+      "services": {
+        "redis": "connected",
+        "database": "connected",
+        "ollama": "available"
+      },
+      "resources": {
+        "cpu_percent": 45,
+        "memory_percent": 62,
+        "disk_percent": 78
+      }
+    },
+    "initial_logs": {
+      "logs": []
+    },
+    "git_config_status": {
+      "auto_commit": false,
+      "auto_push": false
+    },
+    "initial_status_and_git_config": {
+      "is_running": false,
+      "git_config": {
+        "auto_commit": false,
+        "auto_push": false
+      }
+    }
+  },
+  "events": [
+    {
+      "name": "connect",
+      "direction": "incoming",
+      "description": "Client connection established",
+      "parameters": [
+        {
+          "name": "auth",
+          "type": "dict",
+          "required": false,
+          "description": "Authentication data (optional)",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "auth": null
+      },
+      "handler_function": "handle_connect",
+      "emitter_locations": []
+    },
+    {
+      "name": "disconnect",
+      "direction": "incoming",
+      "description": "Client disconnection",
+      "parameters": [],
+      "example_data": {},
+      "handler_function": "handle_disconnect",
+      "emitter_locations": []
+    },
+    {
+      "name": "run_agent",
+      "direction": "incoming",
+      "description": "Start agent execution with preferences",
+      "parameters": [
+        {
+          "name": "preferences",
+          "type": "dict",
+          "required": true,
+          "description": "Agent execution preferences",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "preferences": {
+          "run_mode": "full",
+          "skip_fetch_bookmarks": false,
+          "force_recache_tweets": false
+        }
+      },
+      "handler_function": "handle_run_agent",
+      "emitter_locations": []
+    },
+    {
+      "name": "stop_agent",
+      "direction": "incoming",
+      "description": "Stop running agent task",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": false,
+          "description": "Task ID to stop (optional)",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "task_id": "abc123"
+      },
+      "handler_function": "handle_stop_agent",
+      "emitter_locations": []
+    },
+    {
+      "name": "agent_status",
+      "direction": "outgoing",
+      "description": "Agent status update with current state",
+      "parameters": [
+        {
+          "name": "is_running",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether agent is currently running",
+          "example": null
+        },
+        {
+          "name": "current_phase_message",
+          "type": "string",
+          "required": false,
+          "description": "Current phase description",
+          "example": null
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": false,
+          "description": "Current task identifier",
+          "example": null
+        },
+        {
+          "name": "progress",
+          "type": "integer",
+          "required": false,
+          "description": "Progress percentage (0-100)",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "is_running": true,
+        "current_phase_message": "Processing content...",
+        "task_id": "abc123",
+        "progress": 45
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "agent_status_update",
+      "direction": "outgoing",
+      "description": "Real-time agent status changes",
+      "parameters": [
+        {
+          "name": "is_running",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether agent is currently running",
+          "example": null
+        },
+        {
+          "name": "current_phase_message",
+          "type": "string",
+          "required": false,
+          "description": "Current phase description",
+          "example": null
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": false,
+          "description": "Current task identifier",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "is_running": false,
+        "current_phase_message": "Agent stopped by user",
+        "task_id": null
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "agent_progress_update",
+      "direction": "outgoing",
+      "description": "Agent execution progress updates",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": true,
+          "description": "Task identifier",
+          "example": null
+        },
+        {
+          "name": "progress",
+          "type": "integer",
+          "required": true,
+          "description": "Progress percentage (0-100)",
+          "example": null
+        },
+        {
+          "name": "phase",
+          "type": "string",
+          "required": false,
+          "description": "Current processing phase",
+          "example": null
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "required": false,
+          "description": "Progress message",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "task_id": "abc123",
+        "progress": 75,
+        "phase": "synthesis_generation",
+        "message": "Generating synthesis documents..."
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "agent_run_completed",
+      "direction": "outgoing",
+      "description": "Agent execution completion notification",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": true,
+          "description": "Completed task identifier",
+          "example": null
+        },
+        {
+          "name": "success",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether execution was successful",
+          "example": null
+        },
+        {
+          "name": "duration",
+          "type": "string",
+          "required": false,
+          "description": "Execution duration",
+          "example": null
+        },
+        {
+          "name": "results",
+          "type": "dict",
+          "required": false,
+          "description": "Execution results summary",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "task_id": "abc123",
+        "success": true,
+        "duration": "5m 32s",
+        "results": {
+          "processed_items": 42,
+          "generated_syntheses": 8
+        }
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "request_initial_status_and_git_config",
+      "direction": "incoming",
+      "description": "Request initial status and git configuration",
+      "parameters": [],
+      "example_data": {},
+      "handler_function": "handle_request_initial_status_and_git_config",
+      "emitter_locations": []
+    },
+    {
+      "name": "request_initial_logs",
+      "direction": "incoming",
+      "description": "Request current logs from server",
+      "parameters": [],
+      "example_data": {},
+      "handler_function": "handle_request_initial_logs",
+      "emitter_locations": []
+    },
+    {
+      "name": "request_gpu_stats",
+      "direction": "incoming",
+      "description": "Request current GPU statistics",
+      "parameters": [],
+      "example_data": {},
+      "handler_function": "handle_request_gpu_stats",
+      "emitter_locations": []
+    },
+    {
+      "name": "phase_update",
+      "direction": "outgoing",
+      "description": "Agent phase transition updates",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": true,
+          "description": "Task identifier",
+          "example": null
+        },
+        {
+          "name": "phase_id",
+          "type": "string",
+          "required": true,
+          "description": "Phase identifier",
+          "example": null
+        },
+        {
+          "name": "phase_name",
+          "type": "string",
+          "required": true,
+          "description": "Human-readable phase name",
+          "example": null
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "description": "Phase status (started, completed, failed)",
+          "example": null
+        },
+        {
+          "name": "progress",
+          "type": "integer",
+          "required": false,
+          "description": "Overall progress percentage",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "task_id": "abc123",
+        "phase_id": "content_processing",
+        "phase_name": "Content Processing",
+        "status": "started",
+        "progress": 30
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "gpu_stats",
+      "direction": "outgoing",
+      "description": "GPU statistics and monitoring data",
+      "parameters": [
+        {
+          "name": "gpus",
+          "type": "array",
+          "required": false,
+          "description": "Array of GPU information",
+          "example": null
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "required": false,
+          "description": "Error message if stats unavailable",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "gpus": [
+          {
+            "id": 0,
+            "name": "NVIDIA RTX 4090",
+            "memory_used": 8192,
+            "memory_total": 24576,
+            "utilization": 85,
+            "temperature": 72
+          }
+        ]
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "system_health_update",
+      "direction": "outgoing",
+      "description": "System health and status monitoring",
+      "parameters": [
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "description": "Overall system status",
+          "example": null
+        },
+        {
+          "name": "services",
+          "type": "dict",
+          "required": false,
+          "description": "Service status breakdown",
+          "example": null
+        },
+        {
+          "name": "resources",
+          "type": "dict",
+          "required": false,
+          "description": "Resource utilization data",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "status": "healthy",
+        "services": {
+          "redis": "connected",
+          "database": "connected",
+          "ollama": "available"
+        },
+        "resources": {
+          "cpu_percent": 45,
+          "memory_percent": 62,
+          "disk_percent": 78
+        }
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "git_config_status",
+      "direction": "outgoing",
+      "description": "Git configuration status",
+      "parameters": [
+        {
+          "name": "auto_commit",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether auto-commit is enabled",
+          "example": null
+        },
+        {
+          "name": "auto_push",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether auto-push is enabled",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "auto_commit": false,
+        "auto_push": false
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "initial_status_and_git_config",
+      "direction": "outgoing",
+      "description": "Combined initial status and git configuration",
+      "parameters": [
+        {
+          "name": "is_running",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether agent is running",
+          "example": null
+        },
+        {
+          "name": "git_config",
+          "type": "dict",
+          "required": true,
+          "description": "Git configuration settings",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "is_running": false,
+        "git_config": {
+          "auto_commit": false,
+          "auto_push": false
+        }
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "clear_server_logs",
+      "direction": "incoming",
+      "description": "Clear server-side logs",
+      "parameters": [],
+      "example_data": {},
+      "handler_function": "handle_clear_server_logs",
+      "emitter_locations": []
+    },
+    {
+      "name": "log_message",
+      "direction": "outgoing",
+      "description": "Real-time log message streaming",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "required": false,
+          "description": "Associated task identifier",
+          "example": null
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "required": true,
+          "description": "Log level (INFO, WARNING, ERROR)",
+          "example": null
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "required": true,
+          "description": "Log message content",
+          "example": null
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "required": true,
+          "description": "ISO timestamp",
+          "example": null
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "required": false,
+          "description": "Source module name",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "task_id": "abc123",
+        "level": "INFO",
+        "message": "\u2705 Processing completed successfully",
+        "timestamp": "2024-01-01T12:00:00Z",
+        "module": "content_processor"
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "initial_logs",
+      "direction": "outgoing",
+      "description": "Initial log data sent on connection",
+      "parameters": [
+        {
+          "name": "logs",
+          "type": "array",
+          "required": true,
+          "description": "Array of recent log messages",
+          "example": null
+        }
+      ],
+      "example_data": {
+        "logs": []
+      },
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    },
+    {
+      "name": "logs_cleared",
+      "direction": "outgoing",
+      "description": "Notification that logs have been cleared",
+      "parameters": [],
+      "example_data": {},
+      "handler_function": null,
+      "emitter_locations": [
+        "web.py",
+        "realtime_manager.py",
+        "agent.py"
+      ]
+    }
+  ]
+}

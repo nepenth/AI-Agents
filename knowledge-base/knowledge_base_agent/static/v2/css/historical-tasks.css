@@ -1,0 +1,50 @@
+/* Historical Tasks Collapsible Section Styling */
+
+.completed-tasks-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.completed-tasks-collapsible.collapsed {
+    max-height: 0;
+}
+
+#completed-tasks-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.task-item {
+    padding: var(--space-3);
+    border: 1px solid var(--glass-border-secondary);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-2);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+}
+
+.task-item:hover {
+    background: var(--glass-bg-secondary) !important;
+    border-color: var(--glass-border-primary) !important;
+    transform: translateY(-1px);
+}
+
+/* Disable hover size increase effects for main dashboard panels */
+#agent-control-panel.glass-panel-v3:hover,
+#execution-plan-panel.glass-panel-v3:hover,
+#live-logs-panel.glass-panel-v3:hover,
+#gpu-status-panel.glass-panel-v3:hover,
+.glass-panel-v3.panel:hover {
+    transform: none !important;
+}
+
+#agent-control-panel.glass-panel-v3--interactive:hover,
+#execution-plan-panel.glass-panel-v3--interactive:hover,
+#live-logs-panel.glass-panel-v3--interactive:hover,
+#gpu-status-panel.glass-panel-v3--interactive:hover,
+.glass-panel-v3--interactive.panel:hover {
+    transform: none !important;
+}

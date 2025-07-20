@@ -1,11 +1,11 @@
 <!-- Row 1: Agent Controls -->
-<div class="glass-panel" id="agent-controls-panel">
+<div class="glass-panel-v3 glass-panel-v3--interactive animate-glass-slide-in" id="agent-controls-panel">
     <div class="agent-controls-header">
         <h1 class="agent-controls-title">
             <i class="fas fa-robot"></i>
         Agent Dashboard
     </h1>
-        <div id="agent-status-indicator" class="status-indicator status-indicator--offline">
+        <div id="agent-status-indicator" class="glass-badge glass-badge--primary glass-badge--pulse">
             <span id="agent-status-text-main">Idle</span>
         </div>
     </div>
@@ -15,10 +15,10 @@
 <!-- Row 2: Main Content Area -->
 <div class="dashboard-main-area">
     <!-- Left Column: Execution Plan -->
-    <div class="glass-panel dashboard-panel">
+    <div class="glass-panel-v3 dashboard-panel animate-glass-slide-in delay-100">
         <div class="panel-header">
             <h3 class="panel-title">
-            <i class="fas fa-tasks" style="color: var(--primary-blue);"></i>
+            <i class="fas fa-tasks" style="color: var(--color-blue-500);"></i>
                 Agent Execution Plan
             </h3>
         </div>
@@ -27,10 +27,10 @@
         </div>
     </div>
     <!-- Right Column: Logs -->
-    <div class="glass-panel dashboard-panel" id="logs-panel-container">
+    <div class="glass-panel-v3 dashboard-panel animate-glass-slide-in delay-200" id="logs-panel-container">
         <div class="panel-header">
              <h3 class="panel-title">
-            <i class="fas fa-terminal" style="color: var(--accent-orange);"></i>
+            <i class="fas fa-terminal" style="color: var(--color-warning);"></i>
                  Live Logs
              </h3>
         </div>
@@ -41,10 +41,10 @@
 </div>
 
 <!-- Row 3: GPU Status -->
-<div class="glass-panel" id="gpu-status-panel">
+<div class="glass-panel-v3 animate-glass-slide-in delay-300" id="gpu-status-panel">
     <div class="panel-header">
         <h3 class="panel-title">
-        <i class="fas fa-microchip" style="color: var(--primary-purple);"></i>
+        <i class="fas fa-microchip" style="color: var(--color-purple-500);"></i>
             GPU Status
         </h3>
     </div>

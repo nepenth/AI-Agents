@@ -5,30 +5,82 @@
         </button>
     </div>
     
-    <nav class="sidebar-nav">
-    <a href="#" class="nav-item active" data-page="dashboard">
-        <i class="fas fa-tachometer-alt"></i><span class="nav-text">Agent Dashboard</span>
+    <nav class="liquid-nav sidebar-nav">
+        <div class="liquid-nav-indicator"></div>
+        <a href="#" class="liquid-nav-item active" data-page="dashboard">
+            <i class="fas fa-tachometer-alt"></i><span class="nav-text">Agent Dashboard</span>
         </a>
-    <a href="#" class="nav-item" data-page="chat">
-        <i class="fas fa-comments"></i><span class="nav-text">Chat</span>
+        <a href="#" class="liquid-nav-item" data-page="chat">
+            <i class="fas fa-comments"></i><span class="nav-text">Chat</span>
         </a>
-    <a href="#" class="nav-item" data-page="kb">
-        <i class="fas fa-book"></i><span class="nav-text">Knowledge Base</span>
+        <a href="#" class="liquid-nav-item" data-page="kb">
+            <i class="fas fa-book"></i><span class="nav-text">Knowledge Base</span>
         </a>
-    <a href="#" class="nav-item" data-page="synthesis">
-        <i class="fas fa-lightbulb"></i><span class="nav-text">Synthesis Learning</span>
+        <a href="#" class="liquid-nav-item" data-page="synthesis">
+            <i class="fas fa-lightbulb"></i><span class="nav-text">Synthesis Learning</span>
         </a>
-    <a href="#" class="nav-item" data-page="schedule">
-        <i class="fas fa-calendar-alt"></i><span class="nav-text">Schedule</span>
+        <a href="#" class="liquid-nav-item" data-page="schedule">
+            <i class="fas fa-calendar-alt"></i><span class="nav-text">Schedule</span>
         </a>
     </nav>
     
-<div class="sidebar-footer">
-    <div class="theme-switcher">
-        <span class="theme-label nav-text">Theme</span>
-        <label class="switch">
-            <input type="checkbox" id="theme-toggle">
-            <span class="slider round"></span>
-        </label>
-    </div>
-</div> 
+    <div class="sidebar-footer">
+        <!-- Compact Settings Panel -->
+        <div class="compact-settings-panel">
+            <button id="compact-settings-toggle" class="compact-settings-trigger">
+                <div class="settings-trigger-content">
+                    <i class="fas fa-cog"></i>
+                    <span class="settings-label nav-text">Settings</span>
+                </div>
+                <i class="fas fa-chevron-up compact-settings-arrow"></i>
+            </button>
+            
+            <!-- Compact Settings Content -->
+            <div class="compact-settings-content collapsed" id="compact-settings-content">
+                <!-- Legacy Toggle (Compact) -->
+                <div class="compact-setting-row">
+                    <span class="compact-setting-label">Legacy</span>
+                    <label class="compact-switch">
+                        <input type="checkbox" id="theme-toggle-compact">
+                        <span class="compact-slider"></span>
+                    </label>
+                </div>
+                
+                <!-- Theme Mode (Icons Only) -->
+                <div class="compact-setting-row">
+                    <span class="compact-setting-label">Theme</span>
+                    <div class="compact-theme-buttons">
+                        <button id="light-mode-compact" class="compact-theme-btn" title="Light Mode">
+                            <i class="fas fa-sun"></i>
+                        </button>
+                        <button id="dark-mode-compact" class="compact-theme-btn" title="Dark Mode">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <button id="auto-mode-compact" class="compact-theme-btn active" title="Auto Mode">
+                            <i class="fas fa-magic"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Color Picker (Compact) -->
+                <div class="compact-setting-row">
+                    <span class="compact-setting-label">Color</span>
+                    <div class="compact-color-grid">
+                        <button class="compact-color-btn active" data-theme="blue" style="background: #3b82f6;" title="Blue"></button>
+                        <button class="compact-color-btn" data-theme="purple" style="background: #8b5cf6;" title="Purple"></button>
+                        <button class="compact-color-btn" data-theme="green" style="background: #10b981;" title="Green"></button>
+                        <button class="compact-color-btn" data-theme="orange" style="background: #f59e0b;" title="Orange"></button>
+                        <button class="compact-color-btn" data-theme="pink" style="background: #ec4899;" title="Pink"></button>
+                    </div>
+                </div>
+                
+                <!-- Full Settings Link -->
+                <div class="compact-setting-row">
+                    <button id="settings-modal-trigger" class="full-settings-link">
+                        <i class="fas fa-external-link-alt"></i>
+                        <span>More Settings</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div> 

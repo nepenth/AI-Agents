@@ -2,58 +2,87 @@
     <div class="panel-content">
         <!-- Primary Agent Controls - Always Visible -->
         <div class="preference-section" style="margin-bottom: var(--space-4);">
-            <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Agent Controls</h4>
-            <div class="control-group" style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+            <h4
+                style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                Agent Controls</h4>
+            <div class="control-group"
+                style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
                 <!-- Primary Action - Run Agent -->
-                <button id="run-agent-btn" class="glass-button glass-button--primary glass-button--large">
+                <button id="run-agent-btn"
+                    class="liquid-button liquid-button--primary liquid-button--lg animate-lift-hover">
                     <i class="fas fa-play"></i> Run Agent
                 </button>
-                <button id="stop-agent-btn" class="glass-button glass-button--danger glass-button--large" style="display: none;">
+                <button id="stop-agent-btn"
+                    class="liquid-button liquid-button--danger liquid-button--lg animate-lift-hover"
+                    style="display: none;">
                     <i class="fas fa-stop"></i> Stop Agent
                 </button>
-                
+
                 <!-- Separator -->
-                <div style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--border-color), transparent); margin: 0 var(--space-2);"></div>
-                
+                <div
+                    style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--glass-border-primary), transparent); margin: 0 var(--space-2);">
+                </div>
+
                 <!-- Clear Action -->
-                <button id="clear-all-options" class="glass-button glass-button--ghost">
+                <button id="clear-all-options" class="liquid-button liquid-button--ghost animate-lift-hover">
                     <i class="fas fa-times"></i> Clear All Options
                 </button>
-                
+
                 <!-- Separator -->
-                <div style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--border-color), transparent); margin: 0 var(--space-2);"></div>
-                
+                <div
+                    style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--glass-border-primary), transparent); margin: 0 var(--space-2);">
+                </div>
+
                 <!-- Expand/Collapse Toggle -->
-                <button id="toggle-preferences-btn" class="glass-button glass-button--ghost">
-                    <i class="fas fa-chevron-down" id="toggle-preferences-icon"></i> Preferences
+                <button id="toggle-preferences-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
+                    <i class="fas fa-chevron-down transition-transform" id="toggle-preferences-icon"></i> Preferences
                 </button>
-                
+
                 <!-- Utility Dropdown -->
-                <button id="toggle-utilities-btn" class="glass-button glass-button--ghost">
-                    <i class="fas fa-chevron-down" id="toggle-utilities-icon"></i> Utilities
+                <button id="toggle-utilities-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
+                    <i class="fas fa-chevron-down transition-transform" id="toggle-utilities-icon"></i> Utilities
+                </button>
+
+                <!-- Separator -->
+                <div
+                    style="width: 2px; height: 28px; background: linear-gradient(to bottom, transparent, var(--glass-border-primary), transparent); margin: 0 var(--space-2);">
+                </div>
+
+                <!-- Historical Tasks Toggle -->
+                <button id="toggle-completed-tasks-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
+                    <i class="fas fa-chevron-down transition-transform" id="toggle-completed-tasks-icon"></i> Completed Tasks
                 </button>
             </div>
         </div>
 
         <!-- Collapsible Preferences Section -->
-        <div id="collapsible-preferences" class="preferences-collapsible collapsed" style="overflow: hidden; transition: all 0.3s ease;">
+        <div id="collapsible-preferences" class="preferences-collapsible collapsed"
+            style="overflow: hidden; transition: all 0.3s ease;">
             <!-- Run Mode Selection -->
             <div class="preference-section" style="margin-bottom: var(--space-4);">
-                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Run Mode Favorites</h4>
-                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
-                    <button id="full-pipeline-btn" data-pref="full_pipeline" data-mode="true" class="glass-button glass-button--primary active">
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    Run Mode Favorites</h4>
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="full-pipeline-btn" data-pref="full_pipeline" data-mode="true"
+                        class="liquid-button liquid-button--primary active animate-lift-hover">
                         <i class="fas fa-cogs"></i> Full Pipeline
                     </button>
-                    <button id="fetch-only-btn" data-pref="fetch_only" data-mode="true" class="glass-button glass-button--secondary">
+                    <button id="fetch-only-btn" data-pref="fetch_only" data-mode="true"
+                        class="liquid-button liquid-button--secondary animate-lift-hover">
                         <i class="fas fa-download"></i> Fetch Only
                     </button>
-                    <button id="synthesis-only-btn" data-pref="synthesis_only" data-mode="true" class="glass-button glass-button--secondary">
+                    <button id="synthesis-only-btn" data-pref="synthesis_only" data-mode="true"
+                        class="liquid-button liquid-button--secondary animate-lift-hover">
                         <i class="fas fa-lightbulb"></i> Synthesis Only
                     </button>
-                    <button id="embedding-only-btn" data-pref="embedding_only" data-mode="true" class="glass-button glass-button--secondary">
+                    <button id="embedding-only-btn" data-pref="embedding_only" data-mode="true"
+                        class="liquid-button liquid-button--secondary animate-lift-hover">
                         <i class="fas fa-project-diagram"></i> Embedding Only
                     </button>
-                    <button id="git-sync-only-btn" data-pref="git_sync_only" data-mode="true" class="glass-button glass-button--secondary">
+                    <button id="git-sync-only-btn" data-pref="git_sync_only" data-mode="true"
+                        class="liquid-button liquid-button--secondary animate-lift-hover">
                         <i class="fas fa-code-branch"></i> Git Sync Only
                     </button>
                 </div>
@@ -61,24 +90,33 @@
 
             <!-- Skip Options -->
             <div class="preference-section" style="margin-bottom: var(--space-4);">
-                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Skip Options</h4>
-                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
-                    <button id="skip-fetch-bookmarks-btn" data-pref="skip_fetch_bookmarks" class="glass-button glass-button--ghost glass-button--small">
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    Skip Options</h4>
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="skip-fetch-bookmarks-btn" data-pref="skip_fetch_bookmarks"
+                        class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                         <i class="fas fa-bookmark"></i> Skip Fetch Bookmarks
                     </button>
-                    <button id="skip-process-content-btn" data-pref="skip_process_content" class="glass-button glass-button--ghost glass-button--small">
+                    <button id="skip-process-content-btn" data-pref="skip_process_content"
+                        class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                         <i class="fas fa-file-alt"></i> Skip Process Content
                     </button>
-                    <button id="skip-readme-generation-btn" data-pref="skip_readme_generation" class="glass-button glass-button--ghost glass-button--small">
+                    <button id="skip-readme-generation-btn" data-pref="skip_readme_generation"
+                        class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                         <i class="fas fa-readme"></i> Skip README Generation
                     </button>
-                    <button id="skip-git-push-btn" data-pref="skip_git_push" class="glass-button glass-button--ghost glass-button--small">
+                    <button id="skip-git-push-btn" data-pref="skip_git_push"
+                        class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                         <i class="fas fa-upload"></i> Skip Git Push
                     </button>
-                    <button id="skip-synthesis-generation-btn" data-pref="skip_synthesis_generation" class="glass-button glass-button--ghost glass-button--small">
+                    <button id="skip-synthesis-generation-btn" data-pref="skip_synthesis_generation"
+                        class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                         <i class="fas fa-lightbulb"></i> Skip Synthesis
                     </button>
-                    <button id="skip-embedding-generation-btn" data-pref="skip_embedding_generation" class="glass-button glass-button--ghost glass-button--small">
+                    <button id="skip-embedding-generation-btn" data-pref="skip_embedding_generation"
+                        class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                         <i class="fas fa-project-diagram"></i> Skip Embedding
                     </button>
                 </div>
@@ -86,30 +124,45 @@
 
             <!-- Force Options -->
             <div class="preference-section" style="margin-bottom: var(--space-4);">
-                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Force Options</h4>
-                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
-                    <button id="force-recache-tweets-btn" data-pref="force_recache_tweets" class="glass-button glass-button--warning glass-button--small">
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    Force Options</h4>
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="force-recache-tweets-btn" data-pref="force_recache_tweets"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-sync-alt"></i> Force Recache Tweets
                     </button>
-                    <button id="force-reprocess-media-btn" data-pref="force_reprocess_media" class="glass-button glass-button--warning glass-button--small">
+                    <button id="force-reprocess-media-btn" data-pref="force_reprocess_media"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-images"></i> Force Reprocess Media
                     </button>
-                    <button id="force-reprocess-llm-btn" data-pref="force_reprocess_llm" class="glass-button glass-button--warning glass-button--small">
+                    <button id="force-reprocess-llm-btn" data-pref="force_reprocess_llm"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-brain"></i> Force Reprocess LLM
                     </button>
-                    <button id="force-reprocess-kb-item-btn" data-pref="force_reprocess_kb_item" class="glass-button glass-button--warning glass-button--small">
+                    <button id="force-reprocess-kb-item-btn" data-pref="force_reprocess_kb_item"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-file-text"></i> Force Reprocess KB Items
                     </button>
-                    <button id="force-regenerate-synthesis-btn" data-pref="force_regenerate_synthesis" class="glass-button glass-button--warning glass-button--small">
+                    <button id="force-reprocess-db-sync-btn" data-pref="force_reprocess_db_sync"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
+                        <i class="fas fa-database"></i> Force DB Sync
+                    </button>
+                    <button id="force-regenerate-synthesis-btn" data-pref="force_regenerate_synthesis"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-lightbulb"></i> Force Regenerate Synthesis
                     </button>
-                    <button id="force-regenerate-embeddings-btn" data-pref="force_regenerate_embeddings" class="glass-button glass-button--warning glass-button--small">
+                    <button id="force-regenerate-embeddings-btn" data-pref="force_regenerate_embeddings"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-project-diagram"></i> Force Regenerate Embeddings
                     </button>
-                    <button id="force-regenerate-readme-btn" data-pref="force_regenerate_readme" class="glass-button glass-button--warning glass-button--small">
+                    <button id="force-regenerate-readme-btn" data-pref="force_regenerate_readme"
+                        class="liquid-button liquid-button--warning liquid-button--sm animate-lift-hover">
                         <i class="fas fa-readme"></i> Force Regenerate README
                     </button>
-                    <button id="force-reprocess-content-btn" data-pref="force_reprocess_content" class="glass-button glass-button--danger glass-button--small">
+                    <button id="force-reprocess-content-btn" data-pref="force_reprocess_content"
+                        class="liquid-button liquid-button--danger liquid-button--sm animate-lift-hover">
                         <i class="fas fa-exclamation-triangle"></i> Force Reprocess All Content
                     </button>
                 </div>
@@ -122,42 +175,71 @@
         </div>
 
         <!-- Collapsible Utilities Section -->
-        <div id="collapsible-utilities" class="utilities-collapsible collapsed" style="overflow: hidden; transition: all 0.3s ease;">
+        <div id="collapsible-utilities" class="utilities-collapsible collapsed"
+            style="overflow: hidden; transition: all 0.3s ease;">
             <!-- Celery Management -->
             <div class="preference-section" style="margin-bottom: var(--space-4);">
-                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Celery Task Management</h4>
-                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
-                    <button id="clear-celery-queue-btn" class="glass-button glass-button--warning">
-                        <i class="fas fa-broom"></i> Clear Task Queue
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    Celery Task Management</h4>
+
+                <!-- Basic Operations -->
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3);">
+                    <button id="clear-celery-queue-btn" class="liquid-button liquid-button--warning animate-lift-hover">
+                        <i class="fas fa-broom"></i> Clear Queue
                     </button>
-                    <button id="purge-celery-tasks-btn" class="glass-button glass-button--danger">
-                        <i class="fas fa-trash-alt"></i> Purge All Tasks
+                    <button id="purge-celery-tasks-btn" class="liquid-button liquid-button--danger animate-lift-hover">
+                        <i class="fas fa-trash-alt"></i> Purge All
                     </button>
-                    <button id="restart-celery-workers-btn" class="glass-button glass-button--secondary">
+                    <button id="restart-celery-workers-btn"
+                        class="liquid-button liquid-button--secondary animate-lift-hover">
                         <i class="fas fa-sync-alt"></i> Restart Workers
                     </button>
-                    <button id="celery-status-btn" class="glass-button glass-button--ghost">
-                        <i class="fas fa-info-circle"></i> Worker Status
+                    <button id="celery-status-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
+                        <i class="fas fa-info-circle"></i> Status
                     </button>
                 </div>
+
+                <!-- Advanced Operations -->
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="clear-old-tasks-btn" class="liquid-button liquid-button--secondary animate-lift-hover">
+                        <i class="fas fa-history"></i> Clear Old Tasks
+                    </button>
+                    <button id="stuck-tasks-btn" class="liquid-button liquid-button--warning animate-lift-hover">
+                        <i class="fas fa-exclamation-triangle"></i> Check Stuck
+                    </button>
+                    <button id="revoke-tasks-btn" class="liquid-button liquid-button--danger animate-lift-hover">
+                        <i class="fas fa-stop"></i> Revoke Active
+                    </button>
+                    <button id="flush-redis-btn" class="liquid-button liquid-button--danger animate-lift-hover">
+                        <i class="fas fa-database"></i> Flush Redis
+                    </button>
+                </div>
+
                 <div style="margin-top: var(--space-2);">
                     <small style="color: var(--text-secondary); font-style: italic;">
-                        Manage Celery task queue and worker processes
+                        Comprehensive Celery task queue and worker management with advanced cleanup tools
                     </small>
                 </div>
             </div>
 
             <!-- System Utilities -->
             <div class="preference-section" style="margin-bottom: var(--space-4);">
-                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">System Utilities</h4>
-                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
-                    <button id="clear-redis-cache-btn" class="glass-button glass-button--warning">
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    System Utilities</h4>
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="clear-redis-cache-btn" class="liquid-button liquid-button--warning animate-lift-hover">
                         <i class="fas fa-database"></i> Clear Redis Cache
                     </button>
-                    <button id="cleanup-temp-files-btn" class="glass-button glass-button--secondary">
+                    <button id="cleanup-temp-files-btn"
+                        class="liquid-button liquid-button--secondary animate-lift-hover">
                         <i class="fas fa-file-alt"></i> Cleanup Temp Files
                     </button>
-                    <button id="system-health-check-btn" class="glass-button glass-button--ghost">
+                    <button id="system-health-check-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
                         <i class="fas fa-heartbeat"></i> Health Check
                     </button>
                 </div>
@@ -170,15 +252,18 @@
 
             <!-- Debug Tools -->
             <div class="preference-section" style="margin-bottom: var(--space-4);">
-                <h4 style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">Debug Tools</h4>
-                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
-                    <button id="export-logs-btn" class="glass-button glass-button--ghost">
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    Debug Tools</h4>
+                <div class="preference-group"
+                    style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="export-logs-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
                         <i class="fas fa-download"></i> Export Logs
                     </button>
-                    <button id="test-connections-btn" class="glass-button glass-button--ghost">
+                    <button id="test-connections-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
                         <i class="fas fa-plug"></i> Test Connections
                     </button>
-                    <button id="debug-info-btn" class="glass-button glass-button--ghost">
+                    <button id="debug-info-btn" class="liquid-button liquid-button--ghost animate-lift-hover">
                         <i class="fas fa-bug"></i> Debug Info
                     </button>
                 </div>
@@ -189,5 +274,26 @@
                 </div>
             </div>
         </div>
+
+        <!-- Collapsible Completed Tasks Section -->
+        <div id="collapsible-completed-tasks" class="completed-tasks-collapsible collapsed"
+            style="overflow: hidden; transition: all 0.3s ease;">
+            <!-- Historical Tasks -->
+            <div class="preference-section" style="margin-bottom: var(--space-4);">
+                <h4
+                    style="margin: 0 0 var(--space-3) 0; color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 600;">
+                    Recent Completed Tasks</h4>
+                <div id="completed-tasks-list" style="max-height: 400px; overflow-y: auto;">
+                    <div class="loading-placeholder" style="text-align: center; padding: var(--space-4); color: var(--text-secondary);">
+                        <i class="fas fa-spinner fa-spin"></i> Loading tasks...
+                    </div>
+                </div>
+                <div style="margin-top: var(--space-2);">
+                    <small style="color: var(--text-secondary); font-style: italic;">
+                        View detailed execution reports and logs from recent agent runs
+                    </small>
+                </div>
+            </div>
+        </div>
     </div>
-</div> 
+</div>

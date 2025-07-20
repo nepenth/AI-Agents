@@ -1,0 +1,381 @@
+/* ===== CROSS-BROWSER COMPATIBILITY ===== */
+
+/* Backdrop-filter fallbacks for browsers that don't support it */
+@supports not (backdrop-filter: blur(10px)) {
+  .glass-panel-v3 {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .glass-panel-v3--secondary {
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  
+  .glass-panel-v3--tertiary {
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Dark mode fallbacks */
+  .dark-mode .glass-panel-v3 {
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark-mode .glass-panel-v3--secondary {
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .dark-mode .glass-panel-v3--tertiary {
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .liquid-button {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .dark-mode .liquid-button {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Vendor prefixes for maximum compatibility */
+.glass-panel-v3 {
+  -webkit-backdrop-filter: var(--glass-blur-medium) var(--glass-saturate);
+  -moz-backdrop-filter: var(--glass-blur-medium) var(--glass-saturate);
+  -ms-backdrop-filter: var(--glass-blur-medium) var(--glass-saturate);
+  -o-backdrop-filter: var(--glass-blur-medium) var(--glass-saturate);
+  backdrop-filter: var(--glass-blur-medium) var(--glass-saturate);
+}
+
+.glass-panel-v3--secondary {
+  -webkit-backdrop-filter: var(--glass-blur-light) var(--glass-saturate);
+  -moz-backdrop-filter: var(--glass-blur-light) var(--glass-saturate);
+  -ms-backdrop-filter: var(--glass-blur-light) var(--glass-saturate);
+  -o-backdrop-filter: var(--glass-blur-light) var(--glass-saturate);
+  backdrop-filter: var(--glass-blur-light) var(--glass-saturate);
+}
+
+.glass-panel-v3--tertiary {
+  -webkit-backdrop-filter: var(--glass-blur-subtle) var(--glass-saturate);
+  -moz-backdrop-filter: var(--glass-blur-subtle) var(--glass-saturate);
+  -ms-backdrop-filter: var(--glass-blur-subtle) var(--glass-saturate);
+  -o-backdrop-filter: var(--glass-blur-subtle) var(--glass-saturate);
+  backdrop-filter: var(--glass-blur-subtle) var(--glass-saturate);
+}
+
+/* Transform vendor prefixes */
+.animate-lift-hover:hover {
+  -webkit-transform: var(--transform-lift-sm);
+  -moz-transform: var(--transform-lift-sm);
+  -ms-transform: var(--transform-lift-sm);
+  -o-transform: var(--transform-lift-sm);
+  transform: var(--transform-lift-sm);
+}
+
+/* Transition vendor prefixes */
+.glass-panel-v3,
+.liquid-button {
+  -webkit-transition: all var(--duration-fast) var(--ease-smooth);
+  -moz-transition: all var(--duration-fast) var(--ease-smooth);
+  -ms-transition: all var(--duration-fast) var(--ease-smooth);
+  -o-transition: all var(--duration-fast) var(--ease-smooth);
+  transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+/* Border-radius vendor prefixes for older browsers */
+.glass-panel-v3 {
+  -webkit-border-radius: var(--radius-xl);
+  -moz-border-radius: var(--radius-xl);
+  -ms-border-radius: var(--radius-xl);
+  border-radius: var(--radius-xl);
+}
+
+.liquid-button {
+  -webkit-border-radius: var(--radius-lg);
+  -moz-border-radius: var(--radius-lg);
+  -ms-border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg);
+}
+
+/* Box-shadow vendor prefixes */
+.glass-panel-v3 {
+  -webkit-box-shadow: var(--glass-shadow-md);
+  -moz-box-shadow: var(--glass-shadow-md);
+  -ms-box-shadow: var(--glass-shadow-md);
+  box-shadow: var(--glass-shadow-md);
+}
+
+/* Gradient vendor prefixes */
+.liquid-button--primary {
+  background: -webkit-linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: -moz-linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: -ms-linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: -o-linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+}
+
+/* Animation vendor prefixes */
+@-webkit-keyframes glassSlideIn {
+  0% {
+    -webkit-transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    -webkit-transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@-moz-keyframes glassSlideIn {
+  0% {
+    -moz-transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    -moz-transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes glassSlideIn {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-glass-slide-in {
+  -webkit-animation: glassSlideIn var(--duration-normal) var(--ease-smooth) forwards;
+  -moz-animation: glassSlideIn var(--duration-normal) var(--ease-smooth) forwards;
+  -ms-animation: glassSlideIn var(--duration-normal) var(--ease-smooth) forwards;
+  -o-animation: glassSlideIn var(--duration-normal) var(--ease-smooth) forwards;
+  animation: glassSlideIn var(--duration-normal) var(--ease-smooth) forwards;
+}
+
+/* Internet Explorer specific fixes */
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+  .glass-panel-v3 {
+    background: rgba(255, 255, 255, 0.9);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#E6FFFFFF, endColorstr=#E6FFFFFF);
+  }
+  
+  .liquid-button {
+    background: rgba(255, 255, 255, 0.8);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#CCFFFFFF, endColorstr=#CCFFFFFF);
+  }
+  
+  /* Remove transforms that IE doesn't handle well */
+  .animate-lift-hover:hover {
+    transform: none;
+  }
+}
+
+/* Firefox specific fixes */
+@-moz-document url-prefix() {
+  .glass-panel-v3 {
+    background: rgba(255, 255, 255, 0.85);
+  }
+  
+  .glass-input {
+    -moz-appearance: none;
+  }
+}
+
+/* Safari specific fixes */
+@media not all and (min-resolution:.001dpcm) {
+  @supports (-webkit-appearance:none) {
+    .glass-input {
+      -webkit-appearance: none;
+    }
+    
+    .liquid-button {
+      -webkit-appearance: none;
+    }
+    
+    /* Fix Safari backdrop-filter performance */
+    .glass-panel-v3 {
+      -webkit-backdrop-filter: blur(10px) saturate(180%);
+      will-change: backdrop-filter;
+    }
+  }
+}
+
+/* Edge specific fixes */
+@supports (-ms-ime-align:auto) {
+  .glass-panel-v3 {
+    background: rgba(255, 255, 255, 0.85);
+  }
+  
+  .liquid-button {
+    background: rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Chrome specific optimizations */
+@media screen and (-webkit-min-device-pixel-ratio:0) and (min-resolution:.001dpcm) {
+  .glass-panel-v3 {
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+  }
+  
+  /* Optimize for Chrome's rendering engine */
+  .animate-lift-hover {
+    will-change: transform;
+  }
+  
+  .glass-panel-v3 {
+    will-change: backdrop-filter, background;
+  }
+}
+
+/* Progressive enhancement for modern browsers */
+@supports (backdrop-filter: blur(10px)) and (display: grid) {
+  .glass-panel-v3--enhanced {
+    backdrop-filter: blur(15px) saturate(200%) brightness(110%);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Fallback for browsers without CSS Grid */
+@supports not (display: grid) {
+  .overview-metrics {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .metric-card {
+    flex: 1 1 200px;
+    margin: var(--space-2);
+  }
+  
+  .nexus-stats {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .stat {
+    flex: 1 1 120px;
+    margin: var(--space-1);
+  }
+}
+
+/* Fallback for browsers without CSS Flexbox */
+@supports not (display: flex) {
+  .liquid-nav {
+    display: block;
+  }
+  
+  .liquid-nav-item {
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  
+  .content-header {
+    display: block;
+  }
+  
+  .content-actions {
+    margin-top: var(--space-3);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .glass-panel-v3 {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(0, 0, 0, 0.8);
+  }
+  
+  .liquid-button {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(0, 0, 0, 0.8);
+    color: rgba(0, 0, 0, 0.9);
+  }
+  
+  .liquid-button--primary {
+    background: rgba(0, 0, 0, 0.9);
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* Print styles */
+@media print {
+  .glass-panel-v3,
+  .liquid-button {
+    background: white !important;
+    border: 1px solid black !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  
+  .animate-glass-slide-in,
+  .animate-glass-fade-in,
+  .animate-lift-hover {
+    animation: none !important;
+  }
+  
+  .sidebar {
+    display: none !important;
+  }
+  
+  .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* Feature detection and graceful degradation */
+.no-backdrop-filter .glass-panel-v3 {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.no-transforms .animate-lift-hover:hover {
+  box-shadow: var(--glass-shadow-lg);
+}
+
+.no-transitions .glass-panel-v3,
+.no-transitions .liquid-button {
+  transition: none;
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus indicators for keyboard navigation */
+.glass-panel-v3:focus-visible,
+.liquid-button:focus-visible,
+.glass-input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Ensure minimum color contrast */
+@media (prefers-contrast: more) {
+  :root {
+    --text-primary: #000000;
+    --text-secondary: #333333;
+    --text-muted: #666666;
+  }
+  
+  .dark-mode {
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --text-muted: #999999;
+  }
+}

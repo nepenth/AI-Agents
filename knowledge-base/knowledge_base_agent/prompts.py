@@ -33,6 +33,7 @@ class UserPreferences:
     force_reprocess_media: bool = False    # If True, forces re-analyzing media even if already processed
     force_reprocess_llm: bool = False      # If True, forces re-running LLM categorization & naming
     force_reprocess_kb_item: bool = False  # If True, forces regeneration of KB items
+    force_reprocess_db_sync: bool = False  # If True, forces re-syncing KB items to database
     
     # Legacy/combined flag - maintained for backward compatibility
     # When set to True, it will activate all the granular force flags above
