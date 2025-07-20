@@ -8,26 +8,5 @@
     <div id="logs-container" class="glass-panel-v3--tertiary" style="flex: 1; overflow-y: auto; margin-bottom: var(--space-3); max-height: 300px; padding: var(--space-3); border-radius: var(--radius-lg);">
         <!-- Log messages will be appended here -->
     </div>
-    <div id="agent-status-footer" class="glass-panel-v3--secondary panel-footer"
-        style="flex-shrink: 0; padding: var(--space-3); border-top: 1px solid var(--glass-border-primary); font-size: var(--font-size-xs); color: var(--text-secondary); border-radius: var(--radius-lg); margin-top: var(--space-2);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                Agent Status: <span id="agent-status-text-logs" class="glass-badge glass-badge--primary status-text status-idle"
-                    style="margin-left: var(--space-2);">Idle</span>
-            </div>
-            <div id="agent-etc-display" style="color: var(--text-tertiary); font-size: var(--font-size-xs); display: none;">
-                ETC: <span id="agent-etc-time" class="glass-badge glass-badge--secondary">--</span>
-            </div>
-        </div>
-        <div id="agent-phase-progress" style="margin-top: var(--space-3); display: none;">
-            <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-bottom: var(--space-2);">
-                <span id="phase-progress-text">Processing...</span>
-            </div>
-            <div class="glass-panel-v3--tertiary" style="border-radius: var(--radius-base); height: 6px; overflow: hidden; padding: 1px;">
-                <div id="phase-progress-bar"
-                    style="background: var(--gradient-primary); height: 100%; width: 0%; transition: width var(--duration-normal) var(--ease-smooth); border-radius: var(--radius-sm);">
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- REMOVED: Redundant Agent Status footer - status is already shown in Agent Dashboard -->
 </div>

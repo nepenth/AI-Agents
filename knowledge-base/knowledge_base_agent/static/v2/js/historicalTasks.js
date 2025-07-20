@@ -73,18 +73,19 @@ class HistoricalTasksManager {
     
     async loadCompletedTasks() {
         try {
-            const response = await this.api.get('/v2/agent/history?limit=5');
+            // FIX: Use correct API method - the APIClient doesn't have a .get() method
+            const response = await this.api.request('/v2/agent/history?limit=5');
             
             if (response.success) {
                 this.completedTasks = response.tasks;
                 this.renderTaskList();
             } else {
                 console.error('Failed to load completed tasks:', response.error);
-                this.renderError('Failed to load completed tasks');
+                this.renderError('Failed to load completed tasks: ' + (response.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error loading completed tasks:', error);
-            this.renderError('Error loading completed tasks');
+            this.renderError('Error loading completed tasks: ' + error.message);
         }
     }
     
@@ -232,7 +233,7 @@ class HistoricalTasksManager {
             this.collapseCollapsible();
             
             // Load detailed task information
-            const response = await this.api.get(`/v2/agent/history/${taskId}`);
+            const response = await this.api.request(`/v2/agent/history/${taskId}`);
             
             if (!response.success) {
                 throw new Error(response.error || 'Failed to load task details');

@@ -53,6 +53,7 @@ class UserPreferences:
             self.force_reprocess_media = True
             self.force_reprocess_llm = True
             self.force_reprocess_kb_item = True
+            self.force_reprocess_db_sync = True  # FIX: Include DB sync in force reprocess content
         
         bool_flags = [
             'skip_fetch_bookmarks',
@@ -66,6 +67,7 @@ class UserPreferences:
             'force_reprocess_media',
             'force_reprocess_llm', 
             'force_reprocess_kb_item',
+            'force_reprocess_db_sync',  # FIX: Added missing force_reprocess_db_sync flag
             'force_regenerate_synthesis',
             'force_regenerate_embeddings',
             'force_regenerate_readme'

@@ -557,7 +557,7 @@ class EnhancedRealtimeManager:
             # Also subscribe to legacy realtime_events channel for backward compatibility
             pubsub.subscribe("realtime_events")
             
-            logging.info(f"Subscribed to standardized Redis channels: {TaskProgressManager.LOG_CHANNEL}, {TaskProgressManager.PHASE_CHANNEL}, {TaskProgressManager.STATUS_CHANNEL}, realtime_events")
+            logging.info(f"✅ EnhancedRealtimeManager subscribed to Redis channels: {TaskProgressManager.LOG_CHANNEL}, {TaskProgressManager.PHASE_CHANNEL}, {TaskProgressManager.STATUS_CHANNEL}, realtime_events")
             
             while not self._stop_event.is_set():
                 try:

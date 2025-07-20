@@ -13,13 +13,13 @@ class DashboardManager {
 
     async initialize() {
         console.log('🎛️ DashboardManager.initialize() called');
-        
+
         try {
             // Step 1: Load dashboard content
             console.log('📄 Step 1: Loading dashboard content...');
             await this.loadDashboardContent();
             console.log('✅ Step 1: Dashboard content loaded');
-            
+
             // Step 2: Check manager availability
             console.log('🔍 Step 2: Checking manager class availability...');
             const availableManagers = {
@@ -29,10 +29,10 @@ class DashboardManager {
                 GpuStatusManager: !!window.GpuStatusManager
             };
             console.log('Manager availability:', availableManagers);
-            
+
             // Step 3: Initialize managers one by one with error handling
             console.log('🔧 Step 3: Initializing managers...');
-            
+
             if (window.AgentControlManager) {
                 console.log('Initializing AgentControlManager...');
                 this.managers.agentControls = new window.AgentControlManager(this.api);
@@ -40,7 +40,7 @@ class DashboardManager {
             } else {
                 console.error('❌ AgentControlManager not available');
             }
-            
+
             if (window.ExecutionPlanManager) {
                 console.log('Initializing ExecutionPlanManager...');
                 this.managers.executionPlan = new window.ExecutionPlanManager();
@@ -48,7 +48,7 @@ class DashboardManager {
             } else {
                 console.error('❌ ExecutionPlanManager not available');
             }
-            
+
             if (window.LiveLogsManager) {
                 console.log('Initializing LiveLogsManager...');
                 this.managers.liveLogs = new window.LiveLogsManager(this.api);
@@ -56,7 +56,7 @@ class DashboardManager {
             } else {
                 console.error('❌ LiveLogsManager not available');
             }
-            
+
             if (window.GpuStatusManager) {
                 console.log('Initializing GpuStatusManager...');
                 this.managers.gpuStatus = new window.GpuStatusManager(this.api);
@@ -64,7 +64,7 @@ class DashboardManager {
             } else {
                 console.error('❌ GpuStatusManager not available');
             }
-            
+
             if (window.HistoricalTasksManager) {
                 console.log('Initializing HistoricalTasksManager...');
                 this.managers.historicalTasks = new window.HistoricalTasksManager(this.api);
@@ -72,7 +72,7 @@ class DashboardManager {
             } else {
                 console.error('❌ HistoricalTasksManager not available');
             }
-            
+
             // Initialize new display components
             if (window.PhaseDisplayManager) {
                 console.log('Initializing PhaseDisplayManager...');
@@ -81,7 +81,7 @@ class DashboardManager {
             } else {
                 console.error('❌ PhaseDisplayManager not available');
             }
-            
+
             if (window.ProgressDisplayManager) {
                 console.log('Initializing ProgressDisplayManager...');
                 this.managers.progressDisplay = new window.ProgressDisplayManager();
@@ -89,7 +89,7 @@ class DashboardManager {
             } else {
                 console.error('❌ ProgressDisplayManager not available');
             }
-            
+
             if (window.TaskDisplayManager) {
                 console.log('Initializing TaskDisplayManager...');
                 this.managers.taskDisplay = new window.TaskDisplayManager();
@@ -97,7 +97,7 @@ class DashboardManager {
             } else {
                 console.error('❌ TaskDisplayManager not available');
             }
-            
+
             // Initialize error handling and notification systems
             if (window.NotificationSystem) {
                 console.log('Initializing NotificationSystem...');
@@ -109,7 +109,7 @@ class DashboardManager {
             } else {
                 console.error('❌ NotificationSystem not available');
             }
-            
+
             if (window.RedisConnectionManager) {
                 console.log('Initializing RedisConnectionManager...');
                 this.managers.redisConnection = new window.RedisConnectionManager({
@@ -121,7 +121,7 @@ class DashboardManager {
             } else {
                 console.error('❌ RedisConnectionManager not available');
             }
-            
+
             if (window.SocketIOReconnectionManager && window.socket) {
                 console.log('Initializing SocketIOReconnectionManager...');
                 this.managers.socketIOReconnection = new window.SocketIOReconnectionManager(
@@ -136,7 +136,7 @@ class DashboardManager {
             } else {
                 console.error('❌ SocketIOReconnectionManager not available or no socket');
             }
-            
+
             // Initialize performance monitoring
             if (window.PerformanceMonitor) {
                 console.log('Initializing PerformanceMonitor...');
@@ -151,7 +151,7 @@ class DashboardManager {
             } else {
                 console.error('❌ PerformanceMonitor not available');
             }
-            
+
             // Initialize performance optimizer
             if (window.PerformanceOptimizer) {
                 console.log('Initializing PerformanceOptimizer...');
@@ -168,11 +168,11 @@ class DashboardManager {
             }
 
             console.log('✅ All dashboard components initialized successfully');
-            
+
         } catch (error) {
             console.error('❌ DashboardManager initialization failed:', error);
             console.error('Error stack:', error.stack);
-            
+
             // Show user-friendly error with more detail
             const mainContent = document.getElementById('main-content');
             if (mainContent) {
@@ -203,7 +203,7 @@ class DashboardManager {
                     </div>
                 `;
             }
-            
+
             throw error; // Re-throw to let router handle it
         }
     }
@@ -211,14 +211,14 @@ class DashboardManager {
     async loadDashboardContent() {
         try {
             console.log('📄 Loading dashboard content from /v2/page/index...');
-            
+
             const mainContent = document.getElementById('main-content');
             if (!mainContent) {
                 throw new Error('Main content container (#main-content) not found in DOM');
             }
-            
+
             console.log('📄 Main content container found, showing loading indicator...');
-            
+
             // Show loading indicator
             mainContent.innerHTML = `
                 <div class="loading-container" style="
@@ -240,47 +240,47 @@ class DashboardManager {
                     <p style="color: var(--text-secondary); margin: 0;">Loading dashboard...</p>
                 </div>
             `;
-            
+
             console.log('📄 Fetching dashboard content...');
-            
+
             // Create a timeout promise for the fetch request
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000);
             });
-            
+
             // Race the fetch against the timeout
             const fetchPromise = fetch('/v2/page/index');
             const response = await Promise.race([fetchPromise, timeoutPromise]);
-            
+
             console.log('📄 Fetch response status:', response.status, response.statusText);
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to load dashboard content: ${response.status} ${response.statusText}`);
             }
-            
+
             const html = await response.text();
             console.log('📄 Dashboard HTML loaded, length:', html.length);
-            
+
             // Basic validation of the HTML content
             if (!html || html.trim().length === 0) {
                 throw new Error('Received empty content from server');
             }
-            
+
             // Load dashboard HTML with fade transition
             mainContent.style.opacity = '0';
             mainContent.innerHTML = html;
-            
+
             // Fade in
             setTimeout(() => {
                 mainContent.style.opacity = '1';
                 console.log('📄 Dashboard content displayed with fade-in');
             }, 100);
-            
+
             console.log('✅ Dashboard content loaded successfully');
-            
+
         } catch (error) {
             console.error('❌ Failed to load dashboard content:', error);
-            
+
             // Show error with fallback
             const mainContent = document.getElementById('main-content');
             if (mainContent) {
@@ -313,21 +313,21 @@ class DashboardManager {
                     </div>
                 `;
             }
-            
+
             throw error;
         }
     }
 
     cleanup() {
         console.log('🧹 Cleaning up Dashboard...');
-        
+
         // Cleanup all managers
         Object.values(this.managers).forEach(manager => {
             if (typeof manager.cleanup === 'function') {
                 manager.cleanup();
             }
         });
-        
+
         this.managers = {};
     }
 }
@@ -357,16 +357,16 @@ class APIClient {
 
         try {
             const response = await fetch(url, config);
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
                 return await response.json();
             }
-            
+
             return await response.text();
         } catch (error) {
             console.error(`API request failed: ${endpoint}`, error);
@@ -477,10 +477,10 @@ class ThemeManager {
         const newTheme = this.toggleCheckbox.checked ? 'dark-mode' : 'light-mode';
         document.body.className = newTheme;
         localStorage.setItem('theme', newTheme);
-        
+
         // Dispatch custom event for other components to react
-        window.dispatchEvent(new CustomEvent('themeChanged', { 
-            detail: { theme: newTheme } 
+        window.dispatchEvent(new CustomEvent('themeChanged', {
+            detail: { theme: newTheme }
         }));
     }
 }
@@ -494,7 +494,7 @@ class SidebarManager {
         this.pageContainer = document.querySelector('.page-container');
         this.overlay = null;
         this.isCollapsed = false;
-        
+
         if (!this.sidebarToggle || !this.pageContainer) return;
         this.init();
     }
@@ -506,9 +506,9 @@ class SidebarManager {
 
         // Close sidebar when clicking outside on mobile
         document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 768 && 
+            if (window.innerWidth <= 768 &&
                 this.isCollapsed &&
-                !e.target.closest('.sidebar') && 
+                !e.target.closest('.sidebar') &&
                 !e.target.closest('#sidebar-toggle')) {
                 this.expandSidebar();
             }
@@ -540,31 +540,31 @@ class SidebarManager {
     collapseSidebar() {
         this.pageContainer.classList.add('sidebar-collapsed');
         this.isCollapsed = true;
-        
+
         // Don't change the icon - CSS will handle the rotation
-        
+
         // Add overlay for mobile
         if (window.innerWidth <= 768) {
             this.createOverlay();
         }
-        
+
         console.log('Sidebar collapsed');
     }
 
     expandSidebar() {
         this.pageContainer.classList.remove('sidebar-collapsed');
         this.isCollapsed = false;
-        
+
         // Don't change the icon - CSS will handle the rotation
-        
+
         this.removeOverlay();
-        
+
         console.log('Sidebar expanded');
     }
 
     createOverlay() {
         if (this.overlay) return;
-        
+
         this.overlay = document.createElement('div');
         this.overlay.className = 'sidebar-overlay';
         this.overlay.style.cssText = `
@@ -577,11 +577,11 @@ class SidebarManager {
             z-index: 99;
             backdrop-filter: blur(2px);
         `;
-        
+
         this.overlay.addEventListener('click', () => {
             this.expandSidebar();
         });
-        
+
         document.body.appendChild(this.overlay);
     }
 
@@ -600,7 +600,7 @@ class UIManager {
     constructor() {
         // Initialize API client for REST operations
         this.api = new APIClient();
-        
+
         // Establish Socket.IO connection for real-time updates (if server supports it)
         try {
             if (window.io) {
@@ -613,22 +613,22 @@ class UIManager {
         } catch (err) {
             console.error('Failed to initialize Socket.IO:', err);
         }
-        
+
         // Initialize polling for real-time updates (replaces SocketIO)
         this.pollingIntervals = {};
         this.lastLogTimestamp = null;
         this.initializePolling();
-        
+
         // Initialize core UI components only
         this.sidebarManager = new SidebarManager();
         this.themeManager = new ThemeManager('theme-toggle');
         this.dashboardManager = null; // Will be initialized when dashboard loads
-        
+
         // Initialize utility manager for Celery management
         if (window.UtilityManager) {
             this.utilityManager = new UtilityManager(this.api);
         }
-        
+
         // Initialize UI effects if available
         if (window.UIEffects) {
             this.effects = new window.UIEffects();
@@ -639,14 +639,14 @@ class UIManager {
 
     initializePolling() {
         console.log('📊 Setting up API polling for real-time features...');
-        
+
         // Reduce polling frequency to minimize duplicate logs
         // Only poll when SocketIO is not available or not working
         if (!window.socket || !window.socket.connected) {
             this.startPolling('status', '/agent/status', 3000);  // 3 seconds (reduced frequency)
             this.startPolling('logs', '/logs/recent', 2500);     // 2.5 seconds (reduced frequency)
             this.startPolling('gpu-stats', '/gpu-stats', 5000);  // 5 seconds (reduced frequency)
-            
+
             console.log('✅ API polling started for real-time updates (SocketIO not available)');
             this.showSuccessNotification('Real-time updates enabled (polling mode)');
         } else {
@@ -662,17 +662,17 @@ class UIManager {
         if (this.pollingIntervals[name]) {
             clearInterval(this.pollingIntervals[name]);
         }
-        
+
         // Start new polling interval
         this.pollingIntervals[name] = setInterval(async () => {
             try {
                 let url = endpoint;
-                
+
                 // Add timestamp parameter for logs to get only new logs
                 if (name === 'logs' && this.lastLogTimestamp) {
                     url += `?since=${encodeURIComponent(this.lastLogTimestamp)}`;
                 }
-                
+
                 const response = await this.api.request(url);
                 this.handlePollingResponse(name, response);
             } catch (error) {
@@ -680,7 +680,7 @@ class UIManager {
                 // Don't show error notifications for polling failures
             }
         }, interval);
-        
+
         console.log(`📊 Started polling ${name} every ${interval}ms`);
     }
 
@@ -703,7 +703,7 @@ class UIManager {
         if (statusData.is_running !== undefined) {
             this.dispatchCustomEvent('agent_status_update', statusData);
         }
-        
+
         // Extract and emit phase updates if available
         if (statusData.progress && statusData.progress.phase_id) {
             const phaseData = {
@@ -714,45 +714,144 @@ class UIManager {
                 processed_count: statusData.progress.processed_count,
                 total_count: statusData.progress.total_count
             };
-            
+
             this.dispatchCustomEvent('phase_update', phaseData);
             console.log('📊 Phase update emitted:', phaseData);
         }
-        
-        // Also check for phase information in the main status data
+
+        // ENHANCED: Check for phase information in the main status data
         if (statusData.phase_id || statusData.current_phase_message) {
             const phaseData = {
                 phase_id: statusData.phase_id || 'unknown',
                 status: statusData.is_running ? 'running' : 'idle',
                 message: statusData.current_phase_message,
-                progress: statusData.progress_percentage || statusData.progress,
+                progress: statusData.progress_percentage || statusData.progress || 0,
                 processed_count: statusData.processed_count,
                 total_count: statusData.total_count
             };
-            
+
             this.dispatchCustomEvent('phase_update', phaseData);
             console.log('📊 Phase update from status emitted:', phaseData);
         }
+
+        // ENHANCED: Parse phase information from progress data structure
+        if (statusData.progress) {
+            const progressData = statusData.progress;
+            if (progressData.phase_id || progressData.message) {
+                const phaseData = {
+                    phase_id: progressData.phase_id || 'processing',
+                    status: progressData.status || (statusData.is_running ? 'running' : 'idle'),
+                    message: progressData.message || statusData.current_phase_message || 'Processing...',
+                    progress: parseInt(progressData.progress) || 0,
+                    processed_count: progressData.processed_count,
+                    total_count: progressData.total_count
+                };
+
+                this.dispatchCustomEvent('phase_update', phaseData);
+                console.log('📊 Enhanced phase update from progress data:', phaseData);
+            }
+        }
+
+        // ENHANCED: Parse Celery task meta information for phase data
+        if (statusData.celery_status && statusData.celery_status.info) {
+            const celeryInfo = statusData.celery_status.info;
+            if (celeryInfo.phase_id || celeryInfo.message) {
+                const phaseData = {
+                    phase_id: celeryInfo.phase_id || 'processing',
+                    status: celeryInfo.status || (statusData.is_running ? 'running' : 'idle'),
+                    message: celeryInfo.message || statusData.current_phase_message || 'Processing...',
+                    progress: parseInt(celeryInfo.progress) || 0,
+                    processed_count: celeryInfo.processed_count,
+                    total_count: celeryInfo.total_count
+                };
+
+                this.dispatchCustomEvent('phase_update', phaseData);
+                console.log('📊 Phase update from Celery meta:', phaseData);
+            }
+        }
+
+        // ENHANCED: Update agent status panel directly
+        this.updateAgentStatusPanel(statusData);
+    }
+
+    updateAgentStatusPanel(statusData) {
+        // Update the agent status text in the logs panel
+        const agentStatusText = document.getElementById('agent-status-text-logs');
+        const phaseProgressText = document.getElementById('phase-progress-text');
+        const phaseProgressBar = document.getElementById('phase-progress-bar');
+        const agentPhaseProgress = document.getElementById('agent-phase-progress');
+        const agentEtcDisplay = document.getElementById('agent-etc-display');
+        const agentEtcTime = document.getElementById('agent-etc-time');
+
+        if (agentStatusText) {
+            if (statusData.is_running) {
+                agentStatusText.textContent = 'Running';
+                agentStatusText.className = 'glass-badge glass-badge--success status-text status-running';
+            } else {
+                agentStatusText.textContent = 'Idle';
+                agentStatusText.className = 'glass-badge glass-badge--primary status-text status-idle';
+            }
+        }
+
+        // Update phase progress if we have progress data
+        if (statusData.progress || statusData.current_phase_message) {
+            const progressData = statusData.progress || {};
+            const progress = parseInt(progressData.progress) || 0;
+            const message = progressData.message || statusData.current_phase_message || 'Processing...';
+
+            if (phaseProgressText) {
+                phaseProgressText.textContent = message;
+            }
+
+            if (phaseProgressBar) {
+                phaseProgressBar.style.width = `${progress}%`;
+            }
+
+            // Show progress panel if agent is running and we have meaningful progress
+            if (agentPhaseProgress && statusData.is_running && (progress > 0 || message !== 'Idle')) {
+                agentPhaseProgress.style.display = 'block';
+            } else if (agentPhaseProgress) {
+                agentPhaseProgress.style.display = 'none';
+            }
+        } else if (agentPhaseProgress) {
+            // Hide progress panel if no progress data
+            agentPhaseProgress.style.display = 'none';
+        }
+
+        // Update ETC display if available
+        if (statusData.etc_seconds && agentEtcTime && agentEtcDisplay) {
+            const etcMinutes = Math.ceil(statusData.etc_seconds / 60);
+            agentEtcTime.textContent = `${etcMinutes}m`;
+            agentEtcDisplay.style.display = 'block';
+        } else if (agentEtcDisplay) {
+            agentEtcDisplay.style.display = 'none';
+        }
+
+        console.log('📊 Agent status panel updated:', {
+            running: statusData.is_running,
+            progress: statusData.progress,
+            message: statusData.current_phase_message
+        });
     }
 
     handleLogsUpdate(logsData) {
         if (logsData.logs && logsData.logs.length > 0) {
             // Note: The /api/logs/recent endpoint returns logs in a different format
             // Each log has: {level: "INFO", message: "timestamp - level - message"}
-            
+
             // Emit custom events for each log
             logsData.logs.forEach(log => {
                 // Extract timestamp from the message if possible
                 const timestampMatch = log.message.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})/);
                 const timestamp = timestampMatch ? timestampMatch[1] : new Date().toISOString();
-                
+
                 // Create a normalized log format
                 const normalizedLog = {
                     message: log.message,
                     level: log.level,
                     timestamp: timestamp
                 };
-                
+
                 this.dispatchCustomEvent('log', normalizedLog);
             });
         }
@@ -783,21 +882,21 @@ class UIManager {
     async initializeApp() {
         try {
             console.log('🚀 Initializing V2 UI with pure API polling architecture...');
-            
+
             // Add necessary CSS animations if not present
             this.addRequiredStyles();
-            
+
             // Set up custom event listeners for polling responses
             this.setupEventListeners();
-            
+
             // Load initial system data via REST API
             await this.loadInitialData();
-            
+
             // Initialize UI effects after data is loaded
             if (this.effects && typeof this.effects.initLiquidGlassEffect === 'function') {
                 this.effects.initLiquidGlassEffect();
             }
-            
+
             // Bridge key Socket.IO events into the same CustomEvent bus that polling uses
             if (window.socket) {
                 // Legacy events
@@ -805,13 +904,13 @@ class UIManager {
                 window.socket.on('agent_status_update', (data) => this.dispatchCustomEvent('agent_status_update', data));
                 window.socket.on('phase_update', (data) => this.dispatchCustomEvent('phase_update', data));
                 window.socket.on('progress_update', (data) => this.dispatchCustomEvent('progress_update', data));
-                
+
                 // Enhanced structured events from EnhancedRealtimeManager
                 window.socket.on('phase_start', (data) => this.dispatchCustomEvent('phase_start', data));
                 window.socket.on('phase_complete', (data) => this.dispatchCustomEvent('phase_complete', data));
                 window.socket.on('phase_error', (data) => this.dispatchCustomEvent('phase_error', data));
                 window.socket.on('live_log', (data) => this.dispatchCustomEvent('live_log', data));
-                
+
                 // Batch events for high-volume scenarios
                 window.socket.on('log_batch', (data) => {
                     if (data.events) {
@@ -823,7 +922,7 @@ class UIManager {
                         data.events.forEach(event => this.dispatchCustomEvent('phase_update', event));
                     }
                 });
-                
+
                 console.log('✅ Enhanced SocketIO event listeners registered');
             }
 
@@ -985,7 +1084,7 @@ class UIManager {
 
     setupEventListeners() {
         console.log('📊 Setting up custom event listeners for polling-based updates...');
-        
+
         // Listen for custom events generated by polling responses
         document.addEventListener('agent_status_update', (event) => {
             this.handleAgentStatusEvent(event.detail);
@@ -1073,7 +1172,7 @@ class UIManager {
     }
 
     // === NOTIFICATION SYSTEM ===
-    
+
     showNotification(message, type = 'info', duration = 5000) {
         const notification = document.createElement('div');
         notification.className = `notification notification--${type}`;
@@ -1127,7 +1226,7 @@ class Router {
         this.initializationPromise = null;
 
         this.routes = {
-            'dashboard': { 
+            'dashboard': {
                 title: 'Agent Dashboard',
                 endpoint: '/v2/page/index',
                 manager: () => {
@@ -1138,12 +1237,12 @@ class Router {
                     return new window.DashboardManager(this.api);
                 }
             },
-            'chat': { 
+            'chat': {
                 title: 'Chat Interface',
                 endpoint: '/v2/page/chat',
                 manager: () => window.ChatManager ? new window.ChatManager(this.api) : null
             },
-            'kb': { 
+            'kb': {
                 title: 'Knowledge Base',
                 endpoint: '/v2/page/kb',
                 manager: () => window.KnowledgeBaseManager ? new window.KnowledgeBaseManager(this.api) : null
@@ -1166,7 +1265,7 @@ class Router {
     init() {
         // Set up navigation event listeners with proper delegation
         this.setupNavigation();
-        
+
         // Handle initial route with proper initialization
         this.handleInitialRoute();
     }
@@ -1232,7 +1331,7 @@ class Router {
 
     handleRouteChange() {
         const hash = window.location.hash.substring(1) || 'dashboard';
-        
+
         // Only navigate if the route actually changed
         if (hash !== this.currentRoute) {
             console.log(`🧭 Route change: ${this.currentRoute} → ${hash}`);
@@ -1259,7 +1358,7 @@ class Router {
 
         // Create new initialization promise
         this.initializationPromise = this.performNavigation(path);
-        
+
         try {
             await this.initializationPromise;
         } catch (error) {
@@ -1272,30 +1371,30 @@ class Router {
 
     async performNavigation(path) {
         console.log(`🧭 Performing navigation to: ${path}`);
-        
+
         const route = this.routes[path];
         if (!route) {
             throw new Error(`Route not found: ${path}`);
         }
-        
+
         try {
             // Update state immediately
             this.currentRoute = path;
-            
+
             // Clean up current manager
             await this.cleanupCurrentManager();
-            
+
             // Update UI state
             this.updatePageState(path, route.title);
-            
+
             // Load page content first
             await this.loadPageContent(route.endpoint);
-            
+
             // Create and initialize new manager after content is loaded
             const manager = route.manager();
             if (manager) {
                 console.log(`🧭 Initializing manager for ${path}...`);
-                
+
                 // Initialize the manager
                 if (typeof manager.initialize === 'function') {
                     await manager.initialize();
@@ -1306,9 +1405,9 @@ class Router {
             } else {
                 console.log(`⚠️ No manager available for route: ${path} (content-only page)`);
             }
-            
+
             console.log(`✅ Successfully navigated to ${path}`);
-            
+
         } catch (error) {
             // Reset state on error
             this.currentRoute = null;
@@ -1322,9 +1421,9 @@ class Router {
         if (!mainContent) {
             throw new Error('Main content container (#main-content) not found in DOM');
         }
-        
+
         console.log(`📄 Loading page content from ${endpoint}...`);
-        
+
         // Show loading indicator
         mainContent.innerHTML = `
             <div class="loading-container" style="
@@ -1346,40 +1445,40 @@ class Router {
                 <p style="color: var(--text-secondary); margin: 0;">Loading page...</p>
             </div>
         `;
-        
+
         // Create a timeout promise for the fetch request
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000);
         });
-        
+
         // Race the fetch against the timeout
         const fetchPromise = fetch(endpoint);
         const response = await Promise.race([fetchPromise, timeoutPromise]);
-        
+
         console.log(`📄 Fetch response status: ${response.status} ${response.statusText}`);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to load page content: ${response.status} ${response.statusText}`);
         }
-        
+
         const html = await response.text();
         console.log(`📄 Page HTML loaded, length: ${html.length}`);
-        
+
         // Basic validation of the HTML content
         if (!html || html.trim().length === 0) {
             throw new Error('Received empty content from server');
         }
-        
+
         // Load page HTML with fade transition
         mainContent.style.opacity = '0';
         mainContent.innerHTML = html;
-        
+
         // Fade in
         setTimeout(() => {
             mainContent.style.opacity = '1';
             console.log(`📄 Page content displayed with fade-in`);
         }, 100);
-        
+
         console.log(`✅ Page content loaded successfully`);
     }
 
@@ -1398,20 +1497,20 @@ class Router {
     updatePageState(path, title) {
         // Update page title
         document.title = `KB Agent - ${title}`;
-        
+
         // Update URL hash if needed
         const currentHash = window.location.hash.substring(1);
         if (currentHash !== path) {
             // Use replaceState to avoid triggering hashchange event
             history.replaceState(null, null, `#${path}`);
         }
-        
+
         // Remove existing page classes from body
         document.body.classList.remove('page-dashboard', 'page-chat', 'page-kb', 'page-synthesis', 'page-schedule');
-        
+
         // Add current page class to body for CSS scoping
         document.body.classList.add(`page-${path}`);
-        
+
         // Update active navigation link
         this.updateActiveNavLink(path);
     }
@@ -1491,7 +1590,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarToggle.addEventListener('click', (e) => {
             e.preventDefault();
             pageContainer.classList.toggle('sidebar-collapsed');
-            
+
             // Store the collapsed state in localStorage
             const isCollapsed = pageContainer.classList.contains('sidebar-collapsed');
             localStorage.setItem('sidebar-collapsed', isCollapsed);

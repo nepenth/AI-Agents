@@ -277,6 +277,9 @@ class ExecutionPlanManager {
                 } else if (phaseId === 'readme_generation' && preferences.force_regenerate_readme) {
                     isForced = true;
                     forceReason = 'Force Regenerate README';
+                } else if (phaseId === 'database_sync' && preferences.force_reprocess_db_sync) {
+                    isForced = true;
+                    forceReason = 'Force DB Sync';
                 }
 
                 // Handle legacy force_reprocess_content and force_reprocess_all flags

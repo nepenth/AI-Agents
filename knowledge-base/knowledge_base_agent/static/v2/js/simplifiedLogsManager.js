@@ -165,6 +165,19 @@ class SimplifiedLogsManager {
             this.handleNewLog(logData, 'socketio');
         });
 
+        // CRITICAL FIX: Add phase update listeners
+        window.socket.on('phase_update', (phaseData) => {
+            this.handlePhaseUpdate(phaseData, 'socketio');
+        });
+
+        window.socket.on('phase_status_update', (phaseData) => {
+            this.handlePhaseUpdate(phaseData, 'socketio');
+        });
+
+        window.socket.on('task_progress', (progressData) => {
+            this.handleProgressUpdate(progressData, 'socketio');
+        });
+
         // Other real-time events
         window.socket.on('logs_cleared', () => {
             this.handleLogsCleared();
@@ -548,6 +561,32 @@ class SimplifiedLogsManager {
         this.updateLogCount();
         this.showEmptyState('Logs cleared by server. New logs will appear here.');
         console.log('📝 Logs cleared by server');
+    }
+
+    // CRITICAL FIX: Add missing phase update handler
+    handlePhaseUpdate(phaseData, source) {
+        console.log(`📊 Phase update from ${source}:`, phaseData);
+        
+        // Emit custom event for other components (Agent Dashboard will handle the display)
+        this.dispatchCustomEvent('phase_update', phaseData);
+    }
+
+    // CRITICAL FIX: Add missing progress update handler
+    handleProgressUpdate(progressData, source) {
+        console.log(`📈 Progress update from ${source}:`, progressData);
+        
+        // Emit custom event for other components (Agent Dashboard will handle the display)
+        this.dispatchCustomEvent('progress_update', progressData);
+    }
+
+    // REMOVED: updateAgentStatusPanel method - agent status footer was removed from logs panel
+    // Agent status is now only displayed in the main Agent Dashboard panel
+
+    // CRITICAL FIX: Add custom event dispatcher
+    dispatchCustomEvent(eventName, data) {
+        // Create custom events to replace SocketIO events
+        const event = new CustomEvent(eventName, { detail: data });
+        document.dispatchEvent(event);
     }
 
     // Get statistics

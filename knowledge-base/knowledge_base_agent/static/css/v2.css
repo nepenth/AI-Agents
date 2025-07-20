@@ -346,8 +346,10 @@ input:checked+.slider:before {
     grid-column: 2;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    gap: var(--space-3);
-    padding: var(--space-4);
+    gap: var(--space-2);
+    /* Reduced from --space-3 to --space-2 */
+    padding: var(--space-3);
+    /* Reduced from --space-4 to --space-3 */
     overflow: hidden;
     min-height: 0;
 }
@@ -362,8 +364,10 @@ input:checked+.slider:before {
     box-shadow: var(--glass-shadow);
     position: relative;
     overflow: hidden;
-    cursor: default; /* Remove pointer cursor */
-    user-select: text; /* Allow text selection */
+    cursor: default;
+    /* Remove pointer cursor */
+    user-select: text;
+    /* Allow text selection */
 }
 
 .glass-panel:before {
@@ -402,14 +406,16 @@ input:checked+.slider:before {
 /* === Agent Controls Panel === */
 #agent-controls-panel {
     grid-row: 1;
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    /* Reduced top/bottom padding */
 }
 
 .agent-controls-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-1);
+    /* Reduced from --space-3 to --space-1 */
 }
 
 .agent-controls-title {
@@ -521,9 +527,12 @@ input:checked+.slider:before {
     grid-row: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-6);
+    gap: var(--space-3);
+    /* Reduced from --space-6 to --space-3 */
     min-height: 0;
     overflow: hidden;
+    flex: 1;
+    /* Take up remaining space */
 }
 
 .dashboard-panel {
@@ -938,40 +947,50 @@ input:checked+.slider:before {
 button[data-pref].active.glass-button--primary {
     background: var(--gradient-primary);
     color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.3);
+    transform: translateY(-1px);
+    font-weight: 600;
 }
 
 .glass-button--secondary.active,
 button[data-pref].active.glass-button--secondary {
     background: var(--gradient-primary);
     color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.3);
+    transform: translateY(-1px);
+    font-weight: 600;
 }
 
 .glass-button--ghost.active,
 button[data-pref].active.glass-button--ghost {
-    background: var(--glass-bg-hover);
-    color: var(--text-primary);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+    background: var(--gradient-primary);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.3);
+    transform: translateY(-1px);
+    font-weight: 600;
 }
 
 .glass-button--warning.active,
 button[data-pref].active.glass-button--warning {
     background: var(--gradient-warning);
     color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.6), 0 0 0 2px rgba(245, 158, 11, 0.3);
+    transform: translateY(-1px);
+    font-weight: 600;
 }
 
 .glass-button--danger.active,
 button[data-pref].active.glass-button--danger {
     background: var(--gradient-danger);
     color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.6), 0 0 0 2px rgba(239, 68, 68, 0.3);
+    transform: translateY(-1px);
+    font-weight: 600;
 }
 
 /* === Logs Styling === */
