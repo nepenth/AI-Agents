@@ -61,6 +61,12 @@ class AgentControlManager {
                 // Set default state
                 this.setDefaultPreferences();
             }
+            
+            // CRITICAL FIX: Force update execution plan with current preferences to ensure sync
+            const currentPreferences = this.getPreferences();
+            this.executionPlanManager.updateExecutionPlan(currentPreferences);
+            
+            console.log('🔄 Initial preferences loaded and synced:', currentPreferences);
         } catch (error) {
             console.error('Failed to load initial state:', error);
             this.setDefaultPreferences();
@@ -299,6 +305,7 @@ class AgentControlManager {
             force_reprocess_media: forceFlags.force_reprocess_media || false,
             force_reprocess_llm: forceFlags.force_reprocess_llm || false,
             force_reprocess_kb_item: forceFlags.force_reprocess_kb_item || false,
+            force_reprocess_db_sync: forceFlags.force_reprocess_db_sync || false,
             
             // Legacy/combined flag
             force_reprocess_content: forceFlags.force_reprocess_content || false,
@@ -441,7 +448,13 @@ class AgentControlManager {
         const wasRunning = this.isRunning;
         this.isRunning = status.is_running || false;
 
-        // Update status text and indicator
+        // FIX: Update the correct status text element in the Agent Dashboard
+        const agentStatusTextMain = document.getElementById('agent-status-text-main');
+        if (agentStatusTextMain) {
+            agentStatusTextMain.textContent = this.isRunning ? 'Running' : 'Idle';
+        }
+
+        // Update status text and indicator (legacy support)
         if (this.statusText) {
             this.statusText.textContent = status.current_phase_message || 'Idle';
         }
@@ -452,6 +465,8 @@ class AgentControlManager {
         }
 
         this.updateStatusIndicator(status);
+        
+        console.log(`🔄 Agent status updated: ${this.isRunning ? 'Running' : 'Idle'}`, status);
     }
 
     updateButtonStates(isRunning) {
@@ -481,15 +496,15 @@ class AgentControlManager {
     updateStatusIndicator(status) {
         if (!this.statusIndicator) return;
 
-        // Remove all status classes
-        this.statusIndicator.classList.remove('status-indicator--online', 'status-indicator--offline', 'status-indicator--warning', 'status-indicator--error');
+        // FIX: Use correct glass badge classes instead of non-existent status-indicator classes
+        this.statusIndicator.classList.remove('glass-badge--primary', 'glass-badge--success', 'glass-badge--warning', 'glass-badge--danger', 'glass-badge--pulse');
 
         if (status.is_running) {
-            this.statusIndicator.classList.add('status-indicator--online');
+            this.statusIndicator.classList.add('glass-badge--success', 'glass-badge--pulse');
         } else if (status.stop_flag_status) {
-            this.statusIndicator.classList.add('status-indicator--warning');
+            this.statusIndicator.classList.add('glass-badge--warning');
         } else {
-            this.statusIndicator.classList.add('status-indicator--offline');
+            this.statusIndicator.classList.add('glass-badge--primary');
         }
     }
 
