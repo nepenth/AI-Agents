@@ -332,6 +332,36 @@ The interface provides comprehensive control over agent execution:
 - **Architecture**: Query → Vector Search → Context Augmentation → LLM Response
 - **Integration**: Uses EmbeddingManager for semantic search
 
+#### Knowledge Base Display System (`static/v2/js/kb.js`)
+- **Purpose**: Frontend interface for browsing and viewing knowledge base items
+- **Architecture**: Tree-based navigation with detailed item rendering
+- **Key Features**: 
+  - Hierarchical category/subcategory organization
+  - Rich content display with media support
+  - Search functionality across items and syntheses
+  - Multiple view modes (grid, list, detail)
+  - Export capabilities
+
+**Content Rendering Pipeline:**
+```mermaid
+graph TD
+    A[API Request /api/items/{id}] --> B[Database Query]
+    B --> C[Content Processing]
+    C --> D[Media Path Resolution]
+    D --> E[Markdown to HTML Conversion]
+    E --> F[Frontend Rendering]
+    
+    C --> C1[Raw JSON Content Parsing]
+    C --> C2[Media Files Processing]
+    C --> C3[Metadata Extraction]
+```
+
+**Display Hierarchy:**
+- **Overview**: Statistics and recent items
+- **Category View**: Items grouped by main/sub categories
+- **Item Detail**: Full content with media, metadata, and source links
+- **Search Results**: Filtered items based on query
+
 ---
 
 ## Database Design
@@ -473,32 +503,47 @@ self.data_processing_dir = (self.project_root / self.data_processing_dir_rel).re
 
 ## Real-time Communication
 
-### Current Architecture: Celery + Redis + SocketIO
+### Simplified Architecture: Load-Once + Real-time Updates
 
-The system uses a modern distributed architecture:
+The system uses a clean, simplified architecture following modern patterns used by applications like Slack and Discord:
 
 ```mermaid
 graph TD
-    A[REST API Request] --> B[Celery Task Queue]
-    B --> C[Worker Process]
-    C --> D[Redis Progress/Logs]
-    D --> E[RealtimeManager]
-    E --> F[SocketIO Broadcast]
-    F --> G[Web Interface Updates]
+    A[Page Load] --> B{Agent Running?}
+    B -->|Yes| C[REST API: Get Recent Logs]
+    B -->|No| D[Show "Agent Idle" Message]
+    C --> E[Display Initial Logs]
+    E --> F[SocketIO: Listen for New Logs]
+    F --> G[Append New Logs Real-time]
+    
+    H[SocketIO Disconnected] --> I[Show Warning]
+    I --> J[Start Emergency Polling]
+    J --> K[SocketIO Reconnected]
+    K --> L[Stop Polling, Resume Real-time]
 ```
 
 #### Communication Flow
 
-1. **REST APIs**: Primary interface for queuing and monitoring Celery tasks
-2. **Celery Tasks**: Handle actual agent execution in isolated worker processes  
-3. **Redis**: Message broker for Celery and real-time progress/logging
-4. **SocketIO**: Real-time notifications for UI updates
+1. **Initial Load**: Fetch recent logs via REST API (last 200 lines) on page load
+2. **Real-time Updates**: Use SocketIO events for new logs as they arrive
+3. **Emergency Fallback**: Polling only when SocketIO connection fails
 
 #### Key Components
 
+- **SimplifiedLogsManager**: Clean logs management with load-once + real-time pattern
+- **SimpleConnectionMonitor**: SocketIO health tracking and fallback management
 - **TaskProgressManager**: Manages progress and logging using Redis
-- **RealtimeManager**: Bridges Celery tasks and SocketIO clients
+- **EnhancedRealtimeManager**: Bridges Celery tasks and SocketIO clients
 - **UnifiedLogger**: Single interface for all logging and progress updates
+
+#### Benefits of Simplified Architecture
+
+- ✅ **No Duplicates**: Single source of truth eliminates duplicate log messages
+- ✅ **Better Performance**: No unnecessary continuous polling
+- ✅ **Simpler Code**: No complex deduplication logic needed
+- ✅ **Better UX**: Fast initial load + real-time updates
+- ✅ **Mobile Friendly**: Works great when switching devices
+- ✅ **Clear Status**: Always know connection state (🟢 Connected, 🟡 Polling, 🔴 Disconnected)
 
 ---
 

@@ -32,7 +32,14 @@ class ExecutionPlanManager {
             const data = event.detail;
             console.log('Received phase_update:', data);
             const phaseId = data.phase_id || data.phase;
-            this.updatePhase(phaseId, data.status, data.message);
+            
+            // Extract counts data for completion status
+            const counts = {};
+            if (data.processed_count !== undefined) counts.processed_count = data.processed_count;
+            if (data.total_count !== undefined) counts.total_count = data.total_count;
+            if (data.skipped_count !== undefined) counts.skipped_count = data.skipped_count;
+            
+            this.updatePhase(phaseId, data.status, data.message, Object.keys(counts).length > 0 ? counts : null);
             
             // Handle progress bar if counts provided
             if (data.processed_count !== undefined && data.total_count !== undefined) {
@@ -45,9 +52,56 @@ class ExecutionPlanManager {
         // Listen for agent status updates from the polling system
         document.addEventListener('agent_status_update', (event) => {
             const data = event.detail;
-            if (!data.is_running && (data.status === 'completed' || data.status === 'error' || data.status === 'idle')) {
+            console.log('ExecutionPlan received agent_status_update:', data);
+            
+            // Update phases based on current status
+            if (data.is_running) {
+                // Agent is running - update current phase
+                if (data.current_phase_message || data.phase_id) {
+                    const phaseId = this.mapMessageToPhaseId(data.current_phase_message || data.phase_id);
+                    if (phaseId) {
+                        this.updatePhase(phaseId, 'running', data.current_phase_message);
+                    }
+                }
+            } else if (data.status === 'completed' || data.status === 'error' || data.status === 'idle') {
                 // Use a timeout to give final updates time to arrive
                 setTimeout(() => this.resetAllPhases(), 2000);
+            }
+        });
+
+        // Listen for enhanced structured phase events
+        document.addEventListener('phase_start', (event) => {
+            const data = event.detail;
+            console.log('ExecutionPlan received phase_start:', data);
+            const phaseId = this.mapMessageToPhaseId(data.phase_name);
+            if (phaseId) {
+                this.updatePhase(phaseId, 'running', `Starting ${data.phase_name}`);
+            }
+        });
+
+        document.addEventListener('phase_complete', (event) => {
+            const data = event.detail;
+            console.log('ExecutionPlan received phase_complete:', data);
+            const phaseId = this.mapMessageToPhaseId(data.phase_name);
+            if (phaseId) {
+                // Extract completion counts from result
+                const counts = {};
+                if (data.result && typeof data.result === 'object') {
+                    if (data.result.processed_count !== undefined) counts.processed_count = data.result.processed_count;
+                    if (data.result.total_count !== undefined) counts.total_count = data.result.total_count;
+                    if (data.result.skipped_count !== undefined) counts.skipped_count = data.result.skipped_count;
+                }
+                
+                this.updatePhase(phaseId, 'completed', `Completed ${data.phase_name}`, Object.keys(counts).length > 0 ? counts : null);
+            }
+        });
+
+        document.addEventListener('phase_error', (event) => {
+            const data = event.detail;
+            console.log('ExecutionPlan received phase_error:', data);
+            const phaseId = this.mapMessageToPhaseId(data.phase_name);
+            if (phaseId) {
+                this.updatePhase(phaseId, 'error', `Error: ${data.error}`);
             }
         });
 
@@ -74,8 +128,46 @@ class ExecutionPlanManager {
             }
         });
         console.log('Initialized phases:', this.phases);
-        // Initial update: assume full pipeline on first load
-        this.updatePlanForPreferences({ run_mode: 'full_pipeline' });
+        
+        // Load persisted state or check current agent status
+        this.loadPersistedState();
+    }
+    
+    async loadPersistedState() {
+        try {
+            // First, try to get current agent status to restore state
+            const response = await fetch('/api/agent/status');
+            if (response.ok) {
+                const statusData = await response.json();
+                console.log('Loading persisted state from agent status:', statusData);
+                
+                if (statusData.is_running) {
+                    // Agent is running - restore current phase state
+                    if (statusData.current_phase_message || statusData.phase_id) {
+                        const phaseId = this.mapMessageToPhaseId(statusData.current_phase_message || statusData.phase_id);
+                        if (phaseId) {
+                            this.updatePhase(phaseId, 'running', statusData.current_phase_message);
+                            console.log(`Restored running phase: ${phaseId}`);
+                        }
+                    }
+                    
+                    // Also check for detailed progress data
+                    if (statusData.progress && statusData.progress.phase_id) {
+                        this.updatePhase(statusData.progress.phase_id, statusData.progress.status || 'running', statusData.progress.message);
+                    }
+                } else {
+                    // Agent not running - show default state
+                    this.updatePlanForPreferences({ run_mode: 'full_pipeline' });
+                }
+            } else {
+                // Fallback to default state
+                this.updatePlanForPreferences({ run_mode: 'full_pipeline' });
+            }
+        } catch (error) {
+            console.warn('Failed to load persisted state:', error);
+            // Fallback to default state
+            this.updatePlanForPreferences({ run_mode: 'full_pipeline' });
+        }
     }
 
     updatePhaseProgress(phaseId, progress, total, message) {
@@ -227,21 +319,57 @@ class ExecutionPlanManager {
         this.updatePlanForPreferences(preferences);
     }
 
-    updatePhase(phaseId, status, message) {
+    updatePhase(phaseId, status, message, counts = null) {
         const phase = this.phases[phaseId];
         if (!phase) {
             console.warn(`Phase with ID '${phaseId}' not found in UI.`);
             return;
         }
 
-        // Capitalize status
+        // Store the original status for logic
+        const originalStatus = status;
+        
+        // Capitalize status for display
         const displayStatus = status.charAt(0).toUpperCase() + status.slice(1);
         
-        phase.statusElement.textContent = message || displayStatus;
-        phase.statusElement.dataset.status = status;
+        // Enhanced message formatting with completion counts
+        let displayMessage = message || displayStatus;
+        
+        // Add completion counts for completed phases
+        if (status === 'completed' && counts) {
+            if (counts.processed_count !== undefined && counts.total_count !== undefined) {
+                if (counts.processed_count === 0 && counts.total_count === 0) {
+                    displayMessage = `✅ Completed - No items needed processing`;
+                } else if (counts.processed_count === counts.total_count) {
+                    displayMessage = `✅ Completed - ${counts.processed_count} of ${counts.total_count} items processed`;
+                } else {
+                    displayMessage = `✅ Completed - ${counts.processed_count} of ${counts.total_count} items processed`;
+                }
+            } else if (counts.skipped_count !== undefined) {
+                displayMessage = `✅ Completed - ${counts.skipped_count} items skipped (no processing needed)`;
+            } else {
+                displayMessage = `✅ ${displayMessage}`;
+            }
+        } else if (status === 'completed') {
+            displayMessage = `✅ ${displayMessage}`;
+        } else if (status === 'running' || status === 'active' || status === 'in_progress') {
+            displayMessage = `🔄 ${displayMessage}`;
+        } else if (status === 'error') {
+            displayMessage = `❌ ${displayMessage}`;
+        } else if (status === 'skipped') {
+            displayMessage = `⏭️ ${displayMessage}`;
+        }
+        
+        phase.statusElement.textContent = displayMessage;
+        phase.statusElement.dataset.status = originalStatus;
+        
+        // Store counts for future reference
+        if (counts) {
+            phase.counts = counts;
+        }
         
         // Handle parent-child phase relationships
-        this.updateParentPhaseStatus(phaseId, status);
+        this.updateParentPhaseStatus(phaseId, originalStatus);
     }
 
     updateParentPhaseStatus(childPhaseId, childStatus) {
@@ -297,6 +425,90 @@ class ExecutionPlanManager {
             parentPhase.statusElement.textContent = 'Completed';
             parentPhase.statusElement.dataset.status = 'completed';
         }
+    }
+
+    mapMessageToPhaseId(message) {
+        // Map phase messages to phase IDs for better status tracking
+        const messageMap = {
+            // Initialization and validation phases
+            'initialization': 'initialization',
+            'initializing': 'initialization',
+            'validating': 'initialization',
+            'validation': 'initialization',
+            'Initial State Validation': 'initialization',
+            'Tweet Cache Phase Validation': 'initialization',
+            'Media Processing Phase Validation': 'initialization',
+            'Category Processing Phase Validation': 'initialization',
+            'KB Item Processing Phase Validation': 'initialization',
+            'Final Processing Validation': 'initialization',
+            
+            // Main phases
+            'fetch_bookmarks': 'fetch_bookmarks',
+            'fetching bookmarks': 'fetch_bookmarks',
+            'bookmark fetch': 'fetch_bookmarks',
+            
+            'content_processing': 'content_processing',
+            'processing content': 'content_processing',
+            
+            'tweet_caching': 'tweet_caching',
+            'caching tweets': 'tweet_caching',
+            'tweet cache': 'tweet_caching',
+            
+            'media_analysis': 'media_analysis',
+            'analyzing media': 'media_analysis',
+            'media processing': 'media_analysis',
+            
+            'llm_processing': 'llm_processing',
+            'llm analysis': 'llm_processing',
+            'processing with llm': 'llm_processing',
+            
+            'kb_item_generation': 'kb_item_generation',
+            'generating kb items': 'kb_item_generation',
+            'kb item creation': 'kb_item_generation',
+            
+            'synthesis_generation': 'synthesis_generation',
+            'generating synthesis': 'synthesis_generation',
+            'synthesis creation': 'synthesis_generation',
+            
+            'embedding_generation': 'embedding_generation',
+            'generating embeddings': 'embedding_generation',
+            'embedding creation': 'embedding_generation',
+            
+            'readme_generation': 'readme_generation',
+            'generating readme': 'readme_generation',
+            'readme creation': 'readme_generation',
+            
+            'database_sync': 'database_sync',
+            'syncing database': 'database_sync',
+            'database update': 'database_sync',
+            
+            'git_sync': 'git_sync',
+            'syncing git': 'git_sync',
+            'git push': 'git_sync'
+        };
+        
+        if (!message) return null;
+        
+        const lowerMessage = message.toLowerCase();
+        
+        // Direct match
+        if (messageMap[lowerMessage]) {
+            return messageMap[lowerMessage];
+        }
+        
+        // Partial match
+        for (const [key, phaseId] of Object.entries(messageMap)) {
+            if (lowerMessage.includes(key.toLowerCase())) {
+                return phaseId;
+            }
+        }
+        
+        // Default to initialization if no match found and message suggests setup
+        if (lowerMessage.includes('init') || lowerMessage.includes('valid') || lowerMessage.includes('setup')) {
+            return 'initialization';
+        }
+        
+        return null;
     }
 
     resetAllPhases() {

@@ -46,6 +46,7 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
     log_handler = None
     root_logger = logging.getLogger()
     progress_manager = None
+    celery_task_state = None
     
     # FIX: Get the loop that the celery worker is running on
     # This is crucial for the RedisTaskLogHandler to work correctly
@@ -56,32 +57,81 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
         asyncio.set_event_loop(loop)
 
     try:
+        # TASK ID VERIFICATION: Trace task_id through initialization process
+        print(f"🔍 TASK ID VERIFICATION: Starting run_agent_task with task_id={task_id}")
+        if not task_id:
+            raise ValueError("task_id is required but was None or empty")
+        if not isinstance(task_id, str):
+            raise ValueError(f"task_id must be string, got {type(task_id)}")
+        print(f"✅ TASK ID VERIFICATION: task_id validation passed")
+        
         # Load configuration
+        print(f"DEBUG: Loading config for task {task_id}")
         config = Config.from_env()
         config.ensure_directories()
+        print(f"DEBUG: Config loaded successfully")
 
         # Get the progress manager
+        print(f"DEBUG: Getting progress manager")
         progress_manager = get_progress_manager(config)
+        print(f"DEBUG: Progress manager created")
 
-        # Attach the Redis log handler, passing the worker's event loop
+        # TASK ID VERIFICATION: Verify task_id is passed to RedisTaskLogHandler
+        print(f"🔍 TASK ID VERIFICATION: Creating RedisTaskLogHandler with task_id={task_id}")
         log_handler = RedisTaskLogHandler(task_id, progress_manager, loop)
         root_logger.addHandler(log_handler)
+        print(f"✅ TASK ID VERIFICATION: RedisTaskLogHandler created and attached")
         
         # Initialize progress tracking
         loop.run_until_complete(progress_manager.log_message(task_id, "🚀 Agent execution started", "INFO"))
         loop.run_until_complete(progress_manager.update_progress(task_id, 0, "initialization", "Agent task started"))
         
-        # Update Celery task state for monitoring
-        self.update_state(
-            state='PROGRESS',
-            meta={
-                'phase_id': 'initialization',
-                'status': 'running',
-                'message': 'Agent task started',
-                'progress': 0,
-                'task_id': task_id
-            }
-        )
+        # PIPELINE TEST: Generate test log message to verify logging pipeline
+        print(f"🧪 PIPELINE TEST: Generating test log message for task_id={task_id}")
+        test_message = f"🧪 PIPELINE TEST: Logging pipeline verification for task {task_id}"
+        loop.run_until_complete(progress_manager.log_message(task_id, test_message, "INFO"))
+        
+        # Verify test message was stored in Redis (with retry for timing)
+        try:
+            pipeline_test_passed = False
+            max_retries = 3
+            
+            for attempt in range(max_retries):
+                # Small delay to allow Redis operation to complete
+                if attempt > 0:
+                    time.sleep(0.1)  # Use time.sleep instead of await asyncio.sleep
+                
+                stored_logs = loop.run_until_complete(progress_manager.get_logs(task_id, limit=10))
+                pipeline_test_passed = any(test_message in str(log) for log in stored_logs)
+                
+                if pipeline_test_passed:
+                    break
+                    
+                print(f"🧪 PIPELINE TEST: Attempt {attempt + 1}/{max_retries} - Test message not yet found, retrying...")
+            
+            if pipeline_test_passed:
+                print(f"✅ PIPELINE TEST: Test message successfully stored in Redis")
+                loop.run_until_complete(progress_manager.log_message(task_id, "✅ Logging pipeline test PASSED", "INFO"))
+            else:
+                print(f"❌ PIPELINE TEST: Test message NOT found in Redis storage after {max_retries} attempts")
+                print(f"📊 PIPELINE TEST: Found {len(stored_logs)} logs in Redis for task {task_id}")
+                loop.run_until_complete(progress_manager.log_message(task_id, "❌ Logging pipeline test FAILED - message not stored", "WARNING"))
+        except Exception as e:
+            print(f"❌ PIPELINE TEST: Error verifying pipeline: {e}")
+            loop.run_until_complete(progress_manager.log_message(task_id, f"❌ Logging pipeline test ERROR: {e}", "ERROR"))
+        
+        # Update Celery task state for monitoring (only if running via Celery)
+        if hasattr(self, 'request') and self.request.id:
+            self.update_state(
+                state='PROGRESS',
+                meta={
+                    'phase_id': 'initialization',
+                    'status': 'running',
+                    'message': 'Agent task started',
+                    'progress': 0,
+                    'task_id': task_id
+                }
+            )
         
         # Convert dict back to UserPreferences
         try:
@@ -105,11 +155,12 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
             _safe_await(progress_manager.update_progress(task_id, progress, phase_id, message, status=status))
             _safe_await(progress_manager.log_message(task_id, f"[{phase_id}] {message}", "INFO"))
 
-            # Update Celery task meta (still sync)
-            self.update_state(
-                state='PROGRESS',
-                meta={ 'phase_id': phase_id, 'status': status, 'message': message, 'progress': progress, 'task_id': task_id, **kwargs }
-            )
+            # Update Celery task meta (still sync) - only if running via Celery
+            if hasattr(self, 'request') and self.request.id:
+                self.update_state(
+                    state='PROGRESS',
+                    meta={ 'phase_id': phase_id, 'status': status, 'message': message, 'progress': progress, 'task_id': task_id, **kwargs }
+                )
             # Publish via pubsub for WebSocket layer
             _safe_await(progress_manager.publish_phase_update(task_id, phase_id, status, message, progress))
         
@@ -135,6 +186,51 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
 
             from ..shared_globals import sg_set_project_root
             sg_set_project_root(config.project_root)
+            
+            # CRITICAL FIX: Create CeleryTaskState record for proper state tracking
+            from ..models import CeleryTaskState, AgentState, db
+            
+            # Create or update CeleryTaskState record
+            # Generate human-readable name
+            human_name = generate_human_readable_task_name()
+            
+            celery_task_state = CeleryTaskState.query.filter_by(task_id=task_id).first()
+            if not celery_task_state:
+                celery_task_state = CeleryTaskState(
+                    task_id=task_id,
+                    celery_task_id=self.request.id,
+                    task_type='agent_run',
+                    status='PROGRESS',
+                    preferences=preferences_dict,
+                    human_readable_name=human_name
+                )
+                celery_task_state.started_at = datetime.utcnow()
+                db.session.add(celery_task_state)
+            else:
+                celery_task_state.status = 'PROGRESS'
+                celery_task_state.celery_task_id = self.request.id
+                celery_task_state.started_at = datetime.utcnow()
+            
+            celery_task_state.updated_at = datetime.utcnow()
+            
+            # Update AgentState to link to this task
+            agent_state = AgentState.query.first()
+            if not agent_state:
+                agent_state = AgentState(
+                    is_running=True,
+                    current_task_id=task_id,
+                    current_phase_message="Agent execution started",
+                    last_update=datetime.utcnow()
+                )
+                db.session.add(agent_state)
+            else:
+                agent_state.is_running = True
+                agent_state.current_task_id = task_id
+                agent_state.current_phase_message = "Agent execution started"
+                agent_state.last_update = datetime.utcnow()
+            
+            db.session.commit()
+            loop.run_until_complete(progress_manager.log_message(task_id, "✅ Task state initialized in database", "INFO"))
 
             # Bridge functions passed into the agent – avoids fragile monkey-patching
             def _phase_cb(phase_id: str, status: str, message: str, **kwargs):
@@ -151,13 +247,17 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
             def _log_cb(msg: str, level: str = "INFO"):
                 _safe_await(progress_manager.log_message(task_id, msg, level))
 
+            # TASK ID VERIFICATION: Verify task_id is passed to KnowledgeBaseAgent constructor
+            print(f"🔍 TASK ID VERIFICATION: Creating KnowledgeBaseAgent with task_id={task_id}")
             agent = KnowledgeBaseAgent(
                 app=app,
                 config=config,
                 socketio=None,
                 phase_callback=_phase_cb,
                 log_callback=_log_cb,
+                task_id=task_id  # CRITICAL FIX: Pass task_id for unified logging
             )
+            print(f"✅ TASK ID VERIFICATION: KnowledgeBaseAgent created successfully")
             
             progress_callback("initialization", "running", "Agent initialized, starting execution", 20)
             loop.run_until_complete(progress_manager.log_message(task_id, "🚀 Starting agent execution...", "INFO"))
@@ -165,23 +265,40 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
             try:
                 result = loop.run_until_complete(agent.run(preferences))
                 
+                # Generate comprehensive task run report
+                run_report = _generate_task_run_report(agent, preferences, result, task_id)
+                
+                # Log the detailed report
+                loop.run_until_complete(progress_manager.log_message(task_id, "📊 TASK RUN REPORT", "INFO"))
+                for line in run_report['log_lines']:
+                    loop.run_until_complete(progress_manager.log_message(task_id, line, "INFO"))
+                
                 # Mark completion
                 progress_callback("completed", "completed", "Agent execution completed successfully", 100)
                 
                 return {
                     'status': 'completed', 'task_id': task_id, 'result': result,
-                    'message': 'Agent execution completed successfully', 'preferences': asdict(preferences)
+                    'message': 'Agent execution completed successfully', 'preferences': asdict(preferences),
+                    'run_report': run_report
                 }
             finally:
                 # The main loop is closed by the outer finally block
                 pass
         
     except Exception as e:
+        # Mark task as failed for cleanup
+        self._task_failed = True
+        
         error_msg = f"Agent execution failed: {str(e)}"
+        print(f"DEBUG: Exception in task: {error_msg}")
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
         
         if progress_manager:
-            loop.run_until_complete(progress_manager.log_message(task_id, f"❌ {error_msg}", "ERROR"))
-            loop.run_until_complete(progress_manager.update_progress(task_id, 0, "error", error_msg))
+            try:
+                loop.run_until_complete(progress_manager.log_message(task_id, f"❌ {error_msg}", "ERROR"))
+                loop.run_until_complete(progress_manager.update_progress(task_id, 0, "error", error_msg))
+            except Exception as log_error:
+                print(f"DEBUG: Error logging to Redis: {log_error}")
         
         logging.error(f"Agent task failed: {error_msg}", exc_info=True)
         
@@ -197,10 +314,51 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
                 'current_phase_message': error_msg, 'current_phase_status': 'error', 'task_id': task_id
             }))
         
-        self.update_state(state='FAILURE', meta=error_details)
+        # Update Celery state only if running via Celery
+        if hasattr(self, 'request') and self.request.id:
+            self.update_state(state='FAILURE', meta=error_details)
         raise KnowledgeBaseError(error_msg) from e
     
     finally:
+        # CRITICAL FIX: Ensure all state systems are properly cleaned up
+        try:
+            # Create a new app context for cleanup operations
+            app, _, _, _ = create_app()
+            with app.app_context():
+                from ..models import CeleryTaskState, AgentState, db
+                
+                # Update CeleryTaskState to reflect completion/failure
+                celery_task_state = CeleryTaskState.query.filter_by(task_id=task_id).first()
+                if celery_task_state:
+                    celery_task_state.status = 'SUCCESS' if not hasattr(self, '_task_failed') else 'FAILURE'
+                    celery_task_state.completed_at = datetime.utcnow()
+                    celery_task_state.updated_at = datetime.utcnow()
+                    
+                    # Store the run report if task completed successfully
+                    if not hasattr(self, '_task_failed') and 'run_report' in locals():
+                        celery_task_state.run_report = run_report
+                        celery_task_state.result_data = result if 'result' in locals() else None
+                
+                # Update AgentState to show agent is no longer running
+                agent_state = AgentState.query.first()
+                if agent_state:
+                    agent_state.is_running = False
+                    agent_state.current_task_id = None
+                    agent_state.current_phase_message = 'Idle'
+                    agent_state.last_update = datetime.utcnow()
+                
+                db.session.commit()
+                
+                # Clear Redis progress data
+                if progress_manager:
+                    loop.run_until_complete(progress_manager.clear_task_data(task_id))
+                    loop.run_until_complete(progress_manager.log_message(task_id, "🧹 Task cleanup completed", "INFO"))
+                
+        except Exception as cleanup_error:
+            logging.error(f"Error during task cleanup: {cleanup_error}", exc_info=True)
+            # Don't raise - we don't want cleanup errors to mask the original error
+        
+        # Remove log handler
         if log_handler:
             root_logger.removeHandler(log_handler)
         
@@ -312,20 +470,137 @@ def git_sync_task(self, task_id: str, commit_message: Optional[str] = None):
         
         logging.error(f"Git sync task failed: {error_msg}", exc_info=True)
         
-        self.update_state(
-            state='FAILURE',
-            meta={
-                'error': error_msg,
-                'task_id': task_id,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-        )
+        # Update Celery state only if running via Celery
+        if hasattr(self, 'request') and self.request.id:
+            self.update_state(
+                state='FAILURE',
+                meta={
+                    'error': error_msg,
+                    'task_id': task_id,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+            )
         raise KnowledgeBaseError(error_msg) from e
     finally:
         if loop and not loop.is_closed():
             loop.close()
 
 
+def _generate_task_run_report(agent, preferences: UserPreferences, result: Dict[str, Any], task_id: str) -> Dict[str, Any]:
+    """
+    Generate a comprehensive task run report with phase details, validation results, and processing statistics.
+    """
+    from datetime import datetime
+    
+    # Get phase statuses from agent
+    phase_statuses = getattr(agent, '_plan_statuses', {})
+    
+    # Calculate execution time
+    execution_time = result.get('execution_time', 'Unknown')
+    
+    # Extract processing statistics
+    processed_count = result.get('processed_count', 0)
+    error_count = result.get('error_count', 0)
+    
+    # Generate human-readable task name
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    human_readable_name = f"Agent Run - {timestamp}"
+    
+    # Build phase summary
+    phase_summary = []
+    for phase_id, status_info in phase_statuses.items():
+        status = status_info.get('status', 'unknown')
+        message = status_info.get('message', 'No message')
+        
+        # Add emoji based on status
+        if status == 'completed':
+            emoji = "✅"
+        elif status == 'skipped':
+            emoji = "⏭️"
+        elif status == 'error':
+            emoji = "❌"
+        elif status == 'interrupted':
+            emoji = "⏸️"
+        else:
+            emoji = "⏳"
+            
+        phase_summary.append(f"{emoji} {phase_id}: {status.upper()} - {message}")
+    
+    # Build preference summary
+    preference_summary = []
+    preference_summary.append(f"Run Mode: {preferences.run_mode}")
+    preference_summary.append(f"Skip Fetch Bookmarks: {preferences.skip_fetch_bookmarks}")
+    preference_summary.append(f"Skip Process Content: {preferences.skip_process_content}")
+    preference_summary.append(f"Skip Synthesis Generation: {preferences.skip_synthesis_generation}")
+    preference_summary.append(f"Skip Embedding Generation: {preferences.skip_embedding_generation}")
+    preference_summary.append(f"Skip README Generation: {preferences.skip_readme_generation}")
+    preference_summary.append(f"Skip Git Push: {preferences.skip_git_push}")
+    
+    # Add force flags if any are enabled
+    force_flags = []
+    if preferences.force_recache_tweets:
+        force_flags.append("Force Recache Tweets")
+    if preferences.force_reprocess_content:
+        force_flags.append("Force Reprocess Content")
+    if preferences.force_reprocess_media:
+        force_flags.append("Force Reprocess Media")
+    if preferences.force_reprocess_llm:
+        force_flags.append("Force Reprocess LLM")
+    if preferences.force_reprocess_kb_item:
+        force_flags.append("Force Reprocess KB Items")
+    if preferences.force_regenerate_synthesis:
+        force_flags.append("Force Regenerate Synthesis")
+    if preferences.force_regenerate_embeddings:
+        force_flags.append("Force Regenerate Embeddings")
+    if preferences.force_regenerate_readme:
+        force_flags.append("Force Regenerate README")
+    
+    if force_flags:
+        preference_summary.append(f"Force Flags: {', '.join(force_flags)}")
+    else:
+        preference_summary.append("Force Flags: None")
+    
+    # Build log lines for output
+    log_lines = [
+        "=" * 80,
+        f"📋 TASK EXECUTION SUMMARY",
+        f"Task ID: {task_id}",
+        f"Human Name: {human_readable_name}",
+        f"Execution Time: {execution_time}",
+        f"Items Processed: {processed_count}",
+        f"Errors Encountered: {error_count}",
+        "",
+        "🔧 EXECUTION PREFERENCES:",
+        *[f"  • {pref}" for pref in preference_summary],
+        "",
+        "📊 PHASE EXECUTION RESULTS:",
+        *[f"  {phase}" for phase in phase_summary],
+        "",
+        "🎯 FINAL STATUS: " + ("SUCCESS" if error_count == 0 else f"COMPLETED WITH {error_count} ERRORS"),
+        "=" * 80
+    ]
+    
+    return {
+        'task_id': task_id,
+        'human_readable_name': human_readable_name,
+        'timestamp': timestamp,
+        'execution_time': execution_time,
+        'processed_count': processed_count,
+        'error_count': error_count,
+        'phase_statuses': phase_statuses,
+        'preferences': asdict(preferences),
+        'force_flags': force_flags,
+        'log_lines': log_lines,
+        'final_status': 'SUCCESS' if error_count == 0 else 'COMPLETED_WITH_ERRORS'
+    }
+
+
 def generate_task_id() -> str:
     """Generates a unique task ID."""
-    return str(uuid.uuid4()) 
+    return str(uuid.uuid4())
+
+
+def generate_human_readable_task_name() -> str:
+    """Generates a human-readable task name with timestamp."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return f"Agent Run - {timestamp}" 

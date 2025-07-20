@@ -64,6 +64,108 @@ class DashboardManager {
             } else {
                 console.error('❌ GpuStatusManager not available');
             }
+            
+            if (window.HistoricalTasksManager) {
+                console.log('Initializing HistoricalTasksManager...');
+                this.managers.historicalTasks = new window.HistoricalTasksManager(this.api);
+                console.log('✅ HistoricalTasksManager initialized');
+            } else {
+                console.error('❌ HistoricalTasksManager not available');
+            }
+            
+            // Initialize new display components
+            if (window.PhaseDisplayManager) {
+                console.log('Initializing PhaseDisplayManager...');
+                this.managers.phaseDisplay = new window.PhaseDisplayManager();
+                console.log('✅ PhaseDisplayManager initialized');
+            } else {
+                console.error('❌ PhaseDisplayManager not available');
+            }
+            
+            if (window.ProgressDisplayManager) {
+                console.log('Initializing ProgressDisplayManager...');
+                this.managers.progressDisplay = new window.ProgressDisplayManager();
+                console.log('✅ ProgressDisplayManager initialized');
+            } else {
+                console.error('❌ ProgressDisplayManager not available');
+            }
+            
+            if (window.TaskDisplayManager) {
+                console.log('Initializing TaskDisplayManager...');
+                this.managers.taskDisplay = new window.TaskDisplayManager();
+                console.log('✅ TaskDisplayManager initialized');
+            } else {
+                console.error('❌ TaskDisplayManager not available');
+            }
+            
+            // Initialize error handling and notification systems
+            if (window.NotificationSystem) {
+                console.log('Initializing NotificationSystem...');
+                this.managers.notifications = new window.NotificationSystem({
+                    position: 'top-right',
+                    maxNotifications: 5
+                });
+                console.log('✅ NotificationSystem initialized');
+            } else {
+                console.error('❌ NotificationSystem not available');
+            }
+            
+            if (window.RedisConnectionManager) {
+                console.log('Initializing RedisConnectionManager...');
+                this.managers.redisConnection = new window.RedisConnectionManager({
+                    host: 'localhost',
+                    port: 6379,
+                    maxRetries: 10
+                });
+                console.log('✅ RedisConnectionManager initialized');
+            } else {
+                console.error('❌ RedisConnectionManager not available');
+            }
+            
+            if (window.SocketIOReconnectionManager && window.socket) {
+                console.log('Initializing SocketIOReconnectionManager...');
+                this.managers.socketIOReconnection = new window.SocketIOReconnectionManager(
+                    { socket: window.socket },
+                    {
+                        maxReconnectAttempts: 15,
+                        baseDelay: 1000,
+                        maxDelay: 30000
+                    }
+                );
+                console.log('✅ SocketIOReconnectionManager initialized');
+            } else {
+                console.error('❌ SocketIOReconnectionManager not available or no socket');
+            }
+            
+            // Initialize performance monitoring
+            if (window.PerformanceMonitor) {
+                console.log('Initializing PerformanceMonitor...');
+                this.managers.performance = new window.PerformanceMonitor({
+                    batchSize: 50,
+                    batchTimeout: 1000,
+                    rateLimit: 100,
+                    memoryCheckInterval: 30000,
+                    metricsInterval: 5000
+                });
+                console.log('✅ PerformanceMonitor initialized');
+            } else {
+                console.error('❌ PerformanceMonitor not available');
+            }
+            
+            // Initialize performance optimizer
+            if (window.PerformanceOptimizer) {
+                console.log('Initializing PerformanceOptimizer...');
+                this.managers.performanceOptimizer = new window.PerformanceOptimizer({
+                    domBatchSize: 20,
+                    domBatchDelay: 16,
+                    memoryThreshold: 150 * 1024 * 1024,
+                    eventBatchSize: 50,
+                    virtualScrollThreshold: 100
+                });
+                console.log('✅ PerformanceOptimizer initialized');
+            } else {
+                console.error('❌ PerformanceOptimizer not available');
+            }
 
             console.log('✅ All dashboard components initialized successfully');
             
@@ -389,10 +491,11 @@ class ThemeManager {
 class SidebarManager {
     constructor() {
         this.sidebarToggle = document.getElementById('sidebar-toggle');
-        this.appContainer = document.getElementById('app-container');
+        this.pageContainer = document.querySelector('.page-container');
         this.overlay = null;
+        this.isCollapsed = false;
         
-        if (!this.sidebarToggle || !this.appContainer) return;
+        if (!this.sidebarToggle || !this.pageContainer) return;
         this.init();
     }
 
@@ -404,57 +507,59 @@ class SidebarManager {
         // Close sidebar when clicking outside on mobile
         document.addEventListener('click', (e) => {
             if (window.innerWidth <= 768 && 
-                this.appContainer.classList.contains('sidebar-open') &&
-                !e.target.closest('#sidebar') && 
+                this.isCollapsed &&
+                !e.target.closest('.sidebar') && 
                 !e.target.closest('#sidebar-toggle')) {
-                this.closeSidebar();
+                this.expandSidebar();
             }
         });
 
         // Handle resize events
         window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                this.closeSidebar();
+            if (window.innerWidth > 768 && this.overlay) {
+                this.removeOverlay();
             }
         });
 
         // Handle keyboard navigation
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.appContainer.classList.contains('sidebar-open')) {
-                this.closeSidebar();
+            if (e.key === 'Escape' && this.isCollapsed && window.innerWidth <= 768) {
+                this.expandSidebar();
             }
         });
     }
 
     toggleSidebar() {
-        if (this.appContainer.classList.contains('sidebar-open')) {
-            this.closeSidebar();
+        if (this.isCollapsed) {
+            this.expandSidebar();
         } else {
-            this.openSidebar();
+            this.collapseSidebar();
         }
     }
 
-    openSidebar() {
-        this.appContainer.classList.add('sidebar-open');
+    collapseSidebar() {
+        this.pageContainer.classList.add('sidebar-collapsed');
+        this.isCollapsed = true;
+        
+        // Don't change the icon - CSS will handle the rotation
         
         // Add overlay for mobile
         if (window.innerWidth <= 768) {
             this.createOverlay();
         }
         
-        // Focus trap for accessibility
-        const sidebar = document.getElementById('sidebar');
-        const focusableElements = sidebar.querySelectorAll(
-            'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-        }
+        console.log('Sidebar collapsed');
     }
 
-    closeSidebar() {
-        this.appContainer.classList.remove('sidebar-open');
+    expandSidebar() {
+        this.pageContainer.classList.remove('sidebar-collapsed');
+        this.isCollapsed = false;
+        
+        // Don't change the icon - CSS will handle the rotation
+        
         this.removeOverlay();
+        
+        console.log('Sidebar expanded');
     }
 
     createOverlay() {
@@ -474,7 +579,7 @@ class SidebarManager {
         `;
         
         this.overlay.addEventListener('click', () => {
-            this.closeSidebar();
+            this.expandSidebar();
         });
         
         document.body.appendChild(this.overlay);
@@ -519,6 +624,11 @@ class UIManager {
         this.themeManager = new ThemeManager('theme-toggle');
         this.dashboardManager = null; // Will be initialized when dashboard loads
         
+        // Initialize utility manager for Celery management
+        if (window.UtilityManager) {
+            this.utilityManager = new UtilityManager(this.api);
+        }
+        
         // Initialize UI effects if available
         if (window.UIEffects) {
             this.effects = new window.UIEffects();
@@ -530,13 +640,21 @@ class UIManager {
     initializePolling() {
         console.log('📊 Setting up API polling for real-time features...');
         
-        // Start polling different endpoints at 1-2 second intervals using existing API endpoints
-        this.startPolling('status', '/agent/status', 2000);  // 2 seconds
-        this.startPolling('logs', '/logs/recent', 1500);     // 1.5 seconds  
-        this.startPolling('gpu-stats', '/gpu-stats', 2000);  // 2 seconds
-        
-        console.log('✅ API polling started for real-time updates');
-        this.showSuccessNotification('Real-time updates enabled (polling mode)');
+        // Reduce polling frequency to minimize duplicate logs
+        // Only poll when SocketIO is not available or not working
+        if (!window.socket || !window.socket.connected) {
+            this.startPolling('status', '/agent/status', 3000);  // 3 seconds (reduced frequency)
+            this.startPolling('logs', '/logs/recent', 2500);     // 2.5 seconds (reduced frequency)
+            this.startPolling('gpu-stats', '/gpu-stats', 5000);  // 5 seconds (reduced frequency)
+            
+            console.log('✅ API polling started for real-time updates (SocketIO not available)');
+            this.showSuccessNotification('Real-time updates enabled (polling mode)');
+        } else {
+            console.log('📊 SocketIO available - using minimal polling as backup');
+            // Use minimal polling as backup when SocketIO is available
+            this.startPolling('status', '/agent/status', 10000); // 10 seconds (backup only)
+            // Don't poll logs when SocketIO is working to prevent duplicates
+        }
     }
 
     startPolling(name, endpoint, interval) {
@@ -584,6 +702,36 @@ class UIManager {
         // Emit custom events for status updates (replacing SocketIO events)
         if (statusData.is_running !== undefined) {
             this.dispatchCustomEvent('agent_status_update', statusData);
+        }
+        
+        // Extract and emit phase updates if available
+        if (statusData.progress && statusData.progress.phase_id) {
+            const phaseData = {
+                phase_id: statusData.progress.phase_id,
+                status: statusData.progress.status || (statusData.is_running ? 'running' : 'idle'),
+                message: statusData.progress.message || statusData.current_phase_message,
+                progress: statusData.progress.progress,
+                processed_count: statusData.progress.processed_count,
+                total_count: statusData.progress.total_count
+            };
+            
+            this.dispatchCustomEvent('phase_update', phaseData);
+            console.log('📊 Phase update emitted:', phaseData);
+        }
+        
+        // Also check for phase information in the main status data
+        if (statusData.phase_id || statusData.current_phase_message) {
+            const phaseData = {
+                phase_id: statusData.phase_id || 'unknown',
+                status: statusData.is_running ? 'running' : 'idle',
+                message: statusData.current_phase_message,
+                progress: statusData.progress_percentage || statusData.progress,
+                processed_count: statusData.processed_count,
+                total_count: statusData.total_count
+            };
+            
+            this.dispatchCustomEvent('phase_update', phaseData);
+            console.log('📊 Phase update from status emitted:', phaseData);
         }
     }
 
@@ -652,18 +800,37 @@ class UIManager {
             
             // Bridge key Socket.IO events into the same CustomEvent bus that polling uses
             if (window.socket) {
+                // Legacy events
                 window.socket.on('log', (data) => this.dispatchCustomEvent('log', data));
                 window.socket.on('agent_status_update', (data) => this.dispatchCustomEvent('agent_status_update', data));
                 window.socket.on('phase_update', (data) => this.dispatchCustomEvent('phase_update', data));
+                window.socket.on('progress_update', (data) => this.dispatchCustomEvent('progress_update', data));
+                
+                // Enhanced structured events from EnhancedRealtimeManager
+                window.socket.on('phase_start', (data) => this.dispatchCustomEvent('phase_start', data));
+                window.socket.on('phase_complete', (data) => this.dispatchCustomEvent('phase_complete', data));
+                window.socket.on('phase_error', (data) => this.dispatchCustomEvent('phase_error', data));
+                window.socket.on('live_log', (data) => this.dispatchCustomEvent('live_log', data));
+                
+                // Batch events for high-volume scenarios
+                window.socket.on('log_batch', (data) => {
+                    if (data.events) {
+                        data.events.forEach(event => this.dispatchCustomEvent('log', event));
+                    }
+                });
+                window.socket.on('phase_update_batch', (data) => {
+                    if (data.events) {
+                        data.events.forEach(event => this.dispatchCustomEvent('phase_update', event));
+                    }
+                });
+                
+                console.log('✅ Enhanced SocketIO event listeners registered');
             }
 
-            // Initialize dashboard manager if we're on the dashboard page
-            if (window.location.pathname === '/' || window.location.pathname === '/v2/' || window.location.pathname.includes('index')) {
-                console.log('🎛️ Initializing dashboard manager...');
-                this.dashboardManager = new DashboardManager(this.api);
-                await this.dashboardManager.initialize();
-                console.log('✅ Dashboard manager initialized');
-            }
+            // Initialize the router for SPA navigation
+            console.log('🧭 Initializing router...');
+            this.router = new Router(this.api);
+            console.log('✅ Router initialized');
 
             console.log('✅ V2 UI core initialized successfully');
         } catch (error) {
@@ -962,6 +1129,7 @@ class Router {
         this.routes = {
             'dashboard': { 
                 title: 'Agent Dashboard',
+                endpoint: '/v2/page/index',
                 manager: () => {
                     if (!window.DashboardManager) {
                         console.error('DashboardManager not available');
@@ -972,18 +1140,22 @@ class Router {
             },
             'chat': { 
                 title: 'Chat Interface',
+                endpoint: '/v2/page/chat',
                 manager: () => window.ChatManager ? new window.ChatManager(this.api) : null
             },
             'kb': { 
                 title: 'Knowledge Base',
+                endpoint: '/v2/page/kb',
                 manager: () => window.KnowledgeBaseManager ? new window.KnowledgeBaseManager(this.api) : null
             },
             'synthesis': {
                 title: 'Synthesis Documents',
+                endpoint: '/v2/page/synthesis',
                 manager: () => window.SynthesisManager ? new window.SynthesisManager(this.api) : (window.StaticPagesManager ? new window.StaticPagesManager('synthesis', this.api) : null)
             },
             'schedule': {
                 title: 'Schedules',
+                endpoint: '/v2/page/schedule',
                 manager: () => window.ScheduleManager ? new window.ScheduleManager(this.api) : (window.StaticPagesManager ? new window.StaticPagesManager('schedule', this.api) : null)
             }
         };
@@ -1116,21 +1288,24 @@ class Router {
             // Update UI state
             this.updatePageState(path, route.title);
             
-            // Create and initialize new manager
-            const manager = route.manager();
-            if (!manager) {
-                throw new Error(`Manager not available for route: ${path}`);
-            }
-
-            console.log(`🧭 Initializing manager for ${path}...`);
+            // Load page content first
+            await this.loadPageContent(route.endpoint);
             
-            // Initialize the manager
-            if (typeof manager.initialize === 'function') {
-                await manager.initialize();
-            }
+            // Create and initialize new manager after content is loaded
+            const manager = route.manager();
+            if (manager) {
+                console.log(`🧭 Initializing manager for ${path}...`);
+                
+                // Initialize the manager
+                if (typeof manager.initialize === 'function') {
+                    await manager.initialize();
+                }
 
-            // Set as current manager only after successful initialization
-            this.currentManager = manager;
+                // Set as current manager only after successful initialization
+                this.currentManager = manager;
+            } else {
+                console.log(`⚠️ No manager available for route: ${path} (content-only page)`);
+            }
             
             console.log(`✅ Successfully navigated to ${path}`);
             
@@ -1140,6 +1315,72 @@ class Router {
             this.currentManager = null;
             throw error;
         }
+    }
+
+    async loadPageContent(endpoint) {
+        const mainContent = document.getElementById('main-content');
+        if (!mainContent) {
+            throw new Error('Main content container (#main-content) not found in DOM');
+        }
+        
+        console.log(`📄 Loading page content from ${endpoint}...`);
+        
+        // Show loading indicator
+        mainContent.innerHTML = `
+            <div class="loading-container" style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 50vh;
+                gap: var(--space-4);
+            ">
+                <div class="loading-spinner" style="
+                    width: 48px;
+                    height: 48px;
+                    border: 4px solid rgba(255, 255, 255, 0.1);
+                    border-top: 4px solid var(--primary-blue);
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                "></div>
+                <p style="color: var(--text-secondary); margin: 0;">Loading page...</p>
+            </div>
+        `;
+        
+        // Create a timeout promise for the fetch request
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000);
+        });
+        
+        // Race the fetch against the timeout
+        const fetchPromise = fetch(endpoint);
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        console.log(`📄 Fetch response status: ${response.status} ${response.statusText}`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to load page content: ${response.status} ${response.statusText}`);
+        }
+        
+        const html = await response.text();
+        console.log(`📄 Page HTML loaded, length: ${html.length}`);
+        
+        // Basic validation of the HTML content
+        if (!html || html.trim().length === 0) {
+            throw new Error('Received empty content from server');
+        }
+        
+        // Load page HTML with fade transition
+        mainContent.style.opacity = '0';
+        mainContent.innerHTML = html;
+        
+        // Fade in
+        setTimeout(() => {
+            mainContent.style.opacity = '1';
+            console.log(`📄 Page content displayed with fade-in`);
+        }, 100);
+        
+        console.log(`✅ Page content loaded successfully`);
     }
 
     async cleanupCurrentManager() {
@@ -1177,7 +1418,7 @@ class Router {
 
     updateActiveNavLink(path) {
         // Remove active class from all nav links
-        document.querySelectorAll('.nav-item').forEach(link => {
+        document.querySelectorAll('.liquid-nav-item').forEach(link => {
             link.classList.remove('active');
         });
 

@@ -28,7 +28,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 # Celery Migration Imports
 from .celery_app import init_celery
-from .realtime_manager import RealtimeManager
+from .enhanced_realtime_manager import EnhancedRealtimeManager
 
 # Local imports - only import what's needed at module level
 from .config import Config, PROJECT_ROOT
@@ -255,7 +255,7 @@ def create_app():
     # FIX 1: Enable CORS to allow the frontend to connect to Socket.IO
     socketio = SocketIO(async_mode='gevent', logger=False, engineio_logger=False, cors_allowed_origins="*")
     migrate = Migrate()
-    realtime_manager = RealtimeManager(socketio)
+    realtime_manager = EnhancedRealtimeManager(socketio, config_instance)
 
     db.init_app(app)
     socketio.init_app(app)
@@ -265,6 +265,16 @@ def create_app():
     # No conditional logic is needed.
     init_celery(app)
     app.register_blueprint(api_bp, url_prefix='/api')
+    
+    # CRITICAL FIX: Start EnhancedRealtimeManager during app initialization
+    # This ensures log events are never lost due to late initialization
+    try:
+        realtime_manager.start_listener()
+        logging.info("🚀 EnhancedRealtimeManager started successfully during app initialization")
+    except Exception as e:
+        logging.error(f"❌ CRITICAL: Failed to start EnhancedRealtimeManager during app initialization: {e}", exc_info=True)
+        # Continue app startup but log critical error - this allows the app to start
+        # even if realtime manager fails, preventing complete system failure
     
     return app, socketio, migrate, realtime_manager
 
@@ -453,12 +463,11 @@ def clear_logs_operation(socketio_emit=True):
 
 # Track if background tasks are started
 _background_tasks_started = False
-_realtime_listener_started = False
 
 @socketio.on('connect')
 def handle_connect(auth=None):
     """SocketIO: Notify client of connection and send initial state."""
-    global _background_tasks_started, _realtime_listener_started
+    global _background_tasks_started
     
     logging.info("Client connected")
     
@@ -469,14 +478,8 @@ def handle_connect(auth=None):
         _background_tasks_started = True
         logging.debug("GPU monitoring task started on first client connection.")
 
-    if not _realtime_listener_started:
-        try:
-            # RealtimeManager handles the Redis pub/sub listener
-            realtime_manager.start_listener()
-            _realtime_listener_started = True
-            logging.info("RealtimeManager Redis listener started on first client connection.")
-        except Exception as e:
-            logging.error(f"Error starting RealtimeManager listener: {e}", exc_info=True)
+    # REMOVED: Realtime manager initialization - now handled during app startup
+    # This ensures logs are never lost due to late initialization
     
     state = get_or_create_agent_state()
     emit('agent_status', state.to_dict())

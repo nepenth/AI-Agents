@@ -89,10 +89,16 @@ class KnowledgeBaseAgent:
         
         # Initialize unified logging system if task_id is provided
         if task_id:
+            # TASK ID VALIDATION: Ensure task_id is properly set
+            if not isinstance(task_id, str) or not task_id.strip():
+                raise ValueError(f"task_id must be a non-empty string, got: {task_id}")
+            
             from .unified_logging import get_unified_logger
             self.unified_logger = get_unified_logger(task_id, config)
+            logging.info(f"✅ KnowledgeBaseAgent: Unified logger initialized with task_id={task_id}")
         else:
             self.unified_logger = None
+            logging.warning("⚠️ KnowledgeBaseAgent: No task_id provided, unified logging disabled")
         
         # Optional external callbacks (e.g. Celery → Redis pipeline).  If provided, they
         # will be invoked in addition to the built-in Socket.IO emission so that the
@@ -108,7 +114,7 @@ class KnowledgeBaseAgent:
         from knowledge_base_agent.phase_execution_helper import PhaseExecutionHelper
         from knowledge_base_agent.tweet_cacher import TweetCacheValidator
         
-        self.phase_execution_helper = PhaseExecutionHelper()
+        self.phase_execution_helper = PhaseExecutionHelper(self.config)
         self.content_processor = None  # Type hints removed to avoid import issues
         self.chat_manager = None
         self.embedding_manager = None
@@ -346,18 +352,33 @@ class KnowledgeBaseAgent:
 
         # Use unified logging system for phase updates
         if hasattr(self, 'unified_logger') and self.unified_logger:
-            self.unified_logger.emit_phase_update(phase_id, status, message, processed_count or 0)
-        elif self.socketio:
-            try:
-                self.socketio.emit('phase_update', data_to_emit)
-            except Exception as e:
-                logging.error(f"Failed to emit phase_update via socketio: {e}")
+            # Enhanced phase update with comprehensive data
+            if status in ['active', 'in_progress']:
+                self.unified_logger.emit_phase_start(
+                    phase_id, 
+                    message, 
+                    estimated_duration=initial_estimated_duration_seconds
+                )
+            elif status == 'completed':
+                self.unified_logger.emit_phase_complete(
+                    phase_id,
+                    result={
+                        "processed_count": processed_count,
+                        "total_count": total_count,
+                        "error_count": error_count
+                    }
+                )
+            elif status == 'error':
+                self.unified_logger.emit_phase_error(phase_id, message)
+            else:
+                # For other status updates, use the legacy method for compatibility
+                self.unified_logger.emit_phase_update(phase_id, status, message, processed_count or 0)
         else:
-            # Don't log warnings in Celery worker context - this is expected behavior
-            # Only log if we're not in a Celery worker (check for Celery task context)
-            import os
-            if not os.environ.get('CELERY_WORKER_RUNNING') and not hasattr(self, '_is_celery_task'):
-                logging.debug(f"socketio_emit_phase_update called for {phase_id} but self.socketio is None (non-web context)")
+            # Fallback to standard logging when unified logger not available
+            logging.info(f"Phase Update: {phase_id} - {status} - {message}")
+            if not hasattr(self, '_socketio_warning_shown'):
+                logging.debug("UnifiedLogger not available for phase updates")
+                self._socketio_warning_shown = True
 
     async def initialize(self) -> tuple:
         """Initialize or re-initialize agent components."""
@@ -600,6 +621,70 @@ class KnowledgeBaseAgent:
             logging.exception(f"Index update failed: {e}") # Log with stack trace
             raise AgentError("Failed to update indexes") from e
 
+    async def sync_database(self, preferences: UserPreferences) -> None:
+        """
+        Synchronize processed content to the database.
+
+        This method handles the database synchronization phase, ensuring that all
+        processed KB items are properly stored in the database.
+
+        Args:
+            preferences (UserPreferences): User preferences for the sync operation.
+
+        Raises:
+            AgentError: If database synchronization fails.
+        """
+        if stop_flag.is_set():
+            self.socketio_emit_log("Database synchronization skipped due to stop flag.", "INFO")
+            self.socketio_emit_phase_update('database_sync', 'interrupted', 'Stopped by user request.')
+            return
+
+        self.socketio_emit_phase_update('database_sync', 'active', 'Starting database synchronization...')
+        self.socketio_emit_log("Starting database synchronization phase...", "INFO")
+
+        try:
+            # Ensure content processor is initialized
+            if not self.content_processor:
+                await self.initialize()
+
+            # Get all tweets that need database sync
+            all_tweets = await self.state_manager.get_all_tweets()
+            tweets_data_map = {tweet_id: await self.state_manager.get_tweet(tweet_id) for tweet_id in all_tweets}
+
+            # Create execution plan for database sync
+            force_flags = {
+                'force_reprocess_db_sync': preferences.force_reprocess_db_sync,
+                'force_reprocess_kb_item': preferences.force_reprocess_kb_item
+            }
+
+            from knowledge_base_agent.phase_execution_helper import ProcessingPhase
+            db_sync_plan = self.phase_execution_helper.create_execution_plan(
+                ProcessingPhase.DB_SYNC, tweets_data_map, force_flags
+            )
+
+            if db_sync_plan.should_skip_phase:
+                self.socketio_emit_log(f"Database sync phase skipped - all {db_sync_plan.already_complete_count} items already synced", "INFO")
+                self.socketio_emit_phase_update('database_sync', 'completed', 
+                                               f'All {db_sync_plan.already_complete_count} items already synced to database')
+                return
+
+            # Execute database sync phase
+            from knowledge_base_agent.processing_stats import ProcessingStats
+            stats = ProcessingStats(start_time=datetime.now())
+            await self.content_processor._execute_db_sync_phase(
+                db_sync_plan, tweets_data_map, preferences, stats, self.category_manager
+            )
+
+            completion_message = f'Database synchronization completed for {db_sync_plan.needs_processing_count} items'
+            self.socketio_emit_log(completion_message, "INFO")
+            self.socketio_emit_phase_update('database_sync', 'completed', completion_message)
+
+        except Exception as e:
+            error_message = f"Database synchronization failed: {str(e)}"
+            self.socketio_emit_log(error_message, "ERROR")
+            self.socketio_emit_phase_update('database_sync', 'error', error_message)
+            raise AgentError(error_message) from e
+
     async def sync_changes(self) -> None:
         """
         Sync changes to GitHub repository.
@@ -834,7 +919,15 @@ class KnowledgeBaseAgent:
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user during content processing.")
 
-                # --- Phase 4: Synthesis Generation (Optional) ---
+                # --- Phase 4: Database Synchronization (Optional) ---
+                if not preferences.skip_process_content:
+                    await self.sync_database(preferences)
+                else:
+                    self.socketio_emit_log("Skipping database synchronization due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('database_sync', 'skipped', 'Skipped by user preference.')
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after database synchronization.")
+
+                # --- Phase 5: Synthesis Generation (Optional) ---
                 if not preferences.skip_synthesis_generation:
                     await self.generate_synthesis(preferences)
                 else:
@@ -842,7 +935,7 @@ class KnowledgeBaseAgent:
                     self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped by user preference.')
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after synthesis generation.")
 
-                # --- Phase 5: Embedding Generation (Optional) ---
+                # --- Phase 6: Embedding Generation (Optional) ---
                 if not preferences.skip_embedding_generation:
                     await self.generate_embeddings(preferences)
                 else:
@@ -850,7 +943,7 @@ class KnowledgeBaseAgent:
                     self.socketio_emit_phase_update('embedding_generation', 'skipped', 'Skipped by user preference.')
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after embedding generation.")
 
-                # --- Phase 6: README Generation (Optional) ---
+                # --- Phase 7: README Generation (Optional) ---
                 if not preferences.skip_readme_generation:
                     await self.regenerate_readme(preferences)
                 else:
@@ -1050,6 +1143,13 @@ class KnowledgeBaseAgent:
                 "icon": "bi-file-earmark-text",
                 "initial_status": "skipped" if preferences.skip_readme_generation else "pending",
                 "initial_message": "User preference: Skip Readme generation" if preferences.skip_readme_generation else "Waiting for Root README generation..."
+            },
+            {
+                "id": "database_sync",
+                "name": "Database Synchronization",
+                "icon": "bi-database",
+                "initial_status": "skipped" if preferences.skip_process_content else ("forced" if preferences.force_reprocess_db_sync else "pending"),
+                "initial_message": "User preference: Skip content processing" if preferences.skip_process_content else ("Force flag: Database sync will be forced" if preferences.force_reprocess_db_sync else "Waiting for database synchronization...")
             },
             {
                 "id": "git_sync",
@@ -1403,6 +1503,25 @@ class KnowledgeBaseAgent:
             return {"error": "Chat functionality is not available."}
         
         return await self.chat_manager.handle_chat_query(query, model=model)
+    
+    def create_phase_enhancement(self) -> 'AgentPhaseEventEnhancement':
+        """
+        Create an AgentPhaseEventEnhancement for this agent.
+        
+        This method creates a phase enhancement wrapper that provides
+        comprehensive event emission for all processing phases.
+        
+        Returns:
+            AgentPhaseEventEnhancement: Enhanced phase event handler
+            
+        Raises:
+            ValueError: If no task_id is available for event emission
+        """
+        if not self.task_id:
+            raise ValueError("Cannot create phase enhancement without task_id")
+        
+        from .agent_phase_event_enhancement import AgentPhaseEventEnhancement
+        return AgentPhaseEventEnhancement(self, self.task_id, self.config)
 
 class InterruptedError(Exception):
     """Custom exception for when processing is interrupted by the stop flag."""

@@ -18,9 +18,7 @@ class LiveLogsManager {
         this.clearLogsBtn = document.getElementById('clear-logs-btn');
         this.agentStatusText = document.getElementById('agent-status-text-logs');
         this.logCount = document.getElementById('log-count');
-        this.etcDisplay = document.getElementById('agent-etc-display');
         this.etcTime = document.getElementById('agent-etc-time');
-        this.phaseProgress = document.getElementById('agent-phase-progress');
         this.phaseProgressText = document.getElementById('phase-progress-text');
         this.phaseProgressBar = document.getElementById('phase-progress-bar');
         
@@ -30,7 +28,16 @@ class LiveLogsManager {
         this.autoScroll = true;
         this.isClearing = false;
         this.currentPhase = null;
-        this.phaseStartTime = null;
+        
+        // Log deduplication
+        this.seenLogIds = new Set(); // Track logs we've already displayed
+        
+        // Filtering statistics
+        this.filteringStats = {
+            totalLogs: 0,
+            filteredLogs: 0,
+            displayedLogs: 0
+        };
 
         if (!this.logsContainer) return;
         this.init();
@@ -46,8 +53,11 @@ class LiveLogsManager {
         try {
             // Load recent logs via REST API
             const response = await this.api.getRecentLogs();
-            if (response && response.logs) {
+            if (response && response.logs && response.logs.length > 0) {
                 this.addInitialLogs(response.logs);
+            } else {
+                // No recent logs - show a helpful message
+                this.showInfo('No recent agent activity. Start an agent run to see live logs.');
             }
         } catch (error) {
             console.error('Failed to load initial logs:', error);
@@ -61,21 +71,23 @@ class LiveLogsManager {
         }
 
         // Auto-scroll toggle when user scrolls manually
-        this.logsContainer.addEventListener('scroll', () => {
-            const { scrollTop, scrollHeight, clientHeight } = this.logsContainer;
-            this.autoScroll = scrollTop + clientHeight >= scrollHeight - 10;
-        });
+        if (this.logsContainer) {
+            this.logsContainer.addEventListener('scroll', () => {
+                const { scrollTop, scrollHeight, clientHeight } = this.logsContainer;
+                this.autoScroll = scrollTop + clientHeight >= scrollHeight - 10;
+            });
 
-        // Double-click to toggle auto-scroll
-        this.logsContainer.addEventListener('dblclick', () => {
-            this.autoScroll = !this.autoScroll;
-            if (this.autoScroll) {
-                this.scrollToBottom();
-                this.showInfo('Auto-scroll enabled');
-            } else {
-                this.showInfo('Auto-scroll disabled');
-            }
-        });
+            // Double-click to toggle auto-scroll
+            this.logsContainer.addEventListener('dblclick', () => {
+                this.autoScroll = !this.autoScroll;
+                if (this.autoScroll) {
+                    this.scrollToBottom();
+                    this.showInfo('Auto-scroll enabled');
+                } else {
+                    this.showInfo('Auto-scroll disabled');
+                }
+            });
+        }
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
@@ -92,7 +104,7 @@ class LiveLogsManager {
             this.addLog(event.detail);
         });
 
-        document.addEventListener('logs_cleared', (event) => {
+        document.addEventListener('logs_cleared', () => {
             this.handleLogsCleared();
         });
 
@@ -102,6 +114,28 @@ class LiveLogsManager {
             this.updateAgentStatus(statusData.is_running, statusData.current_phase_message, statusData);
         });
 
+        // Enhanced SocketIO connection recovery if available
+        if (window.socket) {
+            // Add reconnection event handlers for better connection recovery
+            window.socket.on('reconnect', (attemptNumber) => {
+                console.log(`🔌 SocketIO reconnected after ${attemptNumber} attempts`);
+                this.showConnectionMessage('Connection restored', 'success');
+            });
+            
+            window.socket.on('reconnect_attempt', (attemptNumber) => {
+                console.log(`🔌 SocketIO reconnection attempt ${attemptNumber}`);
+            });
+            
+            window.socket.on('reconnect_error', (error) => {
+                console.warn('🔌 SocketIO reconnection error:', error);
+            });
+            
+            window.socket.on('reconnect_failed', () => {
+                console.error('🔌 SocketIO reconnection failed - relying on API polling');
+                this.showConnectionMessage('Connection failed - using API polling', 'warning');
+            });
+        }
+
         // Listen for phase updates from execution plan
         document.addEventListener('phase_update', (event) => {
             const phaseData = event.detail;
@@ -109,12 +143,90 @@ class LiveLogsManager {
         });
     }
 
+    updateAgentStatus(isRunning, phaseMessage, statusData = {}) {
+        // Update agent status indicator in the header
+        const statusIndicator = document.getElementById('agent-status-indicator');
+        const statusText = document.getElementById('agent-status-text-main');
+        
+        if (statusIndicator && statusText) {
+            if (isRunning) {
+                statusIndicator.className = 'glass-badge glass-badge--success glass-badge--pulse';
+                statusText.textContent = 'Running';
+            } else {
+                statusIndicator.className = 'glass-badge glass-badge--primary';
+                statusText.textContent = 'Idle';
+            }
+        }
+        
+        // Update status text in logs panel
+        if (this.agentStatusText) {
+            this.agentStatusText.textContent = isRunning ? 'Running' : 'Idle';
+        }
+        
+        // Update phase message if provided
+        if (phaseMessage && this.currentPhase !== phaseMessage) {
+            this.currentPhase = phaseMessage;
+            console.log(`📊 Agent phase: ${phaseMessage}`);
+        }
+        
+        // Update ETC and progress if available
+        if (statusData.etc_seconds && this.etcTime) {
+            const etcMinutes = Math.ceil(statusData.etc_seconds / 60);
+            this.etcTime.textContent = `${etcMinutes}m`;
+        }
+        
+        if (statusData.progress !== undefined && this.phaseProgressBar) {
+            this.phaseProgressBar.style.width = `${statusData.progress}%`;
+            if (this.phaseProgressText) {
+                this.phaseProgressText.textContent = `${statusData.progress}%`;
+            }
+        }
+    }
+
     addLog(log) {
         const { message, level, timestamp } = log;
         
+        // Use global event deduplicator if available
+        if (window.uiManager && window.uiManager.eventDeduplicator) {
+            if (window.uiManager.eventDeduplicator.isDuplicate('log', log, log._source || 'unknown')) {
+                return; // Skip duplicate
+            }
+        } else {
+            // Fallback to local deduplication
+            const logId = this.createLogId(log);
+            
+            // Skip if we've already seen this exact log
+            if (this.seenLogIds.has(logId)) {
+                return;
+            }
+            
+            // Mark this log as seen
+            this.seenLogIds.add(logId);
+            
+            // Clean up old log IDs to prevent memory leaks (keep last 1000)
+            if (this.seenLogIds.size > 1000) {
+                const oldIds = Array.from(this.seenLogIds).slice(0, 200);
+                oldIds.forEach(id => this.seenLogIds.delete(id));
+            }
+        }
+        
+        // Track filtering statistics
+        this.filteringStats.totalLogs++;
+        
         // Filter out noisy HTTP request logs
         if (this.shouldFilterLog(message, level)) {
+            this.filteringStats.filteredLogs++;
             return;
+        }
+        
+        // Track displayed logs
+        this.filteringStats.displayedLogs++;
+        
+        // Manage seen log IDs to prevent memory leaks
+        if (this.seenLogIds.size > 1000) {
+            const idsArray = Array.from(this.seenLogIds);
+            const toKeep = idsArray.slice(-500); // Keep last 500
+            this.seenLogIds = new Set(toKeep);
         }
         
         // Create log element with enhanced styling (remove any hover effects)
@@ -165,140 +277,72 @@ class LiveLogsManager {
     }
 
     shouldFilterLog(message, level) {
-        // Filter out all HTTP request logs - we only want agent execution logs
-        if (level === 'INFO' && message.includes(' - - [')) {
-            const httpPatterns = [
-                // API endpoints (polling noise)
-                '/api/logs/recent',
-                '/api/agent/status', 
-                '/api/gpu-stats',
-                '/api/preferences',
-                '/api/system/info',
-                // Static assets
-                '/static/',
-                '/favicon.ico',
-                // Page requests
-                'GET /',
-                'GET /v2',
-                '"GET',
-                'HTTP/1.1" 200',
-                'HTTP/1.1" 304',
-                'HTTP/1.1" 404',
-                // Common web requests
-                'Successfully rendered template',
-                'V2 page request received'
-            ];
-            
-            return httpPatterns.some(pattern => message.includes(pattern));
-        }
-        
-        // CRITICAL: Filter out repetitive Phase Update messages, but allow some through
-        if (message.includes('Phase Update: ID=')) {
-            // Extract phase update data and update status display
-            this.handlePhaseUpdateMessage(message);
-            
-            // Only filter out if it's a repetitive status update, allow important ones through
-            if (message.includes('Status=\'in_progress\'') && 
-                (message.includes('Completed media processing') || 
-                 message.includes('already cached') ||
-                 message.includes('Processing media for tweet'))) {
-                return true; // Filter out repetitive progress updates
-            }
-            
-            // Allow important phase updates through (completed, error, etc.)
-            return false; // Don't filter - show in logs
-        }
-        
-        // Filter out repetitive setup/initialization logs that clutter the display
-        const repetitivePatterns = [
-            'Invalid Date', // Date parsing issues in frontend
-            'Web logging re-configured',
-            'Application configuration loaded',
-            'Successfully rendered template',
-            'V2 page request',
-            'template v2/index.html',
-            '- INFO -', // Generic INFO logs that are usually HTTP
-            '10.0.11.66 -', // IP address logs (usually HTTP)
-            // Filter repetitive agent setup logs
-            'DEBUG_AGENT_RUN: Prefs object received by run()',
-            'UserPreferences(run_mode=',
-            'Initializing HTTPClient with Ollama URL:',
-            '💾 Flask app context created for database operations',
-            '[initialization] Initializing agent components',
-            '✅ UserPreferences loaded:',
-            '🚀 Agent execution started',
-            '🚀 Starting agent execution...',
-            // Filter repetitive state manager logs
-            'StateManager initialization complete. Validation stats:',
-            'Final processing validation: moved',
-            'KB item phase validation complete',
-            'Loaded 384 processed tweets', // This specific count keeps repeating
-            'Loaded.*processed tweets', // Generic version
+        // WHITELIST APPROACH: Always show agent execution logs
+        const agentPatterns = [
+            '🚀', '✅', '❌', '📚', '💾', '🔄', '⚡',
+            'agent', 'phase', 'processing', 'completed', 'failed', 'error',
+            'task started', 'task completed', 'execution', 'celery'
         ];
         
-        return repetitivePatterns.some(pattern => {
-            if (pattern.includes('.*')) {
-                // Handle regex patterns
-                const regex = new RegExp(pattern);
-                return regex.test(message);
-            }
-            return message.includes(pattern);
-        });
+        // Never filter agent-relevant logs
+        if (agentPatterns.some(pattern => 
+            message.toLowerCase().includes(pattern.toLowerCase()))) {
+            return false;
+        }
+        
+        // Never filter errors/warnings/critical logs
+        if (['ERROR', 'WARNING', 'CRITICAL'].includes(level)) {
+            return false;
+        }
+        
+        // MINIMAL NOISE FILTERING: Only filter truly noisy patterns
+        const noisePatterns = [
+            'GET /socket.io/',
+            'POST /socket.io/',
+            'GET /api/agent/status',
+            'GET /api/logs/recent',
+            'HTTP/1.1" 200',
+            'HTTP/1.1" 304'
+        ];
+        
+        return noisePatterns.some(pattern => message.includes(pattern));
     }
 
     addInitialLogs(logs) {
+        if (!this.logsContainer) return;
+        
         this.logsContainer.innerHTML = '';
         this.logs = [];
         
-        logs.forEach(log => this.addLog(log));
+        logs.forEach(log => {
+            this.addLog(log);
+        });
+        
         this.scrollToBottom();
     }
 
     async clearLogs() {
-        if (this.isClearing) {
-            return;
-        }
-
+        if (this.isClearing) return;
+        
+        this.isClearing = true;
         try {
-            this.isClearing = true;
-            
-            // Update UI immediately for responsiveness
-            this.logsContainer.innerHTML = '<div class="log-message" style="text-align: center; color: var(--text-secondary); font-style: italic;">Clearing logs...</div>';
-            
-            // Use REST API for primary operation
-            const result = await this.api.clearLogs();
-            
-            if (result.success) {
-                this.logs = [];
-                this.logsContainer.innerHTML = '';
-                this.updateLogCount();
-                this.showSuccess('Logs cleared successfully');
-            } else {
-                throw new Error(result.error || 'Failed to clear logs');
-            }
-            
+            await this.api.clearLogs();
+            this.logsContainer.innerHTML = '';
+            this.logs = [];
+            this.updateLogCount();
+            this.showInfo('Logs cleared');
         } catch (error) {
             console.error('Failed to clear logs:', error);
-            this.showError(`Failed to clear logs: ${error.message}`);
-            // Restore logs on error
-            this.loadInitialLogs();
+            this.showError('Failed to clear logs');
         } finally {
             this.isClearing = false;
         }
     }
 
     handleLogsCleared() {
-        // Handle real-time notification that logs were cleared
-        this.logs = [];
         this.logsContainer.innerHTML = '';
+        this.logs = [];
         this.updateLogCount();
-    }
-
-    scrollToBottom() {
-        // Use requestAnimationFrame for smooth scrolling
-        requestAnimationFrame(() => {
-            this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
-        });
     }
 
     updateLogCount() {
@@ -307,223 +351,162 @@ class LiveLogsManager {
         }
     }
 
+    scrollToBottom() {
+        if (this.logsContainer) {
+            requestAnimationFrame(() => {
+                this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
+            });
+        }
+    }
+
+    showInfo(message) {
+        this.addLog({
+            message: `ℹ️ ${message}`,
+            level: 'INFO',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    showError(message) {
+        this.addLog({
+            message: `❌ ${message}`,
+            level: 'ERROR',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    createLogId(log) {
+        // Create a unique ID for log deduplication based on message content and timestamp
+        const { message, level, timestamp } = log;
+        
+        // Use a combination of timestamp, level, and first 100 chars of message
+        const messageKey = message ? message.substring(0, 100) : '';
+        const timeKey = timestamp || new Date().toISOString();
+        
+        // For better deduplication, also include a hash of the full message
+        const messageHash = this.simpleHash(message || '');
+        
+        // Create a hash-like ID
+        return `${timeKey}_${level}_${messageHash}_${messageKey}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+
+    simpleHash(str) {
+        // Simple hash function for better deduplication
+        let hash = 0;
+        if (str.length === 0) return hash;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(36);
+    }
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
-    
-    updateAgentStatus(isRunning, statusMessage = null, phaseData = null) {
-        if (!this.agentStatusText) return;
 
-        if (isRunning) {
-            this.agentStatusText.textContent = statusMessage || 'Running';
-            this.agentStatusText.className = 'status-text status-running';
-            
-            // Show phase progress if available
-            if (phaseData && this.phaseProgress) {
-                this.updatePhaseProgress(phaseData);
-            }
-        } else {
-            this.agentStatusText.textContent = statusMessage || 'Idle';
-            this.agentStatusText.className = 'status-text status-idle';
-            
-            // Hide progress displays when idle
-            if (this.phaseProgress) {
-                this.phaseProgress.style.display = 'none';
-            }
-            if (this.etcDisplay) {
-                this.etcDisplay.style.display = 'none';
-            }
-        }
-    }
-
-    updatePhaseProgress(phaseData) {
-        if (!this.phaseProgress || !this.phaseProgressText || !this.phaseProgressBar) return;
-
-        const { phase_id, message, progress, total, processed_count, total_count } = phaseData;
+    // Get filtering diagnostics
+    getFilteringDiagnostics() {
+        const total = this.filteringStats.totalLogs;
+        const filtered = this.filteringStats.filteredLogs;
+        const displayed = this.filteringStats.displayedLogs;
         
-        // Determine progress values
-        let progressValue = 0;
-        let progressText = message || 'Processing...';
-        
-        if (processed_count !== undefined && total_count !== undefined && total_count > 0) {
-            progressValue = (processed_count / total_count) * 100;
-            progressText = `${message || phase_id}: ${processed_count}/${total_count}`;
-        } else if (progress !== undefined && total !== undefined && total > 0) {
-            progressValue = (progress / total) * 100;
-            progressText = `${message || phase_id}: ${progress}/${total}`;
-        }
-        
-        // Update progress display
-        this.phaseProgressText.textContent = progressText;
-        this.phaseProgressBar.style.width = `${Math.min(100, Math.max(0, progressValue))}%`;
-        this.phaseProgress.style.display = 'block';
-        
-        // Update ETC if we have progress data
-        if (progressValue > 0 && progressValue < 100) {
-            this.updateETC(phase_id, progressValue);
-        }
+        return {
+            totalProcessed: total,
+            filtered: filtered,
+            displayed: displayed,
+            filteringRate: total > 0 ? ((filtered / total) * 100).toFixed(2) + '%' : '0%',
+            displayRate: total > 0 ? ((displayed / total) * 100).toFixed(2) + '%' : '0%',
+            efficiency: filtered > 0 ? 'Filtering active' : 'No filtering applied',
+            recommendation: filtered > displayed * 0.5 
+                ? 'Consider reducing filter strictness' 
+                : 'Filtering levels appropriate'
+        };
     }
 
-    updateETC(phaseId, progressPercent) {
-        if (!this.etcDisplay || !this.etcTime) return;
+    // Enable debug mode for filtering
+    enableFilteringDebug() {
+        window.DEBUG_LOGGING = true;
+        console.log('🐛 LiveLogsManager filtering debug mode enabled');
+        console.log('📊 Current filtering stats:', this.getFilteringDiagnostics());
+    }
 
-        // Track phase start time
-        if (this.currentPhase !== phaseId) {
-            this.currentPhase = phaseId;
-            this.phaseStartTime = Date.now();
+    // Disable debug mode
+    disableFilteringDebug() {
+        window.DEBUG_LOGGING = false;
+        console.log('🐛 LiveLogsManager filtering debug mode disabled');
+    }
+
+    showConnectionMessage(message, type = 'info') {
+        // Create temporary connection status message
+        const messageEl = document.createElement('div');
+        messageEl.className = `connection-message ${type}`;
+        messageEl.textContent = message;
+        messageEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            color: var(--text-primary);
+        `;
+        
+        // Add type-specific styling
+        if (type === 'success') {
+            messageEl.style.borderColor = 'var(--success-color)';
+            messageEl.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+        } else if (type === 'warning') {
+            messageEl.style.borderColor = 'var(--warning-color)';
+            messageEl.style.backgroundColor = 'rgba(251, 191, 36, 0.1)';
+        } else if (type === 'error') {
+            messageEl.style.borderColor = 'var(--error-color)';
+            messageEl.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
         }
-
-        if (this.phaseStartTime && progressPercent > 5) { // Only calculate ETC after 5% progress
-            const elapsed = Date.now() - this.phaseStartTime;
-            const estimatedTotal = (elapsed / progressPercent) * 100;
-            const remaining = estimatedTotal - elapsed;
-            
-            if (remaining > 0) {
-                const etcText = this.formatDuration(remaining);
-                this.etcTime.textContent = etcText;
-                this.etcDisplay.style.display = 'block';
+        
+        document.body.appendChild(messageEl);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (messageEl.parentNode) {
+                messageEl.parentNode.removeChild(messageEl);
             }
-        }
+        }, 3000);
     }
 
-    formatDuration(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
+    // Get comprehensive statistics
+    getStats() {
+        const filteringPercentage = this.filteringStats.totalLogs > 0 
+            ? ((this.filteringStats.filteredLogs / this.filteringStats.totalLogs) * 100).toFixed(2)
+            : 0;
+            
+        return {
+            ...this.filteringStats,
+            currentLogs: this.logs.length,
+            maxLogs: this.maxLogs,
+            autoScroll: this.autoScroll,
+            seenLogIds: this.seenLogIds.size,
+            filteringPercentage: `${filteringPercentage}%`
+        };
+    }
+
+    cleanup() {
+        // Clean up event listeners and intervals
+        console.log('Cleaning up LiveLogsManager...');
         
-        if (hours > 0) {
-            return `${hours}h ${minutes % 60}m`;
-        } else if (minutes > 0) {
-            return `${minutes}m ${seconds % 60}s`;
-        } else {
-            return `${seconds}s`;
-        }
-    }
-
-    handlePhaseUpdateMessage(message) {
-        // Parse phase update message and extract data
-        // Example: "Phase Update: ID='media_analysis', Status='in_progress', Message='Completed media processing for tweet 1870838148789633295', SubStep='False', Processed=1, Total=3, Errors=0"
+        // Clear deduplication tracking
+        this.seenLogIds.clear();
         
-        try {
-            const phaseData = {};
-            
-            // Extract phase ID
-            const idMatch = message.match(/ID='([^']+)'/);
-            if (idMatch) phaseData.phase_id = idMatch[1];
-            
-            // Extract status
-            const statusMatch = message.match(/Status='([^']+)'/);
-            if (statusMatch) phaseData.status = statusMatch[1];
-            
-            // Extract message
-            const messageMatch = message.match(/Message='([^']+)'/);
-            if (messageMatch) phaseData.message = messageMatch[1];
-            
-            // Extract processed count
-            const processedMatch = message.match(/Processed=(\d+)/);
-            if (processedMatch) phaseData.processed_count = parseInt(processedMatch[1]);
-            
-            // Extract total count
-            const totalMatch = message.match(/Total=(\d+)/);
-            if (totalMatch) phaseData.total_count = parseInt(totalMatch[1]);
-            
-            // Extract error count
-            const errorMatch = message.match(/Errors=(\d+)/);
-            if (errorMatch) phaseData.error_count = parseInt(errorMatch[1]);
-            
-            // Update the status display with this data
-            if (phaseData.phase_id && phaseData.status) {
-                this.updateAgentStatus(true, phaseData.message, phaseData);
-            }
-            
-        } catch (error) {
-            console.warn('Failed to parse phase update message:', error);
-        }
-    }
-
-    // === NOTIFICATION HELPERS ===
-    
-    showSuccess(message) {
-        this.showNotification(message, 'success');
-    }
-
-    showError(message) {
-        this.showNotification(message, 'error');
-    }
-
-    showInfo(message) {
-        this.showNotification(message, 'info');
-    }
-
-    showNotification(message, type) {
-        // Use global notification system if available
-        if (window.uiManager && window.uiManager.showNotification) {
-            window.uiManager.showNotification(message, type);
-        } else {
-            // Fallback to console
-            console.log(`[${type.toUpperCase()}] ${message}`);
-        }
-    }
-
-    // === PUBLIC API ===
-    
-    exportLogs() {
-        const logsText = this.logs.map(log => {
-            const time = log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString();
-            return `[${time}] ${log.level}: ${log.message}`;
-        }).join('\n');
-
-        const blob = new Blob([logsText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `knowledge-base-logs-${new Date().toISOString().split('T')[0]}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        this.showSuccess('Logs exported successfully');
-    }
-
-    toggleAutoScroll() {
-        this.autoScroll = !this.autoScroll;
-        if (this.autoScroll) {
-            this.scrollToBottom();
-        }
-        return this.autoScroll;
-    }
-
-    filterLogs(level = null) {
-        const logElements = this.logsContainer.querySelectorAll('.log-message');
-        logElements.forEach(element => {
-            if (!level || element.dataset.level === level) {
-                element.style.display = 'block';
-            } else {
-                element.style.display = 'none';
-            }
-        });
-    }
-
-    searchLogs(query) {
-        if (!query) {
-            this.filterLogs(); // Show all
-            return;
-        }
-
-        const logElements = this.logsContainer.querySelectorAll('.log-message');
-        logElements.forEach(element => {
-            const content = element.textContent.toLowerCase();
-            if (content.includes(query.toLowerCase())) {
-                element.style.display = 'block';
-                // Highlight search terms
-                element.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
-            } else {
-                element.style.display = 'none';
-            }
-        });
+        // Note: recentStartupMessages is not used in this implementation
+        // but kept for potential future use or compatibility
     }
 }
 
-// Make globally available for non-module usage
-window.LiveLogsManager = LiveLogsManager; 
+// Make globally available
+window.LiveLogsManager = LiveLogsManager;

@@ -1,6 +1,6 @@
 <div class="synthesis-nexus-container">
     <!-- Navigation Tree Panel -->
-    <aside class="synthesis-nexus-sidebar">
+    <aside class="synthesis-nexus-sidebar glass-panel-v3 animate-glass-slide-in">
         <div class="nexus-header">
             <h1 class="nexus-title">
                 <i class="fas fa-book-open nexus-icon"></i>
@@ -11,7 +11,7 @@
                 <input 
                     type="text" 
                     id="v2-synthesis-search" 
-                    class="nexus-search" 
+                    class="glass-input nexus-search" 
                     placeholder="Search knowledge..."
                     autocomplete="off"
                 >
@@ -46,11 +46,11 @@
             </div>
             
             <div class="tree-controls">
-                <button id="synthesis-expand-all" class="tree-control-btn">
+                <button id="synthesis-expand-all" class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                     <i class="fas fa-expand-alt"></i>
                     <span>Expand All</span>
                 </button>
-                <button id="synthesis-collapse-all" class="tree-control-btn">
+                <button id="synthesis-collapse-all" class="liquid-button liquid-button--ghost liquid-button--sm animate-lift-hover">
                     <i class="fas fa-compress-alt"></i>
                     <span>Collapse All</span>
                 </button>
@@ -159,44 +159,44 @@
 
             <!-- Category View -->
             <div id="synthesis-category-view" class="content-view">
-                <div class="category-detail-header">
+                <div class="category-detail-header glass-panel-v3 animate-glass-slide-in">
                     <div class="category-info">
                         <h2 id="synthesis-category-title" class="category-name">Category Name</h2>
                         <p id="synthesis-category-description" class="category-description">Knowledge base items for this category</p>
                     </div>
                     <div class="category-stats">
-                        <div class="stat-chip">
+                        <div class="stat-chip glass-panel-v3--secondary">
                             <i class="fas fa-file-alt"></i>
                             <span id="synthesis-category-docs">0 items</span>
                         </div>
-                        <div class="stat-chip">
+                        <div class="stat-chip glass-panel-v3--secondary">
                             <i class="fas fa-calendar"></i>
                             <span id="synthesis-category-updated">Last updated</span>
                         </div>
                     </div>
                 </div>
-                <div id="synthesis-category-content" class="category-content"></div>
+                <div id="synthesis-category-content" class="category-content glass-panel-v3--tertiary animate-glass-fade-in"></div>
             </div>
 
             <!-- Document Detail View -->
             <div id="synthesis-document-view" class="content-view">
-                <div class="document-header">
-                    <button id="synthesis-back-to-category" class="back-btn">
+                <div class="document-header glass-panel-v3 animate-glass-slide-in">
+                    <button id="synthesis-back-to-category" class="liquid-button liquid-button--ghost animate-lift-hover">
                         <i class="fas fa-arrow-left"></i>
                         <span>Back to Category</span>
                     </button>
                     <div class="document-actions">
-                        <button id="synthesis-regenerate-doc" class="action-btn" title="Edit item">
+                        <button id="synthesis-regenerate-doc" class="liquid-button liquid-button--secondary animate-lift-hover" title="Edit item">
                             <i class="fas fa-edit"></i>
                             <span>Edit</span>
                         </button>
-                        <button id="synthesis-export-doc" class="action-btn" title="Export item">
+                        <button id="synthesis-export-doc" class="liquid-button liquid-button--primary animate-lift-hover" title="Export item">
                             <i class="fas fa-download"></i>
                             <span>Export</span>
                         </button>
                     </div>
                 </div>
-                <div id="synthesis-document-content" class="document-detail-content"></div>
+                <div id="synthesis-document-content" class="document-detail-content glass-panel-v3--tertiary animate-glass-fade-in"></div>
             </div>
 
             <!-- Search Results View -->

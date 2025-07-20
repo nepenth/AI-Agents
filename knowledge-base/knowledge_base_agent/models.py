@@ -155,8 +155,10 @@ class CeleryTaskState(db.Model):
     progress_percentage = db.Column(db.Integer, default=0)
     
     # Task metadata
+    human_readable_name = db.Column(db.String(200), nullable=True)  # Human-readable task name with timestamp
     preferences = db.Column(db.JSON, nullable=True)  # Store UserPreferences as JSON for agent runs
     result_data = db.Column(db.JSON, nullable=True)  # Store task final results
+    run_report = db.Column(db.JSON, nullable=True)  # Store detailed run report
     error_message = db.Column(db.Text, nullable=True)
     traceback = db.Column(db.Text, nullable=True)
     
@@ -166,7 +168,7 @@ class CeleryTaskState(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
 
-    def __init__(self, task_id, task_type, status, preferences=None, celery_task_id=None, current_phase_id=None, current_phase_message=None, progress_percentage=0, result_data=None, error_message=None, traceback=None):
+    def __init__(self, task_id, task_type, status, preferences=None, celery_task_id=None, current_phase_id=None, current_phase_message=None, progress_percentage=0, result_data=None, error_message=None, traceback=None, human_readable_name=None, run_report=None):
         self.task_id = task_id
         self.task_type = task_type
         self.status = status
@@ -178,6 +180,8 @@ class CeleryTaskState(db.Model):
         self.result_data = result_data
         self.error_message = error_message
         self.traceback = traceback
+        self.human_readable_name = human_readable_name
+        self.run_report = run_report
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
 

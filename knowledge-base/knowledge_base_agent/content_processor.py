@@ -77,7 +77,7 @@ class StreamlinedContentProcessor:
             self.unified_logger = None
         
         # Initialize phase execution helper
-        self.phase_helper = PhaseExecutionHelper()
+        self.phase_helper = PhaseExecutionHelper(config)
         
         logging.info(f"Initialized StreamlinedContentProcessor with model: {self.text_model}")
 
@@ -146,7 +146,8 @@ class StreamlinedContentProcessor:
             'force_recache_tweets': preferences.force_recache_tweets,
             'force_reprocess_media': preferences.force_reprocess_media,
             'force_reprocess_llm': preferences.force_reprocess_llm,
-            'force_reprocess_kb_item': preferences.force_reprocess_kb_item
+            'force_reprocess_kb_item': preferences.force_reprocess_kb_item,
+            'force_reprocess_db_sync': preferences.force_reprocess_db_sync
         }
 
         # Get execution plans for all phases - this replaces all validation logic!
@@ -201,7 +202,17 @@ class StreamlinedContentProcessor:
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
                 self.phase_emitter_func('tweet_caching', 'completed', 
-                                       f'All {plan.already_complete_count} tweets already cached')
+                                       f'All {plan.already_complete_count} tweets already cached',
+                                       processed_count=0, total_count=plan.already_complete_count)
+            
+            # Use enhanced logging if available
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                completion_result = {
+                    'processed_count': 0,
+                    'total_count': plan.already_complete_count,
+                    'skipped_count': plan.already_complete_count
+                }
+                self.unified_logger.emit_phase_complete('tweet_caching', completion_result)
             return
 
         self.socketio_emit_log(f"Cache phase: processing {plan.needs_processing_count} tweets, {plan.already_complete_count} already complete", "INFO")
@@ -538,10 +549,16 @@ class StreamlinedContentProcessor:
                 if not readme_abs_path.exists():
                     raise Exception(f"KB item README was not created at expected path: {readme_abs_path}")
                 
-                # Update tweet data
+                # Update tweet data with KB item content
                 tweet_data['kb_item_path'] = str(readme_path_rel_project)
                 tweet_data['kb_media_paths'] = json.dumps(media_paths_rel_kb_item_dir)
                 tweet_data['kb_item_created'] = True
+                
+                # Transfer KB item content data to tweet_data for database storage
+                tweet_data['display_title'] = kb_item_obj.display_title
+                tweet_data['description'] = kb_item_obj.description
+                tweet_data['markdown_content'] = kb_item_obj.markdown_content
+                tweet_data['raw_json_content'] = kb_item_obj.raw_json_content
                 
                 await self.state_manager.update_tweet_data(tweet_id, tweet_data)
                 items_successfully_processed += 1
@@ -582,7 +599,17 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"✅ Generated {plan.needs_processing_count} KB items", "INFO")
             if self.phase_emitter_func:
                 self.phase_emitter_func('kb_item_generation', 'completed', 
-                                       f'Generated {plan.needs_processing_count} KB items')
+                                       f'Generated {plan.needs_processing_count} KB items',
+                                       processed_count=plan.needs_processing_count, 
+                                       total_count=plan.needs_processing_count)
+            
+            # Use enhanced logging if available
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                completion_result = {
+                    'processed_count': plan.needs_processing_count,
+                    'total_count': plan.needs_processing_count
+                }
+                self.unified_logger.emit_phase_complete('kb_item_generation', completion_result)
 
     async def _execute_db_sync_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], 
                                    preferences, stats, category_manager):

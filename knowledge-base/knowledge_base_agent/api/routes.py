@@ -117,8 +117,15 @@ def get_task_status(task_id: str):
 
         logs = await progress_manager.get_logs(tid, limit=10)
 
+        # Get task metadata from database
+        task_metadata = CeleryTaskState.query.filter_by(task_id=tid).first()
+        human_readable_name = None
+        if task_metadata:
+            human_readable_name = task_metadata.human_readable_name
+
         response_data = {
             'task_id': tid,
+            'human_readable_name': human_readable_name,
             'progress': progress_data,
             'celery_status': celery_status,
             'logs': logs
@@ -161,6 +168,12 @@ def stop_agent_v2():
 
         logger.info(f"Stopping agent task: {task_id}")
         
+        # Check if task is already stopped to avoid duplicate stop messages
+        celery_task = celery_app.AsyncResult(task_id)
+        if celery_task.state in ['REVOKED', 'FAILURE', 'SUCCESS']:
+            logger.info(f"Task {task_id} already in terminal state: {celery_task.state}")
+            return jsonify({'success': True, 'message': f'Task {task_id} already stopped'})
+        
         # Revoke the Celery task
         celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
         
@@ -188,7 +201,456 @@ def stop_agent_v2():
         return run_async_in_gevent_context(_stop_async())
     except Exception as e:
         logger.error("Failed to stop agent task: %s", e, exc_info=True)
-        return jsonify({'success': False, 'error': f'Failed to stop agent task: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ------------------------------------------------------------------------
+# Historical Task Viewing Endpoints
+@bp.route('/v2/agent/history', methods=['GET'])
+def get_task_history():
+    """Get recent completed tasks for historical viewing."""
+    try:
+        limit = request.args.get('limit', 5, type=int)
+        
+        # Get recent completed tasks
+        completed_tasks = CeleryTaskState.query.filter(
+            CeleryTaskState.status.in_(['SUCCESS', 'FAILURE'])
+        ).order_by(CeleryTaskState.completed_at.desc()).limit(limit).all()
+        
+        task_list = []
+        for task in completed_tasks:
+            task_info = {
+                'task_id': task.task_id,
+                'human_readable_name': task.human_readable_name or f"Task {task.task_id[:8]}",
+                'status': task.status,
+                'created_at': task.created_at.isoformat() if task.created_at else None,
+                'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+                'duration': None,
+                'processed_count': 0,
+                'error_count': 0
+            }
+            
+            # Calculate duration
+            if task.started_at and task.completed_at:
+                duration = (task.completed_at - task.started_at).total_seconds()
+                task_info['duration'] = f"{duration:.1f}s"
+            
+            # Extract processing stats from result_data or run_report
+            if task.run_report:
+                task_info['processed_count'] = task.run_report.get('processed_count', 0)
+                task_info['error_count'] = task.run_report.get('error_count', 0)
+            elif task.result_data:
+                result = task.result_data.get('result', {})
+                task_info['processed_count'] = result.get('processed_count', 0)
+                task_info['error_count'] = result.get('error_count', 0)
+            
+            task_list.append(task_info)
+        
+        return jsonify({
+            'success': True,
+            'tasks': task_list,
+            'total_count': len(task_list)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting task history: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/v2/agent/history/<task_id>', methods=['GET'])
+def get_historical_task_details(task_id: str):
+    """Get detailed information about a completed task including logs and run report."""
+    try:
+        task = CeleryTaskState.query.filter_by(task_id=task_id).first()
+        if not task:
+            return jsonify({'success': False, 'error': 'Task not found'}), 404
+        
+        # Get logs for this task
+        progress_manager = get_progress_manager()
+        logs = []
+        try:
+            logs = run_async_in_gevent_context(progress_manager.get_task_logs(task_id))
+        except Exception as log_error:
+            logger.warning(f"Could not retrieve logs for task {task_id}: {log_error}")
+        
+        # Build detailed task information
+        task_details = {
+            'task_id': task.task_id,
+            'human_readable_name': task.human_readable_name or f"Task {task.task_id[:8]}",
+            'status': task.status,
+            'created_at': task.created_at.isoformat() if task.created_at else None,
+            'started_at': task.started_at.isoformat() if task.started_at else None,
+            'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+            'duration': None,
+            'preferences': task.preferences or {},
+            'run_report': task.run_report or {},
+            'result_data': task.result_data or {},
+            'error_message': task.error_message,
+            'logs': logs
+        }
+        
+        # Calculate duration
+        if task.started_at and task.completed_at:
+            duration = (task.completed_at - task.started_at).total_seconds()
+            task_details['duration'] = f"{duration:.1f}s"
+        
+        return jsonify({
+            'success': True,
+            'task': task_details
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting historical task details: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ------------------------------------------------------------------------
+@bp.route('/v2/celery/clear-queue', methods=['POST'])
+def clear_celery_queue_v2():
+    """Clear all tasks from Celery queue."""
+    try:
+        celery_app.control.purge()
+        logger.info("Celery queue cleared")
+        return jsonify({'success': True, 'message': 'Task queue cleared successfully'})
+    except Exception as e:
+        logger.error("Failed to clear Celery queue: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/clear-old-tasks', methods=['POST'])
+def clear_old_celery_tasks_v2():
+    """Clear old Celery tasks from database and Redis."""
+    try:
+        data = request.json or {}
+        older_than_hours = data.get('older_than', 24)
+        status_filter = data.get('status', [])  # List of statuses to filter
+        dry_run = data.get('dry_run', False)
+        
+        from datetime import datetime, timedelta
+        cutoff_time = datetime.utcnow() - timedelta(hours=older_than_hours)
+        
+        # Query old tasks
+        query = CeleryTaskState.query.filter(CeleryTaskState.created_at < cutoff_time)
+        
+        if status_filter:
+            query = query.filter(CeleryTaskState.status.in_(status_filter))
+        
+        old_tasks = query.all()
+        
+        if dry_run:
+            task_info = [{'task_id': task.task_id, 'status': task.status, 'created_at': task.created_at.isoformat()} for task in old_tasks]
+            return jsonify({
+                'success': True,
+                'message': f'Would delete {len(old_tasks)} tasks',
+                'tasks': task_info,
+                'dry_run': True
+            })
+        
+        # Clear from Redis and database
+        progress_manager = get_progress_manager()
+        deleted_count = 0
+        
+        for task in old_tasks:
+            try:
+                # Clear from Redis
+                run_async_in_gevent_context(progress_manager.clear_task_data(task.task_id))
+                
+                # Delete from database
+                db.session.delete(task)
+                deleted_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete task {task.task_id}: {e}")
+        
+        db.session.commit()
+        
+        logger.info(f"Cleared {deleted_count} old Celery tasks")
+        return jsonify({
+            'success': True,
+            'message': f'Cleared {deleted_count} old tasks',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error("Failed to clear old Celery tasks: %s", e, exc_info=True)
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/stuck-tasks', methods=['GET'])
+def get_stuck_celery_tasks_v2():
+    """Get tasks that have been running for too long."""
+    try:
+        data = request.args
+        max_runtime_hours = int(data.get('max_runtime', 3))
+        
+        from datetime import datetime, timedelta
+        cutoff_time = datetime.utcnow() - timedelta(hours=max_runtime_hours)
+        
+        # Get tasks that started before cutoff and are still in progress
+        stuck_tasks = CeleryTaskState.query.filter(
+            CeleryTaskState.started_at < cutoff_time,
+            CeleryTaskState.status.in_(['PROGRESS', 'STARTED', 'PENDING'])
+        ).all()
+        
+        task_info = []
+        for task in stuck_tasks:
+            runtime_hours = (datetime.utcnow() - task.started_at).total_seconds() / 3600 if task.started_at else 0
+            task_info.append({
+                'task_id': task.task_id,
+                'celery_task_id': task.celery_task_id,
+                'status': task.status,
+                'started_at': task.started_at.isoformat() if task.started_at else None,
+                'runtime_hours': round(runtime_hours, 2),
+                'current_phase_message': task.current_phase_message
+            })
+        
+        return jsonify({
+            'success': True,
+            'stuck_tasks': task_info,
+            'count': len(task_info)
+        })
+        
+    except Exception as e:
+        logger.error("Failed to get stuck Celery tasks: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/revoke-tasks', methods=['POST'])
+def revoke_celery_tasks_v2():
+    """Revoke (cancel) specific or all active Celery tasks."""
+    try:
+        data = request.json or {}
+        task_id = data.get('task_id')
+        all_active = data.get('all_active', False)
+        
+        if not task_id and not all_active:
+            return jsonify({'success': False, 'error': 'Must specify either task_id or all_active'}), 400
+        
+        revoked_tasks = []
+        
+        if task_id:
+            # Revoke specific task
+            celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+            revoked_tasks.append(task_id)
+            logger.info(f"Revoked task: {task_id}")
+        
+        if all_active:
+            # Get and revoke all active tasks
+            inspect = celery_app.control.inspect()
+            active_tasks = inspect.active() or {}
+            
+            for worker, tasks in active_tasks.items():
+                for task in tasks:
+                    task_id = task.get('id')
+                    celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+                    revoked_tasks.append(task_id)
+                    logger.info(f"Revoked task: {task_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Revoked {len(revoked_tasks)} tasks',
+            'revoked_tasks': revoked_tasks
+        })
+        
+    except Exception as e:
+        logger.error("Failed to revoke Celery tasks: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/flush-redis', methods=['POST'])
+def flush_redis_celery_data_v2():
+    """Flush all task data from Redis."""
+    try:
+        progress_manager = get_progress_manager()
+        
+        # Clear all progress and log data
+        run_async_in_gevent_context(progress_manager.clear_all_data())
+        
+        logger.info("Flushed all Celery task data from Redis")
+        return jsonify({
+            'success': True,
+            'message': 'All task data flushed from Redis'
+        })
+        
+    except Exception as e:
+        logger.error("Failed to flush Redis data: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/purge-tasks', methods=['POST'])
+def purge_celery_tasks_v2():
+    """Purge all Celery tasks (active and queued)."""
+    try:
+        # Get active tasks
+        active_tasks = celery_app.control.inspect().active()
+        
+        # Revoke all active tasks
+        if active_tasks:
+            for worker, tasks in active_tasks.items():
+                for task in tasks:
+                    task_id = task.get('id')
+                    celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+                    logger.info(f"Revoked task: {task_id}")
+        
+        # Purge queue
+        celery_app.control.purge()
+        
+        logger.info("All Celery tasks purged")
+        return jsonify({'success': True, 'message': 'All tasks purged successfully'})
+    except Exception as e:
+        logger.error("Failed to purge Celery tasks: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/restart-workers', methods=['POST'])
+def restart_celery_workers_v2():
+    """Restart Celery workers."""
+    try:
+        # Send restart signal to workers
+        celery_app.control.broadcast('pool_restart', arguments={'reload': True})
+        logger.info("Celery worker restart signal sent")
+        return jsonify({'success': True, 'message': 'Worker restart signal sent'})
+    except Exception as e:
+        logger.error("Failed to restart Celery workers: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/v2/celery/status', methods=['GET'])
+def celery_worker_status_v2():
+    """Get Celery worker status."""
+    try:
+        inspect = celery_app.control.inspect()
+        
+        # Get worker stats
+        stats = inspect.stats()
+        active_tasks = inspect.active()
+        scheduled_tasks = inspect.scheduled()
+        
+        status_data = {
+            'workers': stats or {},
+            'active_tasks': active_tasks or {},
+            'scheduled_tasks': scheduled_tasks or {},
+            'total_active': sum(len(tasks) for tasks in (active_tasks or {}).values()),
+            'total_scheduled': sum(len(tasks) for tasks in (scheduled_tasks or {}).values())
+        }
+        
+        return jsonify({'success': True, 'data': status_data})
+    except Exception as e:
+        logger.error("Failed to get Celery status: %s", e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# --- LOGGING ENDPOINTS ---
+
+@bp.route('/logs/recent', methods=['GET'])
+def get_recent_logs():
+    """Get recent log messages with normalized format matching SocketIO events."""
+    from ..web import get_or_create_agent_state
+    
+    # Get current active task
+    state = get_or_create_agent_state()
+    current_task_id = state.current_task_id if state else None
+    
+    async def fetch_and_normalize_logs():
+        if current_task_id:
+            progress_manager = get_progress_manager()
+            try:
+                raw_logs = await progress_manager.get_logs(current_task_id, limit=100)
+                normalized_logs = []
+                
+                for log in raw_logs:
+                    try:
+                        # Handle both string and dict formats
+                        if isinstance(log, str):
+                            try:
+                                log = json.loads(log)
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"Failed to parse log entry as JSON: {log[:100]}... Error: {e}")
+                                # Create a basic log entry from the string
+                                log = {
+                                    'message': log,
+                                    'level': 'INFO',
+                                    'timestamp': datetime.utcnow().isoformat(),
+                                    'task_id': current_task_id
+                                }
+                        
+                        # NORMALIZED FORMAT: Match SocketIO event structure
+                        normalized_log = {
+                            'message': log.get('message', ''),
+                            'level': log.get('level', 'INFO'),
+                            'timestamp': log.get('timestamp', datetime.utcnow().isoformat()),
+                            'component': log.get('component', 'system'),
+                            'task_id': log.get('task_id', current_task_id)
+                        }
+                        
+                        # Validate required fields
+                        if not normalized_log['message']:
+                            logger.warning(f"Log entry missing message field: {log}")
+                            continue
+                            
+                        normalized_logs.append(normalized_log)
+                        
+                    except Exception as e:
+                        logger.warning(f"Error processing log entry: {e}. Log: {log}")
+                        # Continue processing other logs
+                        continue
+                
+                return normalized_logs
+                
+            except Exception as e:
+                logger.error(f"Error fetching logs from TaskProgressManager: {e}", exc_info=True)
+                return []
+        return []
+    
+    try:
+        logs_list = run_async_in_gevent_context(fetch_and_normalize_logs())
+        return jsonify({
+            'logs': logs_list, 
+            'task_id': current_task_id,
+            'count': len(logs_list),
+            'success': True
+        })
+    except Exception as e:
+        logger.error(f"Error getting recent logs: {e}", exc_info=True)
+        return jsonify({
+            'error': 'Failed to get recent logs', 
+            'logs': [],
+            'success': False
+        }), 500
+
+@bp.route('/logs/clear', methods=['POST'])
+def clear_logs():
+    """Clear logs for the current task."""
+    from ..web import get_or_create_agent_state
+    
+    # Get current active task
+    state = get_or_create_agent_state()
+    current_task_id = state.current_task_id if state else None
+    
+    if not current_task_id:
+        return jsonify({
+            'success': False,
+            'message': 'No active task'
+        })
+    
+    async def clear_logs_operation():
+        try:
+            progress_manager = get_progress_manager()
+            await progress_manager.clear_task_data(current_task_id)
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing logs: {e}", exc_info=True)
+            return False
+    
+    try:
+        success = run_async_in_gevent_context(clear_logs_operation())
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Logs cleared'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to clear logs'
+            }), 500
+    except Exception as e:
+        logger.error(f"Error in clear logs endpoint: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': 'Failed to clear logs'
+        }), 500
 
 
 # --- PRIMARY STATUS ENDPOINT (V2 UI) ---
@@ -1990,50 +2452,7 @@ def get_system_info():
         logging.error(f"Error getting system info: {e}", exc_info=True)
         return jsonify({'error': 'Failed to get system information'}), 500
 
-@bp.route('/logs/recent', methods=['GET'])
-def get_recent_logs():
-    """Get recent log messages from Redis via TaskProgressManager."""
-    try:
-        # MODERN: Get logs from Redis instead of legacy in-memory buffer
-        from ..task_progress import get_progress_manager
-        from ..config import Config
-        from ..web import get_or_create_agent_state
-        import asyncio
-        import concurrent.futures
-        
-        config = Config()
-        progress_manager = get_progress_manager(config)
-        
-        # Get current active task from agent state
-        state = get_or_create_agent_state()
-        current_task_id = state.current_task_id
-        
-        # Get logs from current active task only
-        async def fetch_logs():
-            try:
-                if current_task_id:
-                    # Get logs from current active task only
-                    task_logs = await progress_manager.get_logs(current_task_id, limit=100)
-                    return task_logs
-                else:
-                    # If no active task, get logs from the most recent task
-                    active_tasks = await progress_manager.get_all_active_tasks()
-                    if active_tasks:
-                        latest_task = active_tasks[-1]
-                        task_logs = await progress_manager.get_logs(latest_task, limit=100)
-                        return task_logs
-                    return []
-            except Exception as e:
-                logging.error(f"Error in fetch_logs: {e}")
-                return []
-        
-        # Handle async execution properly in gevent context
-        logs_list = run_async_in_gevent_context(fetch_logs())
-        
-        return jsonify({'logs': logs_list})
-    except Exception as e:
-        logging.error(f"Error getting recent logs: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to get recent logs'}), 500
+# Removed duplicate /logs/recent endpoint - already defined above
 
 @bp.route('/logs/clear', methods=['POST'])
 def clear_recent_logs():
@@ -2061,3 +2480,117 @@ def clear_logs_v2():
     except Exception as e:
         logging.error(f"Error clearing logs via v2 endpoint: {e}", exc_info=True)
         return jsonify({'error': 'Failed to clear logs'}), 500
+
+@bp.route('/v2/realtime-manager/health', methods=['GET'])
+def get_realtime_manager_health():
+    """Get comprehensive health status of the EnhancedRealtimeManager."""
+    try:
+        from ..web import realtime_manager
+        
+        if not realtime_manager:
+            return jsonify({
+                'success': False,
+                'status': 'NOT_INITIALIZED',
+                'error': 'EnhancedRealtimeManager not initialized'
+            }), 503
+        
+        # Get comprehensive health statistics
+        health_stats = realtime_manager.get_stats()
+        
+        # Determine overall health status
+        is_healthy = health_stats.get('is_healthy', False)
+        buffer_enabled = health_stats.get('buffer_enabled', False)
+        
+        # Calculate health score based on various factors
+        health_score = 100
+        if not is_healthy:
+            health_score -= 50
+        if buffer_enabled:
+            health_score -= 20  # Buffering indicates connection issues
+        if health_stats.get('events_rejected', 0) > health_stats.get('events_validated', 1) * 0.1:
+            health_score -= 15  # High rejection rate indicates issues
+        
+        status = 'HEALTHY' if health_score >= 80 else 'DEGRADED' if health_score >= 50 else 'UNHEALTHY'
+        
+        return jsonify({
+            'success': True,
+            'status': status,
+            'health_score': max(0, health_score),
+            'statistics': health_stats,
+            'recommendations': _get_health_recommendations(health_stats)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting realtime manager health: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'status': 'ERROR',
+            'error': str(e)
+        }), 500
+
+def _get_health_recommendations(stats):
+    """Generate health recommendations based on statistics."""
+    recommendations = []
+    
+    if not stats.get('is_healthy', False):
+        recommendations.append("Redis connection is unhealthy - check Redis server status")
+    
+    if stats.get('buffer_enabled', False):
+        recommendations.append("Event buffering is active - indicates Redis connectivity issues")
+    
+    events_rejected = stats.get('events_rejected', 0)
+    events_validated = stats.get('events_validated', 1)
+    if events_rejected > events_validated * 0.1:
+        recommendations.append(f"High event rejection rate ({events_rejected}/{events_validated}) - check event validation logic")
+    
+    if stats.get('reconnections', 0) > 5:
+        recommendations.append("Frequent reconnections detected - investigate network stability")
+    
+    if not recommendations:
+        recommendations.append("System is operating normally")
+    
+    return recommendations
+
+@bp.route('/v2/realtime-manager/restart', methods=['POST'])
+def restart_realtime_manager():
+    """Restart the EnhancedRealtimeManager (emergency recovery)."""
+    try:
+        from ..web import realtime_manager
+        
+        if not realtime_manager:
+            return jsonify({
+                'success': False,
+                'error': 'EnhancedRealtimeManager not initialized'
+            }), 503
+        
+        logging.warning("Manual restart of EnhancedRealtimeManager requested")
+        
+        # Stop the current listener
+        try:
+            realtime_manager.stop_listener()
+            logging.info("EnhancedRealtimeManager stopped")
+        except Exception as e:
+            logging.warning(f"Error stopping realtime manager: {e}")
+        
+        # Start it again
+        try:
+            realtime_manager.start_listener()
+            logging.info("EnhancedRealtimeManager restarted successfully")
+            
+            return jsonify({
+                'success': True,
+                'message': 'EnhancedRealtimeManager restarted successfully'
+            })
+        except Exception as e:
+            logging.error(f"Failed to restart EnhancedRealtimeManager: {e}", exc_info=True)
+            return jsonify({
+                'success': False,
+                'error': f'Failed to restart: {str(e)}'
+            }), 500
+        
+    except Exception as e:
+        logging.error(f"Error restarting realtime manager: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

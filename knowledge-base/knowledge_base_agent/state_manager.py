@@ -60,6 +60,15 @@ class StateManager:
         # Initialize progress manager only if a task_id is provided
         self.progress_manager = get_progress_manager() if task_id else None
         
+        # Initialize unified logging if task_id provided
+        if task_id:
+            from .unified_logging import get_unified_logger
+            self.unified_logger = get_unified_logger(task_id, config)
+        else:
+            self.unified_logger = None
+        
+        self.logger = logging.getLogger(__name__)
+        
         # State file paths (absolute)
         self.tweet_cache_file = config.tweet_cache_file
         self.unprocessed_tweets_file = config.unprocessed_tweets_file
@@ -222,7 +231,10 @@ class StateManager:
         Phase 1: Initial State Validation
         Ensure all necessary key-value pairs exist with sane defaults.
         """
-        logging.info("Running Initial State Validation...")
+        if self.unified_logger:
+            self.unified_logger.log_structured("Running Initial State Validation...", "INFO", "state_manager")
+        else:
+            logging.info("Running Initial State Validation...")
         
         required_keys = {
             "tweet_id": "",
@@ -271,14 +283,24 @@ class StateManager:
                     tweet_data[key] = default_value
                     self.validation_stats["initial_state_fixes"] += 1
         
-        logging.info(f"Initial state validation complete. Fixed {self.validation_stats['initial_state_fixes']} issues.")
+        if self.unified_logger:
+            self.unified_logger.log_structured(
+                f"Initial state validation complete. Fixed {self.validation_stats['initial_state_fixes']} issues.",
+                "INFO", "state_manager",
+                {"fixes": self.validation_stats['initial_state_fixes']}
+            )
+        else:
+            logging.info(f"Initial state validation complete. Fixed {self.validation_stats['initial_state_fixes']} issues.")
 
     async def _run_cache_phase_validation(self) -> None:
         """
         Phase 2: Tweet Cache Phase Validation
         Ensure cache_complete flag is accurate and incomplete tweets are in unprocessed list.
         """
-        logging.info("Running Cache Phase Validation...")
+        if self.unified_logger:
+            self.unified_logger.log_structured("Running Cache Phase Validation...", "INFO", "state_manager")
+        else:
+            logging.info("Running Cache Phase Validation...")
         
         current_unprocessed_set = set(self._unprocessed_tweets)
         
@@ -307,14 +329,24 @@ class StateManager:
                     self.validation_stats["tweets_moved_to_unprocessed"] += 1
                     logging.debug(f"Added tweet {tweet_id} to unprocessed (cache incomplete)")
         
-        logging.info(f"Cache phase validation complete. Fixed {self.validation_stats['cache_phase_fixes']} issues.")
+        if self.unified_logger:
+            self.unified_logger.log_structured(
+                f"Cache phase validation complete. Fixed {self.validation_stats['cache_phase_fixes']} issues.",
+                "INFO", "state_manager",
+                {"fixes": self.validation_stats['cache_phase_fixes']}
+            )
+        else:
+            logging.info(f"Cache phase validation complete. Fixed {self.validation_stats['cache_phase_fixes']} issues.")
 
     async def _run_media_phase_validation(self) -> None:
         """
         Phase 3: Media Processing Phase Validation
         Validate media processing for tweets with media.
         """
-        logging.info("Running Media Phase Validation...")
+        if self.unified_logger:
+            self.unified_logger.log_structured("Running Media Phase Validation...", "INFO", "state_manager")
+        else:
+            logging.info("Running Media Phase Validation...")
         
         current_unprocessed_set = set(self._unprocessed_tweets)
         
@@ -351,14 +383,24 @@ class StateManager:
                     self.validation_stats["media_phase_fixes"] += 1
                     logging.debug(f"Tweet {tweet_id}: no media, marked as processed")
         
-        logging.info(f"Media phase validation complete. Fixed {self.validation_stats['media_phase_fixes']} issues.")
+        if self.unified_logger:
+            self.unified_logger.log_structured(
+                f"Media phase validation complete. Fixed {self.validation_stats['media_phase_fixes']} issues.",
+                "INFO", "state_manager",
+                {"fixes": self.validation_stats['media_phase_fixes']}
+            )
+        else:
+            logging.info(f"Media phase validation complete. Fixed {self.validation_stats['media_phase_fixes']} issues.")
 
     async def _run_category_phase_validation(self) -> None:
         """
         Phase 4: Category Processing Phase Validation
         Validate categorization data and flags.
         """
-        logging.info("Running Category Phase Validation...")
+        if self.unified_logger:
+            self.unified_logger.log_structured("Running Category Phase Validation...", "INFO", "state_manager")
+        else:
+            logging.info("Running Category Phase Validation...")
         
         current_unprocessed_set = set(self._unprocessed_tweets)
         
@@ -386,14 +428,24 @@ class StateManager:
                     self.validation_stats["tweets_moved_to_unprocessed"] += 1
                     logging.debug(f"Added tweet {tweet_id} to unprocessed (categories not processed)")
         
-        logging.info(f"Category phase validation complete. Fixed {self.validation_stats['category_phase_fixes']} issues.")
+        if self.unified_logger:
+            self.unified_logger.log_structured(
+                f"Category phase validation complete. Fixed {self.validation_stats['category_phase_fixes']} issues.",
+                "INFO", "state_manager",
+                {"fixes": self.validation_stats['category_phase_fixes']}
+            )
+        else:
+            logging.info(f"Category phase validation complete. Fixed {self.validation_stats['category_phase_fixes']} issues.")
 
     async def _run_kb_item_phase_validation(self) -> None:
         """
         Phase 5: KB Item Processing Phase Validation
         Validate knowledge base item creation and paths.
         """
-        logging.info("Running KB Item Phase Validation...")
+        if self.unified_logger:
+            self.unified_logger.log_structured("Running KB Item Phase Validation...", "INFO", "state_manager")
+        else:
+            logging.info("Running KB Item Phase Validation...")
         
         current_unprocessed_set = set(self._unprocessed_tweets)
         
@@ -428,7 +480,14 @@ class StateManager:
                     self.validation_stats["tweets_moved_to_unprocessed"] += 1
                     logging.debug(f"Added tweet {tweet_id} to unprocessed (KB item not created)")
         
-        logging.info(f"KB item phase validation complete. Fixed {self.validation_stats['kb_item_phase_fixes']} issues.")
+        if self.unified_logger:
+            self.unified_logger.log_structured(
+                f"KB item phase validation complete. Fixed {self.validation_stats['kb_item_phase_fixes']} issues.",
+                "INFO", "state_manager",
+                {"fixes": self.validation_stats['kb_item_phase_fixes']}
+            )
+        else:
+            logging.info(f"KB item phase validation complete. Fixed {self.validation_stats['kb_item_phase_fixes']} issues.")
 
     async def _run_final_processing_validation(self) -> None:
         """
@@ -436,7 +495,10 @@ class StateManager:
         Move tweets that have completed all phases to the processed list.
         Also clean up tweets that are in unprocessed queue but not cached.
         """
-        logging.info("Running Final Processing Validation...")
+        if self.unified_logger:
+            self.unified_logger.log_structured("Running Final Processing Validation...", "INFO", "state_manager")
+        else:
+            logging.info("Running Final Processing Validation...")
         
         tweets_to_mark_processed = []
         tweets_to_remove_from_unprocessed = []
@@ -497,7 +559,14 @@ class StateManager:
         else:
             logging.info("Final processing validation: no tweets ready for processing")
         
-        logging.info(f"Final processing validation complete. Moved {self.validation_stats['tweets_moved_to_processed']} tweets to processed.")
+        if self.unified_logger:
+            self.unified_logger.log_structured(
+                f"Final processing validation complete. Moved {self.validation_stats['tweets_moved_to_processed']} tweets to processed.",
+                "INFO", "state_manager",
+                {"tweets_moved": self.validation_stats['tweets_moved_to_processed']}
+            )
+        else:
+            logging.info(f"Final processing validation complete. Moved {self.validation_stats['tweets_moved_to_processed']} tweets to processed.")
 
     def _tweet_has_media(self, tweet_data: Dict[str, Any]) -> bool:
         """Check if a tweet has associated media."""
@@ -650,4 +719,25 @@ class StateManager:
         """Get all tweet data from cache."""
         if not self._initialized:
             await self.initialize()
-        return self._tweet_cache.copy() 
+        return self._tweet_cache.copy()
+    
+    def initialize_with_events(self, task_id: str) -> Dict[str, Any]:
+        """
+        Initialize the StateManager with comprehensive event emission.
+        
+        This method creates a StateManagerEventIntegration wrapper and uses it
+        to initialize the state manager with full event emission support.
+        
+        Args:
+            task_id: The task ID for event emission
+            
+        Returns:
+            Dict[str, Any]: Validation statistics
+        """
+        from .state_manager_event_integration import StateManagerEventIntegration
+        
+        # Create event integration wrapper
+        event_integration = StateManagerEventIntegration(self, task_id, self.config)
+        
+        # Run initialization with events
+        return event_integration.initialize_with_events() 
