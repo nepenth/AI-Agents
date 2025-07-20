@@ -123,14 +123,229 @@ class ExecutionPlanManager {
                         embedding: item.dataset.runEmbedding === 'true',
                         fetch: item.dataset.runFetch === 'true',
                         git: item.dataset.runGit === 'true'
-                    }
+                    },
+                    // Track current state for cycling
+                    currentState: 'run', // 'run', 'skip', 'force'
+                    canForce: this.canPhaseBeForced(phaseId)
                 };
+                
+                // ENHANCEMENT: Make phases clickable to cycle through states
+                this.makePhaseClickable(phaseId, item);
             }
         });
         console.log('Initialized phases:', this.phases);
         
         // Load persisted state or check current agent status
         this.loadPersistedState();
+    }
+
+    canPhaseBeForced(phaseId) {
+        // Define which phases can be forced
+        const forceablePhases = [
+            'tweet_caching',      // force_recache_tweets
+            'media_analysis',     // force_reprocess_media
+            'llm_processing',     // force_reprocess_llm
+            'kb_item_generation', // force_reprocess_kb_item
+            'database_sync',      // force_reprocess_db_sync
+            'synthesis_generation', // force_regenerate_synthesis
+            'embedding_generation', // force_regenerate_embeddings
+            'readme_generation'   // force_regenerate_readme
+        ];
+        
+        return forceablePhases.includes(phaseId);
+    }
+
+    makePhaseClickable(phaseId, phaseElement) {
+        // Skip initialization phase - it's always run
+        if (phaseId === 'initialization') {
+            return;
+        }
+        
+        // Add click handler to the phase header
+        const phaseHeader = phaseElement.querySelector('.phase-header, .sub-phase-header');
+        if (phaseHeader) {
+            phaseHeader.style.cursor = 'pointer';
+            phaseHeader.title = 'Click to cycle: Run → Skip → Force → Run';
+            
+            phaseHeader.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.cyclePhaseState(phaseId);
+            });
+            
+            // Add hover effect
+            phaseHeader.addEventListener('mouseenter', () => {
+                phaseHeader.style.transform = 'translateY(-1px)';
+                phaseHeader.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            });
+            
+            phaseHeader.addEventListener('mouseleave', () => {
+                phaseHeader.style.transform = '';
+                phaseHeader.style.boxShadow = '';
+            });
+        }
+    }
+
+    cyclePhaseState(phaseId) {
+        const phase = this.phases[phaseId];
+        if (!phase) return;
+        
+        // Cycle through states: run → skip → force → run
+        let nextState;
+        switch (phase.currentState) {
+            case 'run':
+                nextState = 'skip';
+                break;
+            case 'skip':
+                nextState = phase.canForce ? 'force' : 'run';
+                break;
+            case 'force':
+                nextState = 'run';
+                break;
+            default:
+                nextState = 'run';
+        }
+        
+        phase.currentState = nextState;
+        
+        // Update the UI based on the new state
+        this.updatePhaseStateUI(phaseId, nextState);
+        
+        // Update the corresponding preference buttons
+        this.updatePreferenceButtons(phaseId, nextState);
+        
+        // Notify other components about the preference change
+        this.notifyPreferenceChange();
+        
+        console.log(`🔄 Phase ${phaseId} cycled to state: ${nextState}`);
+    }
+
+    updatePhaseStateUI(phaseId, state) {
+        const phase = this.phases[phaseId];
+        if (!phase) return;
+        
+        let message, status, badgeClass;
+        
+        switch (state) {
+            case 'skip':
+                message = 'WILL SKIP';
+                status = 'skipped';
+                badgeClass = 'glass-badge--secondary';
+                break;
+            case 'force':
+                message = this.getForceMessage(phaseId);
+                status = 'force_regenerate';
+                badgeClass = 'glass-badge--warning';
+                break;
+            case 'run':
+            default:
+                message = 'Will Run';
+                status = 'pending';
+                badgeClass = 'glass-badge--primary';
+        }
+        
+        // Update the status element
+        phase.statusElement.textContent = message;
+        phase.statusElement.dataset.status = status;
+        
+        // Update badge styling
+        phase.statusElement.className = `phase-status glass-badge ${badgeClass}`;
+    }
+
+    getForceMessage(phaseId) {
+        const forceMessages = {
+            'tweet_caching': 'FORCE RECACHE',
+            'media_analysis': 'FORCE REPROCESS MEDIA',
+            'llm_processing': 'FORCE REPROCESS LLM',
+            'kb_item_generation': 'FORCE REPROCESS KB',
+            'database_sync': 'FORCE DB SYNC',
+            'synthesis_generation': 'FORCE REGENERATE',
+            'embedding_generation': 'FORCE REGENERATE',
+            'readme_generation': 'FORCE REGENERATE'
+        };
+        
+        return forceMessages[phaseId] || 'FORCE REPROCESS';
+    }
+
+    updatePreferenceButtons(phaseId, state) {
+        // Map phase IDs to preference button IDs
+        const phaseToButtonMap = {
+            'fetch_bookmarks': 'skip-fetch-bookmarks-btn',
+            'content_processing': 'skip-process-content-btn',
+            'synthesis_generation': 'skip-synthesis-generation-btn',
+            'embedding_generation': 'skip-embedding-generation-btn',
+            'readme_generation': 'skip-readme-generation-btn',
+            'git_sync': 'skip-git-push-btn'
+        };
+        
+        const forceButtonMap = {
+            'tweet_caching': 'force-recache-tweets-btn',
+            'media_analysis': 'force-reprocess-media-btn',
+            'llm_processing': 'force-reprocess-llm-btn',
+            'kb_item_generation': 'force-reprocess-kb-item-btn',
+            'database_sync': 'force-reprocess-db-sync-btn',
+            'synthesis_generation': 'force-regenerate-synthesis-btn',
+            'embedding_generation': 'force-regenerate-embeddings-btn',
+            'readme_generation': 'force-regenerate-readme-btn'
+        };
+        
+        // Clear existing button states for this phase
+        const skipButtonId = phaseToButtonMap[phaseId];
+        const forceButtonId = forceButtonMap[phaseId];
+        
+        if (skipButtonId) {
+            const skipButton = document.getElementById(skipButtonId);
+            if (skipButton) {
+                skipButton.classList.toggle('active', state === 'skip');
+            }
+        }
+        
+        if (forceButtonId) {
+            const forceButton = document.getElementById(forceButtonId);
+            if (forceButton) {
+                forceButton.classList.toggle('active', state === 'force');
+            }
+        }
+    }
+
+    notifyPreferenceChange() {
+        // Get current preferences from all phase states
+        const preferences = this.getPreferencesFromPhaseStates();
+        
+        // Dispatch event to notify other components
+        const event = new CustomEvent('preferences-updated', {
+            detail: { preferences, source: 'execution-plan' }
+        });
+        document.dispatchEvent(event);
+    }
+
+    getPreferencesFromPhaseStates() {
+        const preferences = {
+            run_mode: 'full_pipeline', // Default, could be enhanced later
+            
+            // Skip flags
+            skip_fetch_bookmarks: this.phases['fetch_bookmarks']?.currentState === 'skip',
+            skip_process_content: this.phases['content_processing']?.currentState === 'skip',
+            skip_synthesis_generation: this.phases['synthesis_generation']?.currentState === 'skip',
+            skip_embedding_generation: this.phases['embedding_generation']?.currentState === 'skip',
+            skip_readme_generation: this.phases['readme_generation']?.currentState === 'skip',
+            skip_git_push: this.phases['git_sync']?.currentState === 'skip',
+            
+            // Force flags
+            force_recache_tweets: this.phases['tweet_caching']?.currentState === 'force',
+            force_reprocess_media: this.phases['media_analysis']?.currentState === 'force',
+            force_reprocess_llm: this.phases['llm_processing']?.currentState === 'force',
+            force_reprocess_kb_item: this.phases['kb_item_generation']?.currentState === 'force',
+            force_reprocess_db_sync: this.phases['database_sync']?.currentState === 'force',
+            force_regenerate_synthesis: this.phases['synthesis_generation']?.currentState === 'force',
+            force_regenerate_embeddings: this.phases['embedding_generation']?.currentState === 'force',
+            force_regenerate_readme: this.phases['readme_generation']?.currentState === 'force',
+            
+            // Legacy flags
+            force_reprocess_content: false
+        };
+        
+        return preferences;
     }
     
     async loadPersistedState() {

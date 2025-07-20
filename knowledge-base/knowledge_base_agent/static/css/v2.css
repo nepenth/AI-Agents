@@ -943,54 +943,76 @@ input:checked+.slider:before {
 }
 
 /* === Active Button States for Agent Controls === */
+/* Primary mode buttons - Enhanced blue theme */
 .glass-button--primary.active,
-button[data-pref].active.glass-button--primary {
+button[data-pref][data-mode="true"].active.glass-button--primary {
     background: var(--gradient-primary);
     color: white;
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 16px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.7);
     transform: translateY(-1px);
     font-weight: 600;
 }
 
+/* Secondary buttons - Blue theme */
 .glass-button--secondary.active,
 button[data-pref].active.glass-button--secondary {
     background: var(--gradient-primary);
     color: white;
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 16px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6);
     transform: translateY(-1px);
     font-weight: 600;
 }
 
+/* Skip buttons - Blue theme for selected state */
 .glass-button--ghost.active,
-button[data-pref].active.glass-button--ghost {
+button[data-pref^="skip_"].active.glass-button--ghost {
     background: var(--gradient-primary);
     color: white;
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 16px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6);
     transform: translateY(-1px);
     font-weight: 600;
 }
 
+/* Force buttons - Toned down orange/amber theme for selected state */
 .glass-button--warning.active,
-button[data-pref].active.glass-button--warning {
-    background: var(--gradient-warning);
+button[data-pref^="force_"].active.glass-button--warning {
+    background: linear-gradient(135deg, #d97706, #f59e0b);
     color: white;
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 16px rgba(245, 158, 11, 0.6), 0 0 0 2px rgba(245, 158, 11, 0.3);
+    border-color: rgba(217, 119, 6, 0.8);
+    box-shadow: 0 0 16px rgba(217, 119, 6, 0.4), 0 0 0 2px rgba(217, 119, 6, 0.5);
     transform: translateY(-1px);
     font-weight: 600;
 }
 
+/* Danger buttons - Red theme for critical actions */
 .glass-button--danger.active,
 button[data-pref].active.glass-button--danger {
     background: var(--gradient-danger);
     color: white;
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 16px rgba(239, 68, 68, 0.6), 0 0 0 2px rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.4), 0 0 0 2px rgba(239, 68, 68, 0.6);
     transform: translateY(-1px);
     font-weight: 600;
+}
+
+/* Hover states for better feedback */
+.glass-button--ghost:hover:not(.active),
+.glass-button--warning:hover:not(.active),
+.glass-button--primary:hover:not(.active),
+.glass-button--secondary:hover:not(.active) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Disabled state for buttons */
+button[data-pref]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 /* === Logs Styling === */
