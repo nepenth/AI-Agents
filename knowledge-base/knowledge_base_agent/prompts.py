@@ -18,7 +18,7 @@ class UserPreferences:
     # Skip flags, primarily for 'full_pipeline' mode
     skip_fetch_bookmarks: bool = False  # If True, fetching new bookmarks is skipped.
     skip_process_content: bool = False # If True, processing of queued/selected content is skipped.
-    skip_readme_generation: bool = True  # If True, README regeneration is skipped unless other conditions force it (e.g., new items and no skip flag). (Default True as README regen is not always desired)
+    skip_readme_generation: bool = False  # If True, README regeneration is skipped unless other conditions force it (e.g., new items and no skip flag). (Default False to enable README generation)
     skip_git_push: bool = False         # If True, Git push is skipped. (Default False to enable pushing if git is configured)
     skip_synthesis_generation: bool = False  # If True, synthesis generation is skipped.
     skip_embedding_generation: bool = False # If True, embedding generation is skipped.

@@ -37,8 +37,15 @@ class GpuStatusManager {
     }
 
     setupEventListeners() {
-        // Listen for real-time GPU updates via polling system
+        // CRITICAL FIX: Listen for the correct event name that UI manager emits
+        document.addEventListener('gpu_stats', (event) => {
+            console.log('🔧 GPU stats event received:', event.detail);
+            this.updateGpuStats(event.detail);
+        });
+        
+        // Also listen for the legacy event name for backward compatibility
         document.addEventListener('gpu_stats_update', (event) => {
+            console.log('🔧 GPU stats update event received:', event.detail);
             this.updateGpuStats(event.detail);
         });
     }
@@ -136,6 +143,9 @@ class GpuStatusManager {
                 <div class="gpu-stat">
                     <div class="gpu-stat-label">Temperature</div>
                     <div class="gpu-stat-value ${tempClass}">${tempFahrenheit.toFixed(1)}<span class="gpu-stat-unit">°F</span></div>
+                    <div class="gpu-progress">
+                        <div class="gpu-progress-bar ${tempClass}" style="--progress-width: ${Math.min(100, tempFahrenheit / 2)}%;"></div>
+                    </div>
                 </div>
             </div>
         `;

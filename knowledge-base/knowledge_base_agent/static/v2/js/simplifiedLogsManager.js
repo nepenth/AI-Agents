@@ -1,12 +1,13 @@
 /* SIMPLIFIED LOGS MANAGER - CLEAN ARCHITECTURE */
 
 /**
- * Simplified Live Logs Manager following the load-once + real-time pattern
+ * Enhanced Live Logs Manager with PostgreSQL backend support
  * 
  * ARCHITECTURE:
- * 1. Page Load: Fetch recent logs via REST API (last 200 lines)
- * 2. Real-time: Use SocketIO events for new logs as they arrive
- * 3. Fallback: Emergency polling only if SocketIO fails
+ * 1. Page Load: Fetch logs via PostgreSQL REST API
+ * 2. Active Tasks: Use SocketIO events for real-time updates + PostgreSQL polling
+ * 3. Historical Tasks: Load complete logs from PostgreSQL for completed tasks
+ * 4. Fallback: PostgreSQL polling if SocketIO fails
  */
 class SimplifiedLogsManager {
     constructor(api) {
@@ -23,6 +24,13 @@ class SimplifiedLogsManager {
         this.maxLogs = 500; // Limit logs in memory
         this.autoScroll = true;
         this.isInitialized = false;
+        
+        // PostgreSQL logging state
+        this.currentTaskId = null;
+        this.latestSequenceNumber = 0;
+        this.isHistoricalMode = false;
+        this.postgresqlPolling = null;
+        this.postgresqlPollingInterval = 3000; // 3 seconds for PostgreSQL polling
         
         // Connection management
         this.socketConnected = false;
@@ -196,17 +204,14 @@ class SimplifiedLogsManager {
             // Check if agent is running to determine if we need recent logs
             const statusResponse = await this.api.getAgentStatus();
             const agentIsRunning = statusResponse?.is_running || false;
+            const currentTaskId = statusResponse?.current_task_id || statusResponse?.task_id;
             
-            if (agentIsRunning) {
-                // Agent is running - load recent logs
-                const logsResponse = await this.api.getRecentLogs();
-                
-                if (logsResponse?.logs && logsResponse.logs.length > 0) {
-                    console.log(`📝 Loaded ${logsResponse.logs.length} recent logs`);
-                    this.displayInitialLogs(logsResponse.logs);
-                } else {
-                    this.showEmptyState('Agent is running but no recent logs available');
-                }
+            if (agentIsRunning && currentTaskId) {
+                // Agent is running - load recent logs from PostgreSQL
+                console.log(`📝 Loading PostgreSQL logs for active task: ${currentTaskId}`);
+                await this.loadPostgreSQLLogs(currentTaskId, false);
+                this.currentTaskId = currentTaskId;
+                this.startPostgreSQLPolling();
             } else {
                 // Agent is idle - show appropriate message
                 this.showEmptyState('Agent is idle. Start an agent run to see live logs.');
@@ -214,7 +219,101 @@ class SimplifiedLogsManager {
             
         } catch (error) {
             console.error('❌ Failed to load initial logs:', error);
-            this.showErrorState('Failed to load recent logs: ' + error.message);
+            // Check if it's a structured API response with helpful message
+            if (error.response && error.response.message) {
+                this.showErrorState(error.response.message);
+            } else {
+                this.showErrorState('Failed to load recent logs: ' + error.message);
+            }
+        }
+    }
+
+    async loadPostgreSQLLogs(taskId, isHistorical = false) {
+        try {
+            console.log(`📝 Loading PostgreSQL logs for task: ${taskId} (historical: ${isHistorical})`);
+            
+            let logsResponse;
+            if (isHistorical) {
+                // Load all logs for historical task
+                logsResponse = await this.api.request(`/v2/logs/${taskId}?limit=1000`);
+            } else {
+                // Load recent logs for active task
+                logsResponse = await this.api.request(`/v2/logs/${taskId}/recent?since_sequence=${this.latestSequenceNumber}&limit=200`);
+            }
+            
+            if (logsResponse?.success && logsResponse.logs && logsResponse.logs.length > 0) {
+                console.log(`📝 Loaded ${logsResponse.logs.length} PostgreSQL logs`);
+                
+                if (isHistorical) {
+                    this.displayInitialLogs(logsResponse.logs);
+                    this.isHistoricalMode = true;
+                } else {
+                    // For active tasks, append new logs
+                    logsResponse.logs.forEach(log => {
+                        this.addLogToDisplay(this.normalizePostgreSQLLog(log), true);
+                    });
+                    
+                    // Update latest sequence number
+                    if (logsResponse.latest_sequence) {
+                        this.latestSequenceNumber = logsResponse.latest_sequence;
+                    }
+                }
+                
+                return true;
+            } else if (isHistorical) {
+                this.showEmptyState('No logs found for this completed task.');
+                return false;
+            }
+            
+            return false;
+            
+        } catch (error) {
+            console.error('❌ Failed to load PostgreSQL logs:', error);
+            if (isHistorical) {
+                this.showErrorState('Failed to load historical logs: ' + error.message);
+            }
+            return false;
+        }
+    }
+
+    normalizePostgreSQLLog(pgLog) {
+        // Convert PostgreSQL log format to our standard format
+        return {
+            message: pgLog.message || '',
+            level: pgLog.level || 'INFO',
+            timestamp: pgLog.timestamp || new Date().toISOString(),
+            component: pgLog.component || 'system',
+            phase: pgLog.phase || null,
+            sequence_number: pgLog.sequence_number || 0,
+            metadata: pgLog.metadata || null,
+            progress_data: pgLog.progress_data || null,
+            error_data: pgLog.error_data || null
+        };
+    }
+
+    startPostgreSQLPolling() {
+        if (this.postgresqlPolling || this.isHistoricalMode) {
+            return; // Already polling or in historical mode
+        }
+        
+        console.log('🔄 Starting PostgreSQL polling for real-time updates');
+        
+        this.postgresqlPolling = setInterval(async () => {
+            if (this.currentTaskId && !this.isHistoricalMode) {
+                try {
+                    await this.loadPostgreSQLLogs(this.currentTaskId, false);
+                } catch (error) {
+                    console.warn('⚠️ PostgreSQL polling failed:', error);
+                }
+            }
+        }, this.postgresqlPollingInterval);
+    }
+
+    stopPostgreSQLPolling() {
+        if (this.postgresqlPolling) {
+            console.log('✅ Stopping PostgreSQL polling');
+            clearInterval(this.postgresqlPolling);
+            this.postgresqlPolling = null;
         }
     }
 
@@ -637,11 +736,83 @@ class SimplifiedLogsManager {
         console.log('🐛 Filtering debug mode disabled');
     }
 
+    // Public method to load historical logs for completed tasks
+    async loadHistoricalLogs(taskId) {
+        try {
+            console.log(`📚 Loading historical logs for completed task: ${taskId}`);
+            
+            // Stop any active polling
+            this.stopPostgreSQLPolling();
+            this.stopEmergencyPolling();
+            
+            // Reset state for historical mode
+            this.currentTaskId = taskId;
+            this.latestSequenceNumber = 0;
+            this.isHistoricalMode = true;
+            
+            // Load logs from PostgreSQL
+            const success = await this.loadPostgreSQLLogs(taskId, true);
+            
+            if (success) {
+                this.showConnectionMessage(`Loaded historical logs for task ${taskId}`, 'success');
+                return true;
+            } else {
+                this.showConnectionMessage(`No logs found for task ${taskId}`, 'warning');
+                return false;
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to load historical logs:', error);
+            this.showErrorState(`Failed to load historical logs: ${error.message}`);
+            return false;
+        }
+    }
+
+    // Public method to switch back to live mode
+    async switchToLiveMode() {
+        try {
+            console.log('🔄 Switching to live mode...');
+            
+            // Reset historical mode
+            this.isHistoricalMode = false;
+            this.currentTaskId = null;
+            this.latestSequenceNumber = 0;
+            
+            // Clear current logs
+            this.logs = [];
+            this.logsContainer.innerHTML = '';
+            this.updateLogCount();
+            
+            // Load initial logs for current agent state
+            await this.loadInitialLogs();
+            
+            this.showConnectionMessage('Switched to live mode', 'success');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Failed to switch to live mode:', error);
+            this.showErrorState(`Failed to switch to live mode: ${error.message}`);
+            return false;
+        }
+    }
+
+    // Public method to get current mode info
+    getModeInfo() {
+        return {
+            isHistoricalMode: this.isHistoricalMode,
+            currentTaskId: this.currentTaskId,
+            latestSequenceNumber: this.latestSequenceNumber,
+            postgresqlPolling: !!this.postgresqlPolling,
+            socketConnected: this.socketConnected
+        };
+    }
+
     // Cleanup
     cleanup() {
         console.log('🧹 Cleaning up SimplifiedLogsManager...');
         
         this.stopEmergencyPolling();
+        this.stopPostgreSQLPolling();
         
         // Remove event listeners
         if (window.socket) {

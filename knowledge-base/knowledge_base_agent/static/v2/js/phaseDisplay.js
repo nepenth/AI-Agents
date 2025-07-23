@@ -43,7 +43,7 @@ class PhaseDisplayManager {
                 parent: null,
                 estimatedDuration: 300,
                 icon: 'fas fa-cogs',
-                children: ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation', 'database_sync']
+                children: ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation']
             },
             'tweet_caching': {
                 name: 'Tweet Caching',
@@ -76,7 +76,7 @@ class PhaseDisplayManager {
             'database_sync': {
                 name: 'Database Sync',
                 description: 'Synchronizing data to database',
-                parent: 'content_processing',
+                parent: null,
                 estimatedDuration: 30,
                 icon: 'fas fa-sync'
             },

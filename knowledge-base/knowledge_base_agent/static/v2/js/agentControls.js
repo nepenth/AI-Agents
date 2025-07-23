@@ -7,36 +7,39 @@
 class AgentControlManager {
     constructor(api) {
         this.api = api;
-        
+
         // UI Elements
         this.runAgentBtn = document.getElementById('run-agent-btn');
         this.stopAgentBtn = document.getElementById('stop-agent-btn');
         this.clearAllBtn = document.getElementById('clear-all-options');
         this.statusIndicator = document.getElementById('agent-status-indicator');
         this.statusText = document.getElementById('agent-status-text');
-        
+
         // Collapsible preferences elements
         this.togglePreferencesBtn = document.getElementById('toggle-preferences-btn');
         this.preferencesSection = document.getElementById('collapsible-preferences');
         this.toggleIcon = document.getElementById('toggle-preferences-icon');
-        
+
         // Collapsible utilities elements
         this.toggleUtilitiesBtn = document.getElementById('toggle-utilities-btn');
         this.utilitiesSection = document.getElementById('collapsible-utilities');
         this.utilitiesIcon = document.getElementById('toggle-utilities-icon');
-        
+
         // Get all preference buttons
         this.prefButtons = document.querySelectorAll('[data-pref]');
         this.modeButtons = document.querySelectorAll('[data-mode="true"]');
-        
+
         // State management
         this.isRunning = false;
         this.currentPreferences = null;
         this.loadingState = false;
         
+        // Debounced save function to avoid excessive API calls
+        this.savePreferencesDebounced = this.debounce(this.savePreferences.bind(this), 500);
+
         // Execution plan elements
         this.executionPlanManager = new ExecutionPlanManager();
-        
+
         this.init();
     }
 
@@ -45,30 +48,126 @@ class AgentControlManager {
         this.setupEventListeners();
         this.loadInitialState();
         this.initSocketListeners(); // Add this line
+        this.startStatusPolling(); // Add polling mechanism
+        this.startPreferenceSync(); // Add preference synchronization
+        
+        // Add debug method to window for testing
+        window.debugAgentControls = () => this.debugButtonStates();
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            this.destroy();
+        });
+    }
+
+    startStatusPolling() {
+        // Poll agent status every 3 seconds to detect completion
+        this.statusPollingInterval = setInterval(async () => {
+            try {
+                const status = await this.api.getAgentStatus();
+                this.updateStatus(status);
+                
+                // If agent was running but is now idle, it completed
+                if (this.isRunning && !status.is_running) {
+                    console.log('🎉 Agent execution completed - detected via polling');
+                    // Dispatch completion event for other components
+                    document.dispatchEvent(new CustomEvent('agent_execution_completed', {
+                        detail: { status }
+                    }));
+                }
+            } catch (error) {
+                console.error('Status polling error:', error);
+            }
+        }, 3000); // Poll every 3 seconds
+    }
+
+    stopStatusPolling() {
+        if (this.statusPollingInterval) {
+            clearInterval(this.statusPollingInterval);
+            this.statusPollingInterval = null;
+        }
+    }
+
+    // Cleanup method to be called when component is destroyed
+    destroy() {
+        this.stopStatusPolling();
     }
 
     async loadInitialState() {
         try {
-            // Load current agent status
+            console.log('🚀 Loading initial state...');
+            
+            // Load current agent status FIRST
             const status = await this.api.getAgentStatus();
-            this.updateStatus(status);
+            console.log('✅ Agent status loaded:', status);
             
-            // Load saved preferences
-            const preferences = await this.api.getPreferences();
-            if (preferences) {
-                this.restorePreferences(preferences);
+            // CRITICAL FIX: If agent is running, initialize all components with running state
+            if (status.is_running && status.task_id) {
+                console.log('🔄 Agent is currently running, initializing with active task state...');
+                
+                // Store the current task ID for stop operations
+                this.currentTaskId = status.task_id;
+                
+                // Update status immediately to show running state
+                this.updateStatus(status);
+                
+                // Initialize execution plan with running task data
+                if (status.progress && status.progress.phase_id) {
+                    console.log('📊 Initializing execution plan with running task phases');
+                    this.executionPlanManager.initializeWithRunningTask(status);
+                }
+                
+                // Dispatch initial status to other components
+                document.dispatchEvent(new CustomEvent('agent_status_update', {
+                    detail: status
+                }));
+                
+                // If we have phase information, dispatch phase update
+                if (status.progress && status.progress.phase_id) {
+                    document.dispatchEvent(new CustomEvent('phase_update', {
+                        detail: {
+                            phase_id: status.progress.phase_id,
+                            status: status.progress.status || 'running',
+                            message: status.progress.message || status.current_phase_message,
+                            progress: status.progress.progress || 0,
+                            processed_count: status.progress.processed_count,
+                            total_count: status.progress.total_count
+                        }
+                    }));
+                }
+                
+                console.log('✅ Running task state initialized across all components');
             } else {
-                // Set default state
-                this.setDefaultPreferences();
+                // Agent is idle, proceed with normal initialization
+                this.updateStatus(status);
+                console.log('✅ Agent is idle, proceeding with normal initialization');
             }
-            
-            // CRITICAL FIX: Force update execution plan with current preferences to ensure sync
-            const currentPreferences = this.getPreferences();
-            this.executionPlanManager.updateExecutionPlan(currentPreferences);
-            
-            console.log('🔄 Initial preferences loaded and synced:', currentPreferences);
+
+            // Load saved preferences (but don't override if agent is running)
+            if (!status.is_running) {
+                const preferences = await this.api.getPreferences();
+                console.log('📥 Loaded preferences from API:', preferences);
+                
+                if (preferences && Object.keys(preferences).length > 0) {
+                    this.restorePreferences(preferences);
+                    console.log('✅ Preferences restored from saved state');
+                } else {
+                    // Set default state
+                    console.log('⚠️ No saved preferences found, setting defaults');
+                    this.setDefaultPreferences();
+                }
+
+                // Update execution plan with current preferences
+                const currentPreferences = this.getPreferences();
+                this.executionPlanManager.updateExecutionPlan(currentPreferences);
+                console.log('🔄 Initial preferences loaded and synced:', currentPreferences);
+            } else {
+                console.log('⚠️ Agent is running, skipping preference restoration to avoid conflicts');
+            }
+
         } catch (error) {
-            console.error('Failed to load initial state:', error);
+            console.error('❌ Failed to load initial state:', error);
+            console.log('⚠️ Falling back to default preferences');
             this.setDefaultPreferences();
         }
     }
@@ -78,18 +177,22 @@ class AgentControlManager {
         this.runAgentBtn?.addEventListener('click', () => this.runAgent());
         this.stopAgentBtn?.addEventListener('click', () => this.stopAgent());
         this.clearAllBtn?.addEventListener('click', () => this.clearAllOptions());
-        
+
+        // Force Regenerate All button
+        const forceRegenerateAllBtn = document.getElementById('force-regenerate-all-btn');
+        forceRegenerateAllBtn?.addEventListener('click', () => this.forceRegenerateAll());
+
         // Toggle preferences button
         this.togglePreferencesBtn?.addEventListener('click', () => this.togglePreferences());
-        
+
         // Toggle utilities button
         this.toggleUtilitiesBtn?.addEventListener('click', () => this.toggleUtilities());
-        
+
         // Preference buttons
         this.prefButtons.forEach(button => {
             button.addEventListener('click', (e) => this.handlePrefButtonClick(e));
         });
-        
+
         // Utility buttons
         this.attachUtilityEventListeners();
     }
@@ -107,6 +210,49 @@ class AgentControlManager {
         document.addEventListener('agent_error', (event) => {
             this.handleAgentError(event.detail);
         });
+
+        // CRITICAL FIX: Listen for preference changes from execution plan
+        document.addEventListener('preferences-updated', (event) => {
+            if (event.detail.source === 'execution-plan') {
+                console.log('🔄 Agent controls received preferences from execution plan:', event.detail.preferences);
+                // Don't update execution plan again to avoid circular updates
+                this.syncButtonStatesOnly(event.detail.preferences);
+            }
+        });
+    }
+
+    syncButtonStatesOnly(preferences) {
+        // CRITICAL FIX: Sync button states without triggering execution plan updates
+        console.log('🔄 Syncing button states only:', preferences);
+
+        // Clear all preference buttons first
+        this.prefButtons.forEach(button => {
+            if (!button.dataset.mode) { // Don't clear mode buttons
+                button.classList.remove('active');
+            }
+        });
+
+        // Restore skip flags
+        Object.keys(preferences).forEach(key => {
+            if (key.startsWith('skip_') && preferences[key]) {
+                const btn = document.querySelector(`[data-pref="${key}"]`);
+                if (btn) {
+                    btn.classList.add('active');
+                    console.log(`  Activated skip button: ${key}`);
+                }
+            }
+        });
+
+        // Restore force flags
+        Object.keys(preferences).forEach(key => {
+            if (key.startsWith('force_') && preferences[key]) {
+                const btn = document.querySelector(`[data-pref="${key}"]`);
+                if (btn) {
+                    btn.classList.add('active');
+                    console.log(`  Activated force button: ${key}`);
+                }
+            }
+        });
     }
 
     initSocketListeners() {
@@ -120,13 +266,13 @@ class AgentControlManager {
             console.log('Received agent_status:', data);
             this.updateStatus(data);
         });
-        
+
         // Optional: Listen for task ID to enable stop button immediately
         window.socket.on('agent_status_update', (data) => {
-             if (data.task_id) {
+            if (data.task_id) {
                 this.taskId = data.task_id;
-             }
-             this.updateStatus(data);
+            }
+            this.updateStatus(data);
         });
     }
 
@@ -160,12 +306,15 @@ class AgentControlManager {
         // Update UI state and notify other components
         const preferences = this.getPreferences();
         this.validatePreferences(preferences);
-        
+
         // Update execution plan based on preferences
         this.executionPlanManager.updateExecutionPlan(preferences);
-        
-        const event = new CustomEvent('preferences-updated', { 
-            detail: { preferences, source: 'user' } 
+
+        // Save preferences automatically when changed
+        this.savePreferencesDebounced(preferences);
+
+        const event = new CustomEvent('preferences-updated', {
+            detail: { preferences, source: 'user' }
         });
         document.dispatchEvent(event);
     }
@@ -182,10 +331,10 @@ class AgentControlManager {
         if (prefType === 'force_reprocess_content' && isActive) {
             const forceButtons = [
                 'force-reprocess-media-btn',
-                'force-reprocess-llm-btn', 
+                'force-reprocess-llm-btn',
                 'force-reprocess-kb-item-btn'
             ];
-            
+
             forceButtons.forEach(btnId => {
                 const btn = document.getElementById(btnId);
                 if (btn) {
@@ -203,27 +352,27 @@ class AgentControlManager {
         try {
             this.setLoadingState(true);
             const preferences = this.getPreferences();
-            
+
             // Validate preferences before sending
             if (!this.validatePreferences(preferences)) {
                 throw new Error('Invalid preferences configuration');
             }
 
             console.log('🚀 Starting agent with preferences:', preferences);
-            
+
             // Use REST API for primary operation
             const result = await this.api.startAgent(preferences);
-            
+
             if (result.success) {
                 this.currentPreferences = preferences;
                 this.showSuccess(result.message || 'Agent started successfully');
-                
+
                 // Save preferences for next time
                 await this.api.updatePreferences(preferences).catch(console.warn);
             } else {
                 throw new Error(result.error || 'Failed to start agent');
             }
-            
+
         } catch (error) {
             console.error('❌ Failed to start agent:', error);
             this.showError(`Failed to start agent: ${error.message}`);
@@ -240,16 +389,16 @@ class AgentControlManager {
         try {
             this.setLoadingState(true);
             console.log('🛑 Stopping agent');
-            
+
             // Use REST API for primary operation
             const result = await this.api.stopAgent();
-            
+
             if (result.success) {
                 this.showSuccess(result.message || 'Agent stop request sent');
             } else {
                 throw new Error(result.error || 'Failed to stop agent');
             }
-            
+
         } catch (error) {
             console.error('❌ Failed to stop agent:', error);
             this.showError(`Failed to stop agent: ${error.message}`);
@@ -286,7 +435,7 @@ class AgentControlManager {
         // Build comprehensive preferences object matching UserPreferences dataclass
         const preferences = {
             run_mode: runMode,
-            
+
             // Skip flags
             skip_fetch_bookmarks: skipFlags.skip_fetch_bookmarks || false,
             skip_process_content: skipFlags.skip_process_content || false,
@@ -294,22 +443,22 @@ class AgentControlManager {
             skip_git_push: skipFlags.skip_git_push || false,
             skip_synthesis_generation: skipFlags.skip_synthesis_generation || false,
             skip_embedding_generation: skipFlags.skip_embedding_generation || false,
-            
+
             // Force flags
             force_recache_tweets: forceFlags.force_recache_tweets || false,
             force_regenerate_synthesis: forceFlags.force_regenerate_synthesis || false,
             force_regenerate_embeddings: forceFlags.force_regenerate_embeddings || false,
             force_regenerate_readme: forceFlags.force_regenerate_readme || false,
-            
+
             // Granular force flags for content processing phases
             force_reprocess_media: forceFlags.force_reprocess_media || false,
             force_reprocess_llm: forceFlags.force_reprocess_llm || false,
             force_reprocess_kb_item: forceFlags.force_reprocess_kb_item || false,
             force_reprocess_db_sync: forceFlags.force_reprocess_db_sync || false,
-            
+
             // Legacy/combined flag
             force_reprocess_content: forceFlags.force_reprocess_content || false,
-            
+
             // Additional options that might be configurable in the future
             synthesis_mode: "comprehensive",
             synthesis_min_items: 3,
@@ -344,38 +493,60 @@ class AgentControlManager {
     restorePreferences(preferences) {
         if (!preferences) return;
 
-        console.log('Restoring preferences:', preferences);
+        console.log('🔄 Restoring preferences:', preferences);
+
+        // Clear all buttons first to ensure clean state
+        this.prefButtons.forEach(button => button.classList.remove('active'));
 
         // Restore run mode
         this.clearAllModes();
         const modeButton = document.querySelector(`[data-pref="${preferences.run_mode}"]`);
         if (modeButton) {
             modeButton.classList.add('active');
+            console.log(`✅ Set run mode: ${preferences.run_mode}`);
         } else {
             // Default to full pipeline
-            document.getElementById('full-pipeline-btn')?.classList.add('active');
+            const defaultBtn = document.getElementById('full-pipeline-btn');
+            if (defaultBtn) {
+                defaultBtn.classList.add('active');
+                console.log('✅ Set default run mode: full_pipeline');
+            }
         }
 
         // Restore skip flags
         Object.keys(preferences).forEach(key => {
-            if (key.startsWith('skip_') && preferences[key]) {
+            if (key.startsWith('skip_')) {
                 const btn = document.querySelector(`[data-pref="${key}"]`);
                 if (btn) {
-                    btn.classList.add('active');
+                    if (preferences[key]) {
+                        btn.classList.add('active');
+                        console.log(`✅ Set skip flag: ${key} = true, button classes:`, btn.className);
+                    } else {
+                        btn.classList.remove('active');
+                        console.log(`✅ Clear skip flag: ${key} = false, button classes:`, btn.className);
+                    }
+                } else {
+                    console.warn(`❌ Button not found for preference: ${key}`);
                 }
             }
         });
 
         // Restore force flags
         Object.keys(preferences).forEach(key => {
-            if (key.startsWith('force_') && preferences[key]) {
+            if (key.startsWith('force_')) {
                 const btn = document.querySelector(`[data-pref="${key}"]`);
                 if (btn) {
-                    btn.classList.add('active');
+                    if (preferences[key]) {
+                        btn.classList.add('active');
+                        console.log(`✅ Set force flag: ${key} = true`);
+                    } else {
+                        btn.classList.remove('active');
+                        console.log(`✅ Clear force flag: ${key} = false`);
+                    }
                 }
             }
         });
-        
+
         // Update execution plan after restoring preferences
         this.executionPlanManager.updateExecutionPlan(preferences);
     }
@@ -383,19 +554,15 @@ class AgentControlManager {
     setDefaultPreferences() {
         // Clear all preferences and set defaults
         this.prefButtons.forEach(button => button.classList.remove('active'));
-        
+
         // Set default run mode to full pipeline
         const fullPipelineBtn = document.getElementById('full-pipeline-btn');
         if (fullPipelineBtn) {
             fullPipelineBtn.classList.add('active');
         }
-        
-        // Set default skip_readme_generation to true (as per UserPreferences default)
-        const skipReadmeBtn = document.getElementById('skip-readme-generation-btn');
-        if (skipReadmeBtn) {
-            skipReadmeBtn.classList.add('active');
-        }
-        
+
+        // All skip options default to false (not active) - no need to set any as active by default
+
         // Update execution plan with default preferences
         const defaultPreferences = this.getPreferences();
         this.executionPlanManager.updateExecutionPlan(defaultPreferences);
@@ -409,36 +576,88 @@ class AgentControlManager {
 
         // Clear all preference buttons
         this.prefButtons.forEach(button => button.classList.remove('active'));
-        
+
         // Set defaults
         this.setDefaultPreferences();
 
         const preferences = this.getPreferences();
-        
+
         // Update execution plan
         this.executionPlanManager.updateExecutionPlan(preferences);
-        
-        const event = new CustomEvent('preferences-updated', { 
-            detail: { preferences, source: 'clear' } 
+
+        // Save the cleared preferences automatically
+        this.savePreferencesDebounced(preferences);
+
+        const event = new CustomEvent('preferences-updated', {
+            detail: { preferences, source: 'clear' }
         });
         document.dispatchEvent(event);
-        
+
         this.showInfo('All preferences cleared and reset to defaults');
     }
 
+    forceRegenerateAll() {
+        if (this.isRunning) {
+            this.showWarning('Cannot change preferences while agent is running');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to force regenerate ALL content? This will activate all force flags and reprocess everything from scratch.')) {
+            return;
+        }
+
+        // Get all force flag buttons and activate them
+        const forceButtons = [
+            'force-recache-tweets-btn',
+            'force-reprocess-media-btn',
+            'force-reprocess-llm-btn',
+            'force-reprocess-kb-item-btn',
+            'force-reprocess-db-sync-btn',
+            'force-regenerate-synthesis-btn',
+            'force-regenerate-embeddings-btn',
+            'force-regenerate-readme-btn',
+            'force-reprocess-content-btn'
+        ];
+
+        // Activate all force buttons
+        forceButtons.forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Get updated preferences and update execution plan
+        const preferences = this.getPreferences();
+        this.executionPlanManager.updateExecutionPlan(preferences);
+
+        // Dispatch preferences updated event
+        const event = new CustomEvent('preferences-updated', {
+            detail: { preferences, source: 'force-all' }
+        });
+        document.dispatchEvent(event);
+
+        this.showWarning('All force flags activated - everything will be regenerated from scratch');
+    }
+
     togglePreferences() {
-        const isCollapsed = this.preferencesSection?.classList.contains('collapsed');
-        
+        if (!this.preferencesSection) {
+            console.error('❌ preferencesSection not found!');
+            return;
+        }
+
+        const isCollapsed = this.preferencesSection.classList.contains('collapsed');
+
         if (isCollapsed) {
             // Expand
             this.preferencesSection.classList.remove('collapsed');
             this.toggleIcon?.classList.add('rotated');
         } else {
             // Collapse
-            this.preferencesSection?.classList.add('collapsed');
+            this.preferencesSection.classList.add('collapsed');
             this.toggleIcon?.classList.remove('rotated');
         }
-        
+
         console.log(`🔽 Preferences ${isCollapsed ? 'expanded' : 'collapsed'}`);
     }
 
@@ -465,7 +684,7 @@ class AgentControlManager {
         }
 
         this.updateStatusIndicator(status);
-        
+
         console.log(`🔄 Agent status updated: ${this.isRunning ? 'Running' : 'Idle'}`, status);
     }
 
@@ -473,7 +692,7 @@ class AgentControlManager {
         if (this.runAgentBtn) {
             this.runAgentBtn.style.display = isRunning ? 'none' : 'inline-flex';
         }
-        
+
         if (this.stopAgentBtn) {
             this.stopAgentBtn.style.display = isRunning ? 'inline-flex' : 'none';
         }
@@ -510,7 +729,7 @@ class AgentControlManager {
 
     setLoadingState(loading) {
         this.loadingState = loading;
-        
+
         if (this.runAgentBtn) {
             this.runAgentBtn.disabled = loading;
             if (loading) {
@@ -519,7 +738,7 @@ class AgentControlManager {
                 this.runAgentBtn.innerHTML = '<i class="fas fa-play"></i> Run Agent';
             }
         }
-        
+
         if (this.stopAgentBtn) {
             this.stopAgentBtn.disabled = loading;
             if (loading) {
@@ -567,18 +786,23 @@ class AgentControlManager {
     // === UTILITY DROPDOWN FUNCTIONALITY ===
 
     toggleUtilities() {
-        const isCollapsed = this.utilitiesSection?.classList.contains('collapsed');
-        
+        if (!this.utilitiesSection) {
+            console.error('❌ utilitiesSection not found!');
+            return;
+        }
+
+        const isCollapsed = this.utilitiesSection.classList.contains('collapsed');
+
         if (isCollapsed) {
             // Expand
             this.utilitiesSection.classList.remove('collapsed');
             this.utilitiesIcon?.classList.add('rotated');
         } else {
             // Collapse
-            this.utilitiesSection?.classList.add('collapsed');
+            this.utilitiesSection.classList.add('collapsed');
             this.utilitiesIcon?.classList.remove('rotated');
         }
-        
+
         console.log(`🔧 Utilities ${isCollapsed ? 'expanded' : 'collapsed'}`);
     }
 
@@ -590,6 +814,7 @@ class AgentControlManager {
         document.getElementById('celery-status-btn')?.addEventListener('click', () => this.getCeleryStatus());
 
         // System Utilities
+        document.getElementById('reset-agent-state-btn')?.addEventListener('click', () => this.resetAgentState());
         document.getElementById('clear-redis-cache-btn')?.addEventListener('click', () => this.clearRedisCache());
         document.getElementById('cleanup-temp-files-btn')?.addEventListener('click', () => this.cleanupTempFiles());
         document.getElementById('system-health-check-btn')?.addEventListener('click', () => this.systemHealthCheck());
@@ -610,7 +835,7 @@ class AgentControlManager {
         try {
             this.showInfo('Clearing Celery task queue...');
             const result = await this.api.request('/utilities/celery/clear-queue', { method: 'POST' });
-            
+
             if (result.success) {
                 this.showSuccess(`Queue cleared: ${result.message}`);
             } else {
@@ -630,7 +855,7 @@ class AgentControlManager {
         try {
             this.showInfo('Purging all Celery tasks...');
             const result = await this.api.request('/utilities/celery/purge-all', { method: 'POST' });
-            
+
             if (result.success) {
                 this.showSuccess(`Tasks purged: ${result.message}`);
             } else {
@@ -650,7 +875,7 @@ class AgentControlManager {
         try {
             this.showInfo('Restarting Celery workers...');
             const result = await this.api.request('/utilities/celery/restart-workers', { method: 'POST' });
-            
+
             if (result.success) {
                 this.showSuccess(`Workers restarted: ${result.message}`);
             } else {
@@ -666,12 +891,12 @@ class AgentControlManager {
         try {
             this.showInfo('Getting Celery worker status...');
             const result = await this.api.request('/utilities/celery/status');
-            
+
             if (result.success) {
                 const status = result.data;
                 let message = `Workers: ${status.active_workers || 0} active, ${status.total_workers || 0} total\n`;
                 message += `Tasks: ${status.active_tasks || 0} active, ${status.pending_tasks || 0} pending`;
-                
+
                 alert(`Celery Status:\n\n${message}`);
                 this.showSuccess('Celery status retrieved');
             } else {
@@ -685,6 +910,35 @@ class AgentControlManager {
 
     // === SYSTEM UTILITIES ===
 
+    async resetAgentState() {
+        if (!confirm('Are you sure you want to reset the agent state? This will clear any stuck "Running" status and reset the agent to idle.')) {
+            return;
+        }
+
+        try {
+            this.showInfo('Resetting agent state...');
+            const result = await this.api.request('/agent/reset-state', { method: 'POST' });
+
+            if (result.success) {
+                this.showSuccess(`Agent state reset: ${result.message}`);
+
+                // Force refresh the agent status
+                const status = await this.api.getAgentStatus();
+                this.updateStatus(status);
+
+                // Refresh the page to ensure all components are in sync
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                throw new Error(result.error || 'Failed to reset agent state');
+            }
+        } catch (error) {
+            console.error('Failed to reset agent state:', error);
+            this.showError(`Failed to reset agent state: ${error.message}`);
+        }
+    }
+
     async clearRedisCache() {
         if (!confirm('Are you sure you want to clear the Redis cache? This will remove all cached data.')) {
             return;
@@ -693,35 +947,31 @@ class AgentControlManager {
         try {
             this.showInfo('Clearing Redis cache...');
             const result = await this.api.request('/utilities/system/clear-redis', { method: 'POST' });
-            
+
             if (result.success) {
                 this.showSuccess(`Redis cache cleared: ${result.message}`);
             } else {
-                throw new Error(result.error || 'Failed to clear cache');
+                throw new Error(result.error || 'Failed to clear Redis cache');
             }
         } catch (error) {
             console.error('Failed to clear Redis cache:', error);
-            this.showError(`Failed to clear cache: ${error.message}`);
+            this.showError(`Failed to clear Redis cache: ${error.message}`);
         }
     }
 
     async cleanupTempFiles() {
-        if (!confirm('Are you sure you want to cleanup temporary files? This will remove temporary processing files.')) {
-            return;
-        }
-
         try {
             this.showInfo('Cleaning up temporary files...');
             const result = await this.api.request('/utilities/system/cleanup-temp', { method: 'POST' });
-            
+
             if (result.success) {
-                this.showSuccess(`Cleanup completed: ${result.message}`);
+                this.showSuccess(`Temp files cleaned: ${result.message}`);
             } else {
-                throw new Error(result.error || 'Failed to cleanup files');
+                throw new Error(result.error || 'Failed to cleanup temp files');
             }
         } catch (error) {
             console.error('Failed to cleanup temp files:', error);
-            this.showError(`Failed to cleanup: ${error.message}`);
+            this.showError(`Failed to cleanup temp files: ${error.message}`);
         }
     }
 
@@ -729,16 +979,15 @@ class AgentControlManager {
         try {
             this.showInfo('Running system health check...');
             const result = await this.api.request('/utilities/system/health-check');
-            
+
             if (result.success) {
                 const health = result.data;
                 let message = `System Health Check:\n\n`;
-                message += `Redis: ${health.redis ? '✅ Connected' : '❌ Disconnected'}\n`;
-                message += `Database: ${health.database ? '✅ Connected' : '❌ Disconnected'}\n`;
-                message += `Celery: ${health.celery ? '✅ Running' : '❌ Not Running'}\n`;
-                message += `Disk Space: ${health.disk_space || 'Unknown'}\n`;
-                message += `Memory Usage: ${health.memory_usage || 'Unknown'}`;
-                
+                message += `Database: ${health.database ? '✅ OK' : '❌ Error'}\n`;
+                message += `Redis: ${health.redis ? '✅ OK' : '❌ Error'}\n`;
+                message += `Ollama: ${health.ollama ? '✅ OK' : '❌ Error'}\n`;
+                message += `GPU: ${health.gpu ? '✅ Available' : '⚠️ Not Available'}\n`;
+
                 alert(message);
                 this.showSuccess('Health check completed');
             } else {
@@ -746,7 +995,7 @@ class AgentControlManager {
             }
         } catch (error) {
             console.error('Failed to run health check:', error);
-            this.showError(`Health check failed: ${error.message}`);
+            this.showError(`Failed to run health check: ${error.message}`);
         }
     }
 
@@ -755,18 +1004,20 @@ class AgentControlManager {
     async exportLogs() {
         try {
             this.showInfo('Exporting logs...');
-            const result = await this.api.request('/utilities/debug/export-logs');
-            
+            const result = await this.api.request('/logs/export');
+
             if (result.success) {
                 // Create download link
                 const blob = new Blob([result.data], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `knowledge-base-logs-${new Date().toISOString().split('T')[0]}.txt`;
+                a.download = `agent-logs-${new Date().toISOString().split('T')[0]}.txt`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                
+
                 this.showSuccess('Logs exported successfully');
             } else {
                 throw new Error(result.error || 'Failed to export logs');
@@ -779,20 +1030,19 @@ class AgentControlManager {
 
     async testConnections() {
         try {
-            this.showInfo('Testing connections...');
+            this.showInfo('Testing system connections...');
             const result = await this.api.request('/utilities/debug/test-connections');
-            
+
             if (result.success) {
                 const tests = result.data;
                 let message = `Connection Tests:\n\n`;
-                
                 Object.entries(tests).forEach(([service, status]) => {
-                    message += `${service}: ${status.connected ? '✅ Connected' : '❌ Failed'}\n`;
-                    if (status.error) {
+                    message += `${service}: ${status.success ? '✅ OK' : '❌ Failed'}\n`;
+                    if (!status.success && status.error) {
                         message += `  Error: ${status.error}\n`;
                     }
                 });
-                
+
                 alert(message);
                 this.showSuccess('Connection tests completed');
             } else {
@@ -800,7 +1050,7 @@ class AgentControlManager {
             }
         } catch (error) {
             console.error('Failed to test connections:', error);
-            this.showError(`Connection tests failed: ${error.message}`);
+            this.showError(`Failed to test connections: ${error.message}`);
         }
     }
 
@@ -808,18 +1058,16 @@ class AgentControlManager {
         try {
             this.showInfo('Gathering debug information...');
             const result = await this.api.request('/utilities/debug/info');
-            
+
             if (result.success) {
                 const info = result.data;
                 let message = `Debug Information:\n\n`;
-                message += `Version: ${info.version || 'Unknown'}\n`;
-                message += `Python: ${info.python_version || 'Unknown'}\n`;
-                message += `Platform: ${info.platform || 'Unknown'}\n`;
-                message += `Uptime: ${info.uptime || 'Unknown'}\n`;
-                message += `Active Tasks: ${info.active_tasks || 0}\n`;
-                message += `Memory Usage: ${info.memory_usage || 'Unknown'}\n`;
-                message += `CPU Usage: ${info.cpu_usage || 'Unknown'}`;
-                
+                message += `Agent Status: ${info.agent_status}\n`;
+                message += `Active Tasks: ${info.active_tasks}\n`;
+                message += `System Load: ${info.system_load}\n`;
+                message += `Memory Usage: ${info.memory_usage}\n`;
+                message += `Disk Usage: ${info.disk_usage}\n`;
+
                 alert(message);
                 this.showSuccess('Debug info retrieved');
             } else {
@@ -829,6 +1077,84 @@ class AgentControlManager {
             console.error('Failed to get debug info:', error);
             this.showError(`Failed to get debug info: ${error.message}`);
         }
+    }
+
+    // Utility method for debouncing
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Save preferences to backend
+    async savePreferences(preferences) {
+        try {
+            console.log('💾 Saving preferences:', preferences);
+            await this.api.savePreferences(preferences);
+            console.log('✅ Preferences saved successfully');
+        } catch (error) {
+            console.error('❌ Failed to save preferences:', error);
+            this.showWarning('Failed to save preferences');
+        }
+    }
+
+    // Force refresh button states from current preferences
+    refreshButtonStates() {
+        const currentPreferences = this.getPreferences();
+        console.log('🔄 Refreshing button states with current preferences:', currentPreferences);
+        this.restorePreferences(currentPreferences);
+    }
+
+    // Debug method to test button states
+    debugButtonStates() {
+        console.log('🔍 Debugging button states...');
+        const skipFetchBtn = document.querySelector('#skip-fetch-bookmarks-btn');
+        if (skipFetchBtn) {
+            console.log('Skip Fetch Bookmarks button found:', {
+                id: skipFetchBtn.id,
+                classes: skipFetchBtn.className,
+                hasActive: skipFetchBtn.classList.contains('active'),
+                dataPref: skipFetchBtn.dataset.pref
+            });
+        } else {
+            console.error('❌ Skip Fetch Bookmarks button not found!');
+        }
+        
+        // Test all skip buttons
+        const skipButtons = document.querySelectorAll('[data-pref^="skip_"]');
+        console.log(`Found ${skipButtons.length} skip buttons:`, Array.from(skipButtons).map(btn => ({
+            id: btn.id,
+            pref: btn.dataset.pref,
+            hasActive: btn.classList.contains('active'),
+            classes: btn.className
+        })));
+    }
+
+    // Start periodic preference synchronization
+    startPreferenceSync() {
+        // Sync preferences every 30 seconds to ensure consistency
+        setInterval(async () => {
+            if (!this.isRunning) { // Only sync when agent is not running
+                try {
+                    const serverPreferences = await this.api.getPreferences();
+                    const currentPreferences = this.getPreferences();
+                    
+                    // Check if server preferences differ from current UI state
+                    if (JSON.stringify(serverPreferences) !== JSON.stringify(currentPreferences)) {
+                        console.log('🔄 Preferences out of sync, updating UI...');
+                        this.restorePreferences(serverPreferences);
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to sync preferences:', error);
+                }
+            }
+        }, 30000); // 30 seconds
     }
 }
 

@@ -1,11 +1,12 @@
 from flask import Blueprint, jsonify, request, current_app, send_from_directory, url_for, abort
-from ..models import db, KnowledgeBaseItem, SubcategorySynthesis, Setting, AgentState, CeleryTaskState
+from ..models import db, KnowledgeBaseItem, SubcategorySynthesis, Setting, AgentState, CeleryTaskState, TaskLog
 from ..prompts import UserPreferences, save_user_preferences
 from ..task_progress import get_progress_manager
 from ..config import Config
 from ..agent import KnowledgeBaseAgent
 from .logs import list_logs
 from .log_content import get_log_content
+from ..postgresql_logging import LogQueryService
 import shutil
 from pathlib import Path
 import os
@@ -595,6 +596,17 @@ def get_recent_logs():
     
     try:
         logs_list = run_async_in_gevent_context(fetch_and_normalize_logs())
+        
+        # If no current task, return success with helpful message
+        if not current_task_id:
+            return jsonify({
+                'logs': [], 
+                'task_id': None,
+                'count': 0,
+                'success': True,
+                'message': 'No active agent task. Start an agent run to see live logs.'
+            })
+        
         return jsonify({
             'logs': logs_list, 
             'task_id': current_task_id,
@@ -606,7 +618,8 @@ def get_recent_logs():
         return jsonify({
             'error': 'Failed to get recent logs', 
             'logs': [],
-            'success': False
+            'success': False,
+            'message': f'Error loading logs: {str(e)}'
         }), 500
 
 @bp.route('/logs/clear', methods=['POST'])
@@ -653,15 +666,145 @@ def clear_logs():
         }), 500
 
 
+# --- POSTGRESQL LOGGING ENDPOINTS ---
+
+@bp.route('/v2/logs/<task_id>', methods=['GET'])
+def get_task_logs_postgresql(task_id: str):
+    """Get logs for a specific task from PostgreSQL."""
+    try:
+        # Get query parameters
+        level_filter = request.args.get('level')
+        component_filter = request.args.get('component')
+        phase_filter = request.args.get('phase')
+        limit = request.args.get('limit', 1000, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        since_sequence = request.args.get('since_sequence', 0, type=int)
+        
+        # Use since_sequence for real-time updates, otherwise use regular query
+        if since_sequence > 0:
+            logs = LogQueryService.get_recent_logs(task_id, since_sequence, limit)
+        else:
+            logs = LogQueryService.get_task_logs(
+                task_id, level_filter, component_filter, phase_filter, limit, offset
+            )
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'logs': logs,
+            'count': len(logs)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting PostgreSQL logs for task {task_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/v2/logs/<task_id>/summary', methods=['GET'])
+def get_task_log_summary(task_id: str):
+    """Get a summary of logs for a specific task."""
+    try:
+        summary = LogQueryService.get_log_summary(task_id)
+        return jsonify({
+            'success': True,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting log summary for task {task_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/v2/logs/<task_id>/recent', methods=['GET'])
+def get_recent_task_logs_postgresql(task_id: str):
+    """Get recent logs for a task (for real-time updates)."""
+    try:
+        since_sequence = request.args.get('since_sequence', 0, type=int)
+        limit = request.args.get('limit', 100, type=int)
+        
+        logs = LogQueryService.get_recent_logs(task_id, since_sequence, limit)
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'logs': logs,
+            'count': len(logs),
+            'latest_sequence': logs[-1]['sequence_number'] if logs else since_sequence
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting recent PostgreSQL logs for task {task_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/v2/logs/<task_id>/export', methods=['GET'])
+def export_task_logs(task_id: str):
+    """Export all logs for a task as a downloadable file."""
+    try:
+        # Get all logs for the task
+        logs = LogQueryService.get_task_logs(task_id, limit=10000)  # Large limit for export
+        
+        if not logs:
+            return jsonify({
+                'success': False,
+                'error': 'No logs found for this task'
+            }), 404
+        
+        # Format logs as text
+        log_lines = []
+        log_lines.append(f"# Task Logs Export - Task ID: {task_id}")
+        log_lines.append(f"# Generated: {datetime.now(timezone.utc).isoformat()}")
+        log_lines.append(f"# Total Logs: {len(logs)}")
+        log_lines.append("")
+        
+        for log in logs:
+            timestamp = log['timestamp']
+            level = log['level']
+            message = log['message']
+            component = log.get('component', '')
+            phase = log.get('phase', '')
+            
+            # Format: [TIMESTAMP] [LEVEL] [COMPONENT:PHASE] MESSAGE
+            component_phase = f"{component}:{phase}" if component and phase else (component or phase or "system")
+            log_line = f"[{timestamp}] [{level}] [{component_phase}] {message}"
+            log_lines.append(log_line)
+        
+        log_content = "\n".join(log_lines)
+        
+        # Return as downloadable file
+        from flask import Response
+        return Response(
+            log_content,
+            mimetype='text/plain',
+            headers={
+                'Content-Disposition': f'attachment; filename=task_{task_id}_logs.txt'
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting logs for task {task_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # --- PRIMARY STATUS ENDPOINT (V2 UI) ---
 
 @bp.route('/agent/status', methods=['GET'])
 def get_agent_status():
-    """Synchronous wrapper around get_task_status to avoid AsyncToSync errors
-    when running Flask on gevent.  Executes the coroutine in its own event
-    loop with ``asyncio.run``.
-    """
+    """Get current agent status with validation to prevent stale state issues."""
     from ..web import get_or_create_agent_state
+    from ..models import CeleryTaskState
     import asyncio
 
     state = get_or_create_agent_state()
@@ -678,7 +821,204 @@ def get_agent_status():
             'status': 'IDLE'
         })
 
-    return get_task_status(task_id)
+    # CRITICAL FIX: Validate that the task is actually still running
+    try:
+        celery_task = CeleryTaskState.query.filter_by(task_id=task_id).first()
+        
+        if not celery_task:
+            # Task not found in database - clear stale state
+            logger.warning(f"Stale task_id {task_id} found in AgentState, clearing...")
+            state.is_running = False
+            state.current_task_id = None
+            state.current_phase_message = 'Idle'
+            state.last_update = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'is_running': False,
+                'task_id': None,
+                'celery_task_id': None,
+                'current_phase_message': 'Idle',
+                'phase': 'idle',
+                'progress': 0,
+                'status': 'IDLE'
+            })
+        
+        # Check if task is in a terminal state
+        if celery_task.status in ['SUCCESS', 'FAILURE', 'REVOKED']:
+            logger.warning(f"Task {task_id} is in terminal state {celery_task.status}, clearing AgentState...")
+            state.is_running = False
+            state.current_task_id = None
+            state.current_phase_message = 'Idle'
+            state.last_update = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'is_running': False,
+                'task_id': None,
+                'celery_task_id': None,
+                'current_phase_message': 'Idle',
+                'phase': 'idle',
+                'progress': 0,
+                'status': 'IDLE'
+            })
+        
+        # Task exists and is active - try to get detailed status, fallback to basic status
+        try:
+            return get_task_status(task_id)
+        except Exception as detailed_error:
+            logger.warning(f"Failed to get detailed task status for {task_id}, returning basic status: {detailed_error}")
+            
+            # Fallback: return basic status from database and agent state
+            basic_status = {
+                'is_running': True,
+                'task_id': task_id,
+                'celery_task_id': celery_task.celery_task_id,
+                'current_phase_message': celery_task.current_phase_message or state.current_phase_message or 'Processing...',
+                'phase': 'processing',
+                'progress': celery_task.progress_percentage or 0,
+                'status': celery_task.status or 'PROGRESS',
+                'human_readable_name': celery_task.human_readable_name,
+                'created_at': celery_task.created_at.isoformat() if celery_task.created_at else None,
+                'updated_at': celery_task.updated_at.isoformat() if celery_task.updated_at else None
+            }
+            
+            # Add progress data if available
+            if celery_task.current_phase_id:
+                basic_status['progress'] = {
+                    'phase_id': celery_task.current_phase_id,
+                    'message': celery_task.current_phase_message,
+                    'progress': celery_task.progress_percentage or 0,
+                    'status': 'running'
+                }
+            
+            return jsonify(basic_status)
+        
+    except Exception as e:
+        logger.error(f"Error validating task status: {e}", exc_info=True)
+        # On error, return safe idle state
+        return jsonify({
+            'is_running': False,
+            'task_id': None,
+            'celery_task_id': None,
+            'current_phase_message': 'Error checking status',
+            'phase': 'error',
+            'progress': 0,
+            'status': 'ERROR'
+        })
+
+@bp.route('/agent/reset-state', methods=['POST'])
+def reset_agent_state():
+    """Reset agent state to idle - useful for fixing stuck states."""
+    try:
+        from ..web import get_or_create_agent_state
+        from ..models import CeleryTaskState
+        
+        state = get_or_create_agent_state()
+        old_task_id = state.current_task_id
+        
+        # Get task info for diagnostics
+        task_info = None
+        if old_task_id:
+            celery_task = CeleryTaskState.query.filter_by(task_id=old_task_id).first()
+            if celery_task:
+                task_info = {
+                    'task_id': celery_task.task_id,
+                    'status': celery_task.status,
+                    'created_at': celery_task.created_at.isoformat() if celery_task.created_at else None,
+                    'updated_at': celery_task.updated_at.isoformat() if celery_task.updated_at else None
+                }
+        
+        # Reset state to idle
+        state.is_running = False
+        state.current_task_id = None
+        state.current_phase_message = 'Idle'
+        state.last_update = datetime.utcnow()
+        db.session.commit()
+        
+        logger.info(f"Agent state reset to idle (was task_id: {old_task_id})")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Agent state reset to idle',
+            'previous_task_id': old_task_id,
+            'task_info': task_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resetting agent state: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/agent/diagnostics', methods=['GET'])
+def get_agent_diagnostics():
+    """Get detailed agent state diagnostics for troubleshooting."""
+    try:
+        from ..web import get_or_create_agent_state
+        from ..models import CeleryTaskState
+        
+        # Get agent state
+        state = get_or_create_agent_state()
+        
+        # Get recent tasks
+        recent_tasks = CeleryTaskState.query.order_by(CeleryTaskState.created_at.desc()).limit(5).all()
+        
+        # Get current task details if exists
+        current_task_details = None
+        if state.current_task_id:
+            current_task = CeleryTaskState.query.filter_by(task_id=state.current_task_id).first()
+            if current_task:
+                current_task_details = {
+                    'task_id': current_task.task_id,
+                    'celery_task_id': current_task.celery_task_id,
+                    'status': current_task.status,
+                    'created_at': current_task.created_at.isoformat() if current_task.created_at else None,
+                    'updated_at': current_task.updated_at.isoformat() if current_task.updated_at else None,
+                    'current_phase_id': current_task.current_phase_id,
+                    'current_phase_message': current_task.current_phase_message,
+                    'progress_percentage': current_task.progress_percentage
+                }
+        
+        # Build diagnostics
+        diagnostics = {
+            'agent_state': {
+                'is_running': state.is_running,
+                'current_task_id': state.current_task_id,
+                'current_phase_message': state.current_phase_message,
+                'last_update': state.last_update.isoformat() if state.last_update else None
+            },
+            'current_task': current_task_details,
+            'recent_tasks': [
+                {
+                    'task_id': task.task_id,
+                    'status': task.status,
+                    'created_at': task.created_at.isoformat() if task.created_at else None,
+                    'current_phase_id': task.current_phase_id
+                }
+                for task in recent_tasks
+            ],
+            'task_counts': {
+                'total': CeleryTaskState.query.count(),
+                'pending': CeleryTaskState.query.filter_by(status='PENDING').count(),
+                'progress': CeleryTaskState.query.filter_by(status='PROGRESS').count(),
+                'success': CeleryTaskState.query.filter_by(status='SUCCESS').count(),
+                'failure': CeleryTaskState.query.filter_by(status='FAILURE').count()
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'diagnostics': diagnostics
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting agent diagnostics: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # --- LEGACY & DEPRECATED ENDPOINTS ---
@@ -2300,6 +2640,27 @@ def get_log_files():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@bp.route('/kb/validate')
+def validate_kb_items():
+    """API endpoint for validating Knowledge Base items in the database."""
+    try:
+        from ..db_validation import DatabaseValidator
+        config = current_app.config.get('APP_CONFIG')
+        
+        if not config:
+            return jsonify({'error': 'Application config not loaded'}), 500
+        
+        validator = DatabaseValidator(config)
+        validation_results = validator.validate_kb_items()
+        
+        return jsonify({
+            'success': True,
+            'validation_results': validation_results
+        })
+    except Exception as e:
+        logging.error(f"Error validating KB items: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to validate KB items: {str(e)}'}), 500
+
 @bp.route('/items/<int:item_id>')
 def get_kb_item(item_id):
     """API endpoint for getting KB item data in JSON format."""
@@ -2352,7 +2713,7 @@ def get_kb_item(item_id):
             'raw_json_content': item.raw_json_content,
             'raw_json_content_parsed': raw_json_content_parsed,
             'media_files_for_template': media_files_for_template
-            , 'content_html': markdown.markdown(item.content or "", extensions=['extra','codehilite'])
+            , 'content_html': markdown.markdown(item.content or "", extensions=['extra','codehilite']) if item.content and item.content.strip() else ""
         }
         return jsonify(item_data)
     except Exception as e:
@@ -2392,17 +2753,7 @@ def get_synthesis_item(synthesis_id):
     except Exception as e:
         return jsonify({'error': f'Failed to fetch synthesis: {str(e)}'}), 500
 
-@bp.route('/agent/reset', methods=['POST'])
-def reset_agent_state():
-    """Resets the agent's database state to idle."""
-    from ..web import get_or_create_agent_state
-    state = get_or_create_agent_state()
-    state.is_running = False
-    state.current_task_id = None
-    state.current_phase_message = 'State reset to idle'
-    state.last_update = datetime.utcnow()
-    db.session.commit()
-    return jsonify({'success': True, 'message': 'Agent state reset to idle'})
+
 
 @bp.route('/system/info', methods=['GET'])
 def get_system_info():

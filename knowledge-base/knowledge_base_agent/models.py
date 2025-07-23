@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
+import json
 
 db = SQLAlchemy()
 
@@ -74,6 +75,49 @@ class SubcategorySynthesis(db.Model):
         self.file_path = file_path
         self.raw_json_content = raw_json_content
         self.synthesis_short_name = synthesis_short_name
+
+
+class TaskLog(db.Model):
+    """Stores individual log entries for agent task executions."""
+    __tablename__ = 'task_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.String(36), db.ForeignKey('celery_task_state.task_id'), nullable=False, index=True)
+    timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+    level = db.Column(db.String(10), nullable=False, index=True)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    message = db.Column(db.Text, nullable=False)
+    component = db.Column(db.String(100), nullable=True, index=True)  # e.g., 'content_processor', 'agent'
+    phase = db.Column(db.String(50), nullable=True, index=True)  # e.g., 'tweet_caching', 'llm_processing'
+    
+    # Structured data fields
+    log_metadata = db.Column(db.Text, nullable=True)  # JSON for additional structured data
+    progress_data = db.Column(db.Text, nullable=True)  # JSON for progress information
+    error_data = db.Column(db.Text, nullable=True)  # JSON for error context and tracebacks
+    
+    # Performance and filtering
+    sequence_number = db.Column(db.Integer, nullable=False)  # Sequential number within task
+    
+    # Relationships
+    task = db.relationship('CeleryTaskState', backref=db.backref('logs', lazy='dynamic', cascade='all, delete-orphan'))
+    
+    def __repr__(self):
+        return f'<TaskLog {self.task_id}:{self.sequence_number} [{self.level}] {self.message[:50]}...>'
+    
+    def to_dict(self):
+        """Convert log entry to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'task_id': self.task_id,
+            'timestamp': self.timestamp.isoformat(),
+            'level': self.level,
+            'message': self.message,
+            'component': self.component,
+            'phase': self.phase,
+            'sequence_number': self.sequence_number,
+            'metadata': json.loads(self.log_metadata) if self.log_metadata else None,
+            'progress_data': json.loads(self.progress_data) if self.progress_data else None,
+            'error_data': json.loads(self.error_data) if self.error_data else None
+        }
 
 
 class AgentState(db.Model):

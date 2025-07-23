@@ -29,6 +29,7 @@ class HistoricalTasksManager {
         // References to other managers
         this.liveLogsManager = null;
         this.agentControlManager = null;
+        this.simplifiedLogsManager = null;
         
         this.init();
     }
@@ -258,15 +259,89 @@ class HistoricalTasksManager {
         }
     }
     
-    displayHistoricalTaskInLogs(taskDetails) {
-        // Get reference to Live Logs Manager
+    async displayHistoricalTaskInLogs(taskDetails) {
+        // Get reference to Simplified Logs Manager (PostgreSQL-enabled)
+        if (!this.simplifiedLogsManager) {
+            this.simplifiedLogsManager = window.simplifiedLogsManager || 
+                                        (window.displayCoordinator && window.displayCoordinator.getComponent('SimplifiedLogsManager'));
+        }
+        
+        if (!this.simplifiedLogsManager) {
+            console.error('SimplifiedLogsManager not available');
+            return;
+        }
+        
+        try {
+            // Load historical logs from PostgreSQL
+            console.log(`📚 Loading historical logs for task: ${taskDetails.task_id}`);
+            const success = await this.simplifiedLogsManager.loadHistoricalLogs(taskDetails.task_id);
+            
+            if (success) {
+                console.log('✅ Historical logs loaded successfully');
+                
+                // Add a header to indicate historical view
+                this.addHistoricalViewHeader(taskDetails);
+                
+            } else {
+                console.warn('⚠️ No PostgreSQL logs found, falling back to legacy logs');
+                
+                // Fallback to legacy log display if PostgreSQL logs not available
+                this.displayLegacyHistoricalLogs(taskDetails);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading historical logs:', error);
+            
+            // Fallback to legacy log display
+            this.displayLegacyHistoricalLogs(taskDetails);
+        }
+    }
+
+    addHistoricalViewHeader(taskDetails) {
+        // Add header information to the logs display
+        const logsContainer = document.getElementById('logs-container');
+        if (logsContainer) {
+            const headerElement = document.createElement('div');
+            headerElement.className = 'historical-logs-header';
+            headerElement.style.cssText = `
+                background: var(--glass-bg-secondary);
+                border: 1px solid var(--glass-border-primary);
+                border-radius: var(--radius-md);
+                padding: var(--space-3);
+                margin-bottom: var(--space-3);
+                font-size: var(--font-size-sm);
+            `;
+            
+            headerElement.innerHTML = `
+                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                    <i class="fas fa-history" style="color: var(--primary-color);"></i>
+                    <strong style="color: var(--text-primary);">Historical Task View</strong>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-2); font-size: var(--font-size-xs); color: var(--text-secondary);">
+                    <div><strong>Task:</strong> ${taskDetails.human_readable_name}</div>
+                    <div><strong>Status:</strong> ${taskDetails.status}</div>
+                    <div><strong>Duration:</strong> ${taskDetails.duration}</div>
+                    <div><strong>Completed:</strong> ${new Date(taskDetails.completed_at).toLocaleString()}</div>
+                </div>
+            `;
+            
+            // Insert at the top of logs container
+            logsContainer.insertBefore(headerElement, logsContainer.firstChild);
+        }
+    }
+
+    displayLegacyHistoricalLogs(taskDetails) {
+        // Fallback method for when PostgreSQL logs are not available
+        console.log('📋 Using legacy log display method');
+        
+        // Get reference to Live Logs Manager as fallback
         if (!this.liveLogsManager) {
             this.liveLogsManager = window.liveLogsManager || 
                                    (window.displayCoordinator && window.displayCoordinator.getComponent('LiveLogsManager'));
         }
         
         if (!this.liveLogsManager) {
-            console.error('LiveLogsManager not available');
+            console.error('No log manager available');
             return;
         }
         
@@ -276,7 +351,7 @@ class HistoricalTasksManager {
         // Add historical task header
         this.liveLogsManager.addLogEntry({
             level: 'INFO',
-            message: '📚 HISTORICAL TASK VIEW',
+            message: '📚 HISTORICAL TASK VIEW (Legacy Mode)',
             timestamp: new Date().toISOString(),
             module: 'HistoricalTasksManager'
         });
@@ -316,13 +391,6 @@ class HistoricalTasksManager {
         
         // Display historical logs if available
         if (taskDetails.logs && taskDetails.logs.length > 0) {
-            this.liveLogsManager.addLogEntry({
-                level: 'INFO',
-                message: '',
-                timestamp: new Date().toISOString(),
-                module: 'HistoricalTasksManager'
-            });
-            
             this.liveLogsManager.addLogEntry({
                 level: 'INFO',
                 message: '📋 ORIGINAL TASK EXECUTION LOGS:',
@@ -452,7 +520,7 @@ class HistoricalTasksManager {
         }
     }
     
-    exitHistoricalView() {
+    async exitHistoricalView() {
         this.isViewingHistoricalTask = false;
         this.selectedHistoricalTask = null;
         
@@ -465,8 +533,33 @@ class HistoricalTasksManager {
             indicator.remove();
         }
         
-        // Clear logs and return to live mode
-        if (this.liveLogsManager) {
+        // Remove historical view header if it exists
+        const headerElement = document.querySelector('.historical-logs-header');
+        if (headerElement) {
+            headerElement.remove();
+        }
+        
+        // Switch back to live mode using PostgreSQL logs manager
+        if (this.simplifiedLogsManager) {
+            try {
+                await this.simplifiedLogsManager.switchToLiveMode();
+                console.log('✅ Successfully switched to live mode via PostgreSQL logs manager');
+            } catch (error) {
+                console.error('❌ Error switching to live mode:', error);
+                
+                // Fallback to legacy method
+                if (this.liveLogsManager) {
+                    this.liveLogsManager.clearLogs();
+                    this.liveLogsManager.addLogEntry({
+                        level: 'INFO',
+                        message: '🔄 Returned to live log mode (fallback)',
+                        timestamp: new Date().toISOString(),
+                        module: 'HistoricalTasksManager'
+                    });
+                }
+            }
+        } else if (this.liveLogsManager) {
+            // Fallback to legacy logs manager
             this.liveLogsManager.clearLogs();
             this.liveLogsManager.addLogEntry({
                 level: 'INFO',

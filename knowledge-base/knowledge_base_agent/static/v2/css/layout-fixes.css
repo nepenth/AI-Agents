@@ -37,6 +37,51 @@
     font-size: 0.7rem !important;
 }
 
+/* === COLLAPSIBLE SECTIONS === */
+
+/* Preferences collapsible section */
+.preferences-collapsible {
+    overflow: hidden;
+    transition: all 0.3s ease;
+    max-height: 2000px; /* Large enough to accommodate content */
+    opacity: 1;
+}
+
+.preferences-collapsible.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Utilities collapsible section */
+.utilities-collapsible {
+    overflow: hidden;
+    transition: all 0.3s ease;
+    max-height: 2000px; /* Large enough to accommodate content */
+    opacity: 1;
+}
+
+.utilities-collapsible.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Toggle button icon rotation */
+.transition-transform {
+    transition: transform 0.3s ease;
+}
+
+.transition-transform.rotated {
+    transform: rotate(180deg);
+}
+
 /* Reduce spacing in control groups */
 .control-group {
     gap: var(--space-2) !important;

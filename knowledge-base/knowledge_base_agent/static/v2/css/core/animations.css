@@ -86,13 +86,13 @@
 
 @keyframes liquidPress {
   0% {
-    transform: scale(1);
+    transform: translateY(0);
   }
   50% {
-    transform: scale(0.95);
+    transform: translateY(1px);
   }
   100% {
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 

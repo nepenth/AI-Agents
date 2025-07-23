@@ -130,7 +130,7 @@
 }
 
 .sidebar-toggle-btn:active {
-  transform: var(--transform-press);
+  /* Removed transform effect for better UX */
   box-shadow: var(--glass-shadow-sm);
 }
 
