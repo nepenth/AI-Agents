@@ -640,20 +640,54 @@ class UIManager {
     initializePolling() {
         console.log('📊 Setting up API polling for real-time features...');
 
-        // Reduce polling frequency to minimize duplicate logs
-        // Only poll when SocketIO is not available or not working
-        if (!window.socket || !window.socket.connected) {
-            this.startPolling('status', '/agent/status', 3000);  // 3 seconds (reduced frequency)
-            this.startPolling('logs', '/logs/recent', 2500);     // 2.5 seconds (reduced frequency)
-            this.startPolling('gpu-stats', '/gpu-stats', 5000);  // 5 seconds (reduced frequency)
-
-            console.log('✅ API polling started for real-time updates (SocketIO not available)');
-            this.showSuccessNotification('Real-time updates enabled (polling mode)');
+        // CRITICAL FIX: Completely disable API polling for logs when SocketIO is available
+        // This prevents duplicate logs from appearing in the console
+        
+        if (!window.socket) {
+            console.log('🔌 SocketIO not available - using API polling for all updates');
+            this.startPolling('status', '/agent/status', 3000);
+            this.startPolling('logs', '/logs/recent', 2500);
+            this.startPolling('gpu-stats', '/gpu-stats', 5000);
+            console.log('✅ API polling started (SocketIO unavailable)');
         } else {
-            console.log('📊 SocketIO available - using minimal polling as backup');
-            // Use minimal polling as backup when SocketIO is available
-            this.startPolling('status', '/agent/status', 10000); // 10 seconds (backup only)
-            // Don't poll logs when SocketIO is working to prevent duplicates
+            // SocketIO is available - set up connection monitoring
+            this.setupSocketIOMonitoring();
+            
+            // Only poll status as backup (no logs polling to prevent duplicates)
+            this.startPolling('status', '/agent/status', 15000); // 15 seconds (very infrequent backup)
+            
+            // CRITICAL FIX: Always poll GPU stats since SocketIO doesn't handle them
+            this.startPolling('gpu-stats', '/gpu-stats', 5000); // GPU stats every 5 seconds
+            
+            console.log('✅ SocketIO available - minimal polling enabled, logs via SocketIO only, GPU stats via polling');
+        }
+    }
+
+    setupSocketIOMonitoring() {
+        if (!window.socket) return;
+
+        // Monitor SocketIO connection status
+        window.socket.on('connect', () => {
+            console.log('🔌 SocketIO connected - stopping log polling to prevent duplicates');
+            this.stopLogPolling();
+        });
+
+        window.socket.on('disconnect', () => {
+            console.log('🔌 SocketIO disconnected - starting emergency log polling');
+            this.startPolling('logs', '/logs/recent', 3000); // Emergency polling
+        });
+
+        window.socket.on('connect_error', () => {
+            console.log('🔌 SocketIO connection error - starting emergency log polling');
+            this.startPolling('logs', '/logs/recent', 3000); // Emergency polling
+        });
+    }
+
+    stopLogPolling() {
+        if (this.pollingIntervals['logs']) {
+            clearInterval(this.pollingIntervals['logs']);
+            delete this.pollingIntervals['logs'];
+            console.log('🛑 Stopped log polling to prevent duplicates');
         }
     }
 
@@ -1066,6 +1100,47 @@ class UIManager {
 
     async loadInitialData() {
         try {
+            console.log('📊 Loading initial system data...');
+            
+            // CRITICAL FIX: Load agent status FIRST to detect running tasks
+            console.log('🔍 Checking for running agent tasks...');
+            const agentStatus = await this.api.getAgentStatus().catch(e => {
+                console.warn('Could not load agent status:', e.message);
+                return { is_running: false, error: e.message };
+            });
+
+            if (agentStatus && !agentStatus.error) {
+                console.log('✅ Agent status loaded:', agentStatus);
+                
+                // Dispatch initial agent status to all components
+                this.dispatchCustomEvent('agent_status_update', agentStatus);
+                
+                // If agent is running, dispatch additional initialization events
+                if (agentStatus.is_running && agentStatus.task_id) {
+                    console.log('🔄 Agent is running, dispatching initialization events...');
+                    
+                    // Dispatch phase update if we have phase information
+                    if (agentStatus.progress && agentStatus.progress.phase_id) {
+                        this.dispatchCustomEvent('phase_update', {
+                            phase_id: agentStatus.progress.phase_id,
+                            status: agentStatus.progress.status || 'running',
+                            message: agentStatus.progress.message || agentStatus.current_phase_message,
+                            progress: agentStatus.progress.progress || 0,
+                            processed_count: agentStatus.progress.processed_count,
+                            total_count: agentStatus.progress.total_count
+                        });
+                    }
+                    
+                    // Dispatch a special initialization event for running tasks
+                    this.dispatchCustomEvent('running_task_detected', {
+                        task_id: agentStatus.task_id,
+                        status: agentStatus
+                    });
+                    
+                    console.log('✅ Running task initialization events dispatched');
+                }
+            }
+
             // Load basic system information via REST API
             const systemInfo = await this.api.getSystemInfo().catch(e => {
                 console.warn('Could not load system info:', e.message);
@@ -1101,6 +1176,29 @@ class UIManager {
         // Listen for phase updates from the agent
         document.addEventListener('phase_update', (event) => {
             this.handlePhaseUpdateEvent(event.detail);
+        });
+
+        // CRITICAL FIX: Listen for running task detection to initialize all components
+        document.addEventListener('running_task_detected', (event) => {
+            console.log('🔄 UI Manager: Running task detected, ensuring all components are initialized');
+            const taskStatus = event.detail.status;
+            
+            // Forward to dashboard manager if available
+            if (this.dashboardManager && this.dashboardManager.managers) {
+                // Initialize LiveLogsManager with running task
+                if (this.dashboardManager.managers.liveLogs) {
+                    this.dashboardManager.managers.liveLogs.updateAgentStatus(
+                        true, 
+                        taskStatus.current_phase_message || 'Running...', 
+                        taskStatus
+                    );
+                }
+                
+                // Initialize other managers as needed
+                if (this.dashboardManager.managers.agentControls) {
+                    this.dashboardManager.managers.agentControls.updateStatus(taskStatus);
+                }
+            }
         });
     }
 

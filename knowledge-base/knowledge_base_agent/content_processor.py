@@ -46,6 +46,7 @@ from statistics import median
 import subprocess
 from itertools import cycle
 from knowledge_base_agent.stats_manager import load_processing_stats, update_phase_stats
+import traceback
 
 
 class StreamlinedContentProcessor:
@@ -162,12 +163,13 @@ class StreamlinedContentProcessor:
                 self.socketio_emit_log(f"  {stage}: {len(tweet_ids)} tweets", "INFO")
 
         # Execute each phase using the execution plans
+        # NOTE: Database sync is now a standalone phase, not part of content processing
         try:
             await self._execute_cache_phase(execution_plans[ProcessingPhase.CACHE], tweets_data_map, preferences, stats)
             await self._execute_media_phase(execution_plans[ProcessingPhase.MEDIA], tweets_data_map, preferences, stats)
             await self._execute_llm_phase(execution_plans[ProcessingPhase.LLM], tweets_data_map, preferences, stats, category_manager)
             await self._execute_kb_item_phase(execution_plans[ProcessingPhase.KB_ITEM], tweets_data_map, preferences, stats)
-            await self._execute_db_sync_phase(execution_plans[ProcessingPhase.DB_SYNC], tweets_data_map, preferences, stats, category_manager)
+            # Database sync is handled as a separate standalone phase by the main agent
         except Exception as e:
             self.socketio_emit_log(f"Error during phase execution: {e}", "ERROR")
             if self.phase_emitter_func:
@@ -194,7 +196,8 @@ class StreamlinedContentProcessor:
     async def _execute_cache_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], preferences, stats):
         """Execute caching phase using execution plan."""
         if plan.should_skip_phase:
-            self.socketio_emit_log(f"Skipping cache phase - all {plan.already_complete_count} tweets already cached", "INFO")
+            completion_msg = f"All {plan.already_complete_count} tweets already cached"
+            self.socketio_emit_log(f"✅ Tweet Caching: {completion_msg}", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
                 self.phase_emitter_func('tweet_caching', 'active', f'Checking {plan.already_complete_count} tweets...')
@@ -202,7 +205,7 @@ class StreamlinedContentProcessor:
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
                 self.phase_emitter_func('tweet_caching', 'completed', 
-                                       f'All {plan.already_complete_count} tweets already cached',
+                                       completion_msg,
                                        processed_count=0, total_count=plan.already_complete_count)
             
             # Use enhanced logging if available
@@ -215,7 +218,9 @@ class StreamlinedContentProcessor:
                 self.unified_logger.emit_phase_complete('tweet_caching', completion_result)
             return
 
-        self.socketio_emit_log(f"Cache phase: processing {plan.needs_processing_count} tweets, {plan.already_complete_count} already complete", "INFO")
+        # Enhanced logging for phase start
+        total_tweets = plan.needs_processing_count + plan.already_complete_count
+        self.socketio_emit_log(f"🔄 Tweet Caching Phase: {plan.needs_processing_count} tweets need caching, {plan.already_complete_count} already cached ({total_tweets} total)", "INFO")
         
         if self.phase_emitter_func:
             self.phase_emitter_func('tweet_caching', 'active', 
@@ -243,14 +248,21 @@ class StreamlinedContentProcessor:
                     if updated_data:
                         tweets_data_map[tweet_id] = updated_data
 
-            self.socketio_emit_log(f"✅ Cached {plan.needs_processing_count} tweets successfully", "INFO")
+            # Create rich completion message
+            total_tweets = plan.needs_processing_count + plan.already_complete_count
+            if plan.already_complete_count > 0:
+                completion_msg = f"Cached {plan.needs_processing_count} new tweets • {plan.already_complete_count} already cached • {total_tweets} total"
+            else:
+                completion_msg = f"Cached {plan.needs_processing_count} tweets successfully"
+            
+            self.socketio_emit_log(f"✅ {completion_msg}", "INFO")
             if self.phase_emitter_func:
                 self.phase_emitter_func(
                     'tweet_caching', 'completed', 
-                    f'Cached {plan.needs_processing_count} tweets',
+                    completion_msg,
                     False,  # is_sub_step_update
                     plan.needs_processing_count,  # processed_count
-                    plan.needs_processing_count,  # total_count
+                    total_tweets,  # total_count
                     0   # error_count
                 )
         except Exception as e:
@@ -262,7 +274,8 @@ class StreamlinedContentProcessor:
     async def _execute_media_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], preferences, stats):
         """Execute media processing phase using execution plan."""
         if plan.should_skip_phase:
-            self.socketio_emit_log(f"Skipping media phase - all {plan.already_complete_count} tweets already processed", "INFO")
+            completion_msg = f"All {plan.already_complete_count} tweets already have media processed"
+            self.socketio_emit_log(f"✅ Media Analysis: {completion_msg}", "INFO")
             # Emit active status first to show phase is being processed
             if self.phase_emitter_func:
                 self.phase_emitter_func('media_analysis', 'active', f'Checking {plan.already_complete_count} tweets...')
@@ -270,10 +283,25 @@ class StreamlinedContentProcessor:
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
                 self.phase_emitter_func('media_analysis', 'completed', 
-                                       f'All {plan.already_complete_count} tweets already have media processed')
+                                       completion_msg,
+                                       False,  # is_sub_step_update
+                                       plan.already_complete_count,  # processed_count
+                                       plan.already_complete_count,  # total_count
+                                       0)  # error_count
+                
+            # Use enhanced logging if available
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                completion_result = {
+                    'processed_count': 0,
+                    'total_count': plan.already_complete_count,
+                    'skipped_count': plan.already_complete_count
+                }
+                self.unified_logger.emit_phase_complete('media_analysis', completion_result)
             return
 
-        self.socketio_emit_log(f"Media phase: processing {plan.needs_processing_count} tweets", "INFO")
+        # Enhanced logging for phase start
+        total_tweets = plan.needs_processing_count + plan.already_complete_count
+        self.socketio_emit_log(f"🔄 Media Analysis Phase: {plan.needs_processing_count} tweets need processing, {plan.already_complete_count} already processed ({total_tweets} total)", "INFO")
         
         # Load historical stats for ETC calculation
         from knowledge_base_agent.stats_manager import load_processing_stats
@@ -309,8 +337,8 @@ class StreamlinedContentProcessor:
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
                         'media_analysis', 
-                        'in_progress', 
-                        f'Processing media for tweet {tweet_id}...',
+                        'active', 
+                        f'Processing media {i+1} of {plan.needs_processing_count}...',
                         False,
                         i,  # processed_count (items completed so far)
                         plan.needs_processing_count,  # total_count
@@ -332,8 +360,8 @@ class StreamlinedContentProcessor:
                 if self.phase_emitter_func:
                     self.phase_emitter_func(
                         'media_analysis', 
-                        'in_progress', 
-                        f'Completed media processing for tweet {tweet_id}',
+                        'active', 
+                        f'Completed media {i + 1} of {plan.needs_processing_count}',
                         False,
                         i + 1,  # processed_count (items completed)
                         plan.needs_processing_count,  # total_count
@@ -348,15 +376,22 @@ class StreamlinedContentProcessor:
                 tweets_data_map[tweet_id]['media_processed'] = False
 
         if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ Media processed for {plan.needs_processing_count} tweets", "INFO")
+            # Create rich completion message for media phase
+            total_tweets = plan.needs_processing_count + plan.already_complete_count
+            if plan.already_complete_count > 0:
+                completion_msg = f"Analyzed {plan.needs_processing_count} new media items • {plan.already_complete_count} already processed • {total_tweets} total"
+            else:
+                completion_msg = f"Analyzed media for {plan.needs_processing_count} tweets"
+            
+            self.socketio_emit_log(f"✅ {completion_msg}", "INFO")
             if self.phase_emitter_func:
                 self.phase_emitter_func(
                     'media_analysis', 
                     'completed', 
-                    f'Processed media for {plan.needs_processing_count} tweets',
+                    completion_msg,
                     False,
                     plan.needs_processing_count,  # All items processed
-                    plan.needs_processing_count,  # Total count
+                    total_tweets,  # Total count
                     stats.error_count
                 )
 
@@ -372,10 +407,25 @@ class StreamlinedContentProcessor:
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
                 self.phase_emitter_func('llm_processing', 'completed', 
-                                       f'All {plan.already_complete_count} tweets already categorized')
+                                       f'All {plan.already_complete_count} tweets already categorized',
+                                       False,  # is_sub_step_update
+                                       plan.already_complete_count,  # processed_count
+                                       plan.already_complete_count,  # total_count
+                                       0)  # error_count
+                
+            # Use enhanced logging if available
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                completion_result = {
+                    'processed_count': 0,
+                    'total_count': plan.already_complete_count,
+                    'skipped_count': plan.already_complete_count
+                }
+                self.unified_logger.emit_phase_complete('llm_processing', completion_result)
             return
 
-        self.socketio_emit_log(f"LLM phase: processing {plan.needs_processing_count} tweets", "INFO")
+        # Enhanced logging for phase start
+        total_tweets = plan.needs_processing_count + plan.already_complete_count
+        self.socketio_emit_log(f"🔄 LLM Processing Phase: {plan.needs_processing_count} tweets need categorization, {plan.already_complete_count} already categorized ({total_tweets} total)", "INFO")
 
         # Load historical stats for ETC calculation
         processing_stats_data = load_processing_stats()
@@ -469,10 +519,31 @@ class StreamlinedContentProcessor:
             )
 
         if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ Categorized {plan.needs_processing_count} tweets with LLM", "INFO")
+            # Create rich completion message for LLM phase
+            total_tweets = plan.needs_processing_count + plan.already_complete_count
+            if plan.already_complete_count > 0:
+                completion_msg = f"Categorized {items_successfully_processed} new tweets • {plan.already_complete_count} already categorized • {total_tweets} total"
+            else:
+                completion_msg = f"Categorized {items_successfully_processed} tweets with LLM"
+            
+            self.socketio_emit_log(f"✅ {completion_msg}", "INFO")
             if self.phase_emitter_func:
                 self.phase_emitter_func('llm_processing', 'completed', 
-                                       f'Categorized {plan.needs_processing_count} tweets')
+                                       completion_msg,
+                                       False,  # is_sub_step_update
+                                       items_successfully_processed,  # processed_count
+                                       total_tweets,  # total_count
+                                       stats.error_count)  # error_count
+                
+            # Use enhanced logging if available
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                completion_result = {
+                    'processed_count': items_successfully_processed,
+                    'total_count': plan.needs_processing_count,
+                    'error_count': stats.error_count,
+                    'duration_seconds': duration_this_run
+                }
+                self.unified_logger.emit_phase_complete('llm_processing', completion_result)
 
     async def _execute_kb_item_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], preferences, stats):
         """Execute KB item generation phase using execution plan."""
@@ -485,10 +556,25 @@ class StreamlinedContentProcessor:
             await asyncio.sleep(0.1)
             if self.phase_emitter_func:
                 self.phase_emitter_func('kb_item_generation', 'completed', 
-                                       f'All {plan.already_complete_count} KB items already exist')
+                                       f'All {plan.already_complete_count} KB items already exist',
+                                       False,  # is_sub_step_update
+                                       plan.already_complete_count,  # processed_count
+                                       plan.already_complete_count,  # total_count
+                                       0)  # error_count
+                
+            # Use enhanced logging if available
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                completion_result = {
+                    'processed_count': 0,
+                    'total_count': plan.already_complete_count,
+                    'skipped_count': plan.already_complete_count
+                }
+                self.unified_logger.emit_phase_complete('kb_item_generation', completion_result)
             return
 
-        self.socketio_emit_log(f"KB item phase: processing {plan.needs_processing_count} tweets", "INFO")
+        # Enhanced logging for phase start
+        total_tweets = plan.needs_processing_count + plan.already_complete_count
+        self.socketio_emit_log(f"🔄 KB Item Generation Phase: {plan.needs_processing_count} tweets need KB items, {plan.already_complete_count} already exist ({total_tweets} total)", "INFO")
         
         # Load historical stats for ETC calculation
         processing_stats_data = load_processing_stats()
@@ -527,7 +613,7 @@ class StreamlinedContentProcessor:
                     self.phase_emitter_func(
                         'kb_item_generation', 
                         'active', 
-                        f'Generating KB item for tweet {tweet_id}...',
+                        f'Generating KB item {i+1} of {plan.needs_processing_count}...',
                         False,
                         i,  # Current index shows item being processed (0-based)
                         plan.needs_processing_count,
@@ -568,7 +654,7 @@ class StreamlinedContentProcessor:
                     self.phase_emitter_func(
                         'kb_item_generation', 
                         'active', 
-                        f'Completed KB item for tweet {tweet_id}',
+                        f'Completed KB item {i + 1} of {plan.needs_processing_count}',
                         False,
                         i + 1,  # Completed items count
                         plan.needs_processing_count,
@@ -596,12 +682,19 @@ class StreamlinedContentProcessor:
             )
 
         if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ Generated {plan.needs_processing_count} KB items", "INFO")
+            # Create rich completion message for KB item phase
+            total_tweets = plan.needs_processing_count + plan.already_complete_count
+            if plan.already_complete_count > 0:
+                completion_msg = f"Generated {items_successfully_processed} new KB items • {plan.already_complete_count} already exist • {total_tweets} total"
+            else:
+                completion_msg = f"Generated {items_successfully_processed} KB items"
+            
+            self.socketio_emit_log(f"✅ {completion_msg}", "INFO")
             if self.phase_emitter_func:
                 self.phase_emitter_func('kb_item_generation', 'completed', 
-                                       f'Generated {plan.needs_processing_count} KB items',
-                                       processed_count=plan.needs_processing_count, 
-                                       total_count=plan.needs_processing_count)
+                                       completion_msg,
+                                       processed_count=items_successfully_processed, 
+                                       total_count=total_tweets)
             
             # Use enhanced logging if available
             if hasattr(self, 'unified_logger') and self.unified_logger:
@@ -614,106 +707,239 @@ class StreamlinedContentProcessor:
     async def _execute_db_sync_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], 
                                    preferences, stats, category_manager):
         """Execute database sync phase using execution plan."""
-        if plan.should_skip_phase:
-            self.socketio_emit_log(f"Skipping DB sync phase - all {plan.already_complete_count} tweets already synced", "INFO")
-            # Emit active status first to show phase is being processed
-            if self.phase_emitter_func:
-                self.phase_emitter_func('database_sync', 'active', f'Checking {plan.already_complete_count} tweets...')
-            # Brief delay to allow UI to register the active status
-            await asyncio.sleep(0.1)
-            if self.phase_emitter_func:
-                self.phase_emitter_func('database_sync', 'completed', 
-                                       f'All {plan.already_complete_count} tweets already synced to database')
-            return
-
-        self.socketio_emit_log(f"DB sync phase: processing {plan.needs_processing_count} tweets", "INFO")
-        
-        # Load historical stats for ETC calculation
-        processing_stats_data = load_processing_stats()
-        phase_historical_stats = processing_stats_data.get("phases", {}).get("database_sync", {})
-        avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
-        initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
-
-        if self.phase_emitter_func:
-            self.phase_emitter_func(
-                'database_sync', 
-                'active', 
-                f'Syncing {plan.needs_processing_count} tweets to database...',
-                False,
-                0,  # processed_count starts at 0
-                plan.needs_processing_count,  # total_count
-                0,  # error_count starts at 0
-                initial_estimated_duration
-            )
-
-        phase_start_time = time.monotonic()
-        items_successfully_processed = 0
-
-        for i, tweet_id in enumerate(plan.tweets_needing_processing):
-            if stop_flag.is_set():
-                self.socketio_emit_log("Database sync stopped by flag.", "WARNING")
-                if self.phase_emitter_func:
-                    self.phase_emitter_func('database_sync', 'interrupted', 'Database sync stopped.')
-                break
-
+        try:
+            self.socketio_emit_log(f"🔄 Starting DB sync phase evaluation...", "INFO")
+            
+            # Validate database connection early
             try:
-                tweet_data = tweets_data_map[tweet_id]
-                self.socketio_emit_log(f"Syncing tweet {tweet_id} to database ({i+1}/{plan.needs_processing_count})", "DEBUG")
-                
-                # Update progress when starting to process this item
+                from knowledge_base_agent.models import db
+                # Test database connection
+                db.engine.execute("SELECT 1")
+                self.socketio_emit_log(f"✅ Database connection validated successfully", "DEBUG")
+            except Exception as db_conn_error:
+                self.socketio_emit_log(f"❌ Database connection test failed: {db_conn_error}", "ERROR")
                 if self.phase_emitter_func:
-                    self.phase_emitter_func(
-                        'database_sync', 
-                        'active', 
-                        f'Syncing tweet {tweet_id} to database...',
-                        False,
-                        i,  # Current index shows item being processed (0-based)
-                        plan.needs_processing_count,
-                        stats.error_count
-                    )
-                
-                await self._sync_to_db(tweet_id, tweet_data, category_manager)
-                tweet_data['db_synced'] = True
-                await self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                items_successfully_processed += 1
-                
-                # Update progress when completing this item
+                    self.phase_emitter_func('database_sync', 'error', f'Database connection failed: {db_conn_error}')
+                raise Exception(f"Database connection validation failed: {db_conn_error}")
+            
+            # Perform database validation and repair if needed
+            await self._validate_and_repair_database(tweets_data_map, preferences)
+            
+            if plan.should_skip_phase:
+                self.socketio_emit_log(f"✅ DB sync phase - all {plan.already_complete_count} tweets already synced", "INFO")
+                # Emit active status first to show phase is being processed
                 if self.phase_emitter_func:
-                    self.phase_emitter_func(
-                        'database_sync', 
-                        'active', 
-                        f'Completed database sync for tweet {tweet_id}',
-                        False,
-                        i + 1,  # Completed items count
-                        plan.needs_processing_count,
-                        stats.error_count
-                    )
-                
-                self.socketio_emit_log(f"Database sync complete for {tweet_id}", "INFO")
-                
-            except Exception as e:
-                logging.error(f"Error in database sync for tweet {tweet_id}: {e}", exc_info=True)
-                self.socketio_emit_log(f"Error in database sync for tweet {tweet_id}: {e}", "ERROR")
-                stats.error_count += 1
-                tweets_data_map[tweet_id]['_db_error'] = str(e)
-                tweets_data_map[tweet_id]['db_synced'] = False
-
-        # Update historical stats
-        phase_end_time = time.monotonic()
-        duration_this_run = phase_end_time - phase_start_time
-        
-        if items_successfully_processed > 0:
-            update_phase_stats(
-                phase_id="database_sync",
-                items_processed_this_run=items_successfully_processed,
-                duration_this_run_seconds=duration_this_run
-            )
-
-        if not stop_flag.is_set():
-            self.socketio_emit_log(f"✅ Database sync completed for {plan.needs_processing_count} tweets", "INFO")
+                    self.phase_emitter_func('database_sync', 'active', f'Checking {plan.already_complete_count} tweets...')
+                # Brief delay to allow UI to register the active status
+                await asyncio.sleep(0.1)
+                if self.phase_emitter_func:
+                    self.phase_emitter_func('database_sync', 'completed', 
+                                           f'All {plan.already_complete_count} tweets already synced to database',
+                                           False,  # is_sub_step_update
+                                           plan.already_complete_count,  # processed_count
+                                           plan.already_complete_count,  # total_count
+                                           0)  # error_count
+                    
+                # Use enhanced logging if available
+                if hasattr(self, 'unified_logger') and self.unified_logger:
+                    completion_result = {
+                        'processed_count': 0,
+                        'total_count': plan.already_complete_count,
+                        'skipped_count': plan.already_complete_count
+                    }
+                    self.unified_logger.emit_phase_complete('database_sync', completion_result)
+                return
+        except Exception as e:
+            self.socketio_emit_log(f"❌ Error in DB sync phase initialization: {e}", "ERROR")
+            self.socketio_emit_log(f"❌ DB sync initialization traceback: {traceback.format_exc()}", "ERROR")
             if self.phase_emitter_func:
-                self.phase_emitter_func('database_sync', 'completed', 
-                                       f'Synced {plan.needs_processing_count} tweets to database')
+                self.phase_emitter_func('database_sync', 'error', f'DB sync initialization failed: {e}')
+            raise
+
+    async def _validate_and_repair_database(self, tweets_data_map: Dict[str, Any], preferences):
+        """
+        Validate and repair database entries for Knowledge Base items.
+        This ensures data consistency between filesystem and database.
+        """
+        try:
+            from knowledge_base_agent.db_validation import DatabaseValidator
+            
+            validator = DatabaseValidator(self.config)
+            
+            # Always run validation to get current state
+            self.socketio_emit_log("🔍 Validating Knowledge Base items in database...", "INFO")
+            validation_results = validator.validate_kb_items()
+            
+            total_items = validation_results.get('total_items', 0)
+            invalid_items = validation_results.get('invalid_items', 0)
+            
+            if total_items == 0:
+                self.socketio_emit_log("No Knowledge Base items found in database", "INFO")
+                return
+            
+            self.socketio_emit_log(f"Database validation: {validation_results['valid_items']}/{total_items} items valid, "
+                                 f"{invalid_items} items need attention", "INFO")
+            
+            # If there are issues or force repair is enabled, attempt repairs
+            should_repair = (invalid_items > 0 or 
+                           preferences.force_reprocess_db_sync or 
+                           validation_results.get('missing_content', 0) > 0)
+            
+            if should_repair and tweets_data_map:
+                self.socketio_emit_log(f"🔧 Repairing {invalid_items} invalid Knowledge Base items...", "INFO")
+                
+                repair_results = validator.repair_kb_items(
+                    tweets_data_map, 
+                    force_repair=preferences.force_reprocess_db_sync
+                )
+                
+                repaired_count = repair_results.get('repaired_items', 0)
+                failed_count = repair_results.get('failed_repairs', 0)
+                
+                if repaired_count > 0:
+                    self.socketio_emit_log(f"✅ Successfully repaired {repaired_count} Knowledge Base items", "INFO")
+                
+                if failed_count > 0:
+                    self.socketio_emit_log(f"⚠️ Failed to repair {failed_count} Knowledge Base items", "WARNING")
+                    
+            elif invalid_items > 0:
+                self.socketio_emit_log(f"⚠️ Found {invalid_items} invalid items but no tweet data available for repair", "WARNING")
+            else:
+                self.socketio_emit_log("✅ All Knowledge Base items are valid", "INFO")
+                
+        except Exception as e:
+            self.socketio_emit_log(f"⚠️ Database validation/repair failed: {e}", "WARNING")
+            logging.warning(f"Database validation/repair failed: {e}", exc_info=True)
+            # Don't raise - this is a best-effort operation
+
+        try:
+            self.socketio_emit_log(f"🔄 DB sync phase: processing {plan.needs_processing_count} tweets", "INFO")
+            
+            # Load historical stats for ETC calculation
+            processing_stats_data = load_processing_stats()
+            phase_historical_stats = processing_stats_data.get("phases", {}).get("database_sync", {})
+            avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
+            initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
+
+            if self.phase_emitter_func:
+                self.phase_emitter_func(
+                    'database_sync', 
+                    'active', 
+                    f'Syncing {plan.needs_processing_count} tweets to database...',
+                    False,
+                    0,  # processed_count starts at 0
+                    plan.needs_processing_count,  # total_count
+                    0,  # error_count starts at 0
+                    initial_estimated_duration
+                )
+
+            phase_start_time = time.monotonic()
+            items_successfully_processed = 0
+
+            for i, tweet_id in enumerate(plan.tweets_needing_processing):
+                if stop_flag.is_set():
+                    self.socketio_emit_log("Database sync stopped by flag.", "WARNING")
+                    if self.phase_emitter_func:
+                        self.phase_emitter_func('database_sync', 'interrupted', 'Database sync stopped.')
+                    break
+
+                try:
+                    tweet_data = tweets_data_map[tweet_id]
+                    self.socketio_emit_log(f"🔄 Syncing item {i+1} of {plan.needs_processing_count} to database", "INFO")
+                    
+                    # Update progress when starting to process this item
+                    if self.phase_emitter_func:
+                        self.phase_emitter_func(
+                            'database_sync', 
+                            'active', 
+                            f'Syncing item {i+1} of {plan.needs_processing_count} to database...',
+                            False,
+                            i,  # Current index shows item being processed (0-based)
+                            plan.needs_processing_count,
+                            stats.error_count
+                        )
+                    
+                    # Enhanced error handling for individual sync operations
+                    try:
+                        await self._sync_to_db(tweet_id, tweet_data, category_manager)
+                        tweet_data['db_synced'] = True
+                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                        items_successfully_processed += 1
+                        
+                        # Update progress when completing this item
+                        if self.phase_emitter_func:
+                            self.phase_emitter_func(
+                                'database_sync', 
+                                'active', 
+                                f'Completed database sync {i + 1} of {plan.needs_processing_count}',
+                                False,
+                                i + 1,  # Completed items count
+                                plan.needs_processing_count,
+                                stats.error_count
+                            )
+                        
+                        self.socketio_emit_log(f"✅ Database sync complete for item {i+1}", "INFO")
+                    except Exception as sync_error:
+                        # Log individual sync errors with more detail
+                        error_msg = f"Database sync failed for tweet {tweet_id}: {sync_error}"
+                        self.socketio_emit_log(f"❌ {error_msg}", "ERROR")
+                        self.socketio_emit_log(f"❌ Sync error traceback: {traceback.format_exc()}", "ERROR")
+                        
+                        stats.error_count += 1
+                        tweets_data_map[tweet_id]['_db_error'] = str(sync_error)
+                        tweets_data_map[tweet_id]['db_synced'] = False
+                        
+                        # Continue with next item rather than failing entire phase
+                        continue
+                    
+                except Exception as item_error:
+                    # Handle errors in item preparation/retrieval
+                    error_msg = f"Error preparing tweet {tweet_id} for database sync: {item_error}"
+                    self.socketio_emit_log(f"❌ {error_msg}", "ERROR")
+                    self.socketio_emit_log(f"❌ Item preparation traceback: {traceback.format_exc()}", "ERROR")
+                    
+                    stats.error_count += 1
+                    tweets_data_map[tweet_id]['_db_prep_error'] = str(item_error)
+                    tweets_data_map[tweet_id]['db_synced'] = False
+
+            # Update historical stats
+            phase_end_time = time.monotonic()
+            duration_this_run = phase_end_time - phase_start_time
+            
+            if items_successfully_processed > 0:
+                update_phase_stats(
+                    phase_id="database_sync",
+                    items_processed_this_run=items_successfully_processed,
+                    duration_this_run_seconds=duration_this_run
+                )
+
+            if not stop_flag.is_set():
+                self.socketio_emit_log(f"✅ Database sync completed for {plan.needs_processing_count} tweets", "INFO")
+                if self.phase_emitter_func:
+                    self.phase_emitter_func('database_sync', 'completed', 
+                                           f'Synced {plan.needs_processing_count} tweets to database',
+                                           False,  # is_sub_step_update
+                                           items_successfully_processed,  # processed_count
+                                           plan.needs_processing_count,  # total_count
+                                           stats.error_count)  # error_count
+                    
+                # Use enhanced logging if available
+                if hasattr(self, 'unified_logger') and self.unified_logger:
+                    completion_result = {
+                        'processed_count': items_successfully_processed,
+                        'total_count': plan.needs_processing_count,
+                        'error_count': stats.error_count,
+                        'duration_seconds': duration_this_run
+                    }
+                    self.unified_logger.emit_phase_complete('database_sync', completion_result)
+                    
+        except Exception as e:
+            self.socketio_emit_log(f"❌ Critical error in DB sync phase: {e}", "ERROR")
+            self.socketio_emit_log(f"❌ DB sync phase traceback: {traceback.format_exc()}", "ERROR")
+            logging.error(f"Critical error in DB sync phase: {e}", exc_info=True)
+            if self.phase_emitter_func:
+                self.phase_emitter_func('database_sync', 'error', f'DB sync phase failed: {e}')
+            raise
 
     async def _finalize_processing(self, tweets_data_map: Dict[str, Any], unprocessed_tweets: List[str], stats):
         """Finalize processing and update stats."""
@@ -769,11 +995,66 @@ class StreamlinedContentProcessor:
     async def _sync_to_db(self, tweet_id: str, tweet_data: Dict[str, Any], category_manager: CategoryManager) -> None:
         """
         Sync individual tweet to database.
-        Enhanced with synthesis staleness tracking.
+        Enhanced with synthesis staleness tracking and validation.
         """
         self.socketio_emit_log(f"Syncing tweet {tweet_id} to database...", "DEBUG")
 
         try:
+            # Validate required data before syncing (with more lenient validation)
+            required_fields = ['main_category', 'sub_category', 'item_name_suggestion']
+            missing_fields = [field for field in required_fields if not tweet_data.get(field)]
+            
+            if missing_fields:
+                # Log warning but don't fail - provide defaults
+                self.socketio_emit_log(f"Tweet {tweet_id} missing fields {missing_fields}, using defaults", "WARNING")
+                
+                # Provide default values for missing fields
+                if 'main_category' not in tweet_data or not tweet_data['main_category']:
+                    tweet_data['main_category'] = 'Uncategorized'
+                if 'sub_category' not in tweet_data or not tweet_data['sub_category']:
+                    tweet_data['sub_category'] = 'General'
+                if 'item_name_suggestion' not in tweet_data or not tweet_data['item_name_suggestion']:
+                    tweet_data['item_name_suggestion'] = f'Tweet {tweet_id}'
+            
+            # Validate KB item content exists (with comprehensive content preservation)
+            content_sources = [
+                ('markdown_content', tweet_data.get('markdown_content')),
+                ('full_text_cleaned', tweet_data.get('full_text_cleaned')), 
+                ('full_text', tweet_data.get('full_text')),
+                ('text', tweet_data.get('text')),  # Original tweet text
+                ('content', tweet_data.get('content')),  # Generic content field
+                ('description', tweet_data.get('description')),  # Description field
+            ]
+            
+            # Find the best available content
+            available_content = None
+            content_source = None
+            for source_name, content in content_sources:
+                if content and content.strip() and not content.strip().startswith('Tweet ') and not content.strip().endswith('(content not available)'):
+                    available_content = content.strip()
+                    content_source = source_name
+                    break
+            
+            if not available_content:
+                # Log detailed warning about missing content with all available fields
+                available_fields = {k: str(v)[:100] + '...' if len(str(v)) > 100 else str(v) 
+                                  for k, v in tweet_data.items() 
+                                  if not k.startswith('_') and v is not None}
+                self.socketio_emit_log(f"❌ Tweet {tweet_id} has no usable content. Available fields: {available_fields}", "ERROR")
+                
+                # Don't sync tweets without content - they need reprocessing
+                raise ValueError(f"Tweet {tweet_id} has no usable content and needs reprocessing")
+            else:
+                self.socketio_emit_log(f"✅ Tweet {tweet_id} content found in '{content_source}' field (length: {len(available_content)})", "DEBUG")
+                # Ensure the content is preserved in the expected field
+                tweet_data['full_text'] = available_content
+            
+            # Log data validation for debugging
+            self.socketio_emit_log(f"DB sync validation passed for {tweet_id}: "
+                                 f"Category={tweet_data.get('main_category')}/{tweet_data.get('sub_category')}, "
+                                 f"Title={tweet_data.get('item_name_suggestion')}, "
+                                 f"HasContent={bool(tweet_data.get('markdown_content'))}", "DEBUG")
+
             # Get or create KB item in database
             from knowledge_base_agent.models import KnowledgeBaseItem as DBKnowledgeBaseItem, db
 
@@ -789,8 +1070,15 @@ class StreamlinedContentProcessor:
             display_title = tweet_data.get('display_title', tweet_data.get('item_name_suggestion', 'Untitled KB Item'))
             raw_json_content = tweet_data.get('raw_json_content')
             
-            # Get content from markdown content if available, otherwise fall back to tweet text
-            content = tweet_data.get('markdown_content', tweet_data.get('full_text_cleaned', tweet_data.get('full_text', '')))
+            # Use the validated content from above
+            content = tweet_data.get('full_text', '')
+            
+            # Final content validation for database storage
+            if not content or not content.strip():
+                raise ValueError(f"Tweet {tweet_id} content validation failed - no content available for database storage")
+                
+            # Log successful content validation
+            self.socketio_emit_log(f"✅ Content validated for DB storage: {tweet_id} (length: {len(content)})", "DEBUG")
             
             attributes = {
                 "tweet_id": tweet_id,

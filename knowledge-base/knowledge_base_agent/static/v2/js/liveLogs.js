@@ -51,17 +51,63 @@ class LiveLogsManager {
 
     async loadInitialLogs() {
         try {
-            // Load recent logs via REST API
-            const response = await this.api.getRecentLogs();
-            if (response && response.logs && response.logs.length > 0) {
-                this.addInitialLogs(response.logs);
+            // Check if agent is running to determine log loading strategy
+            const statusResponse = await this.api.getAgentStatus();
+            const agentIsRunning = statusResponse?.is_running || false;
+            const currentTaskId = statusResponse?.current_task_id || statusResponse?.task_id;
+            
+            if (agentIsRunning && currentTaskId) {
+                // Agent is running - initialize with running state
+                console.log(`📝 Loading logs for active task: ${currentTaskId}`);
+                
+                // Update agent status display immediately
+                this.updateAgentStatus(true, statusResponse.current_phase_message || 'Running...', statusResponse);
+                
+                // Try to load recent logs from PostgreSQL if available
+                try {
+                    const pgResponse = await this.api.request(`/v2/logs/${currentTaskId}/recent?limit=200`);
+                    if (pgResponse?.success && pgResponse.logs && pgResponse.logs.length > 0) {
+                        this.addInitialLogs(pgResponse.logs);
+                        console.log(`✅ Loaded ${pgResponse.logs.length} logs for running task`);
+                        return;
+                    }
+                } catch (pgError) {
+                    console.warn('PostgreSQL logs not available, falling back to legacy API');
+                }
+                
+                // If no PostgreSQL logs, try legacy API
+                const response = await this.api.getRecentLogs();
+                if (response && response.success && response.logs && response.logs.length > 0) {
+                    this.addInitialLogs(response.logs);
+                    console.log(`✅ Loaded ${response.logs.length} logs from legacy API for running task`);
+                } else {
+                    // No logs yet for running task - show status
+                    this.showInfo(`Agent is running (Task: ${currentTaskId.substring(0, 8)}...) - logs will appear here as processing continues.`);
+                }
             } else {
-                // No recent logs - show a helpful message
-                this.showInfo('No recent agent activity. Start an agent run to see live logs.');
+                // Agent is idle - load any recent logs
+                const response = await this.api.getRecentLogs();
+                if (response && response.success) {
+                    if (response.logs && response.logs.length > 0) {
+                        this.addInitialLogs(response.logs);
+                        console.log(`✅ Loaded ${response.logs.length} recent logs (agent idle)`);
+                    } else {
+                        // No recent logs - show the helpful message from API
+                        const message = response.message || 'No recent agent activity. Start an agent run to see live logs.';
+                        this.showInfo(message);
+                    }
+                } else {
+                    // API returned error
+                    const errorMsg = response?.message || response?.error || 'Failed to load recent logs';
+                    this.showError(errorMsg);
+                }
+                
+                // Update status display for idle state
+                this.updateAgentStatus(false, 'Idle', { status: 'IDLE' });
             }
         } catch (error) {
             console.error('Failed to load initial logs:', error);
-            this.showError('Failed to load recent logs');
+            this.showError('Failed to load recent logs: ' + error.message);
         }
     }
 
@@ -140,6 +186,24 @@ class LiveLogsManager {
         document.addEventListener('phase_update', (event) => {
             const phaseData = event.detail;
             this.updateAgentStatus(true, phaseData.message, phaseData);
+        });
+
+        // CRITICAL FIX: Listen for running task detection on page load
+        document.addEventListener('running_task_detected', (event) => {
+            console.log('📝 LiveLogs: Running task detected, initializing with task state');
+            const taskStatus = event.detail.status;
+            
+            // Update status immediately
+            this.updateAgentStatus(
+                true, 
+                taskStatus.current_phase_message || 'Running...', 
+                taskStatus
+            );
+            
+            // If we don't have logs yet, try to load them for this specific task
+            if (this.logs.length === 0 && taskStatus.task_id) {
+                this.loadLogsForTask(taskStatus.task_id);
+            }
         });
     }
 
@@ -494,6 +558,36 @@ class LiveLogsManager {
             seenLogIds: this.seenLogIds.size,
             filteringPercentage: `${filteringPercentage}%`
         };
+    }
+
+    async loadLogsForTask(taskId) {
+        try {
+            console.log(`📝 Loading logs for specific task: ${taskId}`);
+            
+            // Try PostgreSQL logs first
+            try {
+                const pgResponse = await this.api.request(`/v2/logs/${taskId}/recent?limit=200`);
+                if (pgResponse?.success && pgResponse.logs && pgResponse.logs.length > 0) {
+                    this.addInitialLogs(pgResponse.logs);
+                    console.log(`✅ Loaded ${pgResponse.logs.length} logs for task ${taskId}`);
+                    return;
+                }
+            } catch (pgError) {
+                console.warn('PostgreSQL logs not available for task, trying legacy API');
+            }
+            
+            // Fallback to legacy API
+            const response = await this.api.getRecentLogs();
+            if (response && response.success && response.logs && response.logs.length > 0) {
+                this.addInitialLogs(response.logs);
+                console.log(`✅ Loaded ${response.logs.length} logs from legacy API for task ${taskId}`);
+            } else {
+                this.showInfo(`Loading logs for task ${taskId.substring(0, 8)}... - logs will appear as processing continues.`);
+            }
+        } catch (error) {
+            console.error(`Failed to load logs for task ${taskId}:`, error);
+            this.showError(`Failed to load logs for task: ${error.message}`);
+        }
     }
 
     cleanup() {

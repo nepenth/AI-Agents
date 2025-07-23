@@ -166,6 +166,15 @@
                         <i class="fas fa-exclamation-triangle"></i> Force Reprocess All Content
                     </button>
                 </div>
+                
+                <!-- Convenience Button -->
+                <div class="preference-group" style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--glass-border-primary);">
+                    <button id="force-regenerate-all-btn"
+                        class="liquid-button liquid-button--danger animate-lift-hover">
+                        <i class="fas fa-sync-alt"></i> Force Regenerate All
+                    </button>
+                </div>
+                
                 <div style="margin-top: var(--space-2);">
                     <small style="color: var(--text-secondary); font-style: italic;">
                         Force options modify the selected run mode to reprocess specific phases
@@ -232,6 +241,9 @@
                     System Utilities</h4>
                 <div class="preference-group"
                     style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2);">
+                    <button id="reset-agent-state-btn" class="liquid-button liquid-button--danger animate-lift-hover">
+                        <i class="fas fa-refresh"></i> Reset Agent State
+                    </button>
                     <button id="clear-redis-cache-btn" class="liquid-button liquid-button--warning animate-lift-hover">
                         <i class="fas fa-database"></i> Clear Redis Cache
                     </button>

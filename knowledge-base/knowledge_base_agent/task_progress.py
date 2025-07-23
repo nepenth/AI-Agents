@@ -9,7 +9,7 @@ for the current multiprocessing queue-based communication system.
 import redis.asyncio as redis
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from .config import Config
 import asyncio
@@ -81,7 +81,7 @@ class TaskProgressManager:
             
             # Enhanced log entry with structured data support
             log_entry = {
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'level': level,
                 'message': message,
                 'task_id': task_id,

@@ -18,6 +18,7 @@ from flask import current_app
 import math
 from statistics import mean, median
 from collections import defaultdict
+import traceback
 
 # Core imports needed at module level
 from knowledge_base_agent.config import Config
@@ -621,69 +622,7 @@ class KnowledgeBaseAgent:
             logging.exception(f"Index update failed: {e}") # Log with stack trace
             raise AgentError("Failed to update indexes") from e
 
-    async def sync_database(self, preferences: UserPreferences) -> None:
-        """
-        Synchronize processed content to the database.
 
-        This method handles the database synchronization phase, ensuring that all
-        processed KB items are properly stored in the database.
-
-        Args:
-            preferences (UserPreferences): User preferences for the sync operation.
-
-        Raises:
-            AgentError: If database synchronization fails.
-        """
-        if stop_flag.is_set():
-            self.socketio_emit_log("Database synchronization skipped due to stop flag.", "INFO")
-            self.socketio_emit_phase_update('database_sync', 'interrupted', 'Stopped by user request.')
-            return
-
-        self.socketio_emit_phase_update('database_sync', 'active', 'Starting database synchronization...')
-        self.socketio_emit_log("Starting database synchronization phase...", "INFO")
-
-        try:
-            # Ensure content processor is initialized
-            if not self.content_processor:
-                await self.initialize()
-
-            # Get all tweets that need database sync
-            all_tweets = await self.state_manager.get_all_tweets()
-            tweets_data_map = {tweet_id: await self.state_manager.get_tweet(tweet_id) for tweet_id in all_tweets}
-
-            # Create execution plan for database sync
-            force_flags = {
-                'force_reprocess_db_sync': preferences.force_reprocess_db_sync,
-                'force_reprocess_kb_item': preferences.force_reprocess_kb_item
-            }
-
-            from knowledge_base_agent.phase_execution_helper import ProcessingPhase
-            db_sync_plan = self.phase_execution_helper.create_execution_plan(
-                ProcessingPhase.DB_SYNC, tweets_data_map, force_flags
-            )
-
-            if db_sync_plan.should_skip_phase:
-                self.socketio_emit_log(f"Database sync phase skipped - all {db_sync_plan.already_complete_count} items already synced", "INFO")
-                self.socketio_emit_phase_update('database_sync', 'completed', 
-                                               f'All {db_sync_plan.already_complete_count} items already synced to database')
-                return
-
-            # Execute database sync phase
-            from knowledge_base_agent.processing_stats import ProcessingStats
-            stats = ProcessingStats(start_time=datetime.now())
-            await self.content_processor._execute_db_sync_phase(
-                db_sync_plan, tweets_data_map, preferences, stats, self.category_manager
-            )
-
-            completion_message = f'Database synchronization completed for {db_sync_plan.needs_processing_count} items'
-            self.socketio_emit_log(completion_message, "INFO")
-            self.socketio_emit_phase_update('database_sync', 'completed', completion_message)
-
-        except Exception as e:
-            error_message = f"Database synchronization failed: {str(e)}"
-            self.socketio_emit_log(error_message, "ERROR")
-            self.socketio_emit_phase_update('database_sync', 'error', error_message)
-            raise AgentError(error_message) from e
 
     async def sync_changes(self) -> None:
         """
@@ -734,49 +673,68 @@ class KnowledgeBaseAgent:
             logging.warning(f"Cleanup failed: {e}")
 
     async def run(self, preferences: UserPreferences):
+        # Enhanced debug logging to track execution flow
+        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Entering agent.run() method", "DEBUG")
         self.socketio_emit_log(f"DEBUG_AGENT_RUN: Prefs object received by run(): {preferences}", "DEBUG")
         self.socketio_emit_log(f"DEBUG_AGENT_RUN: Prefs type in run(): {type(preferences)}", "DEBUG")
         self.socketio_emit_log(f"DEBUG_AGENT_RUN: In run(), hasattr skip_fetch_bookmarks: {hasattr(preferences, 'skip_fetch_bookmarks')}", "DEBUG")
         self.socketio_emit_log(f"DEBUG_AGENT_RUN: In run(), hasattr skip_fetching_new_bookmarks: {hasattr(preferences, 'skip_fetching_new_bookmarks')}", "DEBUG")
 
-        content_processor, embedding_manager, chat_manager = await self.initialize()
+        try:
+            self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to call initialize()", "DEBUG")
+            content_processor, embedding_manager, chat_manager = await self.initialize()
+            self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: initialize() completed successfully", "DEBUG")
+        except Exception as init_error:
+            self.socketio_emit_log(f"❌ DEBUG_AGENT_RUN: Error in initialize(): {init_error}", "ERROR")
+            self.socketio_emit_log(f"❌ DEBUG_AGENT_RUN: Initialize traceback: {traceback.format_exc()}", "ERROR")
+            raise
         
         if self._is_running:
             self.socketio_emit_log("Agent is already running.", "WARNING")
             return {"status": "already_running", "message": "Agent is already running."}
 
+        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Setting _is_running to True", "DEBUG")
         self._is_running = True
-        self._current_run_preferences = preferences  # Store preferences for state restoration
-        # Use unified logging system for agent status updates
-        if hasattr(self, 'unified_logger') and self.unified_logger:
-            self.unified_logger.emit_agent_status({
-                'is_running': True,
-                'active_run_preferences': asdict(preferences),
-                'plan_statuses': self._plan_statuses
-            })
-        elif self.socketio:
-            try:
-                self.socketio.emit('agent_status', {
-                    'is_running': True, 
+        self._current_run_preferences = preferences
+        
+        try:
+            # Use unified logging system for agent status updates
+            if hasattr(self, 'unified_logger') and self.unified_logger:
+                self.unified_logger.emit_agent_status({
+                    'is_running': True,
                     'active_run_preferences': asdict(preferences),
                     'plan_statuses': self._plan_statuses
                 })
-            except Exception as e:
-                self.logger.error(f"Failed to emit agent_status: {e}")
-                # Try with simplified data
-                self.socketio.emit('agent_status', {
-                    'is_running': True, 
-                    'active_run_preferences': str(preferences),
-                    'plan_statuses': {}
-                })
+            elif self.socketio:
+                try:
+                    self.socketio.emit('agent_status', {
+                        'is_running': True, 
+                        'active_run_preferences': asdict(preferences),
+                        'plan_statuses': self._plan_statuses
+                    })
+                except Exception as e:
+                    self.logger.error(f"Failed to emit agent_status: {e}")
+                    # Try with simplified data
+                    self.socketio.emit('agent_status', {
+                        'is_running': True, 
+                        'active_run_preferences': str(preferences),
+                        'plan_statuses': {}
+                    })
+        except Exception as status_error:
+            self.socketio_emit_log(f"❌ DEBUG_AGENT_RUN: Error emitting agent status: {status_error}", "ERROR")
+            # Continue execution even if status emit fails
+            
+        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to clear stop flag and initialize plan statuses", "DEBUG")
         clear_stop_flag() # Clear stop flag at the beginning of a run
         self._initialize_plan_statuses(preferences) # Initialize/reset with current preferences
         self.socketio_emit_log("Knowledge Base Agent run started.", "INFO")
+        
         # Emit initial state for all plan items based on preferences (only if socketio is available)
         if self.socketio:
             for phase_id, status_info in self._plan_statuses.items():
                 self.socketio_emit_phase_update(phase_id, status_info['status'], status_info['message'])
 
+        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to create ProcessingStats", "DEBUG")
         stats = ProcessingStats(start_time=datetime.now())
         phase_details_from_content_processor: List[PhaseDetail] = []
 
@@ -786,6 +744,8 @@ class KnowledgeBaseAgent:
 
         try:
             # Handle different run modes
+            self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to handle run mode: {preferences.run_mode}", "DEBUG")
+            
             if preferences.run_mode == "synthesis_only":
                 self.socketio_emit_log("Running in synthesis-only mode - will only generate synthesis documents.", "INFO")
                 self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed - synthesis-only mode.')
@@ -811,12 +771,15 @@ class KnowledgeBaseAgent:
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user in embedding-only mode.")
 
             elif preferences.run_mode == "full_pipeline":
+                self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Starting full_pipeline mode execution", "DEBUG")
                 # Existing full pipeline logic
                 # --- Phase 1: Parse User Preferences (already done by receiving `preferences` object) ---
+                self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Phase 1 - Emitting user_input_parsing completed", "DEBUG")
                 self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed and applied.')
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after parsing preferences.")
 
                 # --- Phase 2: Fetch Bookmarks (Optional) ---
+                self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Phase 2 - Checking bookmark fetching (skip={preferences.skip_fetch_bookmarks})", "DEBUG")
                 if not preferences.skip_fetch_bookmarks:
                     self.socketio_emit_phase_update('fetch_bookmarks', 'active', 'Fetching bookmarks from source...', False)
                     try:
@@ -902,6 +865,12 @@ class KnowledgeBaseAgent:
                             self.socketio_emit_log("No tweets to process - the system has no unprocessed tweets and no force reprocessing flags are enabled.", "INFO")
                             self.socketio_emit_phase_update('content_processing_overall', 'completed', 'No tweets to process', False, 0, 0, 0)
                             
+                            # Update content processing sub-phases to "completed" since no tweets need processing
+                            # Note: database_sync is now a standalone phase, not a sub-phase of content processing
+                            content_sub_phases = ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation']
+                            for sub_phase in content_sub_phases:
+                                self.socketio_emit_phase_update(sub_phase, 'completed', 'Completed - no tweets to process', False, 0, 0, 0)
+                            
                             # Check if we have any tweets in the system at all
                             all_tweets = await self.state_manager.get_all_tweets()
                             if len(all_tweets) == 0:
@@ -919,36 +888,51 @@ class KnowledgeBaseAgent:
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user during content processing.")
 
-                # --- Phase 4: Database Synchronization (Optional) ---
-                if not preferences.skip_process_content:
-                    await self.sync_database(preferences)
+                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after content processing.")
+
+                # --- Phase 4: Database Sync (Standalone) ---
+                self.socketio_emit_log(f"🔍 DB Sync Check: skip_process_content={preferences.skip_process_content}, force_reprocess_db_sync={preferences.force_reprocess_db_sync}", "INFO")
+                if not preferences.skip_process_content or preferences.force_reprocess_db_sync:
+                    try:
+                        self.socketio_emit_log("🔄 Starting standalone database sync phase...", "INFO")
+                        self.socketio_emit_log("🔍 About to call execute_standalone_db_sync method...", "INFO")
+                        await self.execute_standalone_db_sync(preferences)
+                        self.socketio_emit_log("✅ Standalone database sync phase completed successfully", "INFO")
+                    except Exception as e:
+                        self.socketio_emit_log(f"❌ Error during standalone database sync: {e}", "ERROR")
+                        self.socketio_emit_log(f"❌ Database sync traceback: {traceback.format_exc()}", "ERROR")
+                        self.socketio_emit_phase_update('database_sync', 'error', f"Database sync failed: {e}")
+                        stats.error_count += 1
+                        # Continue with other phases even if DB sync fails
+                        self.socketio_emit_log("⚠️ Continuing with remaining phases despite DB sync error", "WARNING")
                 else:
-                    self.socketio_emit_log("Skipping database synchronization due to user preference.", "INFO")
-                    self.socketio_emit_phase_update('database_sync', 'skipped', 'Skipped by user preference.')
+                    self.socketio_emit_log("Database sync skipped due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('database_sync', 'completed', 'Completed - skipped by user preference', False, 0, 0, 0)
+
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after database synchronization.")
 
-                # --- Phase 5: Synthesis Generation (Optional) ---
+                # --- Phase 6: Synthesis Generation (Optional) ---
                 if not preferences.skip_synthesis_generation:
                     await self.generate_synthesis(preferences)
                 else:
-                    self.socketio_emit_log("Skipping synthesis generation due to user preference.", "INFO")
-                    self.socketio_emit_phase_update('synthesis_generation', 'skipped', 'Skipped by user preference.')
+                    self.socketio_emit_log("Synthesis generation skipped due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('synthesis_generation', 'completed', 'Completed - skipped by user preference', False, 0, 0, 0)
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after synthesis generation.")
 
                 # --- Phase 6: Embedding Generation (Optional) ---
                 if not preferences.skip_embedding_generation:
                     await self.generate_embeddings(preferences)
                 else:
-                    self.socketio_emit_log("Skipping embedding generation due to user preference.", "INFO")
-                    self.socketio_emit_phase_update('embedding_generation', 'skipped', 'Skipped by user preference.')
+                    self.socketio_emit_log("Embedding generation skipped due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('embedding_generation', 'completed', 'Completed - skipped by user preference', False, 0, 0, 0)
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after embedding generation.")
 
                 # --- Phase 7: README Generation (Optional) ---
                 if not preferences.skip_readme_generation:
                     await self.regenerate_readme(preferences)
                 else:
-                    self.socketio_emit_log("Skipping README generation due to user preference.", "INFO")
-                    self.socketio_emit_phase_update('readme_generation', 'skipped', 'Skipped by user preference.', False, 0, 0, 0)
+                    self.socketio_emit_log("README generation skipped due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('readme_generation', 'completed', 'Completed - skipped by user preference', False, 0, 0, 0)
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after README generation.")
 
@@ -956,8 +940,8 @@ class KnowledgeBaseAgent:
                 if not preferences.skip_git_push:
                     await self.sync_changes()
                 else: # skip_git_push is true
-                    self.socketio_emit_log("Skipping Git synchronization due to user preference.", "INFO")
-                    self.socketio_emit_phase_update('git_sync', 'skipped', 'Skipped by user preference.', False, 0, 0, 0)
+                    self.socketio_emit_log("Git synchronization skipped due to user preference.", "INFO")
+                    self.socketio_emit_phase_update('git_sync', 'completed', 'Completed - skipped by user preference', False, 0, 0, 0)
 
             else:
                 # Handle other run modes or unknown modes
@@ -1148,8 +1132,8 @@ class KnowledgeBaseAgent:
                 "id": "database_sync",
                 "name": "Database Synchronization",
                 "icon": "bi-database",
-                "initial_status": "skipped" if preferences.skip_process_content else ("forced" if preferences.force_reprocess_db_sync else "pending"),
-                "initial_message": "User preference: Skip content processing" if preferences.skip_process_content else ("Force flag: Database sync will be forced" if preferences.force_reprocess_db_sync else "Waiting for database synchronization...")
+                "initial_status": "forced" if preferences.force_reprocess_db_sync else ("skipped" if preferences.skip_process_content else "pending"),
+                "initial_message": "Force flag: Database sync will be forced" if preferences.force_reprocess_db_sync else ("User preference: Skip content processing" if preferences.skip_process_content else "Waiting for database synchronization...")
             },
             {
                 "id": "git_sync",
@@ -1229,6 +1213,124 @@ class KnowledgeBaseAgent:
 
         except Exception as e:
             self.socketio_emit_log(f"Failed to process single tweet {tweet_id}: {e}", "ERROR")
+
+    async def execute_standalone_db_sync(self, preferences: UserPreferences) -> None:
+        """
+        Execute standalone database sync phase.
+        
+        This method runs database synchronization independently of content processing,
+        allowing it to be forced even when no new tweets need processing.
+        """
+        self.socketio_emit_log("🚀 DB Sync: Method called - starting database sync evaluation...", "INFO")
+        self.socketio_emit_phase_update('database_sync', 'active', 'Starting database sync evaluation...')
+        
+        try:
+            self.socketio_emit_log("🔍 DB Sync: Getting all tweets from state manager...", "INFO")
+            # Get all tweets for potential database sync
+            try:
+                all_tweets = await self.state_manager.get_all_tweets()
+                self.socketio_emit_log(f"🔍 DB Sync: Successfully retrieved {len(all_tweets) if all_tweets else 0} tweets", "INFO")
+            except Exception as e:
+                self.socketio_emit_log(f"❌ DB Sync: Error getting tweets from state manager: {e}", "ERROR")
+                self.socketio_emit_log(f"❌ DB Sync: Traceback: {traceback.format_exc()}", "ERROR")
+                raise
+            
+            if not all_tweets:
+                self.socketio_emit_log("No tweets found in system for database sync", "INFO")
+                self.socketio_emit_phase_update('database_sync', 'completed', 'No tweets to sync', False, 0, 0, 0)
+                return
+            
+            self.socketio_emit_log(f"🔍 DB Sync: Found {len(all_tweets)} tweets in system", "DEBUG")
+            
+            # Create force flags for phase execution helper
+            force_flags = {
+                'force_recache_tweets': preferences.force_recache_tweets,
+                'force_reprocess_media': preferences.force_reprocess_media,
+                'force_reprocess_llm': preferences.force_reprocess_llm,
+                'force_reprocess_kb_item': preferences.force_reprocess_kb_item,
+                'force_reprocess_db_sync': preferences.force_reprocess_db_sync
+            }
+            
+            self.socketio_emit_log(f"🔍 DB Sync: Creating execution plans with force flags: {force_flags}", "DEBUG")
+            
+            # Get execution plan for database sync
+            from knowledge_base_agent.phase_execution_helper import ProcessingPhase
+            execution_plans = self.phase_execution_helper.create_all_execution_plans(all_tweets, force_flags)
+            db_sync_plan = execution_plans[ProcessingPhase.DB_SYNC]
+            
+            self.socketio_emit_log(f"🔍 DB Sync: Execution plan created successfully", "DEBUG")
+            
+            self.socketio_emit_log(f"DB sync plan: {db_sync_plan.needs_processing_count} tweets need sync, {db_sync_plan.already_complete_count} already synced", "INFO")
+            
+            if db_sync_plan.should_skip_phase:
+                self.socketio_emit_log(f"✅ Database sync - all {db_sync_plan.already_complete_count} tweets already synced", "INFO")
+                self.socketio_emit_phase_update('database_sync', 'completed', 
+                                               f'All {db_sync_plan.already_complete_count} tweets already synced',
+                                               False, db_sync_plan.already_complete_count, db_sync_plan.already_complete_count, 0)
+                return
+            
+            # Execute database sync for tweets that need it
+            self.socketio_emit_log(f"🔄 Syncing {db_sync_plan.needs_processing_count} tweets to database", "INFO")
+            self.socketio_emit_phase_update('database_sync', 'active', 
+                                           f'Syncing {db_sync_plan.needs_processing_count} tweets to database...',
+                                           False, 0, db_sync_plan.needs_processing_count, 0)
+            
+            # Initialize content processor if needed (for _sync_to_db method)
+            if not self.content_processor:
+                await self.initialize()
+            
+            # Process each tweet that needs database sync
+            items_successfully_processed = 0
+            error_count = 0
+            
+            for i, tweet_id in enumerate(db_sync_plan.tweets_needing_processing):
+                if stop_flag.is_set():
+                    self.socketio_emit_log("Database sync stopped by flag.", "WARNING")
+                    self.socketio_emit_phase_update('database_sync', 'interrupted', 'Database sync stopped.')
+                    break
+                
+                try:
+                    tweet_data = all_tweets[tweet_id]
+                    self.socketio_emit_log(f"🔄 Syncing item {i+1} of {db_sync_plan.needs_processing_count} to database", "INFO")
+                    
+                    # Update progress
+                    self.socketio_emit_phase_update('database_sync', 'active', 
+                                                   f'Syncing item {i+1} of {db_sync_plan.needs_processing_count}...',
+                                                   False, i, db_sync_plan.needs_processing_count, error_count)
+                    
+                    # Use the content processor's sync method
+                    await self.content_processor._sync_to_db(tweet_id, tweet_data, self.category_manager)
+                    
+                    # Update state manager
+                    tweet_data['db_synced'] = True
+                    await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                    items_successfully_processed += 1
+                    
+                    self.socketio_emit_log(f"✅ Database sync complete for item {i+1}", "INFO")
+                    
+                except Exception as e:
+                    self.socketio_emit_log(f"❌ Error syncing tweet {tweet_id} to database: {e}", "ERROR")
+                    error_count += 1
+                    # Continue with other tweets
+            
+            # Final status update
+            if not stop_flag.is_set():
+                if error_count == 0:
+                    self.socketio_emit_log(f"✅ Database sync completed successfully for {items_successfully_processed} tweets", "INFO")
+                    self.socketio_emit_phase_update('database_sync', 'completed', 
+                                                   f'Synced {items_successfully_processed} tweets to database',
+                                                   False, items_successfully_processed, db_sync_plan.needs_processing_count, error_count)
+                else:
+                    self.socketio_emit_log(f"⚠️ Database sync completed with {error_count} errors. {items_successfully_processed} tweets synced successfully", "WARNING")
+                    self.socketio_emit_phase_update('database_sync', 'completed', 
+                                                   f'Synced {items_successfully_processed} tweets with {error_count} errors',
+                                                   False, items_successfully_processed, db_sync_plan.needs_processing_count, error_count)
+            
+        except Exception as e:
+            self.socketio_emit_log(f"❌ Critical error in standalone database sync: {e}", "ERROR")
+            self.socketio_emit_log(f"❌ DB Sync traceback: {traceback.format_exc()}", "ERROR")
+            self.socketio_emit_phase_update('database_sync', 'error', f'Database sync failed: {e}')
+            # Don't raise - let the pipeline continue with other phases
 
     async def regenerate_readme(self, preferences: UserPreferences) -> None:
         """

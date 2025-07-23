@@ -105,7 +105,145 @@ class ExecutionPlanManager {
             }
         });
 
+        // Listen for agent execution completion to reset phases
+        document.addEventListener('agent_execution_completed', (event) => {
+            console.log('ExecutionPlan received agent_execution_completed:', event.detail);
+            // Give a brief delay to allow final phase updates to arrive
+            setTimeout(() => {
+                console.log('🎉 Agent execution completed - resetting execution plan to default state');
+                this.resetAllPhases();
+            }, 1000);
+        });
+
+        // CRITICAL FIX: Listen for running task detection on page load
+        document.addEventListener('running_task_detected', (event) => {
+            console.log('ExecutionPlan received running_task_detected:', event.detail);
+            const taskStatus = event.detail.status;
+            if (taskStatus) {
+                this.initializeWithRunningTask(taskStatus);
+            }
+        });
+
         console.log('ExecutionPlan event listeners set up for polling-based updates');
+    }
+
+    mapMessageToPhaseId(message) {
+        // Map phase messages/names to phase IDs
+        const messageToPhaseMap = {
+            'initialization': 'initialization',
+            'fetch_bookmarks': 'fetch_bookmarks',
+            'content_processing': 'content_processing',
+            'tweet_caching': 'tweet_caching',
+            'media_analysis': 'media_analysis',
+            'llm_processing': 'llm_processing',
+            'kb_item_generation': 'kb_item_generation',
+            'database_sync': 'database_sync',
+            'synthesis_generation': 'synthesis_generation',
+            'embedding_generation': 'embedding_generation',
+            'readme_generation': 'readme_generation',
+            'git_sync': 'git_sync'
+        };
+        
+        // Direct mapping first
+        if (messageToPhaseMap[message]) {
+            return messageToPhaseMap[message];
+        }
+        
+        // Try to extract phase ID from message text
+        const lowerMessage = message.toLowerCase();
+        for (const [key, phaseId] of Object.entries(messageToPhaseMap)) {
+            if (lowerMessage.includes(key.replace('_', ' ')) || lowerMessage.includes(key)) {
+                return phaseId;
+            }
+        }
+        
+        return message; // Return as-is if no mapping found
+    }
+
+    resetAllPhases() {
+        // Reset all phases to their default "Will Run" state
+        console.log('🔄 Resetting all phases to default state');
+        
+        for (const phaseId in this.phases) {
+            const phase = this.phases[phaseId];
+            if (phase && phase.statusElement) {
+                // Reset to default state
+                phase.statusElement.textContent = 'Will Run';
+                phase.statusElement.dataset.status = 'pending';
+                phase.statusElement.className = 'phase-status glass-badge glass-badge--primary';
+                
+                // Hide progress bars
+                if (phase.progressElement) {
+                    phase.progressElement.style.display = 'none';
+                }
+                
+                // Clear stored counts
+                delete phase.counts;
+            }
+        }
+        
+        console.log('✅ All phases reset to default state');
+    }
+
+    initializeWithRunningTask(taskStatus) {
+        console.log('🔄 Initializing execution plan with running task data:', taskStatus);
+        
+        // First, reset all phases to ensure clean state
+        this.resetAllPhases();
+        
+        // Extract current phase information
+        const currentPhase = taskStatus.progress?.phase_id || 
+                           this.mapMessageToPhaseId(taskStatus.current_phase_message) || 
+                           'initialization';
+        
+        const currentMessage = taskStatus.progress?.message || 
+                             taskStatus.current_phase_message || 
+                             'Processing...';
+        
+        const currentProgress = taskStatus.progress?.progress || 0;
+        const processedCount = taskStatus.progress?.processed_count;
+        const totalCount = taskStatus.progress?.total_count;
+        
+        console.log(`📊 Current phase: ${currentPhase}, Message: ${currentMessage}, Progress: ${currentProgress}%`);
+        
+        // Update the current phase as running
+        if (this.phases[currentPhase]) {
+            this.updatePhase(currentPhase, 'running', currentMessage);
+            
+            // If we have progress data, show it
+            if (processedCount !== undefined && totalCount !== undefined) {
+                this.updatePhaseProgress(currentPhase, processedCount, totalCount, currentMessage);
+            }
+        }
+        
+        // Mark previous phases as completed (basic heuristic)
+        const phaseOrder = [
+            'initialization',
+            'fetch_bookmarks', 
+            'content_processing',
+            'tweet_caching',
+            'media_analysis', 
+            'llm_processing',
+            'kb_item_generation',
+            'database_sync',
+            'synthesis_generation',
+            'embedding_generation', 
+            'readme_generation',
+            'git_sync'
+        ];
+        
+        const currentPhaseIndex = phaseOrder.indexOf(currentPhase);
+        if (currentPhaseIndex > 0) {
+            // Mark all previous phases as completed
+            for (let i = 0; i < currentPhaseIndex; i++) {
+                const phaseId = phaseOrder[i];
+                if (this.phases[phaseId]) {
+                    this.updatePhase(phaseId, 'completed', 'Completed');
+                }
+            }
+        }
+        
+        console.log('✅ Execution plan initialized with running task state');
     }
 
     initPhases() {
@@ -161,28 +299,53 @@ class ExecutionPlanManager {
             return;
         }
         
-        // Add click handler to the phase header
+        // Add click handler to the phase header with better targeting
         const phaseHeader = phaseElement.querySelector('.phase-header, .sub-phase-header');
         if (phaseHeader) {
+            // Store the phase ID directly on the element for precise targeting
+            phaseHeader.dataset.phaseId = phaseId;
             phaseHeader.style.cursor = 'pointer';
             phaseHeader.title = 'Click to cycle: Run → Skip → Force → Run';
             
+            // CRITICAL FIX: Use more specific event handling with proper targeting
             phaseHeader.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                this.cyclePhaseState(phaseId);
+                e.stopImmediatePropagation();
+                
+                // Get the phase ID from the clicked element to ensure accuracy
+                const clickedPhaseId = e.currentTarget.dataset.phaseId;
+                
+                // Double-check we're clicking the right phase
+                if (clickedPhaseId !== phaseId) {
+                    console.warn(`⚠️ Phase ID mismatch: expected ${phaseId}, got ${clickedPhaseId}`);
+                    return;
+                }
+                
+                console.log(`🖱️ Clicked phase: ${clickedPhaseId}`);
+                this.cyclePhaseState(clickedPhaseId);
             });
             
-            // Add hover effect
-            phaseHeader.addEventListener('mouseenter', () => {
-                phaseHeader.style.transform = 'translateY(-1px)';
-                phaseHeader.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            // Add hover effect with better specificity
+            phaseHeader.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                if (e.currentTarget === phaseHeader) {
+                    phaseHeader.style.transform = 'translateY(-1px)';
+                    phaseHeader.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                }
             });
             
-            phaseHeader.addEventListener('mouseleave', () => {
-                phaseHeader.style.transform = '';
-                phaseHeader.style.boxShadow = '';
+            phaseHeader.addEventListener('mouseleave', (e) => {
+                e.stopPropagation();
+                if (e.currentTarget === phaseHeader) {
+                    phaseHeader.style.transform = '';
+                    phaseHeader.style.boxShadow = '';
+                }
             });
+            
+            // Add visual indicator that it's clickable
+            phaseHeader.style.transition = 'all 0.2s ease';
+            phaseHeader.classList.add('clickable-phase');
         }
     }
 
@@ -289,21 +452,50 @@ class ExecutionPlanManager {
             'readme_generation': 'force-regenerate-readme-btn'
         };
         
-        // Clear existing button states for this phase
+        // CRITICAL FIX: Update button states with proper visual feedback
         const skipButtonId = phaseToButtonMap[phaseId];
         const forceButtonId = forceButtonMap[phaseId];
+        
+        console.log(`🔄 Updating preference buttons for ${phaseId}: skip=${skipButtonId}, force=${forceButtonId}, state=${state}`);
         
         if (skipButtonId) {
             const skipButton = document.getElementById(skipButtonId);
             if (skipButton) {
-                skipButton.classList.toggle('active', state === 'skip');
+                const shouldBeActive = state === 'skip';
+                skipButton.classList.toggle('active', shouldBeActive);
+                console.log(`  Skip button ${skipButtonId}: ${shouldBeActive ? 'ACTIVE' : 'INACTIVE'}`);
+            } else {
+                console.warn(`  Skip button ${skipButtonId} not found`);
             }
         }
         
         if (forceButtonId) {
             const forceButton = document.getElementById(forceButtonId);
             if (forceButton) {
-                forceButton.classList.toggle('active', state === 'force');
+                const shouldBeActive = state === 'force';
+                forceButton.classList.toggle('active', shouldBeActive);
+                console.log(`  Force button ${forceButtonId}: ${shouldBeActive ? 'ACTIVE' : 'INACTIVE'}`);
+            } else {
+                console.warn(`  Force button ${forceButtonId} not found`);
+            }
+        }
+        
+        // ENHANCEMENT: Also clear conflicting states
+        // If we're setting skip, clear force for the same phase
+        if (state === 'skip' && forceButtonId) {
+            const forceButton = document.getElementById(forceButtonId);
+            if (forceButton && forceButton.classList.contains('active')) {
+                forceButton.classList.remove('active');
+                console.log(`  Cleared conflicting force button ${forceButtonId}`);
+            }
+        }
+        
+        // If we're setting force, clear skip for the same phase
+        if (state === 'force' && skipButtonId) {
+            const skipButton = document.getElementById(skipButtonId);
+            if (skipButton && skipButton.classList.contains('active')) {
+                skipButton.classList.remove('active');
+                console.log(`  Cleared conflicting skip button ${skipButtonId}`);
             }
         }
     }
@@ -553,23 +745,34 @@ class ExecutionPlanManager {
         // Enhanced message formatting with completion counts
         let displayMessage = message || displayStatus;
         
-        // Add completion counts for completed phases
-        if (status === 'completed' && counts) {
-            if (counts.processed_count !== undefined && counts.total_count !== undefined) {
-                if (counts.processed_count === 0 && counts.total_count === 0) {
-                    displayMessage = `✅ Completed - No items needed processing`;
-                } else if (counts.processed_count === counts.total_count) {
-                    displayMessage = `✅ Completed - ${counts.processed_count} of ${counts.total_count} items processed`;
+        // Preserve rich messages from backend for completed phases
+        if (status === 'completed') {
+            // If we have a rich message from the backend, use it as-is
+            if (message && message.trim() && message !== 'completed' && message !== 'Completed') {
+                // Check if message already has an emoji prefix
+                if (message.startsWith('✅') || message.startsWith('🔄') || message.startsWith('❌')) {
+                    displayMessage = message;
                 } else {
-                    displayMessage = `✅ Completed - ${counts.processed_count} of ${counts.total_count} items processed`;
+                    displayMessage = `✅ ${message}`;
                 }
-            } else if (counts.skipped_count !== undefined) {
-                displayMessage = `✅ Completed - ${counts.skipped_count} items skipped (no processing needed)`;
+            } else if (counts) {
+                // Fallback to count-based messages if no rich message
+                if (counts.processed_count !== undefined && counts.total_count !== undefined) {
+                    if (counts.processed_count === 0 && counts.total_count === 0) {
+                        displayMessage = `✅ No items needed processing`;
+                    } else if (counts.processed_count === counts.total_count) {
+                        displayMessage = `✅ ${counts.processed_count} of ${counts.total_count} items processed`;
+                    } else {
+                        displayMessage = `✅ ${counts.processed_count} of ${counts.total_count} items processed`;
+                    }
+                } else if (counts.skipped_count !== undefined) {
+                    displayMessage = `✅ ${counts.skipped_count} items skipped (no processing needed)`;
+                } else {
+                    displayMessage = `✅ ${displayMessage}`;
+                }
             } else {
                 displayMessage = `✅ ${displayMessage}`;
             }
-        } else if (status === 'completed') {
-            displayMessage = `✅ ${displayMessage}`;
         } else if (status === 'running' || status === 'active' || status === 'in_progress') {
             displayMessage = `🔄 ${displayMessage}`;
         } else if (status === 'error') {
@@ -596,8 +799,8 @@ class ExecutionPlanManager {
             'tweet_caching': 'content_processing',
             'media_analysis': 'content_processing', 
             'llm_processing': 'content_processing',
-            'kb_item_generation': 'content_processing',
-            'database_sync': 'content_processing'
+            'kb_item_generation': 'content_processing'
+            // database_sync is now a standalone phase, not a child of content_processing
         };
         
         const parentPhaseId = parentChildMap[childPhaseId];
@@ -623,7 +826,7 @@ class ExecutionPlanManager {
     checkParentCompletion(parentPhaseId) {
         // Define which children belong to each parent
         const childrenMap = {
-            'content_processing': ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation', 'database_sync']
+            'content_processing': ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation']
         };
         
         const children = childrenMap[parentPhaseId];

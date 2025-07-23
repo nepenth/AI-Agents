@@ -54,8 +54,8 @@
   
   /* Touch-friendly hover states */
   .liquid-button:active {
-    transform: scale(0.95);
-    transition: transform 0.1s ease;
+    /* Removed scale effect for better UX */
+    transition: background-color 0.1s ease;
   }
   
   /* Optimize glass input fields for mobile */
@@ -250,7 +250,7 @@
   .liquid-button:active {
     background: var(--glass-bg-hover);
     border-color: var(--glass-border-hover);
-    transform: scale(0.95);
+    /* Removed scale effect for better UX */
   }
   
   .glass-panel-v3:active {

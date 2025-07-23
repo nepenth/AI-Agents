@@ -46,10 +46,10 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(255, 255, 255, 0.2) 50%, 
-    transparent 100%);
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 100%);
   z-index: 1;
 }
 
@@ -60,10 +60,21 @@
   box-shadow: var(--glass-shadow-md);
 }
 
-.gpu-status-container .gpu-card:nth-child(1) { animation-delay: 0ms; }
-.gpu-status-container .gpu-card:nth-child(2) { animation-delay: 100ms; }
-.gpu-status-container .gpu-card:nth-child(3) { animation-delay: 200ms; }
-.gpu-status-container .gpu-card:nth-child(4) { animation-delay: 300ms; }
+.gpu-status-container .gpu-card:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.gpu-status-container .gpu-card:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.gpu-status-container .gpu-card:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+.gpu-status-container .gpu-card:nth-child(4) {
+  animation-delay: 300ms;
+}
 
 /* Enhanced GPU Card Header */
 .gpu-status-container .gpu-card-header {
@@ -230,6 +241,23 @@
   animation: glassPulse 2s var(--ease-gentle) infinite;
 }
 
+/* Temperature Progress Bar Colors */
+.gpu-status-container .gpu-progress-bar.temp-cool {
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-light) 100%);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+.gpu-status-container .gpu-progress-bar.temp-warm {
+  background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning-light) 100%);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.gpu-status-container .gpu-progress-bar.temp-hot {
+  background: linear-gradient(135deg, var(--color-danger) 0%, var(--color-danger-light) 100%);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+  animation: glassPulse 2s var(--ease-gentle) infinite;
+}
+
 /* Enhanced No GPU Panel */
 .no-gpu-panel {
   text-align: center;
@@ -309,24 +337,24 @@
     padding: var(--space-3);
     max-height: 250px;
   }
-  
+
   .gpu-status-container .gpu-card {
     padding: var(--space-3);
   }
-  
+
   .gpu-status-container .gpu-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-2);
   }
-  
+
   .gpu-status-container .gpu-stat {
     padding: var(--space-1-5);
   }
-  
+
   .gpu-status-container .gpu-name {
     font-size: var(--font-size-xs);
   }
-  
+
   .gpu-status-container .gpu-id {
     font-size: 0.65rem;
     padding: 2px var(--space-1);
@@ -337,7 +365,7 @@
 .gpu-status-container .gpu-card:focus-visible {
   outline: none;
   border-color: var(--glass-border-focus);
-  box-shadow: 
+  box-shadow:
     var(--glass-shadow-md),
     0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -345,17 +373,20 @@
 .gpu-status-container .gpu-stat:focus-visible {
   outline: none;
   border-color: var(--glass-border-focus);
-  box-shadow: 
+  box-shadow:
     var(--glass-shadow-sm),
     0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 /* GPU Status Animations */
 @keyframes gpuCardPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: var(--glass-shadow-sm);
     border-color: var(--glass-border-primary);
   }
+
   50% {
     box-shadow: var(--glass-shadow-md);
     border-color: var(--glass-border-hover);
@@ -369,17 +400,17 @@
 /* High Performance GPU Indicator */
 .gpu-status-container .gpu-card.high-performance {
   border-color: var(--color-success);
-  box-shadow: 
+  box-shadow:
     var(--glass-shadow-md),
     0 0 0 1px var(--color-success),
     0 0 16px rgba(16, 185, 129, 0.2);
 }
 
 .gpu-status-container .gpu-card.high-performance::before {
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(16, 185, 129, 0.3) 50%, 
-    transparent 100%);
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(16, 185, 129, 0.3) 50%,
+      transparent 100%);
 }
 
 /* GPU Status Tooltips */
@@ -399,7 +430,7 @@
     backdrop-filter: none !important;
     box-shadow: none !important;
   }
-  
+
   .gpu-status-container .gpu-card {
     background: #f9f9f9 !important;
     border: 1px solid #ddd !important;

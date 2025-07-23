@@ -42,7 +42,7 @@
 }
 
 .glass-panel-v3:active {
-  transform: var(--transform-press);
+  /* Removed transform effect for better UX */
   box-shadow: 
     var(--glass-shadow-sm),
     var(--glass-inset-light),
@@ -152,7 +152,7 @@
 }
 
 .liquid-button:active {
-  transform: var(--transform-press);
+  /* Removed transform effect for better UX */
   box-shadow: var(--glass-shadow-sm);
 }
 

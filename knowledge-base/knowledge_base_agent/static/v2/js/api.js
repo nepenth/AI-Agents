@@ -21,6 +21,39 @@ class API {
             throw err;
         }
     }
+
+    // Agent Status Methods
+    async getAgentStatus() {
+        return this.request('/agent/status');
+    }
+
+    async resetAgentState() {
+        return this.request('/agent/reset-state', { method: 'POST' });
+    }
+
+    // Agent Control Methods
+    async startAgent(preferences = {}) {
+        return this.request('/v2/agent/start', { 
+            method: 'POST', 
+            body: { preferences } 
+        });
+    }
+
+    async stopAgent() {
+        return this.request('/agent/stop', { method: 'POST' });
+    }
+
+    // Preferences Methods
+    async getPreferences() {
+        return this.request('/preferences');
+    }
+
+    async savePreferences(preferences) {
+        return this.request('/preferences', { 
+            method: 'POST', 
+            body: preferences 
+        });
+    }
 }
 
 window.API = API; 

@@ -58,7 +58,7 @@ class SynthesisGenerator:
         if phase_emitter_func:
             phase_emitter_func(
                 "synthesis_generation",
-                "in_progress", 
+                "active", 
                 "Analyzing synthesis dependencies and staleness...",
                 False, 0, 0, 0
             )
@@ -73,16 +73,21 @@ class SynthesisGenerator:
         
         total_eligible = len(execution_plan['needs_generation'])
         
+        # Enhanced logging for synthesis generation phase
         if total_eligible == 0:
-            self.logger.info("No syntheses need generation - all are up to date")
+            completion_msg = "All synthesis documents are up to date"
+            self.logger.info(f"✅ Synthesis Generation: {completion_msg}")
             if phase_emitter_func:
                 phase_emitter_func(
                     "synthesis_generation",
                     "completed",
-                    "All synthesis documents are up to date.",
+                    completion_msg,
                     False, 0, 0, 0
                 )
             return [], 0, 0
+        
+        # Enhanced phase start logging
+        self.logger.info(f"🔄 Synthesis Generation Phase: {total_eligible} syntheses need generation")
         
         if phase_emitter_func:
             phase_emitter_func(
@@ -523,8 +528,11 @@ class SynthesisGenerator:
                 existing_synthesis.item_count = item_count
                 existing_synthesis.file_path = str(file_path)
                 existing_synthesis.last_updated = now
+                # CRITICAL FIX: Clear staleness flags after successful regeneration
+                existing_synthesis.is_stale = False
+                existing_synthesis.needs_regeneration = False
                 db_synthesis = existing_synthesis
-                self.logger.info(f"Updated synthesis for '{target_name}' in database.")
+                self.logger.info(f"Updated synthesis for '{target_name}' in database and cleared staleness flags.")
             else:
                 new_synthesis = SubcategorySynthesis()
                 new_synthesis.main_category = main_category

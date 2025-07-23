@@ -733,6 +733,19 @@ input:checked+.slider:before {
     color: #ff3b30;
 }
 
+/* Temperature progress bar colors */
+.gpu-status-container .gpu-progress-bar.temp-cool {
+    background: linear-gradient(90deg, #34c759, #5dd66f);
+}
+
+.gpu-status-container .gpu-progress-bar.temp-warm {
+    background: linear-gradient(90deg, #ff9500, #ffb84d);
+}
+
+.gpu-status-container .gpu-progress-bar.temp-hot {
+    background: linear-gradient(90deg, #ff3b30, #ff6b60);
+}
+
 /* No GPU Panel */
 .no-gpu-panel {
     text-align: center;
@@ -944,47 +957,96 @@ input:checked+.slider:before {
 
 /* === Active Button States for Agent Controls === */
 /* Primary mode buttons - Enhanced blue theme */
+.liquid-button--primary.active,
 .glass-button--primary.active,
+button[data-pref][data-mode="true"].active.liquid-button--primary,
 button[data-pref][data-mode="true"].active.glass-button--primary {
-    background: var(--gradient-primary);
-    color: white;
-    border-color: rgba(59, 130, 246, 0.8);
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.7);
-    transform: translateY(-1px);
-    font-weight: 600;
+    background: var(--gradient-primary) !important;
+    color: white !important;
+    border-color: rgba(59, 130, 246, 0.8) !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.7) !important;
+    transform: translateY(-1px) !important;
+    font-weight: 600 !important;
 }
 
 /* Secondary buttons - Blue theme */
+.liquid-button--secondary.active,
 .glass-button--secondary.active,
+button[data-pref].active.liquid-button--secondary,
 button[data-pref].active.glass-button--secondary {
-    background: var(--gradient-primary);
-    color: white;
-    border-color: rgba(59, 130, 246, 0.8);
-    box-shadow: 0 0 16px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6);
-    transform: translateY(-1px);
-    font-weight: 600;
+    background: var(--gradient-primary) !important;
+    color: white !important;
+    border-color: rgba(59, 130, 246, 0.8) !important;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6) !important;
+    transform: translateY(-1px) !important;
+    font-weight: 600 !important;
 }
 
 /* Skip buttons - Blue theme for selected state */
+.liquid-button--ghost.active,
 .glass-button--ghost.active,
+button[data-pref^="skip_"].active.liquid-button--ghost,
 button[data-pref^="skip_"].active.glass-button--ghost {
-    background: var(--gradient-primary);
-    color: white;
-    border-color: rgba(59, 130, 246, 0.8);
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6);
-    transform: translateY(-1px);
-    font-weight: 600;
+    background: var(--gradient-primary) !important;
+    color: white !important;
+    border-color: rgba(59, 130, 246, 0.8) !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6) !important;
+    transform: translateY(-1px) !important;
+    font-weight: 600 !important;
+}
+
+/* Ensure inactive skip buttons have default ghost styling */
+.liquid-button--ghost:not(.active),
+.glass-button--ghost:not(.active),
+button[data-pref^="skip_"]:not(.active).liquid-button--ghost,
+button[data-pref^="skip_"]:not(.active).glass-button--ghost {
+    background: var(--glass-bg-secondary) !important;
+    color: var(--text-secondary) !important;
+    border-color: var(--glass-border-secondary) !important;
+}
+
+/* Specific rules for all skip buttons when active */
+#skip-fetch-bookmarks-btn.active,
+#skip-process-content-btn.active,
+#skip-readme-generation-btn.active,
+#skip-git-push-btn.active,
+#skip-synthesis-generation-btn.active,
+#skip-embedding-generation-btn.active,
+button[data-pref="skip_fetch_bookmarks"].active,
+button[data-pref="skip_process_content"].active,
+button[data-pref="skip_readme_generation"].active,
+button[data-pref="skip_git_push"].active,
+button[data-pref="skip_synthesis_generation"].active,
+button[data-pref="skip_embedding_generation"].active {
+    background: var(--gradient-primary) !important;
+    color: white !important;
+    border-color: rgba(59, 130, 246, 0.8) !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.6) !important;
+    transform: translateY(-1px) !important;
+    font-weight: 600 !important;
 }
 
 /* Force buttons - Toned down orange/amber theme for selected state */
+.liquid-button--warning.active,
 .glass-button--warning.active,
+button[data-pref^="force_"].active.liquid-button--warning,
 button[data-pref^="force_"].active.glass-button--warning {
-    background: linear-gradient(135deg, #d97706, #f59e0b);
-    color: white;
-    border-color: rgba(217, 119, 6, 0.8);
-    box-shadow: 0 0 16px rgba(217, 119, 6, 0.4), 0 0 0 2px rgba(217, 119, 6, 0.5);
-    transform: translateY(-1px);
-    font-weight: 600;
+    background: linear-gradient(135deg, #d97706, #f59e0b) !important;
+    color: white !important;
+    border-color: rgba(217, 119, 6, 0.8) !important;
+    box-shadow: 0 0 16px rgba(217, 119, 6, 0.4), 0 0 0 2px rgba(217, 119, 6, 0.5) !important;
+    transform: translateY(-1px) !important;
+    font-weight: 600 !important;
+}
+
+/* Ensure inactive force buttons have default warning styling */
+.liquid-button--warning:not(.active),
+.glass-button--warning:not(.active),
+button[data-pref^="force_"]:not(.active).liquid-button--warning,
+button[data-pref^="force_"]:not(.active).glass-button--warning {
+    background: var(--glass-bg-secondary) !important;
+    color: #d97706 !important;
+    border-color: rgba(217, 119, 6, 0.3) !important;
 }
 
 /* Danger buttons - Red theme for critical actions */
@@ -1013,6 +1075,64 @@ button[data-pref]:disabled {
     cursor: not-allowed;
     transform: none !important;
     box-shadow: none !important;
+}
+
+/* === Clickable Phase Styles === */
+.clickable-phase {
+    cursor: pointer !important;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.clickable-phase:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Phase status badge colors for different states */
+.phase-status.glass-badge--secondary {
+    background: rgba(156, 163, 175, 0.8);
+    color: white;
+    border-color: rgba(156, 163, 175, 0.6);
+}
+
+.phase-status.glass-badge--warning {
+    background: linear-gradient(135deg, #d97706, #f59e0b);
+    color: white;
+    border-color: rgba(217, 119, 6, 0.8);
+    box-shadow: 0 0 8px rgba(217, 119, 6, 0.3);
+}
+
+.phase-status.glass-badge--success {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: white;
+    border-color: rgba(5, 150, 105, 0.8);
+    box-shadow: 0 0 8px rgba(5, 150, 105, 0.3);
+}
+
+.phase-status.glass-badge--primary {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: rgba(59, 130, 246, 0.6);
+}
+
+/* Add subtle animation for phase state changes */
+.phase-status {
+    transition: all 0.3s ease;
+}
+
+/* Ensure phase headers are properly styled for interaction */
+.phase-header.clickable-phase,
+.sub-phase-header.clickable-phase {
+    border-radius: var(--border-radius-sm);
+    padding: var(--space-2);
+    margin: 2px;
+}
+
+.phase-header.clickable-phase:active,
+.sub-phase-header.clickable-phase:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 /* === Logs Styling === */

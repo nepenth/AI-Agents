@@ -10,7 +10,7 @@ import uuid
 import time
 import traceback
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from dataclasses import asdict
 
@@ -220,14 +220,14 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
                     is_running=True,
                     current_task_id=task_id,
                     current_phase_message="Agent execution started",
-                    last_update=datetime.utcnow()
+                    last_update=datetime.now(timezone.utc)
                 )
                 db.session.add(agent_state)
             else:
                 agent_state.is_running = True
                 agent_state.current_task_id = task_id
                 agent_state.current_phase_message = "Agent execution started"
-                agent_state.last_update = datetime.utcnow()
+                agent_state.last_update = datetime.now(timezone.utc)
             
             db.session.commit()
             loop.run_until_complete(progress_manager.log_message(task_id, "✅ Task state initialized in database", "INFO"))
@@ -263,7 +263,13 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
             loop.run_until_complete(progress_manager.log_message(task_id, "🚀 Starting agent execution...", "INFO"))
             
             try:
+                # Add debug logging before agent.run()
+                loop.run_until_complete(progress_manager.log_message(task_id, f"DEBUG_AGENT_RUN: About to call agent.run() with preferences: {preferences}", "DEBUG"))
+                loop.run_until_complete(progress_manager.log_message(task_id, f"DEBUG_AGENT_RUN: Agent instance created successfully, calling run method...", "DEBUG"))
+                
                 result = loop.run_until_complete(agent.run(preferences))
+                
+                loop.run_until_complete(progress_manager.log_message(task_id, f"DEBUG_AGENT_RUN: agent.run() completed successfully with result: {result}", "DEBUG"))
                 
                 # Generate comprehensive task run report
                 run_report = _generate_task_run_report(agent, preferences, result, task_id)
@@ -281,6 +287,22 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
                     'message': 'Agent execution completed successfully', 'preferences': asdict(preferences),
                     'run_report': run_report
                 }
+            except Exception as agent_run_error:
+                # Enhanced error logging for agent.run() failures
+                error_msg = f"Critical error in agent.run(): {str(agent_run_error)}"
+                error_traceback = traceback.format_exc()
+                
+                loop.run_until_complete(progress_manager.log_message(task_id, f"❌ {error_msg}", "ERROR"))
+                loop.run_until_complete(progress_manager.log_message(task_id, f"❌ Agent run traceback: {error_traceback}", "ERROR"))
+                
+                # Also log to Python logging for immediate visibility
+                logging.error(f"Agent run failed for task {task_id}: {error_msg}", exc_info=True)
+                
+                # Update progress to show error
+                progress_callback("agent_execution", "error", f"Agent execution failed: {str(agent_run_error)}", 0)
+                
+                # Re-raise to be caught by outer exception handler
+                raise
             finally:
                 # The main loop is closed by the outer finally block
                 pass

@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Union
 from .task_progress import TaskProgressManager, get_progress_manager
 from .config import Config
+from .postgresql_logging import PostgreSQLLogger
 
 
 class StructuredEventEmitter:
@@ -62,7 +63,7 @@ class StructuredEventEmitter:
                       structured_data: Dict[str, Any] = None, traceback_info: str = None):
         """Emit enhanced log event with structured data support."""
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "task_id": self.task_id,
             "level": level,
             "component": component or "unknown",
@@ -162,6 +163,8 @@ class EnhancedUnifiedLogger:
     
     Provides structured logging, phase management, progress tracking, and status updates
     while maintaining complete compatibility with the existing UnifiedLogger interface.
+    
+    Now includes PostgreSQL persistence alongside Redis/SocketIO for real-time updates.
     """
     
     def __init__(self, task_id: str, config: Optional[Config] = None):
@@ -170,6 +173,9 @@ class EnhancedUnifiedLogger:
         self.progress_manager = get_progress_manager(self.config)
         self.event_emitter = StructuredEventEmitter(task_id, self.progress_manager)
         self._loop = None
+        
+        # PostgreSQL logger for persistence
+        self.postgresql_logger = PostgreSQLLogger(task_id, config)
         
         # Phase tracking for timing and context
         self._active_phases = {}
@@ -196,6 +202,19 @@ class EnhancedUnifiedLogger:
         if include_traceback or level in ["ERROR", "CRITICAL"]:
             traceback_info = traceback.format_exc() if include_traceback else None
         
+        # Log to PostgreSQL for persistence
+        try:
+            self.postgresql_logger.log(
+                message=message,
+                level=level,
+                component=component,
+                metadata=structured_data,
+                error_data={'traceback': traceback_info} if traceback_info else None
+            )
+        except Exception as e:
+            print(f"[POSTGRESQL_LOGGER_ERROR] Failed to log to PostgreSQL: {e}", file=sys.stderr)
+        
+        # Also emit to Redis/SocketIO for real-time updates
         self.event_emitter.emit_log_event(
             message, level, component, structured_data, traceback_info
         )
@@ -215,6 +234,18 @@ class EnhancedUnifiedLogger:
         else:
             error_data = structured_data
         
+        # Log to PostgreSQL for persistence
+        try:
+            self.postgresql_logger.log_error(
+                message=message,
+                error=error,
+                component=component,
+                context=structured_data
+            )
+        except Exception as e:
+            print(f"[POSTGRESQL_LOGGER_ERROR] Failed to log error to PostgreSQL: {e}", file=sys.stderr)
+        
+        # Also emit to Redis/SocketIO for real-time updates
         self.event_emitter.emit_log_event(
             message, "ERROR", component, error_data, traceback.format_exc()
         )
