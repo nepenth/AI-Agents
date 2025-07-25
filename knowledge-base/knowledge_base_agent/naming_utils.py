@@ -6,7 +6,7 @@ from typing import Optional, Any
 from pathlib import Path
 
 from .http_client import HTTPClient
-from .prompts import LLMPrompts
+from .prompts_replacement import LLMPrompts
 
 def validate_directory_name(name: str, max_length: int = 50) -> bool:
     if len(name) > max_length:

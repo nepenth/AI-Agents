@@ -12,7 +12,7 @@ from knowledge_base_agent.models import SubcategorySynthesis
 import json
 import os
 import shutil
-from knowledge_base_agent.prompts import LLMPrompts, ReasoningPrompts
+from knowledge_base_agent.prompts_replacement import LLMPrompts, ReasoningPrompts
 
 
 async def write_readme_file(kb_dir: Path, content: str) -> None:
@@ -355,7 +355,7 @@ async def generate_root_readme(
             )
 
             if use_reasoning:
-                # from knowledge_base_agent.prompts import ReasoningPrompts # Already imported
+                # from knowledge_base_agent.prompts_replacement import ReasoningPrompts # Already imported
 
                 logging.info("Using reasoning mode for README introduction generation")
                 messages = [
@@ -421,7 +421,7 @@ async def generate_root_readme(
                 )
 
                 if use_reasoning:
-                    # from knowledge_base_agent.prompts import ReasoningPrompts # Already imported
+                    # from knowledge_base_agent.prompts_replacement import ReasoningPrompts # Already imported
                     logging.info(f"Using reasoning mode for category description: {main_display}")
                     cat_messages = [
                         ReasoningPrompts.get_system_message(),

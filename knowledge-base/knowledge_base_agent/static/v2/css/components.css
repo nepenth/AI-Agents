@@ -1,6 +1,9 @@
 /* ===== SCOPED COMPONENTS CSS ===== */
 /* This file contains styles that are scoped to specific pages to avoid conflicts with the Agent Dashboard */
 
+/* Component Imports */
+@import url('components/tweet-management.css');
+
 /* ===== UNIFIED THEME VARIABLES ===== */
 :root {
     /* Enhanced color palette that harmonizes existing theme with new features */

@@ -17,7 +17,7 @@ import sys
 sys.path.append('.')
 
 from knowledge_base_agent.config import Config
-from knowledge_base_agent.state_manager import StateManager
+from knowledge_base_agent.database_state_manager import DatabaseStateManager
 from knowledge_base_agent.state_manager_event_integration import StateManagerEventIntegration, create_state_manager_with_events
 
 
@@ -56,8 +56,8 @@ class TestStateManagerEventIntegration:
     
     @pytest.fixture
     def state_manager(self, temp_config):
-        """Create a StateManager instance for testing."""
-        return StateManager(temp_config, task_id="test-task-123")
+        """Create a DatabaseStateManager instance for testing."""
+        return DatabaseStateManager(temp_config, task_id="test-task-123")
     
     @pytest.fixture
     def event_integration(self, state_manager, mock_logger):
@@ -259,8 +259,8 @@ class TestStateManagerIntegration:
             yield config
     
     def test_state_manager_initialize_with_events_method(self, temp_config):
-        """Test StateManager.initialize_with_events method."""
-        state_manager = StateManager(temp_config, task_id="test-task-789")
+        """Test DatabaseStateManager.initialize_with_events method."""
+        state_manager = DatabaseStateManager(temp_config, task_id="test-task-789")
         
         with patch('knowledge_base_agent.state_manager_event_integration.get_unified_logger') as mock_get_logger:
             mock_logger = Mock()

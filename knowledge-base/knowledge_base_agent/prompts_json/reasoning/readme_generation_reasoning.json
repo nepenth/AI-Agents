@@ -1,0 +1,84 @@
+{
+  "prompt_id": "readme_generation_reasoning",
+  "prompt_name": "README Generation (Reasoning)",
+  "description": "Generates engaging README introductions using step-by-step reasoning and synthesis awareness",
+  "model_type": "reasoning",
+  "category": "readme_generation",
+  "task": "Create compelling README introductions with reasoning-based analysis of knowledge base value",
+  "topic": "Technical documentation with reasoning and synthesis awareness",
+  "format": {
+    "output_type": "markdown",
+    "response_structure": {
+      "role": "user",
+      "content": "readme generation request with reasoning instructions"
+    },
+    "constraints": [
+      "Engaging and concise",
+      "Highlight dual-layer value (items + synthesis)",
+      "Use step-by-step reasoning",
+      "3-5 sentences maximum",
+      "Expert technical guide persona"
+    ]
+  },
+  "input_parameters": {
+    "required": ["kb_stats", "category_list"],
+    "optional": [],
+    "parameters": {
+      "kb_stats": {
+        "type": "object",
+        "description": "Dictionary containing knowledge base statistics"
+      },
+      "category_list": {
+        "type": "string",
+        "description": "Formatted list of categories"
+      }
+    }
+  },
+  "template": {
+    "type": "reasoning",
+    "system_message": "Enable deep thinking subroutine. Analyze problems step-by-step. Consider multiple angles and approaches before providing your final answer. Adopt the persona of a highly experienced principal software engineer and technical architect. Your goal is to create a deeply technical and intuitively organized knowledge graph.",
+    "user_message": "Generate an engaging introduction paragraph for a technical knowledge base README.md file.\\n\\nKnowledge Base Statistics:\\n- Knowledge Base Items: {{kb_items}}\\n- Synthesis Documents: {{synthesis_docs}}\\n- Total Content: {{total_content}}\\n- Main Categories: {{total_main_cats}}\\n- Subcategories: {{total_subcats}}\\n- Media Files: {{total_media}}\\n\\nCategories include: {{category_list}}\\n\\nThe introduction should be engaging, concise, and highlight the value of the knowledge base for technical professionals. Mention both the detailed individual knowledge base items AND the high-level synthesis documents that provide consolidated insights and patterns across multiple topics. Explain what makes this dual-layer collection valuable, how it's organized, and how users can benefit from it. Write in markdown format, and keep it to 3-5 sentences. Think step-by-step about what would make this knowledge base appealing to technical users. Adopt the persona of an expert technical guide and knowledge architect."
+  },
+  "examples": [
+    {
+      "name": "reasoning_readme_example",
+      "input": {
+        "kb_stats": {
+          "total_items": 150,
+          "total_synthesis": 25,
+          "total_combined": 175,
+          "total_main_cats": 8,
+          "total_subcats": 32,
+          "total_media": 45
+        },
+        "category_list": "Backend Frameworks, Cloud Architecture, DevOps Automation"
+      },
+      "expected_output": "{\"role\": \"user\", \"content\": \"Generate an engaging introduction...\"}",
+      "notes": "Example of reasoning-based README generation with step-by-step analysis"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["readme", "reasoning", "documentation", "synthesis-awareness", "step-by-step"],
+    "performance_notes": "Reasoning-based prompt with statistics processing",
+    "quality_score": 9.0
+  },
+  "validation": {
+    "output_validation": {
+      "message_structure": {
+        "role": "user",
+        "content": "string"
+      }
+    },
+    "quality_checks": [
+      "step_by_step_reasoning",
+      "engaging_tone",
+      "dual_layer_mention",
+      "value_proposition_clear",
+      "expert_guide_persona"
+    ]
+  }
+}

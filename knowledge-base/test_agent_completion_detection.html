@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agent Completion Detection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #444; border-radius: 8px; }
+        .success { background-color: #1e3a1e; border-color: #4caf50; }
+        .error { background-color: #3a1e1e; border-color: #f44336; }
+        .warning { background-color: #3a2e1e; border-color: #ff9800; }
+        .info { background-color: #1e2a3a; border-color: #2196f3; }
+        pre { background: #2a2a2a; padding: 10px; overflow-x: auto; border-radius: 4px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
+        button:hover { background: #444; }
+        .status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .running { background-color: #4caf50; animation: pulse 1s infinite; }
+        .idle { background-color: #666; }
+        .error-status { background-color: #f44336; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .log-entry { margin: 2px 0; padding: 4px 8px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+        .log-info { background: #1e2a3a; }
+        .log-error { background: #3a1e1e; }
+        .log-warning { background: #3a2e1e; }
+        .phase-status { margin: 5px 0; padding: 8px; border-radius: 4px; background: #2a2a2a; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Agent Completion Detection Test</h1>
+    <p>This test helps diagnose issues with agent completion detection and run reports.</p>
+    
+    <div class="test-section">
+        <h3>📊 Current Agent Status</h3>
+        <button onclick="checkAgentStatus()">Check Agent Status</button>
+        <button onclick="startPolling()">Start Status Polling</button>
+        <button onclick="stopPolling()">Stop Polling</button>
+        <div id="agent-status-display">
+            <div id="status-indicator">
+                <span class="status-indicator idle" id="status-dot"></span>
+                <span id="status-text">Unknown</span>
+            </div>
+            <div id="status-details"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Task Details (if running)</h3>
+        <button onclick="checkTaskDetails()">Get Task Details</button>
+        <div id="task-details-display"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📝 Recent Logs</h3>
+        <button onclick="loadRecentLogs()">Load Recent Logs</button>
+        <button onclick="clearLogsDisplay()">Clear Display</button>
+        <div id="logs-display" style="max-height: 300px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 4px;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 Phase Status Simulation</h3>
+        <button onclick="simulatePhaseDetection()">Simulate Phase Detection</button>
+        <div id="phase-simulation-display"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔄 Completion Detection Test</h3>
+        <button onclick="testCompletionDetection()">Test Completion Detection</button>
+        <div id="completion-test-display"></div>
+    </div>
+
+    <script>
+        let currentTaskId = null;
+        let pollingInterval = null;
+        let lastKnownStatus = null;
+
+        // Check current agent status
+        async function checkAgentStatus() {
+            try {
+                console.log('🔍 Checking agent status...');
+                const response = await fetch('/agent/status');
+                const data = await response.json();
+                
+                console.log('📊 Agent status response:', data);
+                displayAgentStatus(data);
+                
+                if (data.task_id) {
+                    currentTaskId = data.task_id;
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('❌ Error checking agent status:', error);
+                displayError('agent-status-display', error.message);
+            }
+        }
+
+        // Display agent status in UI
+        function displayAgentStatus(status) {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const statusDetails = document.getElementById('status-details');
+            
+            // Update status indicator
+            if (status.is_running) {
+                statusDot.className = 'status-indicator running';
+                statusText.textContent = 'Running';
+            } else if (status.status === 'ERROR') {
+                statusDot.className = 'status-indicator error-status';
+                statusText.textContent = 'Error';
+            } else {
+                statusDot.className = 'status-indicator idle';
+                statusText.textContent = 'Idle';
+            }
+            
+            // Display detailed status
+            statusDetails.innerHTML = `
+                <pre>${JSON.stringify(status, null, 2)}</pre>
+            `;
+            
+            // Check for completion
+            if (lastKnownStatus && lastKnownStatus.is_running && !status.is_running) {
+                console.log('🎉 Task completion detected!');
+                displayCompletionDetected(status);
+            }
+            
+            lastKnownStatus = status;
+        }
+
+        // Check detailed task status
+        async function checkTaskDetails() {
+            if (!currentTaskId) {
+                const status = await checkAgentStatus();
+                if (!status || !status.task_id) {
+                    displayError('task-details-display', 'No active task found');
+                    return;
+                }
+                currentTaskId = status.task_id;
+            }
+            
+            try {
+                console.log(`🔍 Getting task details for: ${currentTaskId}`);
+                const response = await fetch(`/v2/agent/status/${currentTaskId}`);
+                const data = await response.json();
+                
+                console.log('📊 Task details response:', data);
+                
+                document.getElementById('task-details-display').innerHTML = `
+                    <div class="success">
+                        <h4>✅ Task Details Retrieved</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                
+                // Check for run report
+                if (data.run_report) {
+                    console.log('📋 Run report found!', data.run_report);
+                    displayRunReport(data.run_report);
+                } else {
+                    console.log('📋 No run report in task details');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error getting task details:', error);
+                displayError('task-details-display', error.message);
+            }
+        }
+
+        // Load recent logs
+        async function loadRecentLogs() {
+            try {
+                console.log('📝 Loading recent logs...');
+                const response = await fetch('/logs/recent');
+                const data = await response.json();
+                
+                console.log('📝 Logs response:', data);
+                
+                const logsDisplay = document.getElementById('logs-display');
+                
+                if (data.logs && data.logs.length > 0) {
+                    logsDisplay.innerHTML = data.logs.map(log => {
+                        const level = log.level || 'INFO';
+                        const levelClass = level.toLowerCase();
+                        const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                        return `<div class="log-entry log-${levelClass}">[${timestamp}] [${level}] ${log.message}</div>`;
+                    }).join('');
+                } else {
+                    logsDisplay.innerHTML = '<div class="info">No recent logs found</div>';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error loading logs:', error);
+                displayError('logs-display', error.message);
+            }
+        }
+
+        // Clear logs display
+        function clearLogsDisplay() {
+            document.getElementById('logs-display').innerHTML = '';
+        }
+
+        // Simulate phase detection
+        function simulatePhaseDetection() {
+            const messages = [
+                'GENERATING SUBCATEGORY SYNTHESIS FOR SECURITY/API_SECURITY: BEST_PRACTICES',
+                'Synthesis Generation',
+                'Processing content...',
+                'Database sync validation',
+                'Embedding generation complete',
+                'README generation started'
+            ];
+            
+            const results = messages.map(message => {
+                const lowerMessage = message.toLowerCase();
+                let mappedPhase = 'unknown';
+                
+                if (lowerMessage.includes('synthesis') || lowerMessage.includes('generating subcategory')) {
+                    mappedPhase = 'synthesis_generation';
+                } else if (lowerMessage.includes('embedding')) {
+                    mappedPhase = 'embedding_generation';
+                } else if (lowerMessage.includes('readme')) {
+                    mappedPhase = 'readme_generation';
+                } else if (lowerMessage.includes('database') || lowerMessage.includes('sync')) {
+                    mappedPhase = 'database_sync';
+                } else if (lowerMessage.includes('processing') || lowerMessage.includes('content')) {
+                    mappedPhase = 'content_processing';
+                }
+                
+                return { message, mappedPhase };
+            });
+            
+            document.getElementById('phase-simulation-display').innerHTML = `
+                <div class="info">
+                    <h4>Phase Mapping Results:</h4>
+                    ${results.map(r => `
+                        <div class="phase-status">
+                            <strong>Message:</strong> "${r.message}"<br>
+                            <strong>Mapped Phase:</strong> ${r.mappedPhase}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Test completion detection
+        async function testCompletionDetection() {
+            const display = document.getElementById('completion-test-display');
+            display.innerHTML = '<div class="info">Testing completion detection...</div>';
+            
+            try {
+                // Check current status
+                const status = await checkAgentStatus();
+                
+                // Simulate completion detection logic
+                const tests = [];
+                
+                // Test 1: Check if task is in terminal state
+                if (status.status && ['SUCCESS', 'FAILURE', 'COMPLETED'].includes(status.status.toUpperCase())) {
+                    tests.push('✅ Task is in terminal state: ' + status.status);
+                } else {
+                    tests.push('❌ Task is not in terminal state: ' + (status.status || 'UNKNOWN'));
+                }
+                
+                // Test 2: Check if agent is running vs task state
+                if (status.is_running && status.status && ['SUCCESS', 'FAILURE'].includes(status.status.toUpperCase())) {
+                    tests.push('⚠️ INCONSISTENCY: Agent shows running but task is in terminal state');
+                } else {
+                    tests.push('✅ Agent running state matches task state');
+                }
+                
+                // Test 3: Check for run report availability
+                if (currentTaskId) {
+                    try {
+                        const taskResponse = await fetch(`/v2/agent/status/${currentTaskId}`);
+                        const taskData = await taskResponse.json();
+                        
+                        if (taskData.run_report) {
+                            tests.push('✅ Run report is available');
+                        } else {
+                            tests.push('❌ Run report is missing');
+                        }
+                    } catch (e) {
+                        tests.push('❌ Could not check for run report: ' + e.message);
+                    }
+                } else {
+                    tests.push('⚠️ No task ID available to check run report');
+                }
+                
+                display.innerHTML = `
+                    <div class="info">
+                        <h4>Completion Detection Test Results:</h4>
+                        ${tests.map(test => `<div style="margin: 5px 0;">${test}</div>`).join('')}
+                    </div>
+                `;
+                
+            } catch (error) {
+                displayError('completion-test-display', error.message);
+            }
+        }
+
+        // Start status polling
+        function startPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            
+            console.log('🔄 Starting status polling...');
+            pollingInterval = setInterval(async () => {
+                await checkAgentStatus();
+            }, 3000);
+            
+            // Initial check
+            checkAgentStatus();
+        }
+
+        // Stop status polling
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                console.log('🛑 Status polling stopped');
+            }
+        }
+
+        // Display completion detected
+        function displayCompletionDetected(status) {
+            const completionDiv = document.createElement('div');
+            completionDiv.className = 'success';
+            completionDiv.innerHTML = `
+                <h4>🎉 Task Completion Detected!</h4>
+                <p>Agent was running, now shows as: ${status.is_running ? 'Running' : 'Idle'}</p>
+                <p>Status: ${status.status || 'Unknown'}</p>
+                <p>Time: ${new Date().toLocaleTimeString()}</p>
+            `;
+            
+            document.body.insertBefore(completionDiv, document.body.firstChild);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                if (completionDiv.parentNode) {
+                    completionDiv.parentNode.removeChild(completionDiv);
+                }
+            }, 10000);
+        }
+
+        // Display run report
+        function displayRunReport(runReport) {
+            const reportDiv = document.createElement('div');
+            reportDiv.className = 'success';
+            reportDiv.innerHTML = `
+                <h4>📋 Run Report Found!</h4>
+                <pre>${JSON.stringify(runReport, null, 2)}</pre>
+            `;
+            
+            document.getElementById('task-details-display').appendChild(reportDiv);
+        }
+
+        // Display error
+        function displayError(elementId, message) {
+            document.getElementById(elementId).innerHTML = `
+                <div class="error">
+                    <h4>❌ Error</h4>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        // Auto-start on page load
+        window.addEventListener('load', () => {
+            console.log('🚀 Agent completion detection test loaded');
+            checkAgentStatus();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+{
+  "prompt_id": "synthesis_markdown_generation_reasoning",
+  "prompt_name": "Synthesis Markdown Generation (Reasoning)",
+  "description": "Transforms synthesis JSON into compelling markdown using step-by-step reasoning for optimal structure and flow",
+  "model_type": "reasoning",
+  "category": "synthesis_generation",
+  "task": "Convert synthesis JSON to well-structured markdown with reasoning-based content organization",
+  "topic": "Markdown generation with reasoning and technical documentation optimization",
+  "format": {
+    "output_type": "markdown",
+    "response_structure": {
+      "role": "user",
+      "content": "markdown generation request with reasoning instructions"
+    },
+    "constraints": [
+      "Use proper markdown syntax",
+      "Ensure logical content flow",
+      "Include metadata footer",
+      "Use step-by-step reasoning",
+      "Target senior engineers and architects"
+    ]
+  },
+  "input_parameters": {
+    "required": ["synthesis_json", "main_category", "sub_category", "item_count"],
+    "optional": [],
+    "parameters": {
+      "synthesis_json": {
+        "type": "string",
+        "description": "JSON content of the synthesis to be converted to markdown"
+      },
+      "main_category": {
+        "type": "string",
+        "description": "Main category domain"
+      },
+      "sub_category": {
+        "type": "string",
+        "description": "Specific subcategory"
+      },
+      "item_count": {
+        "type": "integer",
+        "description": "Number of source items used in the synthesis"
+      }
+    }
+  },
+  "template": {
+    "type": "reasoning",
+    "system_message": "Enable deep thinking subroutine. Analyze problems step-by-step. Consider multiple angles and approaches before providing your final answer. Adopt the persona of a highly experienced principal software engineer and technical architect. Your goal is to create a deeply technical and intuitively organized knowledge graph.",
+    "user_message": "Transform the following synthesis JSON into compelling, well-structured markdown content for the '{{sub_category}}' synthesis document.\\n\\n**Synthesis JSON**:\\n{{synthesis_json}}\\n\\n**Context**: This synthesis represents expert-level analysis of knowledge from {{item_count}} items in the {{main_category}}/{{sub_category}} subcategory.\\n\\n**Your Task**: Create markdown content that:\\n- Flows logically from high-level overview to detailed technical analysis\\n- Uses appropriate markdown syntax for maximum readability\\n- Maintains the technical depth while being accessible to senior engineers\\n- Provides clear navigation through complex technical concepts\\n- Includes proper formatting for code examples, lists, and technical details\\n\\n**Required Structure**:\\n1. **Title** (# level) - Make it compelling and specific\\n2. **Executive Summary** - Clear overview of scope and value\\n3. **Core Concepts** - Fundamental principles with examples\\n4. **Technical Patterns** - Architectural approaches and implementations\\n5. **Key Insights** - Cross-cutting insights from multiple sources\\n6. **Implementation Considerations** - Practical guidance by domain area\\n7. **Advanced Topics** - Expert-level concepts and cutting-edge techniques\\n8. **Knowledge Gaps & Future Exploration** - Areas for expansion\\n9. **Related Resources** - Cross-references with relevance explanations\\n10. **Metadata Footer** - Source count, category info, and timestamp\\n\\n**Formatting Guidelines**:\\n- Use `##` for major sections, `###` for subsections\\n- Create bulleted or numbered lists for clarity\\n- Use `**bold**` for emphasis on key concepts\\n- Use `code blocks` for technical terms and examples\\n- Include horizontal rules (`---`) to separate major sections\\n- Add a professional metadata footer with generation details\\n\\nThink about how a principal engineer would want to consume this information - make it scannable, actionable, and technically rigorous. Respond with ONLY the markdown content."
+  },
+  "examples": [
+    {
+      "name": "reasoning_markdown_example",
+      "input": {
+        "synthesis_json": "{\"synthesis_title\": \"Java Thread Synchronization Patterns\", \"executive_summary\": \"Overview of Java concurrency...\"}",
+        "main_category": "concurrency_patterns",
+        "sub_category": "thread_synchronization_java",
+        "item_count": 5
+      },
+      "expected_output": "{\"role\": \"user\", \"content\": \"Transform the following synthesis JSON...\"}",
+      "notes": "Example of reasoning-based markdown generation with structured analysis"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["synthesis", "reasoning", "markdown", "documentation", "step-by-step"],
+    "performance_notes": "Reasoning-based markdown generation with structured content flow",
+    "quality_score": 9.0
+  },
+  "validation": {
+    "output_validation": {
+      "message_structure": {
+        "role": "user",
+        "content": "string"
+      }
+    },
+    "quality_checks": [
+      "step_by_step_reasoning",
+      "logical_content_flow",
+      "proper_markdown_syntax",
+      "technical_rigor",
+      "senior_engineer_focus"
+    ]
+  }
+}

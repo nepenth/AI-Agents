@@ -285,7 +285,7 @@ def stats(ctx):
 @cli.command()
 @click.pass_context
 def reset_agent_state(ctx):
-    """Reset the agent state to idle"""
+    """Reset the agent state to idle (basic reset)"""
     app = ctx.obj['app']
     
     with app.app_context():
@@ -299,6 +299,62 @@ def reset_agent_state(ctx):
             click.echo("Agent state reset to idle.")
         else:
             click.echo("No agent state found.")
+
+
+@cli.command()
+@click.option('--dry-run', is_flag=True, help='Show what would be cleaned without actually doing it')
+@click.option('--force', is_flag=True, help='Skip confirmation prompts')
+@click.pass_context
+def comprehensive_reset(ctx, dry_run, force):
+    """Comprehensive agent reset: clear stuck tasks, revoke Celery tasks, reset state"""
+    app = ctx.obj['app']
+    config = ctx.obj['config']
+    
+    with app.app_context():
+        from knowledge_base_agent.task_state_manager import TaskStateManager
+        
+        task_manager = TaskStateManager(config)
+        
+        # Get stuck tasks count
+        stuck_tasks = CeleryTaskState.query.filter(
+            CeleryTaskState.status.in_(['PENDING', 'PROGRESS', 'STARTED'])
+        ).all()
+        
+        if not stuck_tasks:
+            click.echo("✅ No stuck tasks found. Agent state is clean.")
+            return
+        
+        click.echo(f"🔍 Found {len(stuck_tasks)} stuck tasks:")
+        click.echo("=" * 60)
+        
+        for task in stuck_tasks:
+            click.echo(f"Task ID: {task.task_id}")
+            click.echo(f"  Status: {task.status}")
+            click.echo(f"  Created: {task.created_at}")
+            click.echo(f"  Phase: {task.current_phase_message or 'None'}")
+            click.echo()
+        
+        if dry_run:
+            click.echo("🔍 DRY RUN: Would perform comprehensive cleanup")
+            return
+        
+        if not force:
+            if not click.confirm(f"Perform comprehensive cleanup of {len(stuck_tasks)} stuck tasks?"):
+                click.echo("❌ Cancelled.")
+                return
+        
+        click.echo("🧹 Performing comprehensive cleanup...")
+        
+        # Perform the reset
+        success = task_manager.reset_agent_state()
+        
+        if success:
+            click.echo(f"✅ Successfully cleaned up {len(stuck_tasks)} stuck tasks")
+            click.echo("✅ Agent state reset to idle")
+            click.echo("✅ Redis data cleared")
+            click.echo("✅ Celery tasks revoked")
+        else:
+            click.echo("❌ Failed to reset agent state")
 
 
 @cli.command()

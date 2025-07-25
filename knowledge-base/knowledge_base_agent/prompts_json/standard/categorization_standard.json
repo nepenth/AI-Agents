@@ -1,0 +1,147 @@
+{
+  "prompt_id": "categorization_standard",
+  "prompt_name": "Content Categorization (Standard)",
+  "description": "Categorizes technical content and suggests filename-compatible item names for knowledge base organization",
+  "model_type": "standard",
+  "category": "categorization",
+  "task": "Analyze technical content and provide structured categorization with main category, sub category, and item name",
+  "topic": "Technical content organization and knowledge graph construction",
+  "format": {
+    "output_type": "json",
+    "response_structure": {
+      "main_category": "string - highly specific technical domain",
+      "sub_category": "string - even more precise technical area", 
+      "item_name": "string - concise, filesystem-friendly title"
+    },
+    "constraints": [
+      "Response must be valid JSON only",
+      "No generic top-level terms allowed",
+      "Item names must use lowercase with underscores",
+      "No special characters except underscore in item names"
+    ]
+  },
+  "input_parameters": {
+    "required": ["context_content", "formatted_existing_categories"],
+    "optional": ["is_thread"],
+    "parameters": {
+      "context_content": {
+        "type": "string",
+        "description": "The content to be categorized (tweet text, thread content, etc.)"
+      },
+      "formatted_existing_categories": {
+        "type": "string", 
+        "description": "Formatted list of existing categories to guide categorization"
+      },
+      "is_thread": {
+        "type": "boolean",
+        "description": "Whether the content is from a tweet thread",
+        "default": false
+      }
+    }
+  },
+  "template": {
+    "type": "standard",
+    "content": "You are an expert technical content curator and a seasoned software architect/principal engineer, specializing in software engineering, system design, and technical management. Your primary goal is to create a deeply technical and intuitively organized knowledge graph. Your task is to categorize the following content ({{source_type_indicator}} and any associated media insights) and suggest a filename-compatible item name.\n\n{{source_type_indicator}}:\n---\n{{context_content}}\n---\n\nExisting Categories (use these as a guide or create specific new ones if necessary. Focus on depth and specificity):\n{{formatted_existing_categories}}\n\nInstructions:\n1. Main Category:\n   - Choose a HIGHLY SPECIFIC technical domain (e.g., \"backend_frameworks\", \"devops_automation\", \"cloud_architecture\", \"testing_patterns\").\n   - **CRITICAL: DO NOT use generic top-level terms like \"software_engineering\", \"programming\", \"devops\", \"cloud_computing\", \"web_development\", \"technology\", \"coding\", \"engineering\".** Strive for categories that reflect expert-level distinctions.\n   - The main category should represent the most specific technical area that is relevant, not a broad discipline.\n   - Example: Use \"concurrency_models\" instead of \"software_engineering\"; use \"api_design_patterns\" instead of \"programming\"; use \"kubernetes_networking\" instead of \"cloud_computing\".\n2. Sub Category:\n   - Specify an even more precise technical area (e.g., \"thread_safety_mechanisms\", \"circuit_breaker_implementation_strategies\", \"terraform_advanced_modules\").\n   - **CRITICAL: Sub-categories must be highly specific and technical. Never use generic terms.**\n3. Item Name:\n   - Create a concise, descriptive, filesystem-friendly title (3-7 words, e.g., \"java_atomiclong_vs_synchronized\", \"resilience4j_circuitbreaker_config\", \"terraform_eks_cluster_provisioning\").\n   - Format: lowercase with underscores, no special characters other than underscore.\n   - Avoid generic terms like \"guide\", \"overview\", \"notes\", \"details\", \"insights\". Focus on keywords that highlight the core technical concept.\n\n**Response Format (MUST be a valid JSON object, on a single line if possible, or pretty-printed):**\n```json\n{\n  \"main_category\": \"example_specific_main_category\",\n  \"sub_category\": \"example_highly_specific_sub_category\",\n  \"item_name\": \"example_descriptive_technical_item_name\"\n}\n```\n\nExamples of good JSON responses:\n```json\n{\n  \"main_category\": \"concurrency_patterns\",\n  \"sub_category\": \"thread_synchronization_java\",\n  \"item_name\": \"java_util_concurrent_locks_deep_dive\"\n}\n```\n```json\n{\n  \"main_category\": \"ci_cd_security\",\n  \"sub_category\": \"github_actions_secret_management\",\n  \"item_name\": \"oidc_auth_for_secure_cloud_access\"\n}\n```\n```json\n{\n  \"main_category\": \"database_internals\",\n  \"sub_category\": \"postgresql_mvcc_vacuum_process\",\n  \"item_name\": \"optimizing_vacuum_for_high_write_workloads\"\n}\n```\nRespond ONLY with the JSON object."
+  },
+  "variants": [
+    {
+      "name": "thread_content",
+      "condition": "is_thread == true",
+      "template": {
+        "type": "standard",
+        "content": "{{template.content | replace('{{source_type_indicator}}', 'Tweet Thread Content')}}"
+      }
+    },
+    {
+      "name": "single_tweet",
+      "condition": "is_thread == false",
+      "template": {
+        "type": "standard", 
+        "content": "{{template.content | replace('{{source_type_indicator}}', 'Tweet Content')}}"
+      }
+    }
+  ],
+  "examples": [
+    {
+      "name": "concurrency_example",
+      "input": {
+        "context_content": "Java's AtomicLong vs synchronized blocks for thread-safe counters. Performance comparison and when to use each approach.",
+        "formatted_existing_categories": "concurrency_patterns, database_internals, api_design_patterns",
+        "is_thread": false
+      },
+      "expected_output": "{\n  \"main_category\": \"concurrency_patterns\",\n  \"sub_category\": \"thread_synchronization_java\",\n  \"item_name\": \"java_atomiclong_vs_synchronized\"\n}",
+      "notes": "Example of proper technical categorization with specific domain focus"
+    }
+  ],
+  "extract_fields": {
+    "main_category": {
+      "type": "string",
+      "description": "Highly specific technical domain category",
+      "required": true,
+      "validation": {
+        "pattern": "^[a-z_]+$",
+        "min_length": 3,
+        "max_length": 50
+      }
+    },
+    "sub_category": {
+      "type": "string", 
+      "description": "More precise technical area within the main category",
+      "required": true,
+      "validation": {
+        "pattern": "^[a-z_]+$",
+        "min_length": 3,
+        "max_length": 50
+      }
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Filesystem-friendly descriptive title",
+      "required": true,
+      "validation": {
+        "pattern": "^[a-z_]+$",
+        "min_length": 10,
+        "max_length": 100
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["categorization", "knowledge-graph", "technical-content", "organization"],
+    "performance_notes": "Complex prompt with conditional logic and detailed examples",
+    "quality_score": 9.0
+  },
+  "validation": {
+    "output_validation": {
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "main_category": {"type": "string", "pattern": "^[a-z_]+$"},
+          "sub_category": {"type": "string", "pattern": "^[a-z_]+$"},
+          "item_name": {"type": "string", "pattern": "^[a-z_]+$"}
+        },
+        "required": ["main_category", "sub_category", "item_name"]
+      }
+    },
+    "quality_checks": [
+      "no_generic_terms",
+      "specific_technical_domains",
+      "filesystem_safe_names",
+      "valid_json_output"
+    ],
+    "test_cases": [
+      {
+        "input": {
+          "context_content": "Docker container optimization techniques",
+          "formatted_existing_categories": "containerization, devops_automation",
+          "is_thread": false
+        },
+        "expected_pattern": "containerization.*optimization",
+        "validation_rules": ["main_category_not_generic", "valid_json_structure"]
+      }
+    ]
+  }
+}

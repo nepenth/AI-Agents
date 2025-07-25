@@ -38,7 +38,7 @@ def process_tweets_task(self, task_id: str, tweet_ids: List[str], phase: str, pr
     progress_manager = get_progress_manager()
     
     async def _async_process():
-        from ..prompts import UserPreferences
+        from ..preferences import UserPreferences
         
         config = Config.from_env()
         config.ensure_directories()
@@ -196,7 +196,7 @@ def generate_synthesis_task(self, task_id: str, category: str, subcategory: str,
     
     async def _async_synthesis():
         from ..synthesis_generator import SynthesisGenerator
-        from ..prompts import UserPreferences
+        from ..preferences import UserPreferences
         
         config = Config.from_env()
         config.ensure_directories()
@@ -283,7 +283,7 @@ def generate_embeddings_task(self, task_id: str, content_ids: List[str], prefere
     async def _async_embeddings():
         from ..embedding_manager import EmbeddingManager
         from ..http_client import HTTPClient
-        from ..prompts import UserPreferences
+        from ..preferences import UserPreferences
         
         config = Config.from_env()
         config.ensure_directories()
@@ -379,7 +379,7 @@ def generate_readme_task(self, task_id: str, preferences_dict: Dict[str, Any]):
     
     async def _async_readme():
         from ..readme_generator import ReadmeGenerator
-        from ..prompts import UserPreferences
+        from ..preferences import UserPreferences
         
         config = Config.from_env()
         config.ensure_directories()

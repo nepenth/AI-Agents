@@ -1,0 +1,88 @@
+{
+  "prompt_id": "readme_introduction_standard",
+  "prompt_name": "README Introduction Generation (Standard)",
+  "description": "Generates engaging introduction paragraphs for technical knowledge base README.md files with synthesis awareness",
+  "model_type": "standard",
+  "category": "readme_generation",
+  "task": "Create compelling README introductions that highlight the value of dual-layer knowledge base collections",
+  "topic": "Technical documentation, knowledge base presentation, and user engagement",
+  "format": {
+    "output_type": "markdown",
+    "response_structure": {
+      "type": "introduction_paragraph",
+      "length": "3-5 sentences",
+      "format": "markdown",
+      "tone": "helpful technical guide"
+    },
+    "constraints": [
+      "Engaging and concise",
+      "Highlight dual-layer value (items + synthesis)",
+      "Explain organization and benefits",
+      "Use markdown format",
+      "3-5 sentences maximum"
+    ]
+  },
+  "input_parameters": {
+    "required": ["kb_stats", "category_list"],
+    "optional": [],
+    "parameters": {
+      "kb_stats": {
+        "type": "object",
+        "description": "Dictionary containing knowledge base statistics including item counts, categories, and media files"
+      },
+      "category_list": {
+        "type": "string",
+        "description": "Formatted list of categories included in the knowledge base"
+      }
+    }
+  },
+  "template": {
+    "type": "standard",
+    "content": "Generate an engaging introduction paragraph for a technical knowledge base README.md file.\\n\\nKnowledge Base Statistics:\\n- Knowledge Base Items: {{kb_items}}\\n- Synthesis Documents: {{synthesis_docs}}\\n- Total Content: {{total_content}}\\n- Main Categories: {{total_main_cats}}\\n- Subcategories: {{total_subcats}}\\n- Media Files: {{total_media}}\\n\\nCategories include: {{category_list}}\\n\\nThe introduction should be engaging, concise, and highlight the value of the knowledge base for technical professionals. Mention both the detailed individual knowledge base items AND the high-level synthesis documents that provide consolidated insights and patterns across multiple topics. Explain what makes this dual-layer collection valuable, how it's organized, and how users can benefit from it. Write in markdown format, and keep it to 3-5 sentences. Adopt the persona of a helpful technical guide."
+  },
+  "examples": [
+    {
+      "name": "readme_intro_example",
+      "input": {
+        "kb_stats": {
+          "total_items": 150,
+          "total_synthesis": 25,
+          "total_combined": 175,
+          "total_main_cats": 8,
+          "total_subcats": 32,
+          "total_media": 45
+        },
+        "category_list": "Backend Frameworks, Cloud Architecture, DevOps Automation, Database Internals"
+      },
+      "expected_output": "Welcome to this comprehensive technical knowledge base containing 150 curated knowledge base items and 25 synthesis documents...",
+      "notes": "Example of engaging README introduction with statistics"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["readme", "documentation", "introduction", "knowledge-base"],
+    "performance_notes": "Requires dynamic parameter processing for statistics",
+    "quality_score": 8.5
+  },
+  "validation": {
+    "output_validation": {
+      "format": "markdown",
+      "max_sentences": 5,
+      "min_sentences": 3,
+      "required_mentions": [
+        "knowledge base items",
+        "synthesis documents",
+        "technical professionals"
+      ]
+    },
+    "quality_checks": [
+      "engaging_tone",
+      "dual_layer_mention",
+      "value_proposition_clear",
+      "markdown_format"
+    ]
+  }
+}

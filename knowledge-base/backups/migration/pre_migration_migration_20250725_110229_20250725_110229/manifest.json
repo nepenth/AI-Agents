@@ -1,0 +1,20 @@
+{
+  "migration_id": "migration_20250725_110229",
+  "backup_created": "2025-07-25T15:02:29.562863+00:00",
+  "files": [
+    "json_files/processing_stats.json",
+    "json_files/categories.json",
+    "json_files/unprocessed_tweets.json",
+    "json_files/latest_run_stats.json",
+    "json_files/tweet_cache.json",
+    "json_files/processed_tweets.json"
+  ],
+  "checksums": {
+    "json_files/processing_stats.json": "53ff7a34943b3dcf2f3fe85637909a72e38339e8c77332f4b39af163ec533b60",
+    "json_files/categories.json": "04f94cd95e252e1f48bfbd0506146e1c1037fc33e5c91e3cde244759507cc927",
+    "json_files/unprocessed_tweets.json": "f867518506637596452499a8e6981c285743a97ed9b473a4fb95b19dea70e933",
+    "json_files/latest_run_stats.json": "8dde87854c19d8ad3b24a463054322aa9dad546334022651ef9a3ee3b1863448",
+    "json_files/tweet_cache.json": "af53a8cc573a55d764cbda0acffbb9772f3d85725914102c5a45ae202bfa3432",
+    "json_files/processed_tweets.json": "d6b1317e301d1d0ce2b07550e48537138359f37ff451c52ac804c94281a025a4"
+  }
+}

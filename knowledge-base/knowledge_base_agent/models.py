@@ -1,5 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+from sqlalchemy import Index, func, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.hybrid import hybrid_property
 import json
 
 db = SQLAlchemy()
@@ -181,16 +184,15 @@ class AgentState(db.Model):
 
 class CeleryTaskState(db.Model):
     """
-    Track Celery task execution state, extending current state management.
-    This provides a persistent record of each task run, unlike the ephemeral
-    nature of the AgentState singleton.
+    Enhanced task state management for complete lifecycle tracking.
+    Supports both active task monitoring and historical job records.
     """
     __tablename__ = 'celery_task_state'
     
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.String(36), unique=True, nullable=False, index=True)  # Custom-generated UUID
     celery_task_id = db.Column(db.String(36), nullable=True, index=True) # Celery's internal task ID
-    task_type = db.Column(db.String(100), nullable=False, index=True)  # e.g., 'knowledge_base_agent.tasks.run_agent'
+    task_type = db.Column(db.String(100), nullable=False, index=True)  # e.g., 'agent_run', 'fetch_bookmarks', 'git_sync'
     status = db.Column(db.String(20), nullable=False, default='PENDING', index=True)  # PENDING, PROGRESS, SUCCESS, FAILURE, REVOKED
     
     # Progress tracking fields
@@ -198,7 +200,7 @@ class CeleryTaskState(db.Model):
     current_phase_message = db.Column(db.Text, nullable=True)
     progress_percentage = db.Column(db.Integer, default=0)
     
-    # Task metadata
+    # Enhanced task metadata
     human_readable_name = db.Column(db.String(200), nullable=True)  # Human-readable task name with timestamp
     preferences = db.Column(db.JSON, nullable=True)  # Store UserPreferences as JSON for agent runs
     result_data = db.Column(db.JSON, nullable=True)  # Store task final results
@@ -206,13 +208,22 @@ class CeleryTaskState(db.Model):
     error_message = db.Column(db.Text, nullable=True)
     traceback = db.Column(db.Text, nullable=True)
     
+    # Execution statistics
+    items_processed = db.Column(db.Integer, default=0)
+    items_failed = db.Column(db.Integer, default=0)
+    execution_duration = db.Column(db.String(50), nullable=True)  # Human-readable duration
+    
+    # State management flags
+    is_active = db.Column(db.Boolean, default=True, index=True)  # Whether this is the current active task
+    is_archived = db.Column(db.Boolean, default=False, index=True)  # Whether task is archived
+    
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     started_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
 
-    def __init__(self, task_id, task_type, status, preferences=None, celery_task_id=None, current_phase_id=None, current_phase_message=None, progress_percentage=0, result_data=None, error_message=None, traceback=None, human_readable_name=None, run_report=None):
+    def __init__(self, task_id, task_type, status, preferences=None, celery_task_id=None, current_phase_id=None, current_phase_message=None, progress_percentage=0, result_data=None, error_message=None, traceback=None, human_readable_name=None, run_report=None, items_processed=0, items_failed=0, execution_duration=None, is_active=True, is_archived=False):
         self.task_id = task_id
         self.task_type = task_type
         self.status = status
@@ -226,6 +237,11 @@ class CeleryTaskState(db.Model):
         self.traceback = traceback
         self.human_readable_name = human_readable_name
         self.run_report = run_report
+        self.items_processed = items_processed
+        self.items_failed = items_failed
+        self.execution_duration = execution_duration
+        self.is_active = is_active
+        self.is_archived = is_archived
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
 
@@ -321,4 +337,430 @@ class ScheduleRun(db.Model):
     logs = db.Column(db.Text, nullable=True)
     
     def __repr__(self):
-        return f'<ScheduleRun {self.id} for schedule {self.schedule_id}>' 
+        return f'<ScheduleRun {self.id} for schedule {self.schedule_id}>'
+
+
+class JobHistory(db.Model):
+    """
+    Comprehensive job history tracking for all agent executions.
+    Provides historical view of all runs with detailed metadata.
+    """
+    __tablename__ = 'job_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.String(36), db.ForeignKey('celery_task_state.task_id'), nullable=False, index=True)
+    job_type = db.Column(db.String(50), nullable=False, index=True)  # 'manual', 'scheduled', 'api'
+    trigger_source = db.Column(db.String(100), nullable=True)  # 'web_ui', 'api_call', 'schedule_name'
+    
+    # Execution summary
+    execution_summary = db.Column(db.JSON, nullable=True)  # Summary of what was processed
+    phase_results = db.Column(db.JSON, nullable=True)  # Results from each processing phase
+    performance_metrics = db.Column(db.JSON, nullable=True)  # Performance statistics
+    
+    # User context
+    user_preferences = db.Column(db.JSON, nullable=True)  # Snapshot of preferences used
+    system_info = db.Column(db.JSON, nullable=True)  # System state at execution time
+    
+    # Categorization
+    tags = db.Column(db.JSON, nullable=True)  # User-defined tags for organization
+    notes = db.Column(db.Text, nullable=True)  # User notes about this run
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    task = db.relationship('CeleryTaskState', backref=db.backref('history', uselist=False, cascade='all, delete-orphan'))
+    
+    def __repr__(self):
+        return f'<JobHistory {self.task_id} [{self.job_type}]>'
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'task_id': self.task_id,
+            'job_type': self.job_type,
+            'trigger_source': self.trigger_source,
+            'execution_summary': self.execution_summary,
+            'phase_results': self.phase_results,
+            'performance_metrics': self.performance_metrics,
+            'user_preferences': self.user_preferences,
+            'system_info': self.system_info,
+            'tags': self.tags,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'task': {
+                'status': self.task.status,
+                'human_readable_name': self.task.human_readable_name,
+                'started_at': self.task.started_at.isoformat() if self.task.started_at else None,
+                'completed_at': self.task.completed_at.isoformat() if self.task.completed_at else None,
+                'execution_duration': self.task.execution_duration,
+                'items_processed': self.task.items_processed,
+                'items_failed': self.task.items_failed
+            } if self.task else None
+        }
+
+
+# ===== NEW ENHANCED MODELS FOR JSON-TO-DATABASE MIGRATION =====
+
+class TweetCache(db.Model):
+    """
+    Enhanced Tweet Cache Model (replaces tweet_cache.json)
+    
+    Stores comprehensive tweet data with processing flags, categorization,
+    and reprocessing controls for the AI agent pipeline.
+    """
+    __tablename__ = 'tweet_cache'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tweet_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    bookmarked_tweet_id = db.Column(db.String(50), nullable=False)
+    is_thread = db.Column(db.Boolean, default=False)
+    thread_tweets = db.Column(JSONB, default=list)
+    all_downloaded_media_for_thread = db.Column(JSONB, default=list)
+    
+    # Processing flags
+    urls_expanded = db.Column(db.Boolean, default=False)
+    media_processed = db.Column(db.Boolean, default=False)
+    cache_complete = db.Column(db.Boolean, default=False)
+    categories_processed = db.Column(db.Boolean, default=False)
+    kb_item_created = db.Column(db.Boolean, default=False)
+    
+    # Manual reprocessing controls
+    force_reprocess_pipeline = db.Column(db.Boolean, default=False)
+    force_recache = db.Column(db.Boolean, default=False)
+    reprocess_requested_at = db.Column(db.DateTime(timezone=True))
+    reprocess_requested_by = db.Column(db.String(100))
+    
+    # Categorization data
+    main_category = db.Column(db.String(100))
+    sub_category = db.Column(db.String(100))
+    item_name_suggestion = db.Column(db.Text)
+    categories = db.Column(JSONB, default=dict)
+    
+    # Knowledge base integration
+    kb_item_path = db.Column(db.Text)
+    kb_media_paths = db.Column(JSONB, default=list)
+    
+    # Content and metadata
+    raw_json_content = db.Column(JSONB)
+    display_title = db.Column(db.Text)
+    source = db.Column(db.String(50), default='unknown')
+    image_descriptions = db.Column(JSONB, default=list)
+    full_text = db.Column(db.Text)  # Extracted text for full-text search
+    
+    # Processing metadata
+    recategorization_attempts = db.Column(db.Integer, default=0)
+    
+    # Runtime flags (prefixed with _)
+    cache_succeeded_this_run = db.Column(db.Boolean, default=False)
+    media_succeeded_this_run = db.Column(db.Boolean, default=False)
+    llm_succeeded_this_run = db.Column(db.Boolean, default=False)
+    kbitem_succeeded_this_run = db.Column(db.Boolean, default=False)
+    
+    # Error tracking
+    kbitem_error = db.Column(db.Text)
+    llm_error = db.Column(db.Text)
+    
+    # Additional fields
+    db_synced = db.Column(db.Boolean, default=False)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    processing_queue = db.relationship("TweetProcessingQueue", back_populates="tweet", uselist=False, cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f'<TweetCache {self.tweet_id} [{self.main_category}/{self.sub_category}]>'
+    
+    @hybrid_property
+    def processing_complete(self):
+        """Check if all processing phases are complete."""
+        return (self.cache_complete and 
+                self.media_processed and 
+                self.categories_processed and 
+                self.kb_item_created)
+    
+    @hybrid_property
+    def needs_reprocessing(self):
+        """Check if tweet needs reprocessing."""
+        return self.force_reprocess_pipeline or self.force_recache
+    
+    def to_dict(self, include_content=True):
+        """Convert to dictionary for API responses."""
+        data = {
+            'id': self.id,
+            'tweet_id': self.tweet_id,
+            'bookmarked_tweet_id': self.bookmarked_tweet_id,
+            'is_thread': self.is_thread,
+            'processing_flags': {
+                'urls_expanded': self.urls_expanded,
+                'media_processed': self.media_processed,
+                'cache_complete': self.cache_complete,
+                'categories_processed': self.categories_processed,
+                'kb_item_created': self.kb_item_created,
+                'processing_complete': self.processing_complete
+            },
+            'reprocessing_controls': {
+                'force_reprocess_pipeline': self.force_reprocess_pipeline,
+                'force_recache': self.force_recache,
+                'reprocess_requested_at': self.reprocess_requested_at.isoformat() if self.reprocess_requested_at else None,
+                'reprocess_requested_by': self.reprocess_requested_by,
+                'needs_reprocessing': self.needs_reprocessing
+            },
+            'categorization': {
+                'main_category': self.main_category,
+                'sub_category': self.sub_category,
+                'item_name_suggestion': self.item_name_suggestion,
+                'categories': self.categories
+            },
+            'metadata': {
+                'source': self.source,
+                'display_title': self.display_title,
+                'recategorization_attempts': self.recategorization_attempts,
+                'db_synced': self.db_synced
+            },
+            'timestamps': {
+                'created_at': self.created_at.isoformat() if self.created_at else None,
+                'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            }
+        }
+        
+        if include_content:
+            data.update({
+                'content': {
+                    'thread_tweets': self.thread_tweets,
+                    'all_downloaded_media_for_thread': self.all_downloaded_media_for_thread,
+                    'kb_item_path': self.kb_item_path,
+                    'kb_media_paths': self.kb_media_paths,
+                    'image_descriptions': self.image_descriptions,
+                    'full_text': self.full_text,
+                    'raw_json_content': self.raw_json_content
+                },
+                'errors': {
+                    'kbitem_error': self.kbitem_error,
+                    'llm_error': self.llm_error
+                }
+            })
+        
+        return data
+
+
+class TweetProcessingQueue(db.Model):
+    """
+    Processing Queue Model (replaces processed_tweets.json and unprocessed_tweets.json)
+    
+    Manages tweet processing workflow with status tracking, priority, and retry logic.
+    """
+    __tablename__ = 'tweet_processing_queue'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tweet_id = db.Column(db.String(50), db.ForeignKey('tweet_cache.tweet_id'), nullable=False, unique=True, index=True)
+    status = db.Column(db.String(20), nullable=False, default='unprocessed', index=True)  # 'unprocessed', 'processing', 'processed', 'failed'
+    processing_phase = db.Column(db.String(50), index=True)  # 'cache', 'media', 'categorization', 'kb_item', 'db_sync'
+    priority = db.Column(db.Integer, default=0, index=True)
+    retry_count = db.Column(db.Integer, default=0)
+    last_error = db.Column(db.Text)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    processed_at = db.Column(db.DateTime(timezone=True))
+    
+    # Relationships
+    tweet = db.relationship("TweetCache", back_populates="processing_queue")
+    
+    def __repr__(self):
+        return f'<TweetProcessingQueue {self.tweet_id} [{self.status}] - {self.processing_phase}>'
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'tweet_id': self.tweet_id,
+            'status': self.status,
+            'processing_phase': self.processing_phase,
+            'priority': self.priority,
+            'retry_count': self.retry_count,
+            'last_error': self.last_error,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'processed_at': self.processed_at.isoformat() if self.processed_at else None
+        }
+
+
+class CategoryHierarchy(db.Model):
+    """
+    Category Hierarchy Model (replaces categories.json)
+    
+    Manages hierarchical category structure with metadata and item counts.
+    """
+    __tablename__ = 'category_hierarchy'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    main_category = db.Column(db.String(100), nullable=False, index=True)
+    sub_category = db.Column(db.String(100), nullable=False)
+    display_name = db.Column(db.String(200))
+    description = db.Column(db.Text)
+    sort_order = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True, index=True)
+    
+    # Metadata
+    item_count = db.Column(db.Integer, default=0)
+    last_updated = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        db.UniqueConstraint('main_category', 'sub_category', name='uq_category_hierarchy_main_sub'),
+    )
+    
+    def __repr__(self):
+        return f'<CategoryHierarchy {self.main_category}/{self.sub_category} ({self.item_count} items)>'
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'main_category': self.main_category,
+            'sub_category': self.sub_category,
+            'display_name': self.display_name,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_active': self.is_active,
+            'item_count': self.item_count,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+        }
+
+
+class ProcessingStatistics(db.Model):
+    """
+    Processing Statistics Model (replaces processing_stats.json)
+    
+    Stores detailed phase-by-phase processing statistics and metrics.
+    """
+    __tablename__ = 'processing_statistics'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    phase_name = db.Column(db.String(100), nullable=False, index=True)
+    metric_name = db.Column(db.String(100), nullable=False)
+    metric_value = db.Column(db.Numeric)
+    metric_unit = db.Column(db.String(50))
+    
+    # Aggregation data
+    total_items_processed = db.Column(db.Integer, default=0)
+    total_duration_seconds = db.Column(db.Numeric, default=0)
+    avg_time_per_item_seconds = db.Column(db.Numeric, default=0)
+    
+    # Metadata
+    run_id = db.Column(db.String(36), index=True)  # Links to specific agent runs
+    recorded_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    __table_args__ = (
+        db.UniqueConstraint('phase_name', 'metric_name', 'run_id', name='uq_processing_stats_phase_metric_run'),
+    )
+    
+    def __repr__(self):
+        return f'<ProcessingStatistics {self.phase_name}.{self.metric_name} = {self.metric_value}>'
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'phase_name': self.phase_name,
+            'metric_name': self.metric_name,
+            'metric_value': float(self.metric_value) if self.metric_value else None,
+            'metric_unit': self.metric_unit,
+            'total_items_processed': self.total_items_processed,
+            'total_duration_seconds': float(self.total_duration_seconds) if self.total_duration_seconds else None,
+            'avg_time_per_item_seconds': float(self.avg_time_per_item_seconds) if self.avg_time_per_item_seconds else None,
+            'run_id': self.run_id,
+            'recorded_at': self.recorded_at.isoformat() if self.recorded_at else None
+        }
+
+
+class RuntimeStatistics(db.Model):
+    """
+    Runtime Statistics Model (replaces latest_run_stats.json)
+    
+    Stores runtime statistics and performance metrics for agent runs.
+    """
+    __tablename__ = 'runtime_statistics'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    
+    # Basic counters
+    processed_count = db.Column(db.Integer, default=0)
+    success_count = db.Column(db.Integer, default=0)
+    error_count = db.Column(db.Integer, default=0)
+    skipped_count = db.Column(db.Integer, default=0)
+    
+    # Media processing
+    media_processed = db.Column(db.Integer, default=0)
+    
+    # Cache statistics
+    cache_hits = db.Column(db.Integer, default=0)
+    cache_misses = db.Column(db.Integer, default=0)
+    
+    # Network statistics
+    network_errors = db.Column(db.Integer, default=0)
+    retry_count = db.Column(db.Integer, default=0)
+    
+    # Calculated metrics
+    success_rate = db.Column(db.Numeric(5, 2))
+    cache_hit_rate = db.Column(db.Numeric(5, 2))
+    error_rate = db.Column(db.Numeric(5, 2))
+    average_retries = db.Column(db.Numeric(10, 2))
+    
+    # Timing
+    start_time = db.Column(db.DateTime(timezone=True))
+    end_time = db.Column(db.DateTime(timezone=True))
+    duration = db.Column(db.Interval)
+    
+    # Metadata
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    
+    def __repr__(self):
+        return f'<RuntimeStatistics {self.run_id} - {self.processed_count} processed>'
+    
+    @hybrid_property
+    def duration_seconds(self):
+        """Get duration in seconds."""
+        if self.duration:
+            return self.duration.total_seconds()
+        return None
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'run_id': self.run_id,
+            'counters': {
+                'processed_count': self.processed_count,
+                'success_count': self.success_count,
+                'error_count': self.error_count,
+                'skipped_count': self.skipped_count,
+                'media_processed': self.media_processed
+            },
+            'cache_stats': {
+                'cache_hits': self.cache_hits,
+                'cache_misses': self.cache_misses
+            },
+            'network_stats': {
+                'network_errors': self.network_errors,
+                'retry_count': self.retry_count
+            },
+            'calculated_metrics': {
+                'success_rate': float(self.success_rate) if self.success_rate else None,
+                'cache_hit_rate': float(self.cache_hit_rate) if self.cache_hit_rate else None,
+                'error_rate': float(self.error_rate) if self.error_rate else None,
+                'average_retries': float(self.average_retries) if self.average_retries else None
+            },
+            'timing': {
+                'start_time': self.start_time.isoformat() if self.start_time else None,
+                'end_time': self.end_time.isoformat() if self.end_time else None,
+                'duration_seconds': self.duration_seconds
+            },
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

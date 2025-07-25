@@ -1,0 +1,17 @@
+{
+  "start_time": "2025-05-15T16:23:57.874659",
+  "processed_count": 0,
+  "success_count": 0,
+  "error_count": 0,
+  "skipped_count": 0,
+  "media_processed": 0,
+  "cache_hits": 0,
+  "cache_misses": 0,
+  "network_errors": 0,
+  "retry_count": 0,
+  "success_rate": "0.0%",
+  "cache_hit_rate": "0.0%",
+  "error_rate": "0.0%",
+  "average_retries": "0.00",
+  "duration": "0:00:00.010229"
+}

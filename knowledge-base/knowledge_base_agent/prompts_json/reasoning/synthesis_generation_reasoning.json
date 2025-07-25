@@ -1,0 +1,92 @@
+{
+  "prompt_id": "synthesis_generation_reasoning",
+  "prompt_name": "Synthesis Generation (Reasoning)",
+  "description": "Creates comprehensive synthesis documents using deep reasoning and step-by-step analysis to extract patterns and insights",
+  "model_type": "reasoning",
+  "category": "synthesis_generation",
+  "task": "Generate synthesis documents with reasoning-based pattern recognition and cross-analysis of knowledge base items",
+  "topic": "Knowledge synthesis with deep reasoning and architectural analysis",
+  "format": {
+    "output_type": "json",
+    "response_structure": {
+      "role": "user",
+      "content": "synthesis generation request with reasoning instructions"
+    },
+    "constraints": [
+      "Response must be valid JSON only",
+      "Use step-by-step reasoning process",
+      "Extract patterns across multiple items",
+      "Maintain expert-level technical accuracy",
+      "Include deep architectural insights"
+    ]
+  },
+  "input_parameters": {
+    "required": ["main_category", "sub_category", "kb_items_content"],
+    "optional": ["synthesis_mode"],
+    "parameters": {
+      "main_category": {
+        "type": "string",
+        "description": "Main category domain for the synthesis"
+      },
+      "sub_category": {
+        "type": "string",
+        "description": "Specific subcategory being synthesized"
+      },
+      "kb_items_content": {
+        "type": "string",
+        "description": "Content from knowledge base items to be synthesized"
+      },
+      "synthesis_mode": {
+        "type": "string",
+        "description": "Mode of synthesis generation",
+        "default": "comprehensive",
+        "validation": {
+          "enum": ["comprehensive", "technical_deep_dive", "practical_guide"]
+        }
+      }
+    }
+  },
+  "template": {
+    "type": "reasoning",
+    "system_message": "Enable deep thinking subroutine. Analyze problems step-by-step. Consider multiple angles and approaches before providing your final answer. Adopt the persona of a highly experienced principal software engineer and technical architect. Your goal is to create a deeply technical and intuitively organized knowledge graph.",
+    "user_message": "You are a principal software engineer, technical architect, and domain expert tasked with creating a comprehensive synthesis document for the subcategory '{{sub_category}}' within the '{{main_category}}' domain.\\n\\n**Synthesis Mode**: {{synthesis_mode}} - {{mode_instruction}}\\n\\n**Input Knowledge Base Items Content**:\\n---\\n{{kb_items_content}}\\n---\\n\\n**Your Mission**: Create a synthesis document that transcends the individual knowledge base items by:\\n- Identifying overarching patterns and architectural principles\\n- Extracting deep technical insights that emerge from cross-analysis\\n- Recognizing conceptual hierarchies and knowledge progressions\\n- Highlighting practical implementation strategies and trade-offs\\n- Connecting disparate concepts into a cohesive understanding\\n\\n**Think step-by-step**:\\n1. First, analyze the knowledge base items to understand the breadth and depth of the subcategory\\n2. Identify common patterns, themes, and technical approaches\\n3. Extract insights that only become apparent when considering multiple items together\\n4. Organize the synthesis to provide both foundational understanding and advanced insights\\n5. Consider what gaps exist and what additional knowledge would be valuable\\n\\n**Response Format**: Respond ONLY with a valid JSON object following this exact schema:\\n\\n```json\\n{\\n  \\\"synthesis_title\\\": \\\"string (A compelling, specific title that captures the essence of this subcategory's knowledge domain)\\\",\\n  \\\"executive_summary\\\": \\\"string (2-3 paragraph overview of the subcategory's scope, key themes, and value proposition for technical professionals)\\\",\\n  \\\"core_concepts\\\": [\\n    {\\n      \\\"concept_name\\\": \\\"string (Name of fundamental concept)\\\",\\n      \\\"description\\\": \\\"string (Clear explanation of the concept and its importance in this domain)\\\",\\n      \\\"examples\\\": [\\\"string (Specific examples from the knowledge base items that illustrate this concept)\\\"]\\n    }\\n  ],\\n  \\\"technical_patterns\\\": [\\n    {\\n      \\\"pattern_name\\\": \\\"string (Name of identified technical pattern or architectural approach)\\\",\\n      \\\"description\\\": \\\"string (Description of the pattern, when to use it, and its benefits)\\\",\\n      \\\"implementation_notes\\\": \\\"string (Technical considerations, trade-offs, and implementation guidance)\\\",\\n      \\\"related_items\\\": [\\\"string (References to specific knowledge base items that demonstrate this pattern)\\\"]\\n    }\\n  ],\\n  \\\"key_insights\\\": [\\n    \\\"string (Important insights that emerge from analyzing multiple items together - insights that wouldn't be apparent from individual items alone)\\\"\\n  ],\\n  \\\"implementation_considerations\\\": [\\n    {\\n      \\\"area\\\": \\\"string (Area of consideration, e.g., 'Performance', 'Security', 'Scalability', 'Maintainability')\\\",\\n      \\\"considerations\\\": [\\\"string (Specific considerations, best practices, or warnings for this area)\\\"]\\n    }\\n  ],\\n  \\\"advanced_topics\\\": [\\n    \\\"string (Advanced concepts, cutting-edge techniques, or expert-level considerations for deep practitioners)\\\"\\n  ],\\n  \\\"knowledge_gaps\\\": [\\n    \\\"string (Areas where additional knowledge would be valuable, emerging trends, or under-explored aspects)\\\"\\n  ],\\n  \\\"cross_references\\\": [\\n    {\\n      \\\"item_title\\\": \\\"string (Title of related knowledge base item)\\\",\\n      \\\"relevance\\\": \\\"string (How this item relates to the synthesis themes and what specific value it provides)\\\"\\n    }\\n  ]\\n}\\n```\\n\\n**Quality Standards**:\\n- Maintain expert-level technical accuracy and depth\\n- Provide actionable insights for senior engineers and architects\\n- Connect theoretical concepts to practical implementation\\n- Identify patterns that span multiple knowledge base items\\n- Highlight emerging trends and future considerations\\n\\nThink deeply about the relationships between concepts, the evolution of techniques in this domain, and what a principal engineer would find most valuable. Respond ONLY with the JSON object."
+  },
+  "variants": [],
+  "examples": [
+    {
+      "name": "reasoning_synthesis_example",
+      "input": {
+        "main_category": "concurrency_patterns",
+        "sub_category": "thread_synchronization_java",
+        "kb_items_content": "Item 1: AtomicLong vs synchronized blocks...",
+        "synthesis_mode": "comprehensive"
+      },
+      "expected_output": "{\"role\": \"user\", \"content\": \"You are a principal software engineer...\"}",
+      "notes": "Example of reasoning-based synthesis with step-by-step analysis"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["synthesis", "reasoning", "pattern-recognition", "architectural-analysis", "step-by-step"],
+    "performance_notes": "Complex reasoning-based synthesis with mode variants and deep analysis",
+    "quality_score": 9.5
+  },
+  "validation": {
+    "output_validation": {
+      "message_structure": {
+        "role": "user",
+        "content": "string"
+      }
+    },
+    "quality_checks": [
+      "step_by_step_reasoning",
+      "pattern_extraction",
+      "architectural_insights",
+      "cross_analysis",
+      "expert_level_depth"
+    ]
+  }
+}

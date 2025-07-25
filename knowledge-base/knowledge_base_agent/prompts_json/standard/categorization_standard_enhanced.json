@@ -1,0 +1,70 @@
+{
+    "prompt_id": "categorization_standard_enhanced",
+    "prompt_name": "Enhanced Content Categorization (Standard)",
+    "description": "Advanced categorization prompt using chain-of-thought reasoning, few-shot examples, and structured output validation",
+    "model_type": "standard",
+    "category": "categorization",
+    "task": "Analyze technical content and provide structured categorization using advanced reasoning techniques",
+    "topic": "Technical content organization with expert-level domain specificity",
+    "format": {
+        "output_type": "json",
+        "response_structure": {
+            "reasoning": "string - step-by-step analysis of the content",
+            "domain_analysis": "object - technical domain identification",
+            "categorization": "object - final categorization result"
+        }
+    },
+    "input_parameters": {
+        "required": [
+            "context_content",
+            "formatted_existing_categories"
+        ],
+        "optional": [
+            "is_thread"
+        ],
+        "parameters": {
+            "context_content": {
+                "type": "string",
+                "description": "The technical content to be categorized"
+            },
+            "formatted_existing_categories": {
+                "type": "string",
+                "description": "Existing categories for reference and consistency"
+            },
+            "is_thread": {
+                "type": "boolean",
+                "description": "Whether content is from a tweet thread",
+                "default": false
+            }
+        }
+    },
+    "template": {
+        "type": "standard",
+        "content": "# Expert Technical Content Categorization\n\nYou are a **Principal Software Architect** with 15+ years of experience in system design, software engineering, and technical leadership. Your expertise spans:\n- Distributed systems and microservices architecture\n- Cloud-native technologies and DevOps practices\n- Programming languages, frameworks, and design patterns\n- Database systems, performance optimization, and scalability\n- Security, monitoring, and operational excellence\n\n## Task\nAnalyze the following {{source_type_indicator}} and categorize it with expert-level precision for a technical knowledge base.\n\n## Content to Analyze\n```\n{{context_content}}\n```\n\n## Existing Categories (for reference)\n{{formatted_existing_categories}}\n\n## Categorization Process\n\n### Step 1: Technical Domain Analysis\nFirst, identify the core technical domains present in this content. Consider:\n- What specific technologies, frameworks, or tools are mentioned?\n- What technical problems or solutions are being discussed?\n- What level of technical depth is present (beginner, intermediate, advanced)?\n- What industry context or use cases are implied?\n\n### Step 2: Specificity Assessment\nEvaluate how specific vs. generic the content is:\n- Avoid broad categories like \"programming\", \"software_engineering\", \"technology\"\n- Prefer specific domains like \"react_performance_optimization\", \"kubernetes_networking\", \"postgresql_query_optimization\"\n- Consider the most precise technical area that captures the essence\n\n### Step 3: Knowledge Graph Positioning\nThink about where this fits in a technical knowledge graph:\n- What would an expert search for to find this content?\n- How does this relate to existing categories?\n- What makes this content unique and valuable?\n\n## Output Format\nProvide your analysis in this exact JSON structure:\n\n```json\n{\n  \"reasoning\": {\n    \"content_analysis\": \"Brief analysis of the technical content and its key concepts\",\n    \"domain_identification\": \"Identification of the primary technical domain(s)\",\n    \"specificity_rationale\": \"Explanation of why these specific categories were chosen\"\n  },\n  \"categorization\": {\n    \"main_category\": \"highly_specific_technical_domain\",\n    \"sub_category\": \"even_more_precise_technical_area\",\n    \"item_name\": \"descriptive_filesystem_safe_name\"\n  },\n  \"confidence\": {\n    \"level\": \"high|medium|low\",\n    \"reasoning\": \"Brief explanation of confidence level\"\n  }\n}\n```\n\n## Examples\n\n**Example 1: React Performance Content**\nContent: \"React.memo vs useMemo vs useCallback - when to use each for performance optimization. Includes benchmarks.\"\n\n```json\n{\n  \"reasoning\": {\n    \"content_analysis\": \"Focuses on React performance optimization techniques, specifically comparing three different memoization approaches with empirical data\",\n    \"domain_identification\": \"React performance optimization within frontend development\",\n    \"specificity_rationale\": \"This is specifically about React memoization patterns, not general frontend or JavaScript performance\"\n  },\n  \"categorization\": {\n    \"main_category\": \"react_performance_optimization\",\n    \"sub_category\": \"memoization_patterns\",\n    \"item_name\": \"react_memo_usememo_usecallback_comparison\"\n  },\n  \"confidence\": {\n    \"level\": \"high\",\n    \"reasoning\": \"Clear technical focus with specific React APIs mentioned\"\n  }\n}\n```\n\n**Example 2: Database Content**\nContent: \"PostgreSQL EXPLAIN ANALYZE deep dive - understanding query execution plans and optimizing slow queries.\"\n\n```json\n{\n  \"reasoning\": {\n    \"content_analysis\": \"Deep technical content about PostgreSQL query optimization using EXPLAIN ANALYZE tool\",\n    \"domain_identification\": \"Database performance optimization, specifically PostgreSQL query analysis\",\n    \"specificity_rationale\": \"This is about PostgreSQL-specific tooling for query optimization, not general database concepts\"\n  },\n  \"categorization\": {\n    \"main_category\": \"postgresql_performance\",\n    \"sub_category\": \"query_optimization_analysis\",\n    \"item_name\": \"postgresql_explain_analyze_deep_dive\"\n  },\n  \"confidence\": {\n    \"level\": \"high\",\n    \"reasoning\": \"Specific PostgreSQL tool mentioned with clear performance optimization focus\"\n  }\n}\n```\n\n**Example 3: Kubernetes Content**\nContent: \"Kubernetes pod security contexts - runAsNonRoot, securityContext, and container security best practices.\"\n\n```json\n{\n  \"reasoning\": {\n    \"content_analysis\": \"Kubernetes security configuration focusing on pod-level security contexts and container security\",\n    \"domain_identification\": \"Kubernetes security within container orchestration\",\n    \"specificity_rationale\": \"Specifically about Kubernetes pod security configuration, not general container or cloud security\"\n  },\n  \"categorization\": {\n    \"main_category\": \"kubernetes_security\",\n    \"sub_category\": \"pod_security_contexts\",\n    \"item_name\": \"k8s_pod_security_context_configuration\"\n  },\n  \"confidence\": {\n    \"level\": \"high\",\n    \"reasoning\": \"Specific Kubernetes security features mentioned with clear scope\"\n  }\n}\n```\n\n## Critical Requirements\n1. **No Generic Terms**: Never use broad categories like \"programming\", \"software_engineering\", \"technology\", \"coding\"\n2. **Technical Precision**: Categories must reflect expert-level technical distinctions\n3. **Filesystem Safe**: item_name must use only lowercase letters, numbers, and underscores\n4. **JSON Only**: Respond with only the JSON object, no additional text\n5. **Reasoning Required**: Always include your step-by-step reasoning process\n\nAnalyze the content above and provide your categorization following this exact format."
+    },
+    "examples": [
+        {
+            "name": "react_performance_example",
+            "input": {
+                "context_content": "React.memo vs useMemo vs useCallback - when to use each for performance optimization. Includes benchmarks showing 40% performance improvement in large component trees.",
+                "formatted_existing_categories": "react_patterns, frontend_optimization, javascript_performance",
+                "is_thread": false
+            },
+            "expected_output": "{\n  \"reasoning\": {\n    \"content_analysis\": \"Focuses on React performance optimization techniques, specifically comparing three different memoization approaches with empirical data\",\n    \"domain_identification\": \"React performance optimization within frontend development\",\n    \"specificity_rationale\": \"This is specifically about React memoization patterns, not general frontend or JavaScript performance\"\n  },\n  \"categorization\": {\n    \"main_category\": \"react_performance_optimization\",\n    \"sub_category\": \"memoization_patterns\",\n    \"item_name\": \"react_memo_usememo_usecallback_comparison\"\n  },\n  \"confidence\": {\n    \"level\": \"high\",\n    \"reasoning\": \"Clear technical focus with specific React APIs mentioned\"\n  }\n}",
+            "notes": "Example demonstrating chain-of-thought reasoning and structured output"
+        }
+    ],
+    "metadata": {
+        "version": "2.0.0",
+        "author": "Enhanced Prompting System",
+        "created_date": "2024-07-24",
+        "enhancement_notes": "Added chain-of-thought reasoning, few-shot examples, confidence scoring, and structured analysis",
+        "techniques_used": [
+            "chain_of_thought",
+            "few_shot_learning",
+            "role_based_prompting",
+            "structured_output"
+        ],
+        "quality_score": 9.5
+    }
+}

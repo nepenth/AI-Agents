@@ -1,0 +1,393 @@
+<!-- Tweet Management Interface -->
+<div class="dashboard-panel glass-panel-v3 glass-panel-v3--primary" id="tweet-management-panel">
+    <!-- Panel Header -->
+    <div class="panel-header">
+        <div class="panel-title-section">
+            <h2 class="panel-title">
+                <i class="fas fa-twitter"></i>
+                Tweet Management
+            </h2>
+            <div class="panel-subtitle">
+                Explore, manage, and control tweet processing pipeline
+            </div>
+        </div>
+        <div class="panel-controls">
+            <button class="glass-button glass-button--secondary" id="refresh-tweets-btn" title="Refresh Tweet Data">
+                <i class="fas fa-sync-alt"></i>
+                Refresh
+            </button>
+            <button class="glass-button glass-button--primary" id="bulk-operations-btn" title="Bulk Operations">
+                <i class="fas fa-tasks"></i>
+                Bulk Actions
+            </button>
+            <button class="glass-button glass-button--accent" id="tweet-statistics-btn" title="View Statistics">
+                <i class="fas fa-chart-bar"></i>
+                Statistics
+            </button>
+        </div>
+    </div>
+
+    <!-- Search and Filter Section -->
+    <div class="tweet-explorer-filters glass-panel-v3 glass-panel-v3--secondary">
+        <div class="filter-row">
+            <!-- Search Bar -->
+            <div class="search-container">
+                <div class="glass-input-group">
+                    <i class="fas fa-search input-icon"></i>
+                    <input type="text" 
+                           class="glass-input" 
+                           id="tweet-search-input" 
+                           placeholder="Search tweets by content, category, or tweet ID..."
+                           autocomplete="off">
+                    <button class="glass-button glass-button--small" id="clear-search-btn" title="Clear Search">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Filters -->
+            <div class="quick-filters">
+                <div class="filter-group">
+                    <label class="filter-label">Status:</label>
+                    <select class="glass-select" id="status-filter">
+                        <option value="">All Statuses</option>
+                        <option value="fully_processed">Fully Processed</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="needs_processing">Needs Processing</option>
+                        <option value="has_errors">Has Errors</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Media:</label>
+                    <select class="glass-select" id="media-filter">
+                        <option value="">All Types</option>
+                        <option value="true">Has Media</option>
+                        <option value="false">No Media</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Category:</label>
+                    <select class="glass-select" id="category-filter">
+                        <option value="">All Categories</option>
+                        <!-- Categories populated dynamically -->
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Filters (Collapsible) -->
+        <div class="advanced-filters" id="advanced-filters" style="display: none;">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label class="filter-label">Date Range:</label>
+                    <div class="date-range-inputs">
+                        <input type="date" class="glass-input glass-input--small" id="date-from" title="From Date">
+                        <span class="date-separator">to</span>
+                        <input type="date" class="glass-input glass-input--small" id="date-to" title="To Date">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Processing Flags:</label>
+                    <div class="checkbox-group">
+                        <label class="glass-checkbox">
+                            <input type="checkbox" id="filter-cache-complete">
+                            <span class="checkmark"></span>
+                            Cache Complete
+                        </label>
+                        <label class="glass-checkbox">
+                            <input type="checkbox" id="filter-media-processed">
+                            <span class="checkmark"></span>
+                            Media Processed
+                        </label>
+                        <label class="glass-checkbox">
+                            <input type="checkbox" id="filter-categories-processed">
+                            <span class="checkmark"></span>
+                            Categories Processed
+                        </label>
+                        <label class="glass-checkbox">
+                            <input type="checkbox" id="filter-kb-item-created">
+                            <span class="checkmark"></span>
+                            KB Item Created
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <button class="glass-button glass-button--secondary glass-button--small" id="toggle-advanced-filters">
+                <i class="fas fa-filter"></i>
+                <span id="advanced-filter-text">Advanced Filters</span>
+            </button>
+            <button class="glass-button glass-button--secondary glass-button--small" id="clear-all-filters">
+                <i class="fas fa-eraser"></i>
+                Clear All
+            </button>
+            <button class="glass-button glass-button--primary glass-button--small" id="apply-filters-btn">
+                <i class="fas fa-search"></i>
+                Apply Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="results-summary glass-panel-v3 glass-panel-v3--tertiary" id="results-summary">
+        <div class="summary-stats">
+            <div class="stat-item">
+                <span class="stat-value" id="total-tweets-count">-</span>
+                <span class="stat-label">Total Tweets</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="filtered-tweets-count">-</span>
+                <span class="stat-label">Filtered Results</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="selected-tweets-count">0</span>
+                <span class="stat-label">Selected</span>
+            </div>
+        </div>
+
+        <div class="view-controls">
+            <div class="sort-controls">
+                <label class="sort-label">Sort by:</label>
+                <select class="glass-select glass-select--small" id="sort-by-select">
+                    <option value="updated_at">Last Updated</option>
+                    <option value="created_at">Created Date</option>
+                    <option value="tweet_id">Tweet ID</option>
+                    <option value="processing_progress">Processing Progress</option>
+                </select>
+                <button class="glass-button glass-button--small" id="sort-order-btn" data-order="desc" title="Toggle Sort Order">
+                    <i class="fas fa-sort-amount-down"></i>
+                </button>
+            </div>
+
+            <div class="pagination-controls">
+                <label class="pagination-label">Per page:</label>
+                <select class="glass-select glass-select--small" id="per-page-select">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tweet Table -->
+    <div class="tweet-table-container glass-panel-v3 glass-panel-v3--secondary">
+        <!-- Selection Controls -->
+        <div class="selection-controls">
+            <label class="glass-checkbox">
+                <input type="checkbox" id="select-all-tweets">
+                <span class="checkmark"></span>
+                Select All
+            </label>
+            <div class="selection-actions" id="selection-actions" style="display: none;">
+                <button class="glass-button glass-button--small glass-button--warning" id="bulk-reprocess-btn">
+                    <i class="fas fa-redo"></i>
+                    Reprocess Selected
+                </button>
+                <button class="glass-button glass-button--small glass-button--secondary" id="bulk-update-flags-btn">
+                    <i class="fas fa-edit"></i>
+                    Update Flags
+                </button>
+                <button class="glass-button glass-button--small glass-button--danger" id="bulk-delete-btn">
+                    <i class="fas fa-trash"></i>
+                    Delete Selected
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-state" id="tweet-loading" style="display: none;">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            <div class="loading-text">Loading tweets...</div>
+        </div>
+
+        <!-- Tweet Table -->
+        <div class="tweet-table-wrapper">
+            <table class="tweet-table" id="tweet-table">
+                <thead>
+                    <tr>
+                        <th class="select-col">
+                            <span class="sr-only">Select</span>
+                        </th>
+                        <th class="tweet-id-col sortable" data-sort="tweet_id">
+                            Tweet ID
+                            <i class="fas fa-sort sort-icon"></i>
+                        </th>
+                        <th class="status-col">Status</th>
+                        <th class="category-col sortable" data-sort="main_category">
+                            Category
+                            <i class="fas fa-sort sort-icon"></i>
+                        </th>
+                        <th class="media-col">Media</th>
+                        <th class="progress-col">Progress</th>
+                        <th class="updated-col sortable" data-sort="updated_at">
+                            Last Updated
+                            <i class="fas fa-sort sort-icon"></i>
+                        </th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tweet-table-body">
+                    <!-- Tweet rows populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" style="display: none;">
+            <div class="empty-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="empty-title">No tweets found</div>
+            <div class="empty-description">
+                Try adjusting your search criteria or filters to find tweets.
+            </div>
+            <button class="glass-button glass-button--primary" id="clear-filters-empty">
+                <i class="fas fa-eraser"></i>
+                Clear Filters
+            </button>
+        </div>
+
+        <!-- Error State -->
+        <div class="error-state" id="error-state" style="display: none;">
+            <div class="error-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="error-title">Failed to load tweets</div>
+            <div class="error-description" id="error-description">
+                An error occurred while loading tweet data.
+            </div>
+            <button class="glass-button glass-button--primary" id="retry-load-btn">
+                <i class="fas fa-redo"></i>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-wrapper glass-panel-v3 glass-panel-v3--tertiary" id="pagination-wrapper" style="display: none;">
+        <div class="pagination-info">
+            <span id="pagination-info-text">Showing 1-50 of 150 tweets</span>
+        </div>
+        <div class="pagination-controls">
+            <button class="glass-button glass-button--small" id="first-page-btn" disabled>
+                <i class="fas fa-angle-double-left"></i>
+            </button>
+            <button class="glass-button glass-button--small" id="prev-page-btn" disabled>
+                <i class="fas fa-angle-left"></i>
+                Previous
+            </button>
+            <div class="page-numbers" id="page-numbers">
+                <!-- Page numbers populated dynamically -->
+            </div>
+            <button class="glass-button glass-button--small" id="next-page-btn">
+                Next
+                <i class="fas fa-angle-right"></i>
+            </button>
+            <button class="glass-button glass-button--small" id="last-page-btn">
+                <i class="fas fa-angle-double-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Tweet Detail Modal -->
+<div class="modal-overlay" id="tweet-detail-modal" style="display: none;">
+    <div class="modal glass-panel-v3 glass-panel-v3--primary modal--large">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-twitter"></i>
+                Tweet Details
+            </h3>
+            <button class="modal-close glass-button glass-button--small" id="close-tweet-detail">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body" id="tweet-detail-content">
+            <!-- Tweet detail content populated dynamically -->
+        </div>
+        
+        <div class="modal-footer">
+            <button class="glass-button glass-button--secondary" id="export-tweet-data">
+                <i class="fas fa-download"></i>
+                Export Data
+            </button>
+            <button class="glass-button glass-button--warning" id="reprocess-tweet-btn">
+                <i class="fas fa-redo"></i>
+                Reprocess
+            </button>
+            <button class="glass-button glass-button--primary" id="save-tweet-changes">
+                <i class="fas fa-save"></i>
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Operations Modal -->
+<div class="modal-overlay" id="bulk-operations-modal" style="display: none;">
+    <div class="modal glass-panel-v3 glass-panel-v3--primary modal--medium">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-tasks"></i>
+                Bulk Operations
+            </h3>
+            <button class="modal-close glass-button glass-button--small" id="close-bulk-operations">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body" id="bulk-operations-content">
+            <!-- Bulk operations content populated dynamically -->
+        </div>
+        
+        <div class="modal-footer">
+            <button class="glass-button glass-button--secondary" id="cancel-bulk-operation">
+                Cancel
+            </button>
+            <button class="glass-button glass-button--primary" id="execute-bulk-operation">
+                <i class="fas fa-play"></i>
+                Execute Operation
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Modal -->
+<div class="modal-overlay" id="statistics-modal" style="display: none;">
+    <div class="modal glass-panel-v3 glass-panel-v3--primary modal--large">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-chart-bar"></i>
+                Tweet Processing Statistics
+            </h3>
+            <button class="modal-close glass-button glass-button--small" id="close-statistics">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body" id="statistics-content">
+            <!-- Statistics content populated dynamically -->
+        </div>
+        
+        <div class="modal-footer">
+            <button class="glass-button glass-button--secondary" id="export-statistics">
+                <i class="fas fa-download"></i>
+                Export Statistics
+            </button>
+            <button class="glass-button glass-button--primary" id="refresh-statistics">
+                <i class="fas fa-sync-alt"></i>
+                Refresh
+            </button>
+        </div>
+    </div>
+</div> 

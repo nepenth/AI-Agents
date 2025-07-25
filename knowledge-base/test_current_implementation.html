@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Agent Status Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Agent Status Detection Test</h1>
+    
+    <div class="test-section">
+        <h3>Test 1: Check Agent Status</h3>
+        <button onclick="testAgentStatus()">Test /agent/status</button>
+        <div id="agent-status-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 2: Check Task Status (if running)</h3>
+        <button onclick="testTaskStatus()">Test /v2/agent/status/{task_id}</button>
+        <div id="task-status-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 3: Simulate Frontend Initialization</h3>
+        <button onclick="simulateInitialization()">Simulate Page Load</button>
+        <div id="initialization-result"></div>
+    </div>
+
+    <script>
+        let currentTaskId = null;
+
+        async function testAgentStatus() {
+            const resultDiv = document.getElementById('agent-status-result');
+            resultDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch('/agent/status');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Success</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    // Store task ID for next test
+                    if (data.task_id) {
+                        currentTaskId = data.task_id;
+                    }
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = `
+                        <h4>❌ Error ${response.status}</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Network Error</h4>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        async function testTaskStatus() {
+            const resultDiv = document.getElementById('task-status-result');
+            
+            if (!currentTaskId) {
+                resultDiv.className = 'info';
+                resultDiv.innerHTML = '<p>No task ID available. Run Test 1 first.</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch(`/v2/agent/status/${currentTaskId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Success</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = `
+                        <h4>❌ Error ${response.status}</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Network Error</h4>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        async function simulateInitialization() {
+            const resultDiv = document.getElementById('initialization-result');
+            resultDiv.innerHTML = '<p>Simulating frontend initialization...</p>';
+            
+            const steps = [];
+            
+            try {
+                // Step 1: Check agent status (like frontend does)
+                steps.push('🔍 Checking agent status...');
+                const statusResponse = await fetch('/agent/status');
+                const statusData = await statusResponse.json();
+                
+                if (statusData.is_running && statusData.task_id) {
+                    steps.push(`✅ Running task detected: ${statusData.task_id}`);
+                    steps.push(`📊 Current phase: ${statusData.current_phase_message}`);
+                    
+                    // Step 2: Try to get detailed status
+                    try {
+                        steps.push('🔍 Getting detailed task status...');
+                        const detailResponse = await fetch(`/v2/agent/status/${statusData.task_id}`);
+                        const detailData = await detailResponse.json();
+                        
+                        if (detailResponse.ok) {
+                            steps.push('✅ Detailed status retrieved successfully');
+                            if (detailData.progress && detailData.progress.phase_id) {
+                                steps.push(`📊 Phase ID: ${detailData.progress.phase_id}`);
+                                steps.push(`📊 Progress: ${detailData.progress.progress || 0}%`);
+                            }
+                        } else {
+                            steps.push(`❌ Detailed status failed: ${detailResponse.status}`);
+                        }
+                    } catch (detailError) {
+                        steps.push(`❌ Detailed status error: ${detailError.message}`);
+                    }
+                    
+                    // Step 3: Simulate component initialization
+                    steps.push('🔄 Would initialize UI components with running state');
+                    steps.push('📊 Would update execution plan with current phase');
+                    steps.push('📝 Would load logs for running task');
+                    
+                } else {
+                    steps.push('💤 Agent is idle - normal initialization');
+                }
+                
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `
+                    <h4>Initialization Simulation Complete</h4>
+                    <ul>
+                        ${steps.map(step => `<li>${step}</li>`).join('')}
+                    </ul>
+                    <h5>Raw Status Data:</h5>
+                    <pre>${JSON.stringify(statusData, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Initialization Failed</h4>
+                    <p>${error.message}</p>
+                    <h5>Steps completed:</h5>
+                    <ul>
+                        ${steps.map(step => `<li>${step}</li>`).join('')}
+                    </ul>
+                `;
+            }
+        }
+
+        // Debug function to test phase mapping
+        function testPhaseMapping() {
+            const messages = [
+                'Synthesis Generation',
+                'GENERATING SUBCATEGORY SYNTHESIS FOR SECURITY/API_SECURITY: BEST_PRACTICES',
+                'Processing content...',
+                'Fetching bookmarks...',
+                'Generating embeddings...',
+                'Creating README...',
+                'Syncing to git...',
+                'Database sync complete'
+            ];
+            
+            console.log('🔍 Testing phase mapping:');
+            messages.forEach(message => {
+                // Simulate the mapping logic from executionPlan.js
+                const lowerMessage = message.toLowerCase();
+                let mappedPhase = null;
+                
+                if (lowerMessage.includes('synthesis') || lowerMessage.includes('generating subcategory')) {
+                    mappedPhase = 'synthesis_generation';
+                } else if (lowerMessage.includes('embedding')) {
+                    mappedPhase = 'embedding_generation';
+                } else if (lowerMessage.includes('readme')) {
+                    mappedPhase = 'readme_generation';
+                } else if (lowerMessage.includes('git') || lowerMessage.includes('push')) {
+                    mappedPhase = 'git_sync';
+                } else if (lowerMessage.includes('database') || lowerMessage.includes('sync')) {
+                    mappedPhase = 'database_sync';
+                } else if (lowerMessage.includes('processing') || lowerMessage.includes('content')) {
+                    mappedPhase = 'content_processing';
+                } else if (lowerMessage.includes('fetch') || lowerMessage.includes('bookmark')) {
+                    mappedPhase = 'fetch_bookmarks';
+                }
+                
+                console.log(`  "${message}" -> ${mappedPhase || 'NO MATCH'}`);
+            });
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded - running debug tests...');
+            testPhaseMapping();
+            setTimeout(() => {
+                testAgentStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

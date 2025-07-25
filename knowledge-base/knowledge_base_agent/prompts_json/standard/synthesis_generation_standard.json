@@ -1,0 +1,135 @@
+{
+  "prompt_id": "synthesis_generation_standard",
+  "prompt_name": "Synthesis Generation (Standard)",
+  "description": "Creates comprehensive synthesis documents that extract higher-level patterns, insights, and consolidated knowledge from knowledge base items",
+  "model_type": "standard",
+  "category": "synthesis_generation",
+  "task": "Generate synthesis documents that identify connections, common patterns, and deeper insights across multiple knowledge base items",
+  "topic": "Knowledge synthesis, pattern recognition, and technical insight consolidation",
+  "format": {
+    "output_type": "json",
+    "response_structure": {
+      "synthesis_title": "string - compelling, specific title",
+      "executive_summary": "string - 2-3 paragraph overview",
+      "core_concepts": "array - fundamental concepts with examples",
+      "technical_patterns": "array - identified patterns with implementation notes",
+      "key_insights": "array - important insights from multiple items",
+      "implementation_considerations": "array - practical considerations by area",
+      "advanced_topics": "array - expert-level concepts",
+      "knowledge_gaps": "array - areas for expansion",
+      "cross_references": "array - related items with relevance"
+    },
+    "constraints": [
+      "Response must be valid JSON only",
+      "Extract patterns across multiple items",
+      "Maintain expert-level technical accuracy",
+      "Include practical implementation guidance",
+      "Identify conceptual hierarchies"
+    ]
+  },
+  "input_parameters": {
+    "required": ["main_category", "sub_category", "kb_items_content"],
+    "optional": ["synthesis_mode"],
+    "parameters": {
+      "main_category": {
+        "type": "string",
+        "description": "Main category domain for the synthesis"
+      },
+      "sub_category": {
+        "type": "string",
+        "description": "Specific subcategory being synthesized"
+      },
+      "kb_items_content": {
+        "type": "string",
+        "description": "Content from knowledge base items to be synthesized"
+      },
+      "synthesis_mode": {
+        "type": "string",
+        "description": "Mode of synthesis generation",
+        "default": "comprehensive",
+        "validation": {
+          "enum": ["comprehensive", "technical_deep_dive", "practical_guide"]
+        }
+      }
+    }
+  },
+  "template": {
+    "type": "standard",
+    "content": "You are a senior technical architect and domain expert tasked with creating a synthesis document for the subcategory '{{sub_category}}' within the '{{main_category}}' domain.\\n\\n**Synthesis Mode**: {{synthesis_mode}} - {{mode_instruction}}\\n\\n**Input Knowledge Base Items Content**:\\n---\\n{{kb_items_content}}\\n---\\n\\n**Task**: Create a comprehensive synthesis document that extracts higher-level patterns, insights, and consolidated knowledge from the provided knowledge base items. This synthesis should provide value beyond the individual items by identifying connections, common patterns, and deeper insights.\\n\\n**Response Format**: Respond ONLY with a valid JSON object following this exact schema:\\n\\n```json\\n{\\n  \\\"synthesis_title\\\": \\\"string (A compelling, specific title that captures the essence of this subcategory's knowledge domain)\\\",\\n  \\\"executive_summary\\\": \\\"string (2-3 paragraph overview of the subcategory's scope, key themes, and value proposition)\\\",\\n  \\\"core_concepts\\\": [\\n    {\\n      \\\"concept_name\\\": \\\"string (Name of fundamental concept)\\\",\\n      \\\"description\\\": \\\"string (Clear explanation of the concept and its importance)\\\",\\n      \\\"examples\\\": [\\\"string (Specific examples from the knowledge base items)\\\"]\\n    }\\n  ],\\n  \\\"technical_patterns\\\": [\\n    {\\n      \\\"pattern_name\\\": \\\"string (Name of identified technical pattern)\\\",\\n      \\\"description\\\": \\\"string (Description of the pattern and when to use it)\\\",\\n      \\\"implementation_notes\\\": \\\"string (Technical considerations for implementation)\\\",\\n      \\\"related_items\\\": [\\\"string (References to specific knowledge base items that demonstrate this pattern)\\\"]\\n    }\\n  ],\\n  \\\"key_insights\\\": [\\n    \\\"string (Important insights that emerge from analyzing multiple items together)\\\"\\n  ],\\n  \\\"implementation_considerations\\\": [\\n    {\\n      \\\"area\\\": \\\"string (Area of consideration, e.g., 'Performance', 'Security', 'Scalability')\\\",\\n      \\\"considerations\\\": [\\\"string (Specific considerations for this area)\\\"]\\n    }\\n  ],\\n  \\\"advanced_topics\\\": [\\n    \\\"string (Advanced concepts for expert-level understanding)\\\"\\n  ],\\n  \\\"knowledge_gaps\\\": [\\n    \\\"string (Areas where additional knowledge would be valuable)\\\"\\n  ],\\n  \\\"cross_references\\\": [\\n    {\\n      \\\"item_title\\\": \\\"string (Title of related knowledge base item)\\\",\\n      \\\"relevance\\\": \\\"string (How this item relates to the synthesis themes)\\\"\\n    }\\n  ]\\n}\\n```\\n\\n**Guidelines**:\\n- Extract patterns that appear across multiple knowledge base items\\n- Identify conceptual hierarchies from basic to advanced\\n- Maintain expert-level technical accuracy and depth\\n- Include practical implementation guidance\\n- Highlight connections between different approaches or techniques\\n- Identify areas where the knowledge could be expanded\\n\\nRespond ONLY with the JSON object."
+  },
+  "variants": [],
+  "examples": [
+    {
+      "name": "comprehensive_synthesis",
+      "input": {
+        "main_category": "concurrency_patterns",
+        "sub_category": "thread_synchronization_java",
+        "kb_items_content": "Item 1: AtomicLong vs synchronized blocks...\nItem 2: ReentrantLock usage patterns...",
+        "synthesis_mode": "comprehensive"
+      },
+      "expected_output": "JSON object with comprehensive synthesis of Java thread synchronization patterns",
+      "notes": "Example of comprehensive synthesis mode"
+    }
+  ],
+  "extract_fields": {
+    "synthesis_title": {
+      "type": "string",
+      "description": "Compelling, specific title for the synthesis",
+      "required": true,
+      "validation": {
+        "min_length": 10,
+        "max_length": 200
+      }
+    },
+    "executive_summary": {
+      "type": "string",
+      "description": "2-3 paragraph overview of scope and themes",
+      "required": true,
+      "validation": {
+        "min_length": 100
+      }
+    },
+    "core_concepts": {
+      "type": "array",
+      "description": "Fundamental concepts with examples",
+      "required": true,
+      "validation": {
+        "min_items": 1
+      }
+    },
+    "technical_patterns": {
+      "type": "array",
+      "description": "Identified technical patterns",
+      "required": true
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["synthesis", "pattern-recognition", "knowledge-consolidation", "technical-analysis"],
+    "performance_notes": "Complex synthesis generation with mode variants",
+    "quality_score": 9.0
+  },
+  "validation": {
+    "output_validation": {
+      "json_schema": {
+        "type": "object",
+        "required": ["synthesis_title", "executive_summary", "core_concepts", "technical_patterns"],
+        "properties": {
+          "synthesis_title": {"type": "string", "minLength": 10},
+          "executive_summary": {"type": "string", "minLength": 100},
+          "core_concepts": {"type": "array", "minItems": 1},
+          "technical_patterns": {"type": "array"}
+        }
+      }
+    },
+    "quality_checks": [
+      "pattern_extraction",
+      "technical_accuracy",
+      "insight_consolidation",
+      "valid_json_output"
+    ]
+  }
+}

@@ -145,5 +145,101 @@ def web():
     web_main()
 
 
+@cli.command()
+def interactive():
+    """Run agent with interactive preference prompts."""
+    from knowledge_base_agent.preferences import UserPreferences
+    from knowledge_base_agent.state_manager import check_knowledge_base_state
+    
+    click.echo("Interactive Agent Configuration")
+    click.echo("=" * 40)
+    
+    # Load config
+    config = load_config()
+    
+    # Get interactive preferences
+    prefs = prompt_for_preferences(config)
+    
+    # Convert to dict for task execution
+    prefs_dict = {
+        'run_mode': prefs.run_mode,
+        'skip_fetch_bookmarks': prefs.skip_fetch_bookmarks,
+        'skip_process_content': prefs.skip_process_content,
+        'skip_readme_generation': prefs.skip_readme_generation,
+        'skip_git_push': prefs.skip_git_push,
+        'skip_synthesis_generation': prefs.skip_synthesis_generation,
+        'skip_embedding_generation': prefs.skip_embedding_generation,
+        'force_recache_tweets': prefs.force_recache_tweets,
+        'force_regenerate_synthesis': prefs.force_regenerate_synthesis,
+        'force_regenerate_embeddings': prefs.force_regenerate_embeddings,
+        'force_regenerate_readme': prefs.force_regenerate_readme,
+        'force_reprocess_media': prefs.force_reprocess_media,
+        'force_reprocess_llm': prefs.force_reprocess_llm,
+        'force_reprocess_kb_item': prefs.force_reprocess_kb_item,
+        'force_reprocess_db_sync': prefs.force_reprocess_db_sync,
+        'force_reprocess_content': prefs.force_reprocess_content,
+        'synthesis_mode': prefs.synthesis_mode,
+        'synthesis_min_items': prefs.synthesis_min_items,
+        'synthesis_max_items': prefs.synthesis_max_items
+    }
+    
+    # Queue the task
+    task_id = str(uuid.uuid4())
+    click.echo(f"\nQueuing agent task with ID: {task_id}")
+    
+    task = run_agent_task.apply_async(args=[task_id, prefs_dict], task_id=task_id)
+    
+    click.echo(click.style(f"✅ Agent task queued successfully!", fg='green'))
+    click.echo(f"   Task ID: {task_id}")
+    click.echo(f"   Celery ID: {task.id}")
+
+
+def prompt_for_preferences(config) -> 'UserPreferences':
+    """
+    Prompt user for preferences interactively.
+    
+    This function provides a CLI interface for setting agent execution preferences.
+    It checks the current knowledge base state and prompts for relevant options.
+    
+    Args:
+        config: Configuration object containing system settings
+        
+    Returns:
+        UserPreferences object with user-selected options
+    """
+    from knowledge_base_agent.preferences import UserPreferences
+    from knowledge_base_agent.state_manager import check_knowledge_base_state
+    import logging
+    
+    prefs = UserPreferences()
+    kb_state = check_knowledge_base_state(config)
+
+    # Only prompt for cache refresh if there is cached data
+    if kb_state['has_cached_tweets']:
+        prefs.force_recache_tweets = click.confirm(
+            "Force re-cache of all tweet data for unprocessed items?", 
+            default=False
+        )
+    
+    # README generation can be forced
+    prefs.skip_readme_generation = click.confirm(
+        "Skip regeneration of all README files?", 
+        default=False
+    )
+
+    # Git push preference
+    # Git is now always configured; pipeline allows skipping via UI preferences
+    if True:  # Git configuration is always available
+        prefs.skip_git_push = not click.confirm(
+            "Push changes to Git repository after processing?", 
+            default=True
+        )
+    else:
+        prefs.skip_git_push = True # Ensure it's True if git is not enabled globally
+
+    logging.info(f"User preferences set: {prefs}")
+    return prefs
+
+
 if __name__ == '__main__':
     cli() 

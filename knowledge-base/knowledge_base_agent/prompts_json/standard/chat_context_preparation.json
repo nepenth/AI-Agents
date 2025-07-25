@@ -1,0 +1,63 @@
+{
+  "prompt_id": "chat_context_preparation",
+  "prompt_name": "Chat Context Preparation Prompt",
+  "description": "Prompt for preparing and structuring context from knowledge base documents to optimize chat query responses",
+  "model_type": "standard",
+  "category": "chat",
+  "task": "Structure knowledge base context to maximize usefulness for comprehensive technical responses",
+  "topic": "Context preparation and information structuring for chat interactions",
+  "format": {
+    "output_type": "text",
+    "response_structure": {
+      "type": "context_structuring_instructions",
+      "sections": [
+        "context_structuring_guidelines",
+        "formatting_instructions"
+      ]
+    },
+    "constraints": [
+      "Prioritize relevance in content ordering",
+      "Maintain technical detail preservation",
+      "Enable expert-level response capability"
+    ]
+  },
+  "input_parameters": {
+    "required": [],
+    "optional": [],
+    "parameters": {}
+  },
+  "template": {
+    "type": "standard",
+    "content": "You are preparing context from a technical knowledge base to answer a user query. Structure the context to be maximally useful for providing a comprehensive technical response.\n\n**Context Structuring Guidelines:**\n• **Prioritize by Relevance**: Place most relevant content first\n• **Group by Type**: Separate synthesis documents from individual items\n• **Include Metadata**: Provide document type, category, and relevance context\n• **Highlight Key Points**: Extract the most pertinent information for the query\n• **Preserve Technical Details**: Maintain code examples, configurations, and specific implementations\n\nFormat the prepared context clearly and comprehensively to enable expert-level technical responses."
+  },
+  "examples": [
+    {
+      "name": "basic_usage",
+      "input": {},
+      "expected_output": "You are preparing context from a technical knowledge base to answer a user query...",
+      "notes": "Static context preparation prompt with clear structuring guidelines"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["chat", "context-preparation", "knowledge-base", "structuring"],
+    "performance_notes": "Static prompt with no parameter substitution - very fast rendering",
+    "quality_score": 8.5
+  },
+  "validation": {
+    "output_validation": {
+      "min_length": 300,
+      "required_sections": [
+        "Context Structuring Guidelines"
+      ]
+    },
+    "quality_checks": [
+      "clear_guidelines",
+      "relevance_prioritization",
+      "technical_detail_preservation"
+    ]
+  }
+}

@@ -124,6 +124,7 @@ class Config(BaseSettings):
     min_content_length: int = Field(50, alias="MIN_CONTENT_LENGTH")
     content_generation_timeout: int = Field(300, alias="CONTENT_GENERATION_TIMEOUT")
     content_retries: int = Field(3, alias="CONTENT_RETRIES")
+    synthesis_timeout: int = Field(600, alias="SYNTHESIS_TIMEOUT", description="Timeout for synthesis generation in seconds (default: 10 minutes)")
     
     # Processing phase settings
     process_media: bool = Field(True, alias="PROCESS_MEDIA")

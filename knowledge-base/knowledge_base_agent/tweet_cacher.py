@@ -4,7 +4,7 @@ import logging
 import re # For filename sanitization
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
-from knowledge_base_agent.state_manager import StateManager
+from knowledge_base_agent.database_state_manager import DatabaseStateManager
 from knowledge_base_agent.playwright_fetcher import fetch_tweet_data_playwright, expand_url
 from urllib.parse import urlparse
 import json
@@ -24,7 +24,7 @@ async def cache_tweets(
     tweet_ids: List[str], 
     config: Config, 
     http_client: HTTPClient, 
-    state_manager: StateManager, 
+    state_manager: DatabaseStateManager, 
     force_recache: bool = False,
     progress_callback: Optional[Callable[[str, str, str, bool, Optional[int], Optional[int], Optional[int]], None]] = None,
     phase_id_for_progress: str = "subphase_cp_cache" # Default phase_id for progress reporting
@@ -209,6 +209,30 @@ async def cache_tweets(
             if overall_cache_success_for_thread and tweet_data.get('urls_expanded') and tweet_data.get('media_processed'):
                  # Check if thread_tweets is populated - essential for cache to be complete
                  if tweet_data.get('thread_tweets'):
+                    # CRITICAL FIX: Populate top-level full_text field from thread segments
+                    # This ensures compatibility with downstream processing (AI categorization, DB sync, etc.)
+                    thread_segments = tweet_data.get('thread_tweets', [])
+                    if thread_segments:
+                        all_texts = []
+                        for i, segment in enumerate(thread_segments):
+                            segment_text = segment.get("full_text", "") or segment.get("text_content", "")
+                            if segment_text and segment_text.strip():
+                                if len(thread_segments) > 1:
+                                    all_texts.append(f"Segment {i+1}: {segment_text}")
+                                else:
+                                    all_texts.append(segment_text)
+                        
+                        combined_text = "\n\n".join(all_texts)
+                        if combined_text.strip():
+                            tweet_data['full_text'] = combined_text
+                            logging.info(f"✅ Populated top-level full_text for {bookmarked_tweet_id} (length: {len(combined_text)})")
+                        else:
+                            tweet_data['full_text'] = f"Tweet {bookmarked_tweet_id} (content not available)"
+                            logging.warning(f"⚠️ No usable text content found in thread segments for {bookmarked_tweet_id}")
+                    else:
+                        tweet_data['full_text'] = f"Tweet {bookmarked_tweet_id} (content not available)"
+                        logging.warning(f"⚠️ No thread segments found for {bookmarked_tweet_id}")
+                    
                     tweet_data['cache_complete'] = True
                     logging.info(f"Successfully processed cache for thread/tweet {bookmarked_tweet_id}")
                     summary.successfully_cached += 1 # Add to successful count

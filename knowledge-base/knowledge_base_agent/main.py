@@ -10,7 +10,8 @@ from flask_socketio import SocketIO
 from .config import Config, PROJECT_ROOT as global_project_root_ref
 from .agent import KnowledgeBaseAgent
 from .exceptions import KnowledgeBaseError, ConfigurationError
-from .prompts import LLMPrompts, UserPreferences, load_user_preferences
+from .prompts_replacement import LLMPrompts
+from .preferences import UserPreferences, load_user_preferences
 
 logger = logging.getLogger(__name__)
 

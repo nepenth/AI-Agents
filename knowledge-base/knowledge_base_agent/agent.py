@@ -23,11 +23,11 @@ import traceback
 # Core imports needed at module level
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import AgentError, MarkdownGenerationError
-from knowledge_base_agent.state_manager import StateManager
+from knowledge_base_agent.database_state_manager import DatabaseStateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.custom_types import TweetData, KnowledgeBaseItem
-from knowledge_base_agent.prompts import UserPreferences, load_user_preferences
+from knowledge_base_agent.preferences import UserPreferences, load_user_preferences
 from knowledge_base_agent.progress import ProcessingStats, PhaseDetail
 from knowledge_base_agent.content_processor import ContentProcessingError
 from knowledge_base_agent.tweet_utils import parse_tweet_id_from_url
@@ -83,7 +83,7 @@ class KnowledgeBaseAgent:
         self.app = app
         self.config = config
         self.http_client = HTTPClient(config)
-        self.state_manager = StateManager(config)
+        self.state_manager = DatabaseStateManager(config)
         self.category_manager = CategoryManager(config, http_client=self.http_client)
         self.socketio = socketio
         self.task_id = task_id

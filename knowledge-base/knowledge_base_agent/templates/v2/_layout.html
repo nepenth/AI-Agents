@@ -153,6 +153,13 @@
     <script src="{{ url_for('static', filename='v2/js/simplifiedUI.js', v='1.0') }}"></script>
     <!-- Component Coordinator - Load first to ensure availability -->
     <script src="{{ url_for('static', filename='v2/js/componentCoordinator.js', v='1.0') }}"></script>
+    
+    <!-- Enhanced Task State Management - Load early for state restoration -->
+    <script src="{{ url_for('static', filename='v2/js/taskStateManager.js', v='1.0') }}"></script>
+    
+    <!-- Tweet Management Manager - Component for tweet exploration and control -->
+    <script src="{{ url_for('static', filename='v2/js/managers/TweetManagementManager.js', v='1.6') }}"></script>
+    
     <script src="{{ url_for('static', filename='v2/js/effects.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/staticPages.js') }}"></script>

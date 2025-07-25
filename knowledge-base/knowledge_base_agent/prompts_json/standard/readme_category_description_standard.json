@@ -1,0 +1,81 @@
+{
+  "prompt_id": "readme_category_description_standard",
+  "prompt_name": "README Category Description (Standard)",
+  "description": "Generates brief, informative descriptions for knowledge base categories in README documentation",
+  "model_type": "standard",
+  "category": "readme_generation",
+  "task": "Create concise 1-2 sentence descriptions that explain the technical knowledge domain covered by each category",
+  "topic": "Technical documentation, category descriptions, and knowledge organization",
+  "format": {
+    "output_type": "text",
+    "response_structure": {
+      "type": "category_description",
+      "length": "1-2 sentences",
+      "focus": "technical knowledge domain"
+    },
+    "constraints": [
+      "Keep concise and informative",
+      "Focus on technical knowledge type",
+      "Explain domain coverage",
+      "1-2 sentences maximum"
+    ]
+  },
+  "input_parameters": {
+    "required": ["main_display", "total_cat_items", "active_subcats"],
+    "optional": [],
+    "parameters": {
+      "main_display": {
+        "type": "string",
+        "description": "Display name of the main category"
+      },
+      "total_cat_items": {
+        "type": "integer",
+        "description": "Total number of items in this category"
+      },
+      "active_subcats": {
+        "type": "array",
+        "description": "List of active subcategories within this main category"
+      }
+    }
+  },
+  "template": {
+    "type": "standard",
+    "content": "Write a brief 1-2 sentence description for the '{{main_display}}' category in a technical knowledge base.\\nThis category contains {{total_cat_items}} items across {{subcategory_count}} subcategories: {{formatted_subcats}}.\\nKeep it concise and informative. Focus on the type of technical knowledge or domain this category covers."
+  },
+  "examples": [
+    {
+      "name": "backend_frameworks_example",
+      "input": {
+        "main_display": "Backend Frameworks",
+        "total_cat_items": 25,
+        "active_subcats": ["spring_boot", "express_js", "django_patterns"]
+      },
+      "expected_output": "Backend Frameworks covers server-side application development patterns and best practices. This collection includes comprehensive guides on Spring Boot, Express.js, and Django implementation strategies.",
+      "notes": "Example of concise category description focusing on technical domain"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["readme", "category-description", "documentation", "organization"],
+    "performance_notes": "Simple template with subcategory formatting",
+    "quality_score": 8.0
+  },
+  "validation": {
+    "output_validation": {
+      "max_sentences": 2,
+      "min_sentences": 1,
+      "required_elements": [
+        "category_name_mention",
+        "technical_focus"
+      ]
+    },
+    "quality_checks": [
+      "concise_description",
+      "technical_domain_focus",
+      "informative_content"
+    ]
+  }
+}

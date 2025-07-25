@@ -911,16 +911,23 @@ class AgentControlManager {
     // === SYSTEM UTILITIES ===
 
     async resetAgentState() {
-        if (!confirm('Are you sure you want to reset the agent state? This will clear any stuck "Running" status and reset the agent to idle.')) {
+        if (!confirm('Are you sure you want to reset the agent state? This will:\n\n• Stop any running Celery tasks\n• Clear stuck database records\n• Clear Redis progress data\n• Reset agent to idle state\n\nThis is a comprehensive cleanup operation.')) {
             return;
         }
 
         try {
-            this.showInfo('Resetting agent state...');
+            this.showInfo('Performing comprehensive agent state reset...');
             const result = await this.api.request('/agent/reset-state', { method: 'POST' });
 
             if (result.success) {
-                this.showSuccess(`Agent state reset: ${result.message}`);
+                let message = result.message || 'Agent state reset successfully';
+                
+                // Show additional details if stuck tasks were cleaned
+                if (result.stuck_tasks_cleaned > 0) {
+                    message += `\n\n✅ Cleaned up ${result.stuck_tasks_cleaned} stuck task(s)`;
+                }
+                
+                this.showSuccess(message);
 
                 // Force refresh the agent status
                 const status = await this.api.getAgentStatus();
@@ -929,7 +936,7 @@ class AgentControlManager {
                 // Refresh the page to ensure all components are in sync
                 setTimeout(() => {
                     window.location.reload();
-                }, 1000);
+                }, 2000);
             } else {
                 throw new Error(result.error || 'Failed to reset agent state');
             }
