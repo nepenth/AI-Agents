@@ -32,9 +32,11 @@ from .enhanced_realtime_manager import EnhancedRealtimeManager
 
 # Local imports - only import what's needed at module level
 from .config import Config, PROJECT_ROOT
-from .prompts import load_user_preferences
+from .preferences import load_user_preferences
 from .models import db, KnowledgeBaseItem, SubcategorySynthesis, Setting, AgentState
+from .database import init_database_manager, get_db_manager
 from .api.routes import bp as api_bp
+from .api.backup_routes import backup_api
 from knowledge_base_agent.monitoring import initialize_monitoring
 
 # --- Globals & App Initialization ---
@@ -261,10 +263,14 @@ def create_app():
     socketio.init_app(app)
     migrate.init_app(app, db)
     
+    # Initialize database connection manager
+    init_database_manager(app)
+    
     # The new Celery implementation is now the only path.
     # No conditional logic is needed.
     init_celery(app)
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(backup_api)
     
     # CRITICAL FIX: Start EnhancedRealtimeManager during app initialization
     # This ensures log events are never lost due to late initialization
@@ -366,6 +372,7 @@ def serve_v2_page(page_name):
         'schedule': 'v2/schedule_content.html',
         'logs': 'v2/logs_content.html',
         'environment': 'v2/environment_content.html',
+        'tweets': 'v2/tweet_management_content.html',
     }
     
     template_name = template_map.get(page_name)
@@ -388,6 +395,33 @@ def serve_v2_page(page_name):
     
     logging.warning(f"Page name not found in template map: {page_name}")
     abort(404)
+
+@app.route('/data/media_cache/<path:filename>')
+def serve_media(filename):
+    """Serve media files from the data/media_cache directory."""
+    try:
+        from pathlib import Path
+        import os
+        
+        # Get current working directory as fallback if PROJECT_ROOT is None
+        project_root = PROJECT_ROOT or os.getcwd()
+        media_dir = Path(project_root) / 'data' / 'media_cache'
+        full_path = media_dir / filename
+        
+        logging.info(f"Trying to serve media: {filename}")
+        logging.info(f"Project root: {project_root}")
+        logging.info(f"Media directory: {media_dir}")
+        logging.info(f"Full path: {full_path}")
+        logging.info(f"File exists: {full_path.exists()}")
+        
+        if not full_path.exists():
+            logging.error(f"Media file not found: {full_path}")
+            abort(404)
+            
+        return send_from_directory(str(media_dir), filename)
+    except Exception as e:
+        logging.error(f"Error serving media file {filename}: {e}")
+        abort(404)
 
 # --- Shared Business Logic Functions ---
 """

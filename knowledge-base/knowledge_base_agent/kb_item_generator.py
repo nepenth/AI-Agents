@@ -5,7 +5,7 @@ from datetime import datetime
 from knowledge_base_agent.exceptions import StorageError, ContentProcessingError, ContentGenerationError, KnowledgeBaseItemCreationError
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
-from knowledge_base_agent.state_manager import StateManager
+from knowledge_base_agent.database_state_manager import DatabaseStateManager
 from knowledge_base_agent.custom_types import KnowledgeBaseItem, CategoryInfo
 from knowledge_base_agent.category_manager import CategoryManager
 import copy
@@ -17,7 +17,7 @@ import json
 from knowledge_base_agent.naming_utils import normalize_name_for_filesystem
 from knowledge_base_agent.exceptions import AIError
 import re # Import re for the new extraction function
-from knowledge_base_agent.prompts import LLMPrompts, ReasoningPrompts # Added import
+from knowledge_base_agent.prompts_replacement import LLMPrompts, ReasoningPrompts # Using JSON prompt system
 
 def _extract_json_from_text(text: str) -> Optional[str]:
     """
@@ -411,7 +411,7 @@ async def create_knowledge_base_item(
     tweet_data: Dict[str, Any], 
     config: Config, 
     http_client: HTTPClient, 
-    state_manager: Optional[StateManager] = None 
+    state_manager: Optional[DatabaseStateManager] = None 
 ) -> KnowledgeBaseItem:
     """Creates a KnowledgeBaseItem from tweet_data (which may represent a thread) using JSON-based content generation."""
     try:

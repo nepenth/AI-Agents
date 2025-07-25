@@ -7,7 +7,7 @@ from typing import Tuple, Optional, Dict, Any, List
 from knowledge_base_agent.naming_utils import normalize_name_for_filesystem, is_valid_item_name, fix_invalid_name, fallback_snippet_based_name
 from knowledge_base_agent.exceptions import KnowledgeBaseError, AIError
 from knowledge_base_agent.http_client import HTTPClient
-from knowledge_base_agent.prompts import LLMPrompts
+from knowledge_base_agent.prompts_replacement import LLMPrompts
 
 def process_category_response(response_text: str, tweet_id: str) -> Tuple[str, str, str]:
     """
@@ -198,7 +198,7 @@ async def categorize_and_name_content(
     is_thread = bool(thread_segments)
 
     if use_reasoning:
-        from knowledge_base_agent.prompts import ReasoningPrompts
+        from knowledge_base_agent.prompts_replacement import ReasoningPrompts
         
         logging.info(f"Using reasoning mode for categorization of tweet {tweet_id}")
         

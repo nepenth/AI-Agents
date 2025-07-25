@@ -37,6 +37,50 @@ from .task_progress import get_progress_manager
 from .models import db, CeleryTaskState
 
 
+def check_knowledge_base_state(config) -> Dict[str, bool]:
+    """
+    Check the current state of the knowledge base.
+    
+    This function inspects the file system to determine what components
+    of the knowledge base are present and populated.
+    
+    Args:
+        config: Configuration object containing file paths
+        
+    Returns:
+        Dict with boolean flags indicating presence of various components
+    """
+    state = {
+        'has_kb_items': False,
+        'has_readme': False,
+        'has_processed_tweets': False,
+        'has_cached_tweets': False
+    }
+    
+    # Check for processed tweets in state file and its content
+    if Path(config.processed_tweets_file).exists():
+        try:
+            with open(config.processed_tweets_file, 'r') as f:
+                processed_tweets = json.load(f)
+                state['has_processed_tweets'] = bool(processed_tweets)  # True only if there are actual tweets
+        except (FileNotFoundError, json.JSONDecodeError):
+            state['has_processed_tweets'] = False
+    
+    # Check for cached tweet data
+    if list(config.media_cache_dir.glob("*.json")):
+        state['has_cached_tweets'] = True
+    
+    # Check for README
+    if (config.knowledge_base_dir / "README.md").exists():
+        state['has_readme'] = True
+    
+    # Check for knowledge base items
+    if list(config.knowledge_base_dir.glob("**/*.md")):
+        state['has_kb_items'] = True
+    
+    return state
+
+
 class StateManager:
     """
     Enhanced StateManager with Celery task integration.

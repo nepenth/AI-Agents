@@ -1,0 +1,309 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Knowledge Base Agent Prompt Schema",
+  "description": "Comprehensive JSON schema for all prompt types in the Knowledge Base Agent system",
+  "type": "object",
+  "properties": {
+    "prompt_id": {
+      "type": "string",
+      "description": "Unique identifier for the prompt",
+      "pattern": "^[a-z_]+$"
+    },
+    "prompt_name": {
+      "type": "string",
+      "description": "Human-readable name for the prompt"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the prompt's purpose and usage"
+    },
+    "model_type": {
+      "type": "string",
+      "enum": ["standard", "reasoning"],
+      "description": "Type of model this prompt is designed for"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "categorization",
+        "chat",
+        "kb_item_generation", 
+        "synthesis_generation",
+        "readme_generation",
+        "short_name_generation",
+        "markdown_generation"
+      ],
+      "description": "Functional category of the prompt"
+    },
+    "task": {
+      "type": "string",
+      "description": "Primary task or objective of the prompt"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Subject matter or domain focus"
+    },
+    "format": {
+      "type": "object",
+      "properties": {
+        "output_type": {
+          "type": "string",
+          "enum": ["json", "markdown", "text", "structured"],
+          "description": "Expected output format"
+        },
+        "response_structure": {
+          "type": "object",
+          "description": "Detailed structure requirements for the response"
+        },
+        "max_words": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum word count for the response"
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Specific formatting constraints and requirements"
+        }
+      }
+    },
+    "input_parameters": {
+      "type": "object",
+      "description": "Definition of input parameters required by the prompt",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of required parameter names"
+        },
+        "optional": {
+          "type": "array", 
+          "items": {
+            "type": "string"
+          },
+          "description": "List of optional parameter names"
+        },
+        "parameters": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["string", "integer", "boolean", "array", "object", "dict"]
+                },
+                "description": {
+                  "type": "string"
+                },
+                "default": {},
+                "validation": {
+                  "type": "object",
+                  "properties": {
+                    "pattern": {"type": "string"},
+                    "min_length": {"type": "integer"},
+                    "max_length": {"type": "integer"},
+                    "enum": {"type": "array"}
+                  }
+                }
+              },
+              "required": ["type", "description"]
+            }
+          }
+        }
+      },
+      "required": ["required", "parameters"]
+    },
+    "template": {
+      "type": "object",
+      "description": "Template structure for the prompt",
+      "oneOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "standard"
+            },
+            "content": {
+              "type": "string",
+              "description": "Template string with parameter placeholders"
+            }
+          },
+          "required": ["type", "content"]
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "reasoning"
+            },
+            "system_message": {
+              "type": "string",
+              "description": "System message template for reasoning models"
+            },
+            "user_message": {
+              "type": "string", 
+              "description": "User message template for reasoning models"
+            }
+          },
+          "required": ["type", "system_message", "user_message"]
+        }
+      ]
+    },
+    "variants": {
+      "type": "array",
+      "description": "Alternative versions of the prompt for different conditions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the variant"
+          },
+          "condition": {
+            "type": "string",
+            "description": "Condition when this variant should be used"
+          },
+          "template": {
+            "$ref": "#/properties/template"
+          }
+        },
+        "required": ["name", "condition", "template"]
+      }
+    },
+    "examples": {
+      "type": "array",
+      "description": "Example inputs and expected outputs",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the example"
+          },
+          "input": {
+            "type": "object",
+            "description": "Example input parameters"
+          },
+          "expected_output": {
+            "type": "string",
+            "description": "Expected output for the given input"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes about this example"
+          }
+        },
+        "required": ["name", "input", "expected_output"]
+      }
+    },
+    "extract_fields": {
+      "type": "object",
+      "description": "Fields to extract from responses for structured output",
+      "patternProperties": {
+        "^(sub_extract_fields_[0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)$": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["string", "integer", "boolean", "array", "object"]
+            },
+            "description": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean",
+              "default": false
+            },
+            "validation": {
+              "type": "object"
+            }
+          },
+          "required": ["type", "description"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the prompt",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Version of the prompt"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author of the prompt"
+        },
+        "created_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the prompt was created"
+        },
+        "last_modified": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the prompt was last modified"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorizing and searching prompts"
+        },
+        "performance_notes": {
+          "type": "string",
+          "description": "Notes about performance characteristics"
+        },
+        "quality_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Quality score for the prompt (0-10)"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation rules and quality checks",
+      "properties": {
+        "output_validation": {
+          "type": "object",
+          "description": "Rules for validating prompt output"
+        },
+        "quality_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of quality checks to perform"
+        },
+        "test_cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "input": {"type": "object"},
+              "expected_pattern": {"type": "string"},
+              "validation_rules": {"type": "array"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "prompt_id",
+    "prompt_name", 
+    "description",
+    "model_type",
+    "category",
+    "task",
+    "input_parameters",
+    "template"
+  ],
+  "additionalProperties": false
+}

@@ -1,13 +1,14 @@
 /* V2 UI.JS - PURE API POLLING UI ORCHESTRATOR */
 
 /**
- * Dashboard Manager - Coordinates all dashboard components
- * Uses globally available manager classes (no imports needed)
+ * Enhanced Dashboard Manager with Task State Management
+ * Coordinates all dashboard components with comprehensive state tracking
  */
 class DashboardManager {
     constructor(api) {
         this.api = api;
         this.managers = {};
+        this.taskStateManager = null;
         console.log('🎛️ DashboardManager constructor called');
     }
 
@@ -15,13 +16,23 @@ class DashboardManager {
         console.log('🎛️ DashboardManager.initialize() called');
 
         try {
-            // Step 1: Load dashboard content
-            console.log('📄 Step 1: Loading dashboard content...');
-            await this.loadDashboardContent();
-            console.log('✅ Step 1: Dashboard content loaded');
+            // Step 1: Initialize Task State Manager
+            console.log('🔄 Step 1: Initializing Task State Manager...');
+            if (window.taskStateManager) {
+                this.taskStateManager = window.taskStateManager;
+                this.setupTaskStateListeners();
+                console.log('✅ Step 1: Task State Manager connected');
+            } else {
+                console.warn('⚠️ Task State Manager not available');
+            }
 
-            // Step 2: Check manager availability
-            console.log('🔍 Step 2: Checking manager class availability...');
+            // Step 2: Load dashboard content
+            console.log('📄 Step 2: Loading dashboard content...');
+            await this.loadDashboardContent();
+            console.log('✅ Step 2: Dashboard content loaded');
+
+            // Step 3: Check manager availability
+            console.log('🔍 Step 3: Checking manager class availability...');
             const availableManagers = {
                 AgentControlManager: !!window.AgentControlManager,
                 ExecutionPlanManager: !!window.ExecutionPlanManager,
@@ -30,8 +41,8 @@ class DashboardManager {
             };
             console.log('Manager availability:', availableManagers);
 
-            // Step 3: Initialize managers one by one with error handling
-            console.log('🔧 Step 3: Initializing managers...');
+            // Step 4: Initialize managers one by one with error handling
+            console.log('🔧 Step 4: Initializing managers...');
 
             if (window.AgentControlManager) {
                 console.log('Initializing AgentControlManager...');
@@ -318,6 +329,271 @@ class DashboardManager {
         }
     }
 
+    /**
+     * Set up task state event listeners for comprehensive state management
+     */
+    setupTaskStateListeners() {
+        if (!this.taskStateManager) return;
+
+        // Task restored on page load
+        this.taskStateManager.on('taskRestored', (task) => {
+            console.log('🔄 Task state restored:', task.task_id);
+            this.handleTaskRestored(task);
+        });
+
+        // No active task found
+        this.taskStateManager.on('noActiveTask', () => {
+            console.log('ℹ️ No active task found');
+            this.handleNoActiveTask();
+        });
+
+        // Task started
+        this.taskStateManager.on('taskStarted', (task) => {
+            console.log('🚀 Task started:', task.task_id);
+            this.handleTaskStarted(task);
+        });
+
+        // Task progress updates
+        this.taskStateManager.on('taskProgress', (status) => {
+            this.handleTaskProgress(status);
+        });
+
+        // Task completed
+        this.taskStateManager.on('taskCompleted', (status) => {
+            console.log('✅ Task completed:', status.task_id);
+            this.handleTaskCompleted(status);
+        });
+
+        // Task stopped
+        this.taskStateManager.on('taskStopped', (data) => {
+            console.log('⏹️ Task stopped:', data.task_id);
+            this.handleTaskStopped(data);
+        });
+
+        // Task errors
+        this.taskStateManager.on('taskError', (error) => {
+            console.error('❌ Task error:', error);
+            this.handleTaskError(error);
+        });
+
+        // Agent reset
+        this.taskStateManager.on('agentReset', (data) => {
+            console.log('🔄 Agent reset:', data);
+            this.handleAgentReset(data);
+        });
+    }
+
+    /**
+     * Handle task restored on page load
+     */
+    handleTaskRestored(task) {
+        // Update all UI components with restored task state
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: task.is_running,
+                current_phase_message: task.current_phase_message || 'Processing...',
+                task_id: task.task_id
+            });
+        }
+
+        if (this.managers.executionPlan && task.run_report) {
+            this.managers.executionPlan.updateFromRunReport(task.run_report);
+        }
+
+        if (this.managers.liveLogs && task.logs) {
+            this.managers.liveLogs.displayLogs(task.logs);
+        }
+
+        // Show notification about restored task
+        if (this.managers.notifications) {
+            this.managers.notifications.show({
+                type: 'info',
+                title: 'Task State Restored',
+                message: `Restored active task: ${task.human_readable_name || task.task_id}`,
+                duration: 5000
+            });
+        }
+    }
+
+    /**
+     * Handle no active task found
+     */
+    handleNoActiveTask() {
+        // Ensure UI is in idle state
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: false,
+                current_phase_message: 'Idle',
+                task_id: null
+            });
+        }
+    }
+
+    /**
+     * Handle task started
+     */
+    handleTaskStarted(task) {
+        // Update UI for new task
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: true,
+                current_phase_message: 'Starting...',
+                task_id: task.task_id
+            });
+        }
+
+        // Clear previous logs
+        if (this.managers.liveLogs) {
+            this.managers.liveLogs.clearLogs();
+        }
+
+        // Show notification
+        if (this.managers.notifications) {
+            this.managers.notifications.show({
+                type: 'success',
+                title: 'Task Started',
+                message: `Started: ${task.human_readable_name || task.task_id}`,
+                duration: 3000
+            });
+        }
+    }
+
+    /**
+     * Handle task progress updates
+     */
+    handleTaskProgress(status) {
+        // Update progress displays
+        if (this.managers.progressDisplay) {
+            this.managers.progressDisplay.updateProgress({
+                progress: status.progress_percentage || 0,
+                phase_id: status.current_phase_id,
+                message: status.current_phase_message
+            });
+        }
+
+        // Update agent controls
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: status.is_running,
+                current_phase_message: status.current_phase_message,
+                task_id: status.task_id
+            });
+        }
+
+        // Update execution plan if available
+        if (this.managers.executionPlan && status.run_report) {
+            this.managers.executionPlan.updateFromRunReport(status.run_report);
+        }
+    }
+
+    /**
+     * Handle task completed
+     */
+    handleTaskCompleted(status) {
+        // Update UI to show completion
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: false,
+                current_phase_message: 'Completed',
+                task_id: status.task_id
+            });
+        }
+
+        if (this.managers.progressDisplay) {
+            this.managers.progressDisplay.updateProgress({
+                progress: 100,
+                phase_id: 'completed',
+                message: 'Task completed successfully'
+            });
+        }
+
+        // Show completion notification
+        if (this.managers.notifications) {
+            const isSuccess = status.status === 'SUCCESS';
+            this.managers.notifications.show({
+                type: isSuccess ? 'success' : 'error',
+                title: isSuccess ? 'Task Completed' : 'Task Failed',
+                message: isSuccess ? 
+                    `Successfully completed: ${status.human_readable_name || status.task_id}` :
+                    `Task failed: ${status.error_message || 'Unknown error'}`,
+                duration: isSuccess ? 5000 : 10000
+            });
+        }
+    }
+
+    /**
+     * Handle task stopped
+     */
+    handleTaskStopped(data) {
+        // Update UI to show stopped state
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: false,
+                current_phase_message: 'Stopped',
+                task_id: data.task_id
+            });
+        }
+
+        // Show notification
+        if (this.managers.notifications) {
+            this.managers.notifications.show({
+                type: 'warning',
+                title: 'Task Stopped',
+                message: `Task ${data.task_id} was stopped`,
+                duration: 3000
+            });
+        }
+    }
+
+    /**
+     * Handle task errors
+     */
+    handleTaskError(error) {
+        console.error('Task error:', error);
+
+        // Show error notification
+        if (this.managers.notifications) {
+            this.managers.notifications.show({
+                type: 'error',
+                title: 'Task Error',
+                message: error.message || 'An unknown error occurred',
+                duration: 10000
+            });
+        }
+    }
+
+    /**
+     * Handle agent reset
+     */
+    handleAgentReset(data) {
+        // Reset all UI components
+        if (this.managers.agentControls) {
+            this.managers.agentControls.updateStatus({
+                is_running: false,
+                current_phase_message: 'Idle',
+                task_id: null
+            });
+        }
+
+        if (this.managers.progressDisplay) {
+            this.managers.progressDisplay.reset();
+        }
+
+        if (this.managers.executionPlan) {
+            this.managers.executionPlan.reset();
+        }
+
+        // Show notification
+        if (this.managers.notifications) {
+            this.managers.notifications.show({
+                type: 'info',
+                title: 'Agent Reset',
+                message: 'Agent state has been reset to idle',
+                duration: 3000
+            });
+        }
+    }
+
     cleanup() {
         console.log('🧹 Cleaning up Dashboard...');
 
@@ -601,6 +877,9 @@ class UIManager {
         // Initialize API client for REST operations
         this.api = new APIClient();
 
+        // Initialize state tracking for task completion detection
+        this.lastKnownRunningState = false;
+
         // Establish Socket.IO connection for real-time updates (if server supports it)
         try {
             if (window.io) {
@@ -733,6 +1012,26 @@ class UIManager {
     }
 
     handleStatusUpdate(statusData) {
+        // CRITICAL FIX: Detect task completion
+        const wasRunning = this.lastKnownRunningState;
+        const isRunning = statusData.is_running;
+        this.lastKnownRunningState = isRunning;
+
+        // Check for task completion (was running, now not running)
+        if (wasRunning && !isRunning) {
+            console.log('🎉 Task completion detected!');
+            this.handleTaskCompletion(statusData);
+        }
+
+        // Check for completion status in progress data
+        if (statusData.progress && statusData.progress.status) {
+            const progressStatus = statusData.progress.status.toLowerCase();
+            if (progressStatus === 'success' || progressStatus === 'failure' || progressStatus === 'completed') {
+                console.log(`🎉 Task completion detected via progress status: ${progressStatus}`);
+                this.handleTaskCompletion(statusData);
+            }
+        }
+
         // Emit custom events for status updates (replacing SocketIO events)
         if (statusData.is_running !== undefined) {
             this.dispatchCustomEvent('agent_status_update', statusData);
@@ -1202,6 +1501,109 @@ class UIManager {
         });
     }
 
+    handleTaskCompletion(statusData) {
+        console.log('🎉 Handling task completion:', statusData);
+        
+        // Dispatch completion event to all components
+        this.dispatchCustomEvent('agent_execution_completed', {
+            status: statusData,
+            task_id: statusData.task_id,
+            final_status: statusData.status || 'completed'
+        });
+        
+        // Try to load and display run report
+        if (statusData.task_id) {
+            this.loadAndDisplayRunReport(statusData.task_id);
+        }
+        
+        // Update UI components
+        if (this.dashboardManager && this.dashboardManager.managers) {
+            // Update agent controls
+            if (this.dashboardManager.managers.agentControls) {
+                this.dashboardManager.managers.agentControls.updateStatus({
+                    ...statusData,
+                    is_running: false
+                });
+            }
+            
+            // Update execution plan
+            if (this.dashboardManager.managers.executionPlan) {
+                // Reset execution plan after a delay to show completion
+                setTimeout(() => {
+                    this.dashboardManager.managers.executionPlan.resetAllPhases();
+                }, 3000);
+            }
+            
+            // Update live logs
+            if (this.dashboardManager.managers.liveLogs) {
+                this.dashboardManager.managers.liveLogs.updateAgentStatus(
+                    false, 
+                    'Task completed', 
+                    statusData
+                );
+            }
+        }
+        
+        // Show completion notification
+        this.showCompletionNotification(statusData);
+    }
+
+    async loadAndDisplayRunReport(taskId) {
+        try {
+            console.log(`📊 Loading run report for task: ${taskId}`);
+            
+            // Try to get detailed task status which should include run report
+            const response = await this.api.request(`/v2/agent/status/${taskId}`);
+            
+            if (response && response.run_report) {
+                console.log('📊 Run report found:', response.run_report);
+                
+                // Display run report in logs
+                if (response.run_report.log_lines) {
+                    response.run_report.log_lines.forEach(line => {
+                        this.dispatchCustomEvent('log', {
+                            message: line,
+                            level: 'INFO',
+                            timestamp: new Date().toISOString(),
+                            task_id: taskId,
+                            component: 'run_report'
+                        });
+                    });
+                }
+                
+                // Dispatch run report event
+                this.dispatchCustomEvent('run_report_available', {
+                    task_id: taskId,
+                    run_report: response.run_report
+                });
+            } else {
+                console.log('📊 No run report found in task status');
+            }
+        } catch (error) {
+            console.error('❌ Failed to load run report:', error);
+        }
+    }
+
+    showCompletionNotification(statusData) {
+        const isSuccess = statusData.status !== 'FAILURE' && statusData.status !== 'error';
+        const message = isSuccess ? 
+            '🎉 Agent execution completed successfully!' : 
+            '❌ Agent execution completed with errors';
+        
+        // Try to use notification system if available
+        if (this.dashboardManager && this.dashboardManager.managers.notifications) {
+            this.dashboardManager.managers.notifications.show({
+                type: isSuccess ? 'success' : 'error',
+                title: 'Agent Execution Complete',
+                message: message,
+                duration: 5000
+            });
+        } else {
+            // Fallback to console
+            console.log(message);
+        }
+    }
+
     handleAgentStatusEvent(data) {
         // Update UI elements based on agent status
         console.log('📊 Agent status update:', data);
@@ -1354,6 +1756,14 @@ class Router {
                 title: 'Schedules',
                 endpoint: '/v2/page/schedule',
                 manager: () => window.ScheduleManager ? new window.ScheduleManager(this.api) : (window.StaticPagesManager ? new window.StaticPagesManager('schedule', this.api) : null)
+            },
+            'tweets': {
+                title: 'Tweet Management',
+                endpoint: '/v2/page/tweets',
+                manager: () => {
+                    console.log('🐦 Creating TweetManagementManager, available:', !!window.TweetManagementManager);
+                    return window.TweetManagementManager ? new window.TweetManagementManager(this.api) : null;
+                }
             }
         };
 
@@ -1474,6 +1884,8 @@ class Router {
         if (!route) {
             throw new Error(`Route not found: ${path}`);
         }
+        
+        console.log(`🧭 Found route for ${path}:`, route);
 
         try {
             // Update state immediately
@@ -1489,7 +1901,9 @@ class Router {
             await this.loadPageContent(route.endpoint);
 
             // Create and initialize new manager after content is loaded
+            console.log(`🧭 Calling route.manager() for ${path}...`);
             const manager = route.manager();
+            console.log(`🧭 Manager created:`, !!manager, manager);
             if (manager) {
                 console.log(`🧭 Initializing manager for ${path}...`);
 
@@ -1500,6 +1914,11 @@ class Router {
 
                 // Set as current manager only after successful initialization
                 this.currentManager = manager;
+                
+                // Also set global reference for direct access (for debugging/compatibility)
+                if (path === 'tweets' && manager) {
+                    window.tweetManagementManager = manager;
+                }
             } else {
                 console.log(`⚠️ No manager available for route: ${path} (content-only page)`);
             }

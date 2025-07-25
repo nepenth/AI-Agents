@@ -1,0 +1,86 @@
+{
+  "prompt_id": "kb_item_generation_reasoning",
+  "prompt_name": "Knowledge Base Item Generation (Reasoning)",
+  "description": "Generates comprehensive knowledge base articles using step-by-step reasoning and deep technical analysis",
+  "model_type": "reasoning",
+  "category": "kb_item_generation",
+  "task": "Create structured knowledge base articles with reasoning-based analysis and expert-level technical insights",
+  "topic": "Technical content transformation with deep reasoning and knowledge synthesis",
+  "format": {
+    "output_type": "json",
+    "response_structure": {
+      "role": "user",
+      "content": "kb item generation request with reasoning instructions"
+    },
+    "constraints": [
+      "Response must be valid JSON only",
+      "All string fields must be single strings unless specified as arrays",
+      "Focus on technical depth and expert insights",
+      "Include step-by-step reasoning process",
+      "Maintain comprehensive technical accuracy"
+    ]
+  },
+  "input_parameters": {
+    "required": ["tweet_text", "categories"],
+    "optional": ["media_descriptions"],
+    "parameters": {
+      "tweet_text": {
+        "type": "string",
+        "description": "The tweet or thread content to be processed into a knowledge base item"
+      },
+      "categories": {
+        "type": "object",
+        "description": "Dictionary containing main_category, sub_category, and item_name"
+      },
+      "media_descriptions": {
+        "type": "array",
+        "description": "Optional list of media descriptions associated with the content"
+      }
+    }
+  },
+  "template": {
+    "type": "reasoning",
+    "system_message": "Enable deep thinking subroutine. Analyze problems step-by-step. Consider multiple angles and approaches before providing your final answer. Adopt the persona of a highly experienced principal software engineer and technical architect. Your goal is to create a deeply technical and intuitively organized knowledge graph.",
+    "user_message": "Create a structured knowledge base item for the following content. The content will be categorized under '{{main_category}}/{{sub_category}}' with the item name '{{item_name}}'.\\n\\nContent to process:\\n---\\n{{tweet_text}}{{media_desc_text}}\\n---\\n\\nAs a principal software engineer and technical architect, generate a well-structured, comprehensive knowledge base item in JSON format. Your goal is to produce expert-level content for a technical audience. The JSON must include these attributes:\\n\\n**CRITICAL INSTRUCTION FOR JSON STRUCTURE:** For all attributes listed below, if the description implies a single piece of text (like a title, a paragraph, a code snippet itself, an explanation, a list item), you **MUST** provide a single string value. Do **NOT** use an array or list of strings for such fields unless the attribute name or its description explicitly states it's an 'array' (e.g., `sections`, `content_paragraphs` (which is an array *of strings*), `code_blocks` (as a list of block objects), `lists` (as a list of list objects), `notes_or_tips` (as an array *of strings*), `key_takeaways` (as an array *of strings*), `external_references` (as a list of objects)). Pay close attention to the expected type for each field.\\n\\n- suggested_title: string (A precise, domain-specific title that clearly indicates what knowledge the article contains, e.g., 'Advanced React Hooks: Deep Dive into useCallback').\\n- meta_description: string (A concise, information-rich summary capturing the key knowledge (max 160 chars).)\\n- introduction: string (1-2 paragraphs establishing context, importance, and outlining key points. Focus on specific knowledge value. This must be a single string, potentially with newline characters \\\\n for paragraphs.)\\n- sections: An array of sections, each with:\\n  - heading: string (Clear, descriptive section heading, e.g., 'Optimizing PostgreSQL Write Performance'. This must be a single string.)\\n  - content_paragraphs: Array of strings. (Detailed technical explanation with concrete examples and context. Focus on one clear point per paragraph. Each element in this array is a single string.)\\n  - code_blocks: Array of objects (optional). Each with 'language' (string), 'code' (string - This must be a single string, potentially with newline characters \\\\n for multiple lines of code.), 'explanation' (string - Optional. Brief explanation of what this code demonstrates or how it works. This must be a single string.)\\n  - lists: Array of objects (optional). Each with 'type' (string - 'bulleted' or 'numbered') and 'items' (Array of strings - for concise, actionable info. Each element in this array is a single string.)\\n  - notes_or_tips: Array of strings (optional). (Key insights, warnings, or best practices. Each element in this array is a single string.)\\n- key_takeaways: Array of strings. (Precise, actionable learning points that are substantive and specific (3-5 bullets). Each element in this array is a single string.)\\n- conclusion: string (Summarize key points and reinforce practical applications. This must be a single string, potentially with newline characters \\\\n for paragraphs.)\\n- external_references: Array of objects (optional). Each with 'text' (string) and 'url' (string) for highly relevant, authoritative sources.\\n\\nThe content should be comprehensive, technically accurate, and follow best practices for technical writing. Think step-by-step about what would make this knowledge useful to a software engineer or technical professional. Strive for depth and expert insights."
+  },
+  "examples": [
+    {
+      "name": "reasoning_kb_item_example",
+      "input": {
+        "tweet_text": "Java's AtomicLong vs synchronized blocks for thread-safe counters. Performance comparison shows AtomicLong is 3x faster in high-contention scenarios.",
+        "categories": {
+          "main_category": "concurrency_patterns",
+          "sub_category": "thread_synchronization_java",
+          "item_name": "java_atomiclong_vs_synchronized"
+        },
+        "media_descriptions": []
+      },
+      "expected_output": "{\"role\": \"user\", \"content\": \"Create a structured knowledge base item...\"}",
+      "notes": "Example of reasoning-based KB item generation with step-by-step analysis"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["kb-generation", "reasoning", "technical-writing", "expert-analysis", "step-by-step"],
+    "performance_notes": "Complex reasoning-based prompt with dynamic content processing",
+    "quality_score": 9.5
+  },
+  "validation": {
+    "output_validation": {
+      "message_structure": {
+        "role": "user",
+        "content": "string"
+      }
+    },
+    "quality_checks": [
+      "step_by_step_reasoning",
+      "technical_depth",
+      "expert_level_content",
+      "comprehensive_analysis",
+      "structured_format"
+    ]
+  }
+}

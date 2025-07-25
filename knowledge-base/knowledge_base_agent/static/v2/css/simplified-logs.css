@@ -107,11 +107,7 @@
     color: #4ade80;
 }
 
-.log-message {
-    flex: 1;
-    color: var(--text-primary);
-    word-break: break-word;
-}
+/* Removed - replaced by enhanced log-message styles below */
 
 /* Connection Status */
 .connection-status {
@@ -230,6 +226,56 @@
 
 .dark-mode .error-state .retry-btn:hover {
     background: rgba(255, 255, 255, 0.15);
+}
+
+/* Enhanced Log Message Styling for Multi-line Support */
+.log-message {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: pre-wrap !important;
+    transition: background-color 0.15s ease !important;
+    min-height: auto !important;
+    max-height: none !important;
+}
+
+.log-message:hover {
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.log-message .log-time {
+    color: var(--text-tertiary) !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
+    flex-shrink: 0 !important;
+    margin-top: 2px !important;
+}
+
+.log-message .log-content {
+    flex: 1 !important;
+    color: var(--text-primary) !important;
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
+    line-height: 1.5 !important;
+    overflow-wrap: break-word !important;
+    min-height: auto !important;
+    max-height: none !important;
+}
+
+/* Ensure logs container allows for proper scrolling with multi-line messages */
+#logs-container {
+    overflow-y: auto !important;
+    max-height: 100% !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
 }
 
 /* Scrollbar Styling */

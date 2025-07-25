@@ -1,0 +1,160 @@
+{
+  "prompt_id": "kb_item_generation_standard",
+  "prompt_name": "Knowledge Base Item Generation (Standard)",
+  "description": "Generates comprehensive, domain-specific knowledge base articles from tweet content with complex context data handling including tweet segments, media descriptions, and URLs",
+  "model_type": "standard",
+  "category": "kb_item_generation",
+  "task": "Create structured knowledge base articles in JSON format from technical tweet content with rich contextual information",
+  "topic": "Technical content transformation and knowledge base article generation",
+  "format": {
+    "output_type": "json",
+    "response_structure": {
+      "suggested_title": "string - precise, domain-specific title",
+      "meta_description": "string - concise summary (max 160 chars)",
+      "introduction": "string - 1-2 paragraphs with context and importance",
+      "sections": "array - detailed technical sections with headings, content, code blocks, lists, and tips",
+      "key_takeaways": "array - precise, actionable learning points",
+      "conclusion": "string - summary and practical applications",
+      "external_references": "array - highly relevant references with URLs"
+    },
+    "constraints": [
+      "Response must be valid JSON only",
+      "All string fields must be single strings (no arrays unless specified)",
+      "Focus on technical depth over breadth",
+      "Include concrete examples and real-world applications",
+      "Maintain expert-level technical rigor"
+    ]
+  },
+  "input_parameters": {
+    "required": ["context_data"],
+    "optional": [],
+    "parameters": {
+      "context_data": {
+        "type": "object",
+        "description": "Complex context data containing tweet content, categorization, and media information",
+        "validation": {
+          "required_fields": ["main_category", "sub_category", "item_name"]
+        }
+      }
+    }
+  },
+  "template": {
+    "type": "standard",
+    "content": "Your are an expert technical writer and a seasoned software architect/principal engineer, tasked with creating a structured knowledge base article.\\nYour primary goal is to create a deeply technical and intuitively organized knowledge graph for an expert audience.\\nThe source content is from a tweet (or a thread of tweets) and associated media/links.\\nThe target audience is technical (software engineers, data scientists, IT professionals).\\n\\n{{source_content_md}}- Category: {{main_category}} / {{sub_category}}\\n- Initial Topic/Keyword (for title inspiration): \\\"{{item_name_hint}}\\\"\\n{{media_context_md}}{{urls_context_md}}\\n**Your Task:**\\nGenerate a comprehensive, domain-specific knowledge base article in JSON format.\\nFocus on creating content that's rich in technical details and best practices for the specific domain of {{main_category}}/{{sub_category}}.\\n\\nRemember that this article will be part of a professional knowledge base that serves as a reference for experts in the field.\\nExtract meaningful techniques, patterns, or insights that would be valuable to practitioners in this domain.\\n\\nThe JSON object MUST conform to the following schema. Ensure all string values are plain text without any markdown.\\n**CRITICAL: For all fields defined as `string` below, provide a single string value. Do NOT provide a list of strings or an array unless the type is explicitly `array` (e.g., `content_paragraphs`, `code_blocks`, `lists`, `notes_or_tips`, `key_takeaways`, `external_references`).**\\n\\n```json\\n{\\n  \\\"suggested_title\\\": \\\"string (A precise, domain-specific title that clearly indicates what knowledge the article contains, e.g., 'Advanced React Hooks: Deep Dive into useCallback')\\\",\\n  \\\"meta_description\\\": \\\"string (A concise, information-rich summary that captures the key knowledge presented. Max 160 characters.)\\\",\\n  \\\"introduction\\\": \\\"string (1-2 paragraphs establishing context, importance, and outlining the key points to be covered. Focus on the specific knowledge value. This must be a single string, potentially with newline characters \\\\\\\\n for paragraphs.)\\\",\\n  \\\"sections\\\": [\\n    {\\n      \\\"heading\\\": \\\"string (Clear, descriptive section heading related to a specific aspect of the topic)\\\",\\n      \\\"content_paragraphs\\\": [\\n        \\\"string (Detailed technical explanation with concrete examples and context. Focus on one clear point per paragraph. Each element in this array is a single string.)\\\"\\n      ],\\n      \\\"code_blocks\\\": [\\n        {\\n          \\\"language\\\": \\\"string (e.g., python, javascript, bash, json, yaml, Dockerfile, plain_text)\\\",\\n          \\\"code\\\": \\\"string (Clean, well-formatted code snippet that demonstrates a specific concept or technique. This must be a single string, potentially with newline characters \\\\\\\\n for multiple lines of code.)\\\",\\n          \\\"explanation\\\": \\\"string (Optional: Brief explanation of what this code demonstrates or how it works. This must be a single string.)\\\"\\n        }\\n      ],\\n      \\\"lists\\\": [\\n        {\\n          \\\"type\\\": \\\"bulleted | numbered\\\",\\n          \\\"items\\\": [\\n            \\\"string (Concise list item with clear, actionable information. Each element in this array is a single string.)\\\"\\n          ]\\n        }\\n      ],\\n      \\\"notes_or_tips\\\": [\\n        \\\"string (A key insight, warning, or best practice related to this section. Each element in this array is a single string.)\\\"\\n      ]\\n    }\\n  ],\\n  \\\"key_takeaways\\\": [\\n    \\\"string (A precise, actionable learning point that readers should remember. Make these substantive and specific. Each element in this array is a single string.)\\\"\\n  ],\\n  \\\"conclusion\\\": \\\"string (Summarize the key points and reinforce the practical applications of this knowledge. This must be a single string, potentially with newline characters \\\\\\\\n for paragraphs.)\\\",\\n  \\\"external_references\\\": [\\n    {\\\"text\\\": \\\"string (Descriptive text for a highly relevant reference, e.g., 'Official React useCallback Documentation')\\\", \\\"url\\\": \\\"string (The complete URL)\\\"}\\n  ]\\n}\\n```\\n\\n**Guidelines for Domain-Specific Content (for {{main_category}}/{{sub_category}}):**\\n- **Depth over Breadth**: Provide substantial depth on specific techniques rather than shallow overviews.\\n- **Technical Precision**: Use accurate terminology and explain concepts with technical rigor.\\n- **Practical Focus**: Include realistic scenarios where this knowledge would be applied. For instance, if discussing database indexing, explain how it applies to query optimization in high-traffic applications.\\n- **Pattern Recognition**: Identify patterns, principles, or best practices that extend beyond basic usage. For example, when discussing API design, highlight patterns like idempotency or statelessness.\\n- **Context and Rationale**: Explain not just what to do but why it matters and the reasoning behind recommendations. What are the trade-offs? Under what conditions is a particular approach optimal?\\n- **Completeness**: Aim for a comprehensive treatment that would satisfy an expert seeking to deepen their knowledge. Assume your reader is intelligent and technically proficient.\\n- **Organization**: Structure information in a logical progression that builds understanding.\\n\\nFor {{main_category}}/{{sub_category}} content specifically:\\n- Incorporate established best practices and patterns specific to this domain.\\n- Reference appropriate design patterns, architectural approaches, or methodologies when relevant (e.g., if it's about distributed systems, mention CAP theorem implications or specific consensus algorithms if pertinent).\\n- Include concrete examples that illustrate practical application in real-world scenarios.\\n- Address common pitfalls or misconceptions in this specific area. What do junior engineers often get wrong? What are advanced considerations?\\n\\nRespond ONLY with a single, valid JSON object that strictly adheres to the schema. Do not include any other text, explanations, or apologies before or after the JSON."
+  },
+  "examples": [
+    {
+      "name": "single_tweet_example",
+      "input": {
+        "context_data": {
+          "tweet_text": "Java's AtomicLong vs synchronized blocks for thread-safe counters. Performance comparison shows AtomicLong is 3x faster in high-contention scenarios.",
+          "main_category": "concurrency_patterns",
+          "sub_category": "thread_synchronization_java",
+          "item_name": "java_atomiclong_vs_synchronized",
+          "all_urls": [],
+          "all_media_descriptions": []
+        }
+      },
+      "expected_output": "JSON object with structured knowledge base article about Java concurrency patterns",
+      "notes": "Example of single tweet processing with technical content"
+    },
+    {
+      "name": "thread_with_media_example",
+      "input": {
+        "context_data": {
+          "tweet_segments": [
+            "Docker multi-stage builds can reduce image size by 80%",
+            "Here's how to optimize your Dockerfile for production",
+            "Key techniques: layer caching, minimal base images, .dockerignore"
+          ],
+          "main_category": "containerization",
+          "sub_category": "docker_optimization",
+          "item_name": "docker_multistage_build_optimization",
+          "all_urls": ["https://docs.docker.com/develop/dev-best-practices/"],
+          "all_media_descriptions": ["Dockerfile example showing multi-stage build pattern"]
+        }
+      },
+      "expected_output": "JSON object with comprehensive Docker optimization article",
+      "notes": "Example of thread processing with media and URLs"
+    }
+  ],
+  "extract_fields": {
+    "suggested_title": {
+      "type": "string",
+      "description": "Precise, domain-specific title for the knowledge base article",
+      "required": true,
+      "validation": {
+        "min_length": 10,
+        "max_length": 200
+      }
+    },
+    "meta_description": {
+      "type": "string",
+      "description": "Concise summary capturing key knowledge presented",
+      "required": true,
+      "validation": {
+        "max_length": 160
+      }
+    },
+    "sections": {
+      "type": "array",
+      "description": "Detailed technical sections with structured content",
+      "required": true,
+      "validation": {
+        "min_items": 1
+      }
+    },
+    "key_takeaways": {
+      "type": "array",
+      "description": "Precise, actionable learning points",
+      "required": true,
+      "validation": {
+        "min_items": 1
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["kb-generation", "technical-writing", "content-transformation", "expert-knowledge"],
+    "performance_notes": "Complex prompt with dynamic content assembly - requires custom parameter processing",
+    "quality_score": 9.5
+  },
+  "validation": {
+    "output_validation": {
+      "json_schema": {
+        "type": "object",
+        "required": ["suggested_title", "meta_description", "introduction", "sections", "key_takeaways", "conclusion"],
+        "properties": {
+          "suggested_title": {"type": "string", "minLength": 10, "maxLength": 200},
+          "meta_description": {"type": "string", "maxLength": 160},
+          "sections": {"type": "array", "minItems": 1},
+          "key_takeaways": {"type": "array", "minItems": 1}
+        }
+      }
+    },
+    "quality_checks": [
+      "technical_depth",
+      "domain_specificity",
+      "structured_format",
+      "expert_level_content",
+      "valid_json_output"
+    ],
+    "test_cases": [
+      {
+        "input": {
+          "context_data": {
+            "tweet_text": "Kubernetes pod security contexts explained",
+            "main_category": "container_orchestration",
+            "sub_category": "kubernetes_security",
+            "item_name": "k8s_pod_security_contexts"
+          }
+        },
+        "expected_pattern": "kubernetes.*security",
+        "validation_rules": ["valid_json_structure", "technical_content_present"]
+      }
+    ]
+  }
+}

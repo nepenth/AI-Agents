@@ -1,0 +1,80 @@
+{
+  "prompt_id": "short_name_generation",
+  "prompt_name": "Short Name Generation",
+  "description": "Creates concise, intuitive navigation labels for technical categories that developers would recognize instantly",
+  "model_type": "standard",
+  "category": "short_name_generation",
+  "task": "Generate short, memorable names for technical categories suitable for navigation and UI display",
+  "topic": "UI labeling, navigation design, and technical category naming",
+  "format": {
+    "output_type": "text",
+    "response_structure": {
+      "type": "short_label",
+      "length": "2-3 words, max 25 characters",
+      "format": "title case",
+      "style": "developer-friendly"
+    },
+    "constraints": [
+      "2-3 words maximum",
+      "25 characters maximum",
+      "Use title case",
+      "Common technical abbreviations allowed",
+      "Avoid underscores",
+      "Instantly recognizable to developers",
+      "No quotes or explanations"
+    ]
+  },
+  "input_parameters": {
+    "required": [],
+    "optional": [],
+    "parameters": {}
+  },
+  "template": {
+    "type": "standard",
+    "content": "You are an expert at creating concise, intuitive navigation labels for technical categories. Create short, memorable names (2-3 words, max 25 characters) that developers would recognize instantly. Use title case, common technical abbreviations (API, ML, AI, DB, etc.), and avoid underscores. Examples: 'agent_frameworks' → 'AI Agents', 'web_development' → 'Web Dev', 'machine_learning' → 'ML & AI'. Always respond with ONLY the short name, no quotes or explanation."
+  },
+  "examples": [
+    {
+      "name": "agent_frameworks",
+      "input": {},
+      "expected_output": "AI Agents",
+      "notes": "Example of converting technical category to short navigation label"
+    },
+    {
+      "name": "web_development",
+      "input": {},
+      "expected_output": "Web Dev",
+      "notes": "Example using common abbreviation"
+    },
+    {
+      "name": "machine_learning",
+      "input": {},
+      "expected_output": "ML & AI",
+      "notes": "Example using technical abbreviations"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["ui", "navigation", "labeling", "categories"],
+    "performance_notes": "Simple static prompt with no parameters",
+    "quality_score": 8.0
+  },
+  "validation": {
+    "output_validation": {
+      "max_length": 25,
+      "max_words": 3,
+      "format": "title_case",
+      "no_underscores": true,
+      "no_quotes": true
+    },
+    "quality_checks": [
+      "developer_friendly",
+      "instantly_recognizable",
+      "appropriate_abbreviations",
+      "concise_format"
+    ]
+  }
+}

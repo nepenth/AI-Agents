@@ -8,7 +8,7 @@ import time
 import traceback
 from typing import Dict, Any, Optional, List
 
-from .state_manager import StateManager
+from .database_state_manager import DatabaseStateManager
 from .unified_logging import EnhancedUnifiedLogger, get_unified_logger
 from .config import Config
 
@@ -21,7 +21,7 @@ class StateManagerEventIntegration:
     event emission using the Enhanced Unified Logger.
     """
     
-    def __init__(self, state_manager: StateManager, task_id: str, config: Optional[Config] = None):
+    def __init__(self, state_manager: DatabaseStateManager, task_id: str, config: Optional[Config] = None):
         """
         Initialize the integration layer.
         
@@ -287,5 +287,5 @@ def create_state_manager_with_events(config: Config, task_id: str) -> StateManag
     Returns:
         StateManagerEventIntegration: Integrated state manager
     """
-    state_manager = StateManager(config, task_id)
+    state_manager = DatabaseStateManager(config, task_id)
     return StateManagerEventIntegration(state_manager, task_id, config)

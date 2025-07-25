@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0.0",
+  "description": "JSON-based prompt configuration system for Knowledge Base Agent",
+  "prompt_directories": {
+    "standard": {
+      "path": "standard/",
+      "description": "Prompts for standard LLM models that return string responses",
+      "model_type": "standard"
+    },
+    "reasoning": {
+      "path": "reasoning/", 
+      "description": "Prompts for reasoning models that use message-based interactions",
+      "model_type": "reasoning"
+    }
+  },
+  "categories": {
+    "categorization": {
+      "description": "Prompts for categorizing and organizing content",
+      "files": [
+        "categorization_standard.json",
+        "categorization_reasoning.json"
+      ]
+    },
+    "chat": {
+      "description": "Prompts for conversational AI interactions",
+      "files": [
+        "chat_standard.json",
+        "chat_context_preparation.json",
+        "chat_synthesis_aware.json",
+        "chat_contextual_response.json"
+      ]
+    },
+    "kb_item_generation": {
+      "description": "Prompts for generating knowledge base items",
+      "files": [
+        "kb_item_generation_standard.json",
+        "kb_item_generation_reasoning.json"
+      ]
+    },
+    "synthesis_generation": {
+      "description": "Prompts for generating synthesis documents",
+      "files": [
+        "synthesis_generation_standard.json",
+        "synthesis_generation_reasoning.json",
+        "synthesis_markdown_generation.json",
+        "main_category_synthesis.json"
+      ]
+    },
+    "readme_generation": {
+      "description": "Prompts for generating README documentation",
+      "files": [
+        "readme_introduction_standard.json",
+        "readme_category_description_standard.json",
+        "readme_generation_reasoning.json"
+      ]
+    },
+    "short_name_generation": {
+      "description": "Prompts for generating short names and labels",
+      "files": [
+        "short_name_generation.json"
+      ]
+    }
+  },
+  "validation": {
+    "schema_file": "../prompt_schema.json",
+    "required_fields": [
+      "prompt_id",
+      "prompt_name",
+      "description", 
+      "model_type",
+      "category",
+      "task",
+      "input_parameters",
+      "template"
+    ],
+    "quality_thresholds": {
+      "min_quality_score": 7.0,
+      "max_response_time_ms": 5000
+    }
+  },
+  "defaults": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "quality_score": 8.0
+  }
+}

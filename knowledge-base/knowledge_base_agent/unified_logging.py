@@ -333,14 +333,17 @@ class EnhancedUnifiedLogger:
         
         self.log_structured(completion_message, "INFO", component, log_data)
         
-        # Emit a legacy phase update for backward compatibility with completion status
-        if result and isinstance(result, dict):
-            self.emit_phase_update(
-                phase_name, 
-                "completed", 
-                completion_message,
-                100  # 100% progress for completed phases
-            )
+        # CRITICAL FIX: Don't emit generic completion messages that overwrite rich ones
+        # The rich completion messages are already sent via the agent's phase callback
+        # This generic completion message was overwriting the rich ones in the frontend
+        # 
+        # if result and isinstance(result, dict):
+        #     self.emit_phase_update(
+        #         phase_name, 
+        #         "completed", 
+        #         completion_message,
+        #         100  # 100% progress for completed phases
+        #     )
     
     def emit_phase_error(self, phase_name: str, error: Union[str, Exception], 
                         component: str = None, structured_data: Dict[str, Any] = None):

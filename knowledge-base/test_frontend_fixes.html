@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Fixes Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        .test-title {
+            color: #4ade80;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .log-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            transition: background-color 0.15s ease;
+            min-height: auto;
+            max-height: none;
+            background: #1e1e1e;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+        .log-message:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .log-time {
+            color: #888;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            min-width: 80px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .log-content {
+            flex: 1;
+            color: #fff;
+            word-break: break-word;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            overflow-wrap: break-word;
+            min-height: auto;
+            max-height: none;
+        }
+        .phase-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .phase-completed {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+        .phase-running {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+        .before-after {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .before, .after {
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .before {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .after {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        .before h4, .after h4 {
+            margin-top: 0;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Frontend Fixes Test Page</h1>
+    <p>This page demonstrates the fixes applied to resolve phase status and log display issues.</p>
+
+    <div class="test-section">
+        <div class="test-title">✅ Fix 1: Rich Phase Completion Messages</div>
+        <p>Phase completion messages now preserve rich backend data instead of showing generic "COMPLETED".</p>
+        
+        <div class="before-after">
+            <div class="before">
+                <h4>❌ Before (Generic)</h4>
+                <div class="phase-status phase-completed">COMPLETED</div>
+                <div class="phase-status phase-completed">COMPLETED</div>
+                <div class="phase-status phase-completed">COMPLETED</div>
+            </div>
+            <div class="after">
+                <h4>✅ After (Rich Messages)</h4>
+                <div class="phase-status phase-completed">✅ Successfully generated 3 synthesis documents</div>
+                <div class="phase-status phase-completed">✅ Vector embeddings generated</div>
+                <div class="phase-status phase-completed">✅ Changes pushed to Git</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">✅ Fix 2: Multi-line Log Messages</div>
+        <p>Log messages now support multiple lines and don't get truncated.</p>
+        
+        <div class="before-after">
+            <div class="before">
+                <h4>❌ Before (Truncated)</h4>
+                <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; background: #1e1e1e; padding: 8px; font-family: monospace;">
+                    2:07:52 PM Synthesis markdown saved to /home/nepenthe/git_repos/agents/knowledge-base/kb-generated/syntheses/api_security/api_security_best_practices/synthesis_api_security_best...
+                </div>
+            </div>
+            <div class="after">
+                <h4>✅ After (Full Message)</h4>
+                <div class="log-message">
+                    <span class="log-time">2:07:52 PM</span>
+                    <span class="log-content">✅ Synthesis markdown saved to /home/nepenthe/git_repos/agents/knowledge-base/kb-generated/syntheses/api_security/api_security_best_practices/synthesis_api_security_best_practices.md
+
+Processing completed successfully with detailed file path information that can now be read in full without truncation.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">✅ Fix 3: Debug Message Filtering</div>
+        <p>Debug messages that clutter the logs are now filtered out.</p>
+        
+        <div class="before-after">
+            <div class="before">
+                <h4>❌ Before (Cluttered)</h4>
+                <div style="font-family: monospace; font-size: 0.8em; background: #1e1e1e; padding: 10px;">
+                    1:56:27 PM 🧪 PIPELINE TEST: Logging pipeline verification<br>
+                    1:56:27 PM ✅ Logging pipeline test PASSED<br>
+                    1:56:27 PM 🔍 TASK ID VERIFICATION: Creating KnowledgeBaseAgent<br>
+                    1:56:28 PM DEBUG_AGENT_RUN: About to call agent.run()<br>
+                    1:56:28 PM 💾 Flask app context created for database operations<br>
+                    1:56:29 PM 🔍 DEBUG_AGENT_RUN: Entering agent.run() method<br>
+                    1:56:30 PM ✅ Synthesis generation completed
+                </div>
+            </div>
+            <div class="after">
+                <h4>✅ After (Clean)</h4>
+                <div style="font-family: monospace; font-size: 0.8em; background: #1e1e1e; padding: 10px;">
+                    1:56:27 PM ✅ Logging pipeline test PASSED<br>
+                    1:56:30 PM ✅ Synthesis generation completed<br>
+                    1:56:31 PM 🚀 Agent execution started<br>
+                    1:56:35 PM ✅ Processing completed successfully
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">🔧 Technical Implementation</div>
+        <p>The fixes were implemented in the following files:</p>
+        <ul>
+            <li><strong>executionPlan.js</strong>: Enhanced phase completion message preservation and added rich completion messages</li>
+            <li><strong>liveLogs.js</strong>: Improved log styling for multi-line support and added debug message filtering</li>
+            <li><strong>simplified-logs.css</strong>: Added CSS rules for proper multi-line log display with word wrapping</li>
+        </ul>
+        
+        <h4>Key Changes:</h4>
+        <ul>
+            <li>✅ Phase completion messages now preserve rich backend data</li>
+            <li>✅ Log messages support multi-line display with proper word wrapping</li>
+            <li>✅ Debug messages are filtered out to reduce log clutter</li>
+            <li>✅ Enhanced CSS styling for better log readability</li>
+        </ul>
+    </div>
+
+    <script>
+        // Simulate some log updates to test the styling
+        console.log('Frontend fixes test page loaded successfully');
+        
+        // Test phase completion message preservation
+        function testPhaseCompletion() {
+            const richMessage = "✅ Successfully generated 5 synthesis documents (3.2s)";
+            console.log('Rich completion message:', richMessage);
+            
+            // This would normally be handled by the ExecutionPlanManager
+            // updatePhase('synthesis_generation', 'completed', richMessage);
+        }
+        
+        // Test multi-line log display
+        function testMultiLineLog() {
+            const longMessage = `✅ Synthesis markdown saved to /home/nepenthe/git_repos/agents/knowledge-base/kb-generated/syntheses/api_security/api_security_best_practices/synthesis_api_security_best_practices.md
+
+Processing completed successfully with detailed information about the generated file and its location in the knowledge base structure.`;
+            
+            console.log('Multi-line log message:', longMessage);
+        }
+        
+        // Run tests
+        setTimeout(testPhaseCompletion, 1000);
+        setTimeout(testMultiLineLog, 2000);
+    </script>
+</body>
+</html>

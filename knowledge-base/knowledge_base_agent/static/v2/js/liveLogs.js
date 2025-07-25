@@ -293,20 +293,48 @@ class LiveLogsManager {
             this.seenLogIds = new Set(toKeep);
         }
         
-        // Create log element with enhanced styling (remove any hover effects)
+        // Create log element with enhanced styling for multi-line support
         const logElement = document.createElement('div');
         logElement.className = 'log-message';
         logElement.dataset.level = level;
         logElement.style.transition = 'none'; // Remove any hover transitions
         logElement.style.transform = 'none'; // Prevent any transform effects
         
+        // Enhanced styling for better readability and multi-line support
+        logElement.style.cssText += `
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        `;
+        
         // Add timestamp if available
         const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
         logElement.innerHTML = `
-            <span class="log-time" style="color: var(--text-tertiary); font-size: var(--font-size-xs); margin-right: var(--space-2);">
+            <span class="log-time" style="
+                color: var(--text-tertiary); 
+                font-size: var(--font-size-xs); 
+                white-space: nowrap;
+                min-width: 80px;
+                flex-shrink: 0;
+                margin-top: 2px;
+            ">
                 ${time}
             </span>
-            <span class="log-content">${this.escapeHtml(message)}</span>
+            <span class="log-content" style="
+                flex: 1;
+                color: var(--text-primary);
+                word-break: break-word;
+                white-space: pre-wrap;
+                line-height: 1.5;
+            ">${this.escapeHtml(message)}</span>
         `;
         
         this.logsContainer.appendChild(logElement);
@@ -357,6 +385,24 @@ class LiveLogsManager {
         // Never filter errors/warnings/critical logs
         if (['ERROR', 'WARNING', 'CRITICAL'].includes(level)) {
             return false;
+        }
+        
+        // FILTER DEBUG MESSAGES: Remove debug messages that clutter the logs
+        const debugPatterns = [
+            '🧪 PIPELINE TEST:',
+            'TASK ID VERIFICATION:',
+            'DEBUG_AGENT_RUN:',
+            'Flask app context created',
+            'Task state initialized in database',
+            'About to call agent.run()',
+            'Agent instance created successfully',
+            'Entering agent.run() method',
+            'initialize() completed successfully'
+        ];
+        
+        // Filter out debug messages
+        if (debugPatterns.some(pattern => message.includes(pattern))) {
+            return true;
         }
         
         // MINIMAL NOISE FILTERING: Only filter truly noisy patterns

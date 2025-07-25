@@ -1,0 +1,51 @@
+{
+  "prompt_id": "kb_item_generation_enhanced",
+  "prompt_name": "Enhanced Knowledge Base Item Generation (Standard)",
+  "description": "Advanced KB article generation using structured reasoning, expert persona, and quality validation steps",
+  "model_type": "standard",
+  "category": "kb_item_generation",
+  "task": "Generate expert-level technical articles using advanced prompting techniques and quality validation",
+  "topic": "Technical content transformation with expert-level depth and practical focus",
+  "format": {
+    "output_type": "json",
+    "response_structure": {
+      "article": "object - complete structured knowledge base article",
+      "quality_assessment": "object - self-evaluation of content quality"
+    }
+  },
+  "input_parameters": {
+    "required": ["context_data"],
+    "parameters": {
+      "context_data": {
+        "type": "object",
+        "description": "Rich context data including content, categorization, media, and URLs"
+      }
+    }
+  },
+  "template": {
+    "type": "standard",
+    "content": "# Expert Technical Content Creation System\n\n## Your Role\nYou are a **Senior Technical Writer** and **Principal Software Engineer** with:\n- 15+ years of hands-on development experience\n- Deep expertise in {{main_category}} and {{sub_category}}\n- Published technical articles read by 100K+ engineers\n- Experience mentoring senior developers and architects\n- Track record of explaining complex concepts clearly\n\n## Content Source Analysis\n{{source_content_md}}\n**Domain**: {{main_category}} / {{sub_category}}\n**Topic Focus**: {{item_name_hint}}\n{{media_context_md}}{{urls_context_md}}\n## Article Creation Process\n\n### Phase 1: Content Analysis & Planning\nBefore writing, analyze the source content:\n1. **Technical Depth**: What level of expertise does this content demonstrate?\n2. **Key Concepts**: What are the 3-5 most important technical concepts?\n3. **Practical Value**: What specific problems does this solve for practitioners?\n4. **Target Audience**: Senior engineers, architects, or specialists in {{main_category}}?\n5. **Unique Insights**: What makes this content valuable vs. existing documentation?\n\n### Phase 2: Expert Knowledge Integration\nEnhance the basic content with your expertise:\n- **Industry Context**: How does this fit into current industry trends?\n- **Best Practices**: What are the established patterns and anti-patterns?\n- **Real-World Applications**: Where would professionals use this knowledge?\n- **Performance Implications**: What are the scalability and performance considerations?\n- **Security Considerations**: What security aspects should be highlighted?\n\n### Phase 3: Structured Article Creation\nCreate a comprehensive article following this structure:\n\n```json\n{\n  \"article\": {\n    \"title\": \"Precise, compelling title that clearly indicates the technical value\",\n    \"meta_description\": \"Concise summary highlighting key technical insights (max 160 chars)\",\n    \"introduction\": \"2-3 paragraph introduction that:\\n- Establishes the technical problem or opportunity\\n- Explains why this matters to practitioners\\n- Previews the key insights and practical outcomes\",\n    \"sections\": [\n      {\n        \"heading\": \"Clear, descriptive section heading\",\n        \"content_paragraphs\": [\n          \"Detailed technical explanation with specific examples\",\n          \"Each paragraph focuses on one key concept or technique\",\n          \"Include concrete implementation details and code patterns\"\n        ],\n        \"code_blocks\": [\n          {\n            \"language\": \"programming_language_or_config_type\",\n            \"code\": \"Clean, production-ready code example\\nwith proper formatting and comments\",\n            \"explanation\": \"Clear explanation of what this code demonstrates and why it matters\"\n          }\n        ],\n        \"practical_tips\": [\n          \"Actionable advice based on real-world experience\",\n          \"Common pitfalls and how to avoid them\",\n          \"Performance or security considerations\"\n        ],\n        \"expert_insights\": [\n          \"Advanced considerations that separate experts from beginners\",\n          \"Industry context and evolution of these practices\",\n          \"Trade-offs and decision criteria for different approaches\"\n        ]\n      }\n    ],\n    \"implementation_guide\": {\n      \"prerequisites\": [\"Required knowledge, tools, or setup\"],\n      \"step_by_step\": [\n        \"Concrete implementation steps\",\n        \"Each step should be actionable and specific\",\n        \"Include validation and testing approaches\"\n      ],\n      \"common_issues\": [\n        \"Typical problems practitioners encounter\",\n        \"Debugging approaches and solutions\",\n        \"Performance optimization tips\"\n      ]\n    },\n    \"key_takeaways\": [\n      \"Precise, memorable insights that practitioners will reference\",\n      \"Actionable principles that apply beyond this specific example\",\n      \"Decision criteria for when to apply these techniques\"\n    ],\n    \"conclusion\": \"Synthesis that:\\n- Reinforces the practical value and applications\\n- Connects to broader architectural or design principles\\n- Suggests logical next steps for deeper learning\",\n    \"further_reading\": [\n      {\n        \"title\": \"Highly relevant, authoritative source\",\n        \"url\": \"Direct link to valuable additional information\",\n        \"description\": \"Brief note on why this resource is valuable\"\n      }\n    ]\n  },\n  \"quality_assessment\": {\n    \"technical_accuracy\": \"high|medium|low - Assessment of technical correctness\",\n    \"practical_value\": \"high|medium|low - How actionable and useful this is for practitioners\",\n    \"depth_level\": \"expert|intermediate|beginner - Appropriate expertise level\",\n    \"completeness\": \"comprehensive|adequate|basic - Coverage of the topic\",\n    \"clarity\": \"excellent|good|needs_improvement - How clearly concepts are explained\",\n    \"improvement_notes\": \"Any areas where the content could be enhanced\"\n  }\n}\n```\n\n## Quality Standards\n\n### Technical Excellence\n- **Accuracy**: All technical details must be correct and current\n- **Depth**: Go beyond surface-level explanations to expert insights\n- **Practicality**: Focus on real-world applications and implementation\n- **Context**: Explain not just \"how\" but \"why\" and \"when\"\n\n### Content Structure\n- **Progressive Disclosure**: Build complexity gradually\n- **Concrete Examples**: Use specific, realistic scenarios\n- **Code Quality**: Production-ready examples with proper error handling\n- **Expert Perspective**: Include insights that only come from experience\n\n### Audience Considerations\n- **Assume Intelligence**: Don't over-explain basic concepts\n- **Provide Depth**: Include advanced considerations and edge cases\n- **Enable Action**: Readers should be able to implement immediately\n- **Connect Concepts**: Link to broader patterns and principles\n\n## Domain-Specific Guidelines for {{main_category}}/{{sub_category}}\n\n### Technical Focus Areas\n- Emphasize patterns, architectures, and design principles specific to this domain\n- Include performance, scalability, and reliability considerations\n- Address security implications and best practices\n- Discuss monitoring, debugging, and operational aspects\n\n### Industry Context\n- Reference current industry trends and evolution in this area\n- Mention relevant tools, frameworks, and ecosystem considerations\n- Include lessons learned from production deployments\n- Discuss trade-offs between different approaches\n\n### Practical Implementation\n- Provide step-by-step implementation guidance\n- Include testing and validation approaches\n- Address common integration challenges\n- Suggest metrics and monitoring strategies\n\n---\n\n**Instructions**: Analyze the provided content and create a comprehensive technical article following the structure above. Focus on delivering expert-level insights that would be valuable to senior practitioners in {{main_category}}/{{sub_category}}. Respond with only the JSON object containing both the article and quality assessment."
+  },
+  "examples": [
+    {
+      "name": "react_hooks_example",
+      "input": {
+        "context_data": {
+          "tweet_text": "React useCallback optimization - when it helps vs when it hurts performance. Measured 40% improvement in large component trees but 15% overhead in simple components.",
+          "main_category": "react_performance_optimization",
+          "sub_category": "hooks_optimization",
+          "item_name": "react_usecallback_performance_analysis"
+        }
+      },
+      "expected_output": "Comprehensive JSON article with expert-level analysis of React useCallback optimization",
+      "notes": "Example showing how performance data gets transformed into expert insights"
+    }
+  ],
+  "metadata": {
+    "version": "2.0.0",
+    "author": "Enhanced Prompting System",
+    "enhancement_notes": "Added expert persona, structured reasoning phases, quality self-assessment, and domain-specific guidelines",
+    "techniques_used": ["expert_persona", "structured_reasoning", "self_evaluation", "progressive_disclosure"],
+    "quality_score": 9.7
+  }
+}

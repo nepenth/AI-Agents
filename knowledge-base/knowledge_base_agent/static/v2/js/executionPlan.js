@@ -11,6 +11,7 @@ class ExecutionPlanManager {
         if (!this.phaseList) return;
 
         this.phases = {};
+        this.hasInitialized = false; // Track if we've initialized with running task
         this.forceReprocessPhases = ['tweet_caching', 'media_analysis', 'llm_processing', 'kb_item_generation', 'synthesis_generation'];
         this.initPhases();
         this.attachEventListeners();
@@ -124,10 +125,27 @@ class ExecutionPlanManager {
             }
         });
 
+        // CRITICAL FIX: Also listen for initial agent status updates
+        document.addEventListener('agent_status_update', (event) => {
+            const statusData = event.detail;
+            console.log('ExecutionPlan received agent_status_update:', statusData);
+            
+            // If this is the first status update and agent is running, initialize
+            if (statusData.is_running && statusData.task_id && !this.hasInitialized) {
+                console.log('🔄 ExecutionPlan: Initializing with running task from status update');
+                this.initializeWithRunningTask(statusData);
+                this.hasInitialized = true;
+            }
+        });
+
         console.log('ExecutionPlan event listeners set up for polling-based updates');
     }
 
     mapMessageToPhaseId(message) {
+        if (!message) return null;
+        
+        console.log(`🔍 Mapping message to phase ID: "${message}"`);
+        
         // Map phase messages/names to phase IDs
         const messageToPhaseMap = {
             'initialization': 'initialization',
@@ -146,17 +164,76 @@ class ExecutionPlanManager {
         
         // Direct mapping first
         if (messageToPhaseMap[message]) {
+            console.log(`✅ Direct mapping found: ${message} -> ${messageToPhaseMap[message]}`);
             return messageToPhaseMap[message];
         }
         
         // Try to extract phase ID from message text
         const lowerMessage = message.toLowerCase();
+        console.log(`🔍 Trying fuzzy matching for: "${lowerMessage}"`);
+        
+        // Enhanced fuzzy matching with priority order (most specific first)
+        
+        // PRIORITY 1: Very specific synthesis patterns
+        if (lowerMessage.includes('generating subcategory synthesis') || 
+            lowerMessage.includes('subcategory synthesis') ||
+            (lowerMessage.includes('generating') && lowerMessage.includes('synthesis'))) {
+            console.log(`✅ Fuzzy match (high priority): synthesis_generation`);
+            return 'synthesis_generation';
+        }
+        
+        // PRIORITY 2: Other synthesis patterns
+        if (lowerMessage.includes('synthesis')) {
+            console.log(`✅ Fuzzy match: synthesis_generation`);
+            return 'synthesis_generation';
+        }
+        
+        // PRIORITY 3: Embedding patterns
+        if (lowerMessage.includes('embedding')) {
+            console.log(`✅ Fuzzy match: embedding_generation`);
+            return 'embedding_generation';
+        }
+        
+        // PRIORITY 4: README patterns
+        if (lowerMessage.includes('readme')) {
+            console.log(`✅ Fuzzy match: readme_generation`);
+            return 'readme_generation';
+        }
+        
+        // PRIORITY 5: Git patterns
+        if (lowerMessage.includes('git') || lowerMessage.includes('push')) {
+            console.log(`✅ Fuzzy match: git_sync`);
+            return 'git_sync';
+        }
+        
+        // PRIORITY 6: Database sync patterns (be more specific)
+        if ((lowerMessage.includes('database') && lowerMessage.includes('sync')) ||
+            lowerMessage.includes('db sync')) {
+            console.log(`✅ Fuzzy match: database_sync`);
+            return 'database_sync';
+        }
+        
+        // PRIORITY 7: Fetch patterns
+        if (lowerMessage.includes('fetch') || lowerMessage.includes('bookmark')) {
+            console.log(`✅ Fuzzy match: fetch_bookmarks`);
+            return 'fetch_bookmarks';
+        }
+        
+        // PRIORITY 8: Content processing (most generic, last)
+        if (lowerMessage.includes('processing') || lowerMessage.includes('content')) {
+            console.log(`✅ Fuzzy match: content_processing`);
+            return 'content_processing';
+        }
+        
+        // Try original logic as fallback
         for (const [key, phaseId] of Object.entries(messageToPhaseMap)) {
             if (lowerMessage.includes(key.replace('_', ' ')) || lowerMessage.includes(key)) {
+                console.log(`✅ Fallback match: ${key} -> ${phaseId}`);
                 return phaseId;
             }
         }
         
+        console.log(`⚠️ No mapping found for: "${message}"`);
         return message; // Return as-is if no mapping found
     }
 
@@ -191,10 +268,18 @@ class ExecutionPlanManager {
         // First, reset all phases to ensure clean state
         this.resetAllPhases();
         
-        // Extract current phase information
-        const currentPhase = taskStatus.progress?.phase_id || 
-                           this.mapMessageToPhaseId(taskStatus.current_phase_message) || 
-                           'initialization';
+        // Extract current phase information with better mapping
+        let currentPhase = taskStatus.progress?.phase_id;
+        
+        // If no phase_id, try to map from message
+        if (!currentPhase && taskStatus.current_phase_message) {
+            currentPhase = this.mapMessageToPhaseId(taskStatus.current_phase_message);
+        }
+        
+        // Default fallback
+        if (!currentPhase) {
+            currentPhase = 'content_processing';
+        }
         
         const currentMessage = taskStatus.progress?.message || 
                              taskStatus.current_phase_message || 
@@ -205,18 +290,9 @@ class ExecutionPlanManager {
         const totalCount = taskStatus.progress?.total_count;
         
         console.log(`📊 Current phase: ${currentPhase}, Message: ${currentMessage}, Progress: ${currentProgress}%`);
+        console.log(`📊 Raw task status:`, taskStatus);
         
-        // Update the current phase as running
-        if (this.phases[currentPhase]) {
-            this.updatePhase(currentPhase, 'running', currentMessage);
-            
-            // If we have progress data, show it
-            if (processedCount !== undefined && totalCount !== undefined) {
-                this.updatePhaseProgress(currentPhase, processedCount, totalCount, currentMessage);
-            }
-        }
-        
-        // Mark previous phases as completed (basic heuristic)
+        // Enhanced phase order with better mapping
         const phaseOrder = [
             'initialization',
             'fetch_bookmarks', 
@@ -232,15 +308,65 @@ class ExecutionPlanManager {
             'git_sync'
         ];
         
-        const currentPhaseIndex = phaseOrder.indexOf(currentPhase);
+        // Find current phase index with fuzzy matching
+        let currentPhaseIndex = phaseOrder.indexOf(currentPhase);
+        
+        // If exact match not found, try fuzzy matching
+        if (currentPhaseIndex === -1) {
+            const lowerMessage = currentMessage.toLowerCase();
+            
+            // Map common phase messages to phase IDs
+            if (lowerMessage.includes('synthesis') || lowerMessage.includes('generating subcategory')) {
+                currentPhase = 'synthesis_generation';
+                currentPhaseIndex = phaseOrder.indexOf('synthesis_generation');
+            } else if (lowerMessage.includes('embedding')) {
+                currentPhase = 'embedding_generation';
+                currentPhaseIndex = phaseOrder.indexOf('embedding_generation');
+            } else if (lowerMessage.includes('readme')) {
+                currentPhase = 'readme_generation';
+                currentPhaseIndex = phaseOrder.indexOf('readme_generation');
+            } else if (lowerMessage.includes('git') || lowerMessage.includes('push')) {
+                currentPhase = 'git_sync';
+                currentPhaseIndex = phaseOrder.indexOf('git_sync');
+            } else if (lowerMessage.includes('database') || lowerMessage.includes('sync')) {
+                currentPhase = 'database_sync';
+                currentPhaseIndex = phaseOrder.indexOf('database_sync');
+            } else if (lowerMessage.includes('processing') || lowerMessage.includes('content')) {
+                currentPhase = 'content_processing';
+                currentPhaseIndex = phaseOrder.indexOf('content_processing');
+            }
+        }
+        
+        console.log(`📊 Mapped phase: ${currentPhase} (index: ${currentPhaseIndex})`);
+        
+        // Update the current phase as running
+        if (this.phases[currentPhase]) {
+            this.updatePhase(currentPhase, 'running', currentMessage);
+            
+            // If we have progress data, show it
+            if (processedCount !== undefined && totalCount !== undefined) {
+                this.updatePhaseProgress(currentPhase, processedCount, totalCount, currentMessage);
+            }
+        } else {
+            console.warn(`⚠️ Phase ${currentPhase} not found in phases object`);
+        }
+        
+        // Mark previous phases as completed with appropriate messages
         if (currentPhaseIndex > 0) {
-            // Mark all previous phases as completed
+            console.log(`📊 Marking ${currentPhaseIndex} previous phases as completed`);
             for (let i = 0; i < currentPhaseIndex; i++) {
                 const phaseId = phaseOrder[i];
                 if (this.phases[phaseId]) {
-                    this.updatePhase(phaseId, 'completed', 'Completed');
+                    // Use phase-specific completion messages instead of generic "Completed"
+                    const completionMessage = this.getPhaseCompletionMessage(phaseId);
+                    this.updatePhase(phaseId, 'completed', completionMessage);
+                    console.log(`✅ Marked ${phaseId} as completed with message: ${completionMessage}`);
+                } else {
+                    console.warn(`⚠️ Previous phase ${phaseId} not found in phases object`);
                 }
             }
+        } else {
+            console.log(`📊 Current phase is first in sequence, no previous phases to mark as completed`);
         }
         
         console.log('✅ Execution plan initialized with running task state');
@@ -428,6 +554,26 @@ class ExecutionPlanManager {
         };
         
         return forceMessages[phaseId] || 'FORCE REPROCESS';
+    }
+
+    getPhaseCompletionMessage(phaseId) {
+        // Return phase-specific completion messages instead of generic "Completed"
+        const completionMessages = {
+            'initialization': '✅ Agent components initialized',
+            'fetch_bookmarks': '✅ Bookmarks fetched and cached',
+            'content_processing': '✅ Content processing completed',
+            'tweet_caching': '✅ Tweet data cached',
+            'media_analysis': '✅ Media analysis completed',
+            'llm_processing': '✅ LLM processing completed',
+            'kb_item_generation': '✅ Knowledge base items generated',
+            'database_sync': '✅ Database synchronized',
+            'synthesis_generation': '✅ Synthesis documents generated',
+            'embedding_generation': '✅ Vector embeddings generated',
+            'readme_generation': '✅ README files generated',
+            'git_sync': '✅ Changes pushed to Git'
+        };
+        
+        return completionMessages[phaseId] || '✅ Phase completed';
     }
 
     updatePreferenceButtons(phaseId, state) {
@@ -747,11 +893,23 @@ class ExecutionPlanManager {
         
         // Preserve rich messages from backend for completed phases
         if (status === 'completed') {
-            // If we have a rich message from the backend, use it as-is
-            if (message && message.trim() && message !== 'completed' && message !== 'Completed') {
-                // Check if message already has an emoji prefix
-                if (message.startsWith('✅') || message.startsWith('🔄') || message.startsWith('❌')) {
+            // CRITICAL: Always preserve rich messages from the backend
+            if (message && message.trim() && 
+                message !== 'completed' && 
+                message !== 'Completed' && 
+                message !== displayStatus) {
+                
+                // Check if message already has an emoji prefix or is already rich
+                if (message.startsWith('✅') || 
+                    message.startsWith('🔄') || 
+                    message.startsWith('❌') ||
+                    message.includes('synthesis') ||
+                    message.includes('generated') ||
+                    message.includes('processed') ||
+                    message.includes('items')) {
+                    // Use the rich message as-is from backend
                     displayMessage = message;
+                    console.log(`🎯 Preserving rich completion message: "${message}"`);
                 } else {
                     displayMessage = `✅ ${message}`;
                 }
@@ -771,7 +929,8 @@ class ExecutionPlanManager {
                     displayMessage = `✅ ${displayMessage}`;
                 }
             } else {
-                displayMessage = `✅ ${displayMessage}`;
+                // Only use generic message if no rich message or counts available
+                displayMessage = this.getPhaseCompletionMessage(phaseId);
             }
         } else if (status === 'running' || status === 'active' || status === 'in_progress') {
             displayMessage = `🔄 ${displayMessage}`;

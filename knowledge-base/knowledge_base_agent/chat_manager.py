@@ -12,7 +12,7 @@ import time
 from .config import Config
 from .http_client import HTTPClient
 from .embedding_manager import EmbeddingManager
-from .prompts import LLMPrompts
+from .prompts_replacement import LLMPrompts
 
 class ChatManager:
     """Manages the enhanced chat functionality with technical expertise and comprehensive responses."""

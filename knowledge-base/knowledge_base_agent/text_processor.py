@@ -5,7 +5,7 @@ from knowledge_base_agent.exceptions import CategoryGenerationError
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
-from knowledge_base_agent.state_manager import StateManager
+from knowledge_base_agent.database_state_manager import DatabaseStateManager
 from knowledge_base_agent.custom_types import CategoryInfo
 import json
 import re

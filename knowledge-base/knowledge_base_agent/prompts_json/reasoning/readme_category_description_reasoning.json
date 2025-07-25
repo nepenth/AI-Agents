@@ -1,0 +1,81 @@
+{
+  "prompt_id": "readme_category_description_reasoning",
+  "prompt_name": "README Category Description (Reasoning)",
+  "description": "Generates brief category descriptions using step-by-step reasoning to identify unifying themes",
+  "model_type": "reasoning",
+  "category": "readme_generation",
+  "task": "Create concise category descriptions with reasoning-based analysis of subcategory relationships",
+  "topic": "Technical documentation and category analysis with reasoning",
+  "format": {
+    "output_type": "text",
+    "response_structure": {
+      "role": "user",
+      "content": "category description request with reasoning instructions"
+    },
+    "constraints": [
+      "1-2 sentences maximum",
+      "Under 160 characters",
+      "Focus on technical domain",
+      "Use step-by-step reasoning",
+      "Identify unifying themes"
+    ]
+  },
+  "input_parameters": {
+    "required": ["main_display", "total_cat_items", "active_subcats"],
+    "optional": [],
+    "parameters": {
+      "main_display": {
+        "type": "string",
+        "description": "Display name of the main category"
+      },
+      "total_cat_items": {
+        "type": "integer",
+        "description": "Total number of items in this category"
+      },
+      "active_subcats": {
+        "type": "array",
+        "description": "List of active subcategories"
+      }
+    }
+  },
+  "template": {
+    "type": "reasoning",
+    "system_message": "Enable deep thinking subroutine. Analyze problems step-by-step. Consider multiple angles and approaches before providing your final answer. Adopt the persona of a highly experienced principal software engineer and technical architect. Your goal is to create a deeply technical and intuitively organized knowledge graph.",
+    "user_message": "Write a brief 1-2 sentence description for the '{{main_display}}' category in a technical knowledge base. This category contains {{total_cat_items}} items across {{subcategory_count}} subcategories: {{formatted_subcats}}. Think about what unifies these subcategories and what value they provide to technical users. Keep your description concise, informative, and under 160 characters. Focus on the specific technical domain or area of expertise this category represents."
+  },
+  "examples": [
+    {
+      "name": "reasoning_category_desc_example",
+      "input": {
+        "main_display": "Backend Frameworks",
+        "total_cat_items": 25,
+        "active_subcats": ["spring_boot", "express_js", "django_patterns"]
+      },
+      "expected_output": "{\"role\": \"user\", \"content\": \"Write a brief 1-2 sentence description...\"}",
+      "notes": "Example of reasoning-based category description with unifying theme analysis"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Knowledge Base Agent System",
+    "created_date": "2024-07-24",
+    "last_modified": "2024-07-24",
+    "tags": ["readme", "reasoning", "category-description", "unifying-themes", "step-by-step"],
+    "performance_notes": "Reasoning-based prompt with subcategory analysis",
+    "quality_score": 8.5
+  },
+  "validation": {
+    "output_validation": {
+      "message_structure": {
+        "role": "user",
+        "content": "string"
+      }
+    },
+    "quality_checks": [
+      "step_by_step_reasoning",
+      "unifying_theme_identification",
+      "concise_description",
+      "technical_domain_focus"
+    ]
+  }
+}

@@ -20,7 +20,8 @@ from .config import Config
 from .http_client import HTTPClient
 from .models import KnowledgeBaseItem, SubcategorySynthesis, db
 from .custom_types import Synthesis as SynthesisType
-from .prompts import LLMPrompts, ReasoningPrompts, UserPreferences
+from .prompts_replacement import LLMPrompts, ReasoningPrompts
+from .preferences import UserPreferences
 from .file_utils import async_write_text
 from .naming_utils import (
     normalize_name_for_filesystem, 
@@ -115,6 +116,9 @@ class SynthesisGenerator:
         
         # Generate subcategory syntheses
         for i, (main_category, sub_category) in enumerate(subcategory_syntheses):
+            # Track individual item processing time
+            item_start_time = time.time()
+            
             try:
                 if phase_emitter_func:
                     phase_emitter_func(
@@ -124,8 +128,7 @@ class SynthesisGenerator:
                         False, processed_count, total_eligible, error_count
                     )
                 
-                # Track individual item processing time
-                item_start_time = time.time()
+                self.logger.info(f"Starting synthesis generation for {main_category}/{sub_category} ({i+1}/{len(subcategory_syntheses)})")
                 
                 synthesis = await self._create_synthesis_document(
                     main_category=main_category,
@@ -152,12 +155,38 @@ class SynthesisGenerator:
                         )
                 else:
                     error_count += 1
+                    self.logger.warning(f"Synthesis generation returned None for {main_category}/{sub_category}")
+                    
+            except asyncio.TimeoutError:
+                item_duration = time.time() - item_start_time
+                item_processing_times.append(item_duration)
+                error_msg = f"Synthesis generation timed out for {main_category}/{sub_category} after {item_duration:.1f}s"
+                self.logger.error(error_msg)
+                error_count += 1
+                
+                # Send timeout notification
+                if phase_emitter_func:
+                    phase_emitter_func(
+                        "synthesis_generation",
+                        "in_progress",
+                        f"Timeout: {main_category}/{sub_category} (continuing with next)",
+                        False, processed_count, total_eligible, error_count
+                    )
                     
             except Exception as e:
                 item_duration = time.time() - item_start_time
                 item_processing_times.append(item_duration)  # Track time even for failed items
                 self.logger.error(f"Error generating synthesis for {main_category}/{sub_category}: {e}", exc_info=True)
                 error_count += 1
+                
+                # Send error notification
+                if phase_emitter_func:
+                    phase_emitter_func(
+                        "synthesis_generation",
+                        "in_progress",
+                        f"Error: {main_category}/{sub_category} (continuing with next)",
+                        False, processed_count, total_eligible, error_count
+                    )
         
         # Generate main category syntheses
         for i, (main_category, _) in enumerate(main_category_syntheses):
@@ -421,13 +450,21 @@ class SynthesisGenerator:
             # Combine system prompt and user message for the generate method
             full_prompt = f"{system_prompt}\n\n{user_message}"
             
+            # Use longer timeout for synthesis generation (can take 10+ minutes for large categories)
+            synthesis_timeout = getattr(self.config, 'synthesis_timeout', 600)  # 10 minutes default
+            
+            self.logger.info(f"Starting synthesis JSON generation for '{target_name}' with {item_count} items (timeout: {synthesis_timeout}s)")
+            
             response_content = await self.http_client.ollama_generate(
                 model=getattr(self.config, 'synthesis_model', None) or self.config.text_model,
                 prompt=full_prompt,
                 temperature=0.7,
                 max_tokens=getattr(self.config, 'max_synthesis_tokens', 4000),
+                timeout=synthesis_timeout,
                 options={"json_mode": True}
             )
+            
+            self.logger.info(f"Completed synthesis JSON generation for '{target_name}'")
             
             if response_content:
                 try:
@@ -463,12 +500,20 @@ class SynthesisGenerator:
                     json.dumps(synthesis_json, indent=2), main_category, target_name, item_count
                 )
             
+            # Use longer timeout for markdown generation
+            synthesis_timeout = getattr(self.config, 'synthesis_timeout', 600)  # 10 minutes default
+            
+            self.logger.info(f"Starting synthesis markdown generation for '{target_name}'")
+            
             response_content = await self.http_client.ollama_generate(
                 model=getattr(self.config, 'synthesis_model', None) or self.config.text_model,
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=getattr(self.config, 'max_synthesis_tokens', 4000)
+                max_tokens=getattr(self.config, 'max_synthesis_tokens', 4000),
+                timeout=synthesis_timeout
             )
+            
+            self.logger.info(f"Completed synthesis markdown generation for '{target_name}'")
             
             return response_content.strip() if response_content else None
             

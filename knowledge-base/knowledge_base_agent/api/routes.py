@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request, current_app, send_from_directory, url_for, abort
 from ..models import db, KnowledgeBaseItem, SubcategorySynthesis, Setting, AgentState, CeleryTaskState, TaskLog
-from ..prompts import UserPreferences, save_user_preferences
+from ..preferences import UserPreferences, save_user_preferences, load_user_preferences
+from ..task_state_manager import TaskStateManager
 from ..task_progress import get_progress_manager
 from ..config import Config
 from ..agent import KnowledgeBaseAgent
@@ -55,12 +56,12 @@ logger = logging.getLogger(__name__)
 
 @bp.route('/v2/agent/start', methods=['POST'])
 def start_agent_v2():
-    """Sync wrapper that queues an agent run. Executes async logic via asyncio.run."""
+    """Enhanced agent start with comprehensive task state management."""
 
     async def _start_async():
         from ..tasks import run_agent_task, generate_task_id
-        from ..web import get_or_create_agent_state
-        from ..prompts import UserPreferences, save_user_preferences
+        from ..task_state_manager import TaskStateManager
+        from ..preferences import UserPreferences, save_user_preferences
 
         data = request.json or {}
         preferences_data = data.get('preferences', {})
@@ -73,96 +74,178 @@ def start_agent_v2():
             logger.error("Invalid preferences data: %s", e)
             return jsonify({'success': False, 'error': f'Invalid preferences: {e}'}), 400
 
+        # Check if there's already an active task
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        active_task = task_manager.get_active_task()
+        
+        if active_task and active_task['is_running']:
+            return jsonify({
+                'success': False, 
+                'error': 'Another agent task is already running',
+                'active_task': active_task
+            }), 409
+
         task_id = generate_task_id()
+        
+        # Create comprehensive task record before queuing
+        try:
+            task_state = task_manager.create_task(
+                task_id=task_id,
+                task_type='agent_run',
+                preferences=user_preferences,
+                job_type='manual',
+                trigger_source='web_ui'
+            )
+        except Exception as e:
+            logger.error(f"Failed to create task record: {e}")
+            return jsonify({'success': False, 'error': f'Failed to create task: {e}'}), 500
+
+        # Queue the Celery task
         celery_task = run_agent_task.delay(task_id, preferences_dict)
+        
+        # Update with Celery task ID
+        task_state.celery_task_id = celery_task.id
+        db.session.commit()
 
         progress_manager = get_progress_manager()
         await progress_manager.update_progress(task_id, 0, "queued", "Agent execution queued")
 
-        state = get_or_create_agent_state()
-        state.is_running = True
-        state.current_task_id = task_id
-        state.current_phase_message = 'Agent starting...'
-        state.last_update = datetime.utcnow()
-        db.session.commit()
-
         save_user_preferences(preferences_data)
 
-        return jsonify({'success': True, 'task_id': task_id, 'celery_task_id': celery_task.id, 'message': 'Agent execution queued'})
+        return jsonify({
+            'success': True, 
+            'task_id': task_id, 
+            'celery_task_id': celery_task.id, 
+            'human_readable_name': task_state.human_readable_name,
+            'message': 'Agent execution queued with comprehensive tracking'
+        })
 
     return run_async_in_gevent_context(_start_async())
 
 
-# Replace async route with sync wrapper ----------------------------------
 @bp.route('/v2/agent/status/<task_id>', methods=['GET'])
 def get_task_status(task_id: str):
-    """Sync wrapper around async status-gathering logic."""
-
-    async def _status_async(tid: str):
-        progress_manager = get_progress_manager()
-
-        progress_data = await progress_manager.get_progress(tid)
-
-        celery_task = celery_app.AsyncResult(tid)
-        try:
-            celery_status = {
-                'state': celery_task.state,
-                'info': celery_task.info if isinstance(celery_task.info, dict) else str(celery_task.info)
-            }
-        except ValueError as e:
-            if 'Exception information must include' in str(e):
-                logger.warning("Task %s has a corrupted result in the backend. Reporting as FAILED.", tid)
-                celery_status = {'state': 'FAILURE', 'info': 'Corrupted result in backend.'}
-            else:
-                raise
-
-        logs = await progress_manager.get_logs(tid, limit=10)
-
-        # Get task metadata from database
-        task_metadata = CeleryTaskState.query.filter_by(task_id=tid).first()
-        human_readable_name = None
-        if task_metadata:
-            human_readable_name = task_metadata.human_readable_name
-
-        response_data = {
-            'task_id': tid,
-            'human_readable_name': human_readable_name,
-            'progress': progress_data,
-            'celery_status': celery_status,
-            'logs': logs
-        }
-
-        running_states = {'PENDING', 'PROGRESS', 'STARTED', 'RETRY'}
-        response_data['is_running'] = celery_status['state'] in running_states
-
-        response_data['current_phase_message'] = (
-            progress_data.get('message') if progress_data and progress_data.get('message') else celery_status['state']
-        )
-
-        if progress_data:
-            response_data.update(progress_data)
-
-        return jsonify(response_data)
-
+    """Get comprehensive task status using enhanced task state manager."""
     try:
-        return run_async_in_gevent_context(_status_async(task_id))
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        # Get comprehensive task status
+        task_status = task_manager.get_task_status(task_id)
+        if not task_status:
+            return jsonify({'error': 'Task not found'}), 404
+
+        # Try to get additional real-time data from Redis
+        try:
+            async def _get_redis_data():
+                progress_manager = get_progress_manager()
+                
+                # Get latest progress data
+                progress_data = None
+                try:
+                    progress_data = await progress_manager.get_progress(task_id)
+                except Exception as e:
+                    logger.debug(f"Could not get Redis progress for {task_id}: {e}")
+                
+                return progress_data
+
+            redis_progress = run_async_in_gevent_context(_get_redis_data())
+            
+            # Merge Redis data if available and more recent
+            if redis_progress and redis_progress.get('message'):
+                # Only use Redis data if it's more recent or provides additional detail
+                task_status['redis_progress'] = redis_progress
+                
+        except Exception as e:
+            logger.debug(f"Could not get Redis data for task {task_id}: {e}")
+
+        # Try to get Celery task state for additional context
+        try:
+            if task_status.get('celery_task_id'):
+                celery_task = celery_app.AsyncResult(task_status['celery_task_id'])
+                task_status['celery_status'] = {
+                    'state': celery_task.state,
+                    'info': celery_task.info if isinstance(celery_task.info, dict) else str(celery_task.info)
+                }
+        except Exception as e:
+            logger.debug(f"Could not get Celery status for {task_id}: {e}")
+
+        return jsonify(task_status)
+
     except Exception as e:
-        logger.error("Error getting agent status for task %s: %s", task_id, e, exc_info=True)
+        logger.error("Error getting task status for %s: %s", task_id, e, exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-# ------------------------------------------------------------------------
+# New endpoint for getting active task on page load
+@bp.route('/v2/agent/active', methods=['GET'])
+def get_active_task():
+    """Get currently active task for frontend state restoration."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        active_task = task_manager.get_active_task()
+        if not active_task:
+            return jsonify({'active_task': None, 'message': 'No active task'})
+        
+        return jsonify({'active_task': active_task})
+        
+    except Exception as e:
+        logger.error("Error getting active task: %s", e, exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+# New endpoint for job history
+@bp.route('/v2/jobs/history', methods=['GET'])
+def get_job_history():
+    """Get paginated job history with filtering."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        # Parse query parameters
+        limit = min(int(request.args.get('limit', 50)), 100)  # Max 100 per request
+        offset = int(request.args.get('offset', 0))
+        job_type = request.args.get('job_type')  # 'manual', 'scheduled', 'api'
+        status_filter = request.args.get('status')  # 'SUCCESS', 'FAILURE', etc.
+        
+        jobs, total_count = task_manager.get_job_history(
+            limit=limit,
+            offset=offset,
+            job_type=job_type,
+            status_filter=status_filter
+        )
+        
+        return jsonify({
+            'jobs': jobs,
+            'total_count': total_count,
+            'limit': limit,
+            'offset': offset,
+            'has_more': offset + len(jobs) < total_count
+        })
+        
+    except Exception as e:
+        logger.error("Error getting job history: %s", e, exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+# Enhanced stop endpoint
 @bp.route('/v2/agent/stop', methods=['POST'])
 def stop_agent_v2():
-    """Stops a running agent task via Celery."""
+    """Stops a running agent task via Celery with enhanced state management."""
     async def _stop_async():
         data = request.json or {}
         task_id = data.get('task_id')
         
-        # If no task_id provided, get it from agent state
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        # If no task_id provided, get active task
         if not task_id:
-            from ..web import get_or_create_agent_state
-            state = get_or_create_agent_state()
-            task_id = state.current_task_id
+            active_task = task_manager.get_active_task()
+            if active_task:
+                task_id = active_task['task_id']
             
         if not task_id:
             return jsonify({'success': False, 'error': 'No running task found to stop'}), 400
@@ -805,7 +888,6 @@ def get_agent_status():
     """Get current agent status with validation to prevent stale state issues."""
     from ..web import get_or_create_agent_state
     from ..models import CeleryTaskState
-    import asyncio
 
     state = get_or_create_agent_state()
     task_id = state.current_task_id
@@ -863,36 +945,32 @@ def get_agent_status():
                 'status': 'IDLE'
             })
         
-        # Task exists and is active - try to get detailed status, fallback to basic status
-        try:
-            return get_task_status(task_id)
-        except Exception as detailed_error:
-            logger.warning(f"Failed to get detailed task status for {task_id}, returning basic status: {detailed_error}")
-            
-            # Fallback: return basic status from database and agent state
-            basic_status = {
-                'is_running': True,
-                'task_id': task_id,
-                'celery_task_id': celery_task.celery_task_id,
-                'current_phase_message': celery_task.current_phase_message or state.current_phase_message or 'Processing...',
-                'phase': 'processing',
+        # Task exists and is active - return comprehensive status from database only
+        # This avoids the 500 error by not calling the problematic get_task_status function
+        basic_status = {
+            'is_running': True,
+            'task_id': task_id,
+            'celery_task_id': celery_task.celery_task_id if celery_task.celery_task_id else task_id,
+            'current_phase_message': celery_task.current_phase_message or state.current_phase_message or 'Processing...',
+            'phase': 'processing',
+            'progress': celery_task.progress_percentage or 0,
+            'status': celery_task.status or 'PROGRESS',
+            'human_readable_name': celery_task.human_readable_name or f"Task {task_id[:8]}...",
+            'created_at': celery_task.created_at.isoformat() if celery_task.created_at else None,
+            'updated_at': celery_task.updated_at.isoformat() if celery_task.updated_at else None
+        }
+        
+        # Add progress data if available
+        if celery_task.current_phase_id:
+            basic_status['progress'] = {
+                'phase_id': celery_task.current_phase_id,
+                'message': celery_task.current_phase_message or 'Processing...',
                 'progress': celery_task.progress_percentage or 0,
-                'status': celery_task.status or 'PROGRESS',
-                'human_readable_name': celery_task.human_readable_name,
-                'created_at': celery_task.created_at.isoformat() if celery_task.created_at else None,
-                'updated_at': celery_task.updated_at.isoformat() if celery_task.updated_at else None
+                'status': 'running'
             }
-            
-            # Add progress data if available
-            if celery_task.current_phase_id:
-                basic_status['progress'] = {
-                    'phase_id': celery_task.current_phase_id,
-                    'message': celery_task.current_phase_message,
-                    'progress': celery_task.progress_percentage or 0,
-                    'status': 'running'
-                }
-            
-            return jsonify(basic_status)
+        
+        logger.info(f"Returning agent status for task {task_id}: {basic_status['current_phase_message']}")
+        return jsonify(basic_status)
         
     except Exception as e:
         logger.error(f"Error validating task status: {e}", exc_info=True)
@@ -909,41 +987,41 @@ def get_agent_status():
 
 @bp.route('/agent/reset-state', methods=['POST'])
 def reset_agent_state():
-    """Reset agent state to idle - useful for fixing stuck states."""
+    """Enhanced agent state reset with comprehensive cleanup and detailed feedback."""
     try:
-        from ..web import get_or_create_agent_state
-        from ..models import CeleryTaskState
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
         
-        state = get_or_create_agent_state()
-        old_task_id = state.current_task_id
+        # Get stuck tasks count before reset for reporting
+        stuck_tasks_count = CeleryTaskState.query.filter(
+            CeleryTaskState.status.in_(['PENDING', 'PROGRESS', 'STARTED'])
+        ).count()
         
-        # Get task info for diagnostics
-        task_info = None
-        if old_task_id:
-            celery_task = CeleryTaskState.query.filter_by(task_id=old_task_id).first()
-            if celery_task:
-                task_info = {
-                    'task_id': celery_task.task_id,
-                    'status': celery_task.status,
-                    'created_at': celery_task.created_at.isoformat() if celery_task.created_at else None,
-                    'updated_at': celery_task.updated_at.isoformat() if celery_task.updated_at else None
-                }
+        # Get current state for diagnostics
+        active_task = task_manager.get_active_task()
         
-        # Reset state to idle
-        state.is_running = False
-        state.current_task_id = None
-        state.current_phase_message = 'Idle'
-        state.last_update = datetime.utcnow()
-        db.session.commit()
+        # Perform comprehensive reset
+        success = task_manager.reset_agent_state()
         
-        logger.info(f"Agent state reset to idle (was task_id: {old_task_id})")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Agent state reset to idle',
-            'previous_task_id': old_task_id,
-            'task_info': task_info
-        })
+        if success:
+            message = 'Agent state reset with comprehensive cleanup'
+            if stuck_tasks_count > 0:
+                message += f'. Cleaned up {stuck_tasks_count} stuck tasks.'
+            else:
+                message += '. No stuck tasks found.'
+                
+            logger.info(f"Agent state reset successfully: {message}")
+            return jsonify({
+                'success': True,
+                'message': message,
+                'stuck_tasks_cleaned': stuck_tasks_count,
+                'previous_active_task': active_task
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to reset agent state'
+            }), 500
         
     except Exception as e:
         logger.error(f"Error resetting agent state: {e}", exc_info=True)
@@ -951,6 +1029,34 @@ def reset_agent_state():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# New endpoint for task cleanup
+@bp.route('/v2/jobs/cleanup', methods=['POST'])
+def cleanup_old_jobs():
+    """Clean up old completed jobs."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        data = request.json or {}
+        days_to_keep = data.get('days_to_keep', 30)
+        
+        if days_to_keep < 1:
+            return jsonify({'success': False, 'error': 'days_to_keep must be at least 1'}), 400
+        
+        cleaned_count = task_manager.cleanup_old_tasks(days_to_keep)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Archived {cleaned_count} old tasks',
+            'archived_count': cleaned_count,
+            'days_kept': days_to_keep
+        })
+        
+    except Exception as e:
+        logger.error(f"Error cleaning up old jobs: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/agent/diagnostics', methods=['GET'])
 def get_agent_diagnostics():
@@ -1411,7 +1517,7 @@ def api_delete_chat_session(session_id):
 def get_preferences():
     """Get current user preferences."""
     try:
-        from ..prompts import load_user_preferences
+        from ..preferences import load_user_preferences
         config = current_app.config.get('APP_CONFIG')
         if not config:
             return jsonify({'error': 'Configuration not available'}), 500
@@ -1464,7 +1570,7 @@ def save_preferences():
             return jsonify({'error': 'No preferences data provided'}), 400
         
         # Validate preferences structure
-        from ..prompts import UserPreferences
+        from ..preferences import UserPreferences
         try:
             user_prefs = UserPreferences(**data)
             # In a full implementation, you would save these to a user session or database
@@ -1827,6 +1933,111 @@ def system_health_check():
         return jsonify({
             'success': False,
             'error': f'Health check failed: {str(e)}'
+        }), 500
+
+# --- DATABASE MANAGEMENT ENDPOINTS ---
+
+@bp.route('/utilities/database/health', methods=['GET'])
+def database_health_check():
+    """Comprehensive database health check using DatabaseConnectionManager."""
+    try:
+        from ..database import get_db_manager
+        
+        db_manager = get_db_manager()
+        force_check = request.args.get('force', 'false').lower() == 'true'
+        
+        health_result = db_manager.health_check(force_check=force_check)
+        
+        return jsonify({
+            'success': True,
+            'data': health_result
+        })
+        
+    except Exception as e:
+        logging.error(f"Database health check failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Database health check failed: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/database/connection-stats', methods=['GET'])
+def database_connection_stats():
+    """Get database connection pool statistics."""
+    try:
+        from ..database import get_db_manager
+        
+        db_manager = get_db_manager()
+        stats = db_manager.get_connection_stats()
+        
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to get database connection stats: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get connection stats: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/database/schema-validation', methods=['GET'])
+def database_schema_validation():
+    """Validate database schema against expected structure."""
+    try:
+        from ..database import validate_database_schema
+        
+        validation_result = validate_database_schema()
+        
+        return jsonify({
+            'success': True,
+            'data': validation_result
+        })
+        
+    except Exception as e:
+        logging.error(f"Database schema validation failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Schema validation failed: {str(e)}'
+        }), 500
+
+@bp.route('/utilities/database/test-connection', methods=['POST'])
+def test_database_connection():
+    """Test database connection with optional custom configuration."""
+    try:
+        from ..database import DatabaseConnectionManager
+        from ..config import Config
+        
+        # Get custom database URL from request if provided
+        data = request.get_json() or {}
+        custom_db_url = data.get('database_url')
+        
+        if custom_db_url:
+            # Create temporary config with custom database URL
+            config = Config()
+            config.database_url = custom_db_url
+            test_manager = DatabaseConnectionManager(config)
+        else:
+            # Use existing manager
+            from ..database import get_db_manager
+            test_manager = get_db_manager()
+        
+        # Test connection
+        health_result = test_manager.health_check(force_check=True)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'connection_test': health_result,
+                'database_url_used': custom_db_url or 'default'
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Database connection test failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Connection test failed: {str(e)}'
         }), 500
 
 @bp.route('/utilities/debug/export-logs', methods=['GET'])
@@ -2944,4 +3155,921 @@ def restart_realtime_manager():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+
+# ===== TWEET MANAGEMENT API ENDPOINTS =====
+# These endpoints provide comprehensive tweet exploration, management, and control functionality
+
+@bp.route('/v2/tweets/explore', methods=['GET'])
+def explore_tweets():
+    """
+    Explore and search tweets with pagination, filtering, and search capabilities.
+    
+    Query Parameters:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 50, max: 200)
+        - search: Full-text search query
+        - main_category: Filter by main category
+        - sub_category: Filter by sub category
+        - status: Filter by processing status
+        - has_media: Filter tweets with/without media
+        - has_categories: Filter tweets with/without categories
+        - has_kb_item: Filter tweets with/without KB items
+        - sort_by: Sort field (created_at, updated_at, tweet_id)
+        - sort_order: Sort order (asc, desc)
+        - created_after: Filter by creation date (ISO format)
+        - created_before: Filter by creation date (ISO format)
+    """
+    try:
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        
+        tweet_repo = TweetCacheRepository()
+        queue_repo = TweetProcessingQueueRepository()
+        
+        # Parse query parameters
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(200, max(1, int(request.args.get('per_page', 50))))
+        search = request.args.get('search', '').strip()
+        main_category = request.args.get('main_category', '').strip()
+        sub_category = request.args.get('sub_category', '').strip()
+        status = request.args.get('status', '').strip()
+        has_media = request.args.get('has_media')
+        has_categories = request.args.get('has_categories')
+        has_kb_item = request.args.get('has_kb_item')
+        sort_by = request.args.get('sort_by', 'updated_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        created_after = request.args.get('created_after')
+        created_before = request.args.get('created_before')
+        
+        # Build filters
+        filters = {}
+        
+        if search:
+            filters['search'] = search
+        
+        if main_category:
+            filters['main_category'] = main_category
+            
+        if sub_category:
+            filters['sub_category'] = sub_category
+            
+        if has_media is not None:
+            filters['has_media'] = has_media.lower() == 'true'
+            
+        if has_categories is not None:
+            filters['has_categories'] = has_categories.lower() == 'true'
+            
+        if has_kb_item is not None:
+            filters['has_kb_item'] = has_kb_item.lower() == 'true'
+            
+        if created_after:
+            try:
+                filters['created_after'] = datetime.fromisoformat(created_after.replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Invalid created_after date format'}), 400
+                
+        if created_before:
+            try:
+                filters['created_before'] = datetime.fromisoformat(created_before.replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Invalid created_before date format'}), 400
+        
+        # Get filtered and paginated tweets
+        offset = (page - 1) * per_page
+        tweets, total_count = tweet_repo.get_filtered_tweets(
+            filters=filters,
+            limit=per_page,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        
+        # Get processing queue status for each tweet
+        tweet_ids = [tweet.tweet_id for tweet in tweets]
+        queue_entries = {
+            entry.tweet_id: entry 
+            for entry in queue_repo.get_by_tweet_ids(tweet_ids)
+        }
+        
+        # Format response data
+        tweet_data = []
+        for tweet in tweets:
+            queue_entry = queue_entries.get(tweet.tweet_id)
+            
+            tweet_data.append({
+                'tweet_id': tweet.tweet_id,
+                'bookmarked_tweet_id': tweet.bookmarked_tweet_id,
+                'is_thread': tweet.is_thread,
+                'display_title': tweet.display_title,
+                'main_category': tweet.main_category,
+                'sub_category': tweet.sub_category,
+                'source': tweet.source,
+                
+                # Processing flags
+                'processing_status': {
+                    'cache_complete': tweet.cache_complete,
+                    'media_processed': tweet.media_processed,
+                    'categories_processed': tweet.categories_processed,
+                    'kb_item_created': tweet.kb_item_created,
+                    'urls_expanded': tweet.urls_expanded,
+                    'db_synced': tweet.db_synced
+                },
+                
+                # Reprocessing controls
+                'reprocessing': {
+                    'force_reprocess_pipeline': tweet.force_reprocess_pipeline,
+                    'force_recache': tweet.force_recache,
+                    'reprocess_requested_at': tweet.reprocess_requested_at.isoformat() if tweet.reprocess_requested_at else None,
+                    'reprocess_requested_by': tweet.reprocess_requested_by
+                },
+                
+                # Queue information
+                'queue_status': queue_entry.status if queue_entry else 'unknown',
+                'queue_priority': queue_entry.priority if queue_entry else 0,
+                'processing_phase': queue_entry.processing_phase if queue_entry else None,
+                'retry_count': queue_entry.retry_count if queue_entry else 0,
+                'last_error': queue_entry.last_error if queue_entry else None,
+                'processed_at': queue_entry.processed_at.isoformat() if queue_entry and queue_entry.processed_at else None,
+                
+                # Metadata
+                'has_media': bool(tweet.all_downloaded_media_for_thread),
+                'media_count': len(tweet.all_downloaded_media_for_thread or []),
+                'thread_length': len(tweet.thread_tweets or []),
+                'recategorization_attempts': tweet.recategorization_attempts,
+                'kb_item_path': tweet.kb_item_path,
+                
+                # Timestamps
+                'created_at': tweet.created_at.isoformat() if tweet.created_at else None,
+                'updated_at': tweet.updated_at.isoformat() if tweet.updated_at else None,
+            })
+        
+        # Calculate pagination metadata
+        total_pages = (total_count + per_page - 1) // per_page
+        has_next = page < total_pages
+        has_prev = page > 1
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'tweets': tweet_data,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_count': total_count,
+                    'total_pages': total_pages,
+                    'has_next': has_next,
+                    'has_prev': has_prev
+                },
+                'filters_applied': filters,
+                'sort': {
+                    'sort_by': sort_by,
+                    'sort_order': sort_order
+                }
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error exploring tweets: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to explore tweets: {str(e)}'
+        }), 500
+
+
+@bp.route('/v2/tweets/<tweet_id>/detail', methods=['GET'])
+def get_tweet_detail(tweet_id: str):
+    """
+    Get comprehensive tweet data including all processing metadata, media, and history.
+    
+    Args:
+        tweet_id: The tweet ID to retrieve details for
+    """
+    try:
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        
+        tweet_repo = TweetCacheRepository()
+        queue_repo = TweetProcessingQueueRepository()
+        
+        # Get tweet data
+        tweet = tweet_repo.get_by_tweet_id(tweet_id)
+        if not tweet:
+            return jsonify({
+                'success': False,
+                'error': f'Tweet {tweet_id} not found'
+            }), 404
+        
+        # Get queue information
+        queue_entry = queue_repo.get_by_tweet_id(tweet_id)
+        
+        # Build comprehensive response
+        tweet_detail = {
+            'tweet_id': tweet.tweet_id,
+            'bookmarked_tweet_id': tweet.bookmarked_tweet_id,
+            'is_thread': tweet.is_thread,
+            'display_title': tweet.display_title,
+            'source': tweet.source,
+            'full_text': tweet.full_text,
+            
+            # Content data
+            'thread_tweets': tweet.thread_tweets or [],
+            'all_downloaded_media_for_thread': tweet.all_downloaded_media_for_thread or [],
+            'image_descriptions': tweet.image_descriptions or [],
+            'raw_json_content': tweet.raw_json_content,
+            
+            # Processing flags
+            'processing_status': {
+                'cache_complete': tweet.cache_complete,
+                'media_processed': tweet.media_processed,
+                'categories_processed': tweet.categories_processed,
+                'kb_item_created': tweet.kb_item_created,
+                'urls_expanded': tweet.urls_expanded,
+                'db_synced': tweet.db_synced
+            },
+            
+            # Reprocessing controls
+            'reprocessing': {
+                'force_reprocess_pipeline': tweet.force_reprocess_pipeline,
+                'force_recache': tweet.force_recache,
+                'reprocess_requested_at': tweet.reprocess_requested_at.isoformat() if tweet.reprocess_requested_at else None,
+                'reprocess_requested_by': tweet.reprocess_requested_by
+            },
+            
+            # Categorization data
+            'categorization': {
+                'main_category': tweet.main_category,
+                'sub_category': tweet.sub_category,
+                'item_name_suggestion': tweet.item_name_suggestion,
+                'categories': tweet.categories or {},
+                'recategorization_attempts': tweet.recategorization_attempts
+            },
+            
+            # Knowledge base integration
+            'knowledge_base': {
+                'kb_item_path': tweet.kb_item_path,
+                'kb_media_paths': tweet.kb_media_paths or [],
+                'item_created': tweet.kb_item_created
+            },
+            
+            # Processing queue information
+            'queue_info': {
+                'status': queue_entry.status if queue_entry else 'unknown',
+                'processing_phase': queue_entry.processing_phase if queue_entry else None,
+                'priority': queue_entry.priority if queue_entry else 0,
+                'retry_count': queue_entry.retry_count if queue_entry else 0,
+                'last_error': queue_entry.last_error if queue_entry else None,
+                'created_at': queue_entry.created_at.isoformat() if queue_entry and queue_entry.created_at else None,
+                'updated_at': queue_entry.updated_at.isoformat() if queue_entry and queue_entry.updated_at else None,
+                'processed_at': queue_entry.processed_at.isoformat() if queue_entry and queue_entry.processed_at else None
+            },
+            
+            # Error tracking
+            'errors': {
+                'kbitem_error': getattr(tweet, 'kbitem_error', None),
+                'llm_error': getattr(tweet, 'llm_error', None)
+            },
+            
+            # Runtime flags
+            'runtime_flags': {
+                'cache_succeeded_this_run': getattr(tweet, 'cache_succeeded_this_run', False),
+                'media_succeeded_this_run': getattr(tweet, 'media_succeeded_this_run', False),
+                'llm_succeeded_this_run': getattr(tweet, 'llm_succeeded_this_run', False),
+                'kbitem_succeeded_this_run': getattr(tweet, 'kbitem_succeeded_this_run', False)
+            },
+            
+            # Computed properties
+            'computed': {
+                'has_media': bool(tweet.all_downloaded_media_for_thread),
+                'media_count': len(tweet.all_downloaded_media_for_thread or []),
+                'thread_length': len(tweet.thread_tweets or []),
+                'is_fully_processed': (
+                    tweet.cache_complete and
+                    tweet.media_processed and
+                    tweet.categories_processed and
+                    tweet.kb_item_created
+                ),
+                'processing_progress': sum([
+                    tweet.cache_complete,
+                    tweet.media_processed,
+                    tweet.categories_processed,
+                    tweet.kb_item_created
+                ]) / 4 * 100
+            },
+            
+            # Timestamps
+            'timestamps': {
+                'created_at': tweet.created_at.isoformat() if tweet.created_at else None,
+                'updated_at': tweet.updated_at.isoformat() if tweet.updated_at else None
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': tweet_detail
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting tweet detail for {tweet_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get tweet detail: {str(e)}'
+        }), 500
+
+
+@bp.route('/v2/tweets/<tweet_id>/update-flags', methods=['POST'])
+def update_tweet_flags(tweet_id: str):
+    """
+    Update processing flags for a specific tweet.
+    
+    Args:
+        tweet_id: The tweet ID to update
+        
+    Request Body:
+        {
+            "flags": {
+                "cache_complete": true/false,
+                "media_processed": true/false,
+                "categories_processed": true/false,
+                "kb_item_created": true/false,
+                "urls_expanded": true/false,
+                "db_synced": true/false
+            },
+            "reason": "User override/Manual correction/etc."
+        }
+    """
+    try:
+        from ..repositories import TweetCacheRepository
+        
+        data = request.get_json()
+        if not data or 'flags' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body must contain "flags" object'
+            }), 400
+        
+        flags = data['flags']
+        reason = data.get('reason', 'Manual update via API')
+        
+        # Validate flag names
+        valid_flags = {
+            'cache_complete', 'media_processed', 'categories_processed',
+            'kb_item_created', 'urls_expanded', 'db_synced'
+        }
+        
+        invalid_flags = set(flags.keys()) - valid_flags
+        if invalid_flags:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid flags: {", ".join(invalid_flags)}. Valid flags: {", ".join(valid_flags)}'
+            }), 400
+        
+        tweet_repo = TweetCacheRepository()
+        
+        # Get current tweet data
+        tweet = tweet_repo.get_by_tweet_id(tweet_id)
+        if not tweet:
+            return jsonify({
+                'success': False,
+                'error': f'Tweet {tweet_id} not found'
+            }), 404
+        
+        # Build updates dict
+        updates = {}
+        for flag, value in flags.items():
+            if not isinstance(value, bool):
+                return jsonify({
+                    'success': False,
+                    'error': f'Flag "{flag}" must be a boolean value'
+                }), 400
+            updates[flag] = value
+        
+        # Add update timestamp
+        updates['updated_at'] = datetime.now(timezone.utc)
+        
+        # Update tweet
+        updated_tweet = tweet_repo.update(tweet_id, updates)
+        if not updated_tweet:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to update tweet {tweet_id}'
+            }), 500
+        
+        # Log the update for audit trail
+        current_app.logger.info(f"Tweet {tweet_id} flags updated: {flags}. Reason: {reason}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully updated flags for tweet {tweet_id}',
+            'data': {
+                'tweet_id': tweet_id,
+                'updated_flags': flags,
+                'reason': reason,
+                'updated_at': updates['updated_at'].isoformat()
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating flags for tweet {tweet_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update tweet flags: {str(e)}'
+        }), 500
+
+
+@bp.route('/v2/tweets/<string:tweet_id>/update-field', methods=['POST'])
+def update_tweet_field(tweet_id):
+    """
+    Update a specific field of a tweet.
+    
+    Request Body:
+        - field: Field name to update (main_category, sub_category, display_title, etc.)
+        - value: New value for the field
+    """
+    try:
+        from ..repositories import TweetCacheRepository
+        
+        data = request.get_json()
+        field_name = data.get('field')
+        new_value = data.get('value', '').strip()
+        
+        if not field_name:
+            return jsonify({
+                'success': False,
+                'error': 'Field name is required'
+            }), 400
+        
+        # Validate field name (security)
+        allowed_fields = ['main_category', 'sub_category', 'display_title', 'item_name_suggestion']
+        if field_name not in allowed_fields:
+            return jsonify({
+                'success': False,
+                'error': f'Field {field_name} is not editable'
+            }), 400
+        
+        tweet_repo = TweetCacheRepository()
+        
+        # Check if tweet exists
+        tweet = tweet_repo.get_by_id(tweet_id)
+        if not tweet:
+            return jsonify({
+                'success': False,
+                'error': f'Tweet {tweet_id} not found'
+            }), 404
+        
+        # Update the field
+        update_data = {field_name: new_value or None}
+        updated_tweet = tweet_repo.update(tweet_id, update_data)
+        
+        if updated_tweet:
+            return jsonify({
+                'success': True,
+                'message': f'Field {field_name} updated successfully',
+                'data': {
+                    'tweet_id': tweet_id,
+                    'field': field_name,
+                    'new_value': new_value
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update tweet'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error updating tweet field: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update tweet field: {str(e)}'
+        }), 500
+
+@bp.route('/v2/tweets/<tweet_id>/reprocess', methods=['POST'])
+def trigger_tweet_reprocess(tweet_id: str):
+    """
+    Trigger reprocessing for a specific tweet.
+    
+    Args:
+        tweet_id: The tweet ID to reprocess
+        
+    Request Body:
+        {
+            "reprocess_type": "pipeline|full",  // pipeline = processing only, full = complete recache
+            "reason": "User request/Data correction/etc.",
+            "requested_by": "username/system"
+        }
+    """
+    try:
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        
+        data = request.get_json()
+        if not data:
+            data = {}
+        
+        reprocess_type = data.get('reprocess_type', 'pipeline')
+        reason = data.get('reason', 'Manual reprocess request')
+        requested_by = data.get('requested_by', 'api_user')
+        
+        if reprocess_type not in ['pipeline', 'full']:
+            return jsonify({
+                'success': False,
+                'error': 'reprocess_type must be "pipeline" or "full"'
+            }), 400
+        
+        tweet_repo = TweetCacheRepository()
+        queue_repo = TweetProcessingQueueRepository()
+        
+        # Get current tweet data
+        tweet = tweet_repo.get_by_tweet_id(tweet_id)
+        if not tweet:
+            return jsonify({
+                'success': False,
+                'error': f'Tweet {tweet_id} not found'
+            }), 404
+        
+        # Set reprocessing flags
+        updates = {
+            'reprocess_requested_at': datetime.now(timezone.utc),
+            'reprocess_requested_by': requested_by,
+            'updated_at': datetime.now(timezone.utc)
+        }
+        
+        if reprocess_type == 'full':
+            # Full recache - reset all processing flags
+            updates.update({
+                'force_recache': True,
+                'cache_complete': False,
+                'media_processed': False,
+                'categories_processed': False,
+                'kb_item_created': False,
+                'urls_expanded': False,
+                'db_synced': False
+            })
+        else:
+            # Pipeline reprocess - keep cache but reprocess
+            updates['force_reprocess_pipeline'] = True
+        
+        # Update tweet
+        updated_tweet = tweet_repo.update(tweet_id, updates)
+        if not updated_tweet:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to update tweet {tweet_id} for reprocessing'
+            }), 500
+        
+        # Update processing queue to unprocessed
+        queue_entry = queue_repo.get_by_tweet_id(tweet_id)
+        if queue_entry:
+            queue_repo.update_status(tweet_id, 'unprocessed')
+        else:
+            queue_data = {
+                'tweet_id': tweet_id,
+                'status': 'unprocessed',
+                'priority': 10  # Higher priority for reprocessing
+            }
+            queue_repo.create(queue_data)
+        
+        # Log the reprocess request
+        current_app.logger.info(f"Tweet {tweet_id} marked for {reprocess_type} reprocessing. Reason: {reason}. Requested by: {requested_by}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully triggered {reprocess_type} reprocessing for tweet {tweet_id}',
+            'data': {
+                'tweet_id': tweet_id,
+                'reprocess_type': reprocess_type,
+                'reason': reason,
+                'requested_by': requested_by,
+                'requested_at': updates['reprocess_requested_at'].isoformat(),
+                'queue_status': 'unprocessed'
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error triggering reprocess for tweet {tweet_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to trigger reprocessing: {str(e)}'
+        }), 500
+
+
+@bp.route('/v2/tweets/bulk-operations', methods=['POST'])
+def bulk_tweet_operations():
+    """
+    Perform bulk operations on multiple tweets.
+    
+    Request Body:
+        {
+            "operation": "update_flags|reprocess|delete",
+            "tweet_ids": ["tweet1", "tweet2", ...],
+            "options": {
+                // For update_flags:
+                "flags": {"cache_complete": true, ...},
+                
+                // For reprocess:
+                "reprocess_type": "pipeline|full",
+                "reason": "Bulk operation reason",
+                "requested_by": "username"
+                
+                // For delete:
+                "confirm": true
+            }
+        }
+    """
+    try:
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        operation = data.get('operation')
+        tweet_ids = data.get('tweet_ids', [])
+        options = data.get('options', {})
+        
+        if not operation:
+            return jsonify({
+                'success': False,
+                'error': 'operation is required'
+            }), 400
+        
+        if not tweet_ids or not isinstance(tweet_ids, list):
+            return jsonify({
+                'success': False,
+                'error': 'tweet_ids must be a non-empty list'
+            }), 400
+        
+        if len(tweet_ids) > 1000:
+            return jsonify({
+                'success': False,
+                'error': 'Maximum 1000 tweets per bulk operation'
+            }), 400
+        
+        tweet_repo = TweetCacheRepository()
+        queue_repo = TweetProcessingQueueRepository()
+        
+        # Validate operation type
+        if operation not in ['update_flags', 'reprocess', 'delete']:
+            return jsonify({
+                'success': False,
+                'error': 'operation must be one of: update_flags, reprocess, delete'
+            }), 400
+        
+        # Check which tweets exist
+        existing_tweets = tweet_repo.get_by_tweet_ids(tweet_ids)
+        existing_tweet_ids = {tweet.tweet_id for tweet in existing_tweets}
+        missing_tweet_ids = set(tweet_ids) - existing_tweet_ids
+        
+        results = {
+            'successful': [],
+            'failed': [],
+            'missing': list(missing_tweet_ids)
+        }
+        
+        # Process each existing tweet
+        for tweet_id in existing_tweet_ids:
+            try:
+                if operation == 'update_flags':
+                    flags = options.get('flags', {})
+                    if not flags:
+                        results['failed'].append({
+                            'tweet_id': tweet_id,
+                            'error': 'No flags provided for update_flags operation'
+                        })
+                        continue
+                    
+                    # Update flags
+                    updates = dict(flags)
+                    updates['updated_at'] = datetime.now(timezone.utc)
+                    
+                    updated_tweet = tweet_repo.update(tweet_id, updates)
+                    if updated_tweet:
+                        results['successful'].append({
+                            'tweet_id': tweet_id,
+                            'operation': 'flags_updated',
+                            'updated_flags': flags
+                        })
+                    else:
+                        results['failed'].append({
+                            'tweet_id': tweet_id,
+                            'error': 'Failed to update flags'
+                        })
+                
+                elif operation == 'reprocess':
+                    reprocess_type = options.get('reprocess_type', 'pipeline')
+                    reason = options.get('reason', 'Bulk reprocess operation')
+                    requested_by = options.get('requested_by', 'bulk_api')
+                    
+                    if reprocess_type not in ['pipeline', 'full']:
+                        results['failed'].append({
+                            'tweet_id': tweet_id,
+                            'error': 'reprocess_type must be "pipeline" or "full"'
+                        })
+                        continue
+                    
+                    # Set reprocessing flags
+                    updates = {
+                        'reprocess_requested_at': datetime.now(timezone.utc),
+                        'reprocess_requested_by': requested_by,
+                        'updated_at': datetime.now(timezone.utc)
+                    }
+                    
+                    if reprocess_type == 'full':
+                        updates.update({
+                            'force_recache': True,
+                            'cache_complete': False,
+                            'media_processed': False,
+                            'categories_processed': False,
+                            'kb_item_created': False,
+                            'urls_expanded': False,
+                            'db_synced': False
+                        })
+                    else:
+                        updates['force_reprocess_pipeline'] = True
+                    
+                    # Update tweet
+                    updated_tweet = tweet_repo.update(tweet_id, updates)
+                    if updated_tweet:
+                        # Update queue status
+                        queue_entry = queue_repo.get_by_tweet_id(tweet_id)
+                        if queue_entry:
+                            queue_repo.update_status(tweet_id, 'unprocessed')
+                        else:
+                            queue_data = {
+                                'tweet_id': tweet_id,
+                                'status': 'unprocessed',
+                                'priority': 10
+                            }
+                            queue_repo.create(queue_data)
+                        
+                        results['successful'].append({
+                            'tweet_id': tweet_id,
+                            'operation': 'reprocess_triggered',
+                            'reprocess_type': reprocess_type,
+                            'reason': reason
+                        })
+                    else:
+                        results['failed'].append({
+                            'tweet_id': tweet_id,
+                            'error': 'Failed to trigger reprocessing'
+                        })
+                
+                elif operation == 'delete':
+                    if not options.get('confirm'):
+                        results['failed'].append({
+                            'tweet_id': tweet_id,
+                            'error': 'Delete operation requires confirm=true in options'
+                        })
+                        continue
+                    
+                    # Delete from queue first (due to foreign key constraint)
+                    queue_entry = queue_repo.get_by_tweet_id(tweet_id)
+                    if queue_entry:
+                        queue_repo.delete(tweet_id)
+                    
+                    # Delete tweet
+                    deleted = tweet_repo.delete(tweet_id)
+                    if deleted:
+                        results['successful'].append({
+                            'tweet_id': tweet_id,
+                            'operation': 'deleted'
+                        })
+                    else:
+                        results['failed'].append({
+                            'tweet_id': tweet_id,
+                            'error': 'Failed to delete tweet'
+                        })
+                
+            except Exception as e:
+                results['failed'].append({
+                    'tweet_id': tweet_id,
+                    'error': str(e)
+                })
+        
+        # Summary
+        total_requested = len(tweet_ids)
+        total_successful = len(results['successful'])
+        total_failed = len(results['failed'])
+        total_missing = len(results['missing'])
+        
+        return jsonify({
+            'success': total_failed == 0 and total_missing == 0,
+            'message': f'Bulk {operation} operation completed. {total_successful}/{total_requested} successful.',
+            'data': {
+                'operation': operation,
+                'summary': {
+                    'total_requested': total_requested,
+                    'successful': total_successful,
+                    'failed': total_failed,
+                    'missing': total_missing
+                },
+                'results': results
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in bulk tweet operations: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Bulk operation failed: {str(e)}'
+        }), 500
+
+
+@bp.route('/v2/tweets/statistics', methods=['GET'])
+def get_tweet_statistics():
+    """
+    Get comprehensive statistics about tweets and processing status.
+    """
+    try:
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository, CategoryRepository
+        
+        tweet_repo = TweetCacheRepository()
+        queue_repo = TweetProcessingQueueRepository()
+        category_repo = CategoryRepository()
+        
+        # Get basic counts
+        stats = tweet_repo.get_processing_statistics()
+        queue_stats = queue_repo.get_queue_statistics()
+        
+        # Get category statistics
+        categories = category_repo.get_full_hierarchy()
+        category_stats = {}
+        for main_cat, sub_cats in categories.items():
+            category_stats[main_cat] = {
+                'subcategory_count': len(sub_cats),
+                'total_items': sum(cat.item_count for cat in sub_cats),
+                'subcategories': {
+                    cat.sub_category: cat.item_count 
+                    for cat in sub_cats
+                }
+            }
+        
+        # Get processing performance over time
+        performance_stats = queue_repo.get_processing_performance(hours=24)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'tweet_counts': stats,
+                'queue_statistics': queue_stats,
+                'category_statistics': category_stats,
+                'performance_24h': performance_stats,
+                'generated_at': datetime.now(timezone.utc).isoformat()
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting tweet statistics: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get statistics: {str(e)}'
+        }), 500
+
+
+@bp.route('/v2/tweets/categories', methods=['GET'])
+def get_tweet_categories():
+    """
+    Get list of all available categories for filtering.
+    """
+    try:
+        from ..repositories import CategoryRepository
+        
+        category_repo = CategoryRepository()
+        
+        # Get full hierarchy
+        hierarchy = category_repo.get_full_hierarchy(only_active=True)
+        
+        # Format for frontend consumption
+        categories = []
+        for main_category, sub_categories in hierarchy.items():
+            for sub_category in sub_categories:
+                categories.append({
+                    'main_category': main_category,
+                    'sub_category': sub_category.sub_category,
+                    'display_name': sub_category.display_name,
+                    'item_count': sub_category.item_count,
+                    'sort_order': sub_category.sort_order
+                })
+        
+        # Get unique main categories
+        main_categories = list(set(cat['main_category'] for cat in categories))
+        main_categories.sort()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'categories': categories,
+                'main_categories': main_categories,
+                'total_categories': len(categories),
+                'total_main_categories': len(main_categories)
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting tweet categories: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get categories: {str(e)}'
         }), 500
