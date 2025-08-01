@@ -35,165 +35,47 @@ async def generate_root_readme(
     http_client: HTTPClient,
     config: Config,
 ) -> None:
-    """Generate a hybrid README.md using both static generation and LLM enhancement."""
+    """Generate a hybrid README.md using database content and LLM enhancement."""
     logging.info(f"Creating root README.md catalog for knowledge base at {kb_dir}...")
     
     # Set a large timeout for this operation since it may involve LLM calls
     operation_timeout = 300
     try:
         kb_items = []
-        tweet_cache = {}
-
-        # Load tweet cache from database
+        
+        # Load KB items directly from database (new unified approach)
         try:
             from flask import current_app
-            from .models import TweetCache
+            from .models import KnowledgeBaseItem, UnifiedTweet
             
             if current_app:
                 with current_app.app_context():
-                    # Load tweet cache from database
-                    cached_tweets = TweetCache.query.filter_by(kb_item_created=True).all()
-                    for cached_tweet in cached_tweets:
-                        tweet_cache[cached_tweet.tweet_id] = {
-                            'kb_item_created': cached_tweet.kb_item_created,
-                            'kb_item_path': cached_tweet.kb_item_path,
-                            # Add other fields as needed
-                        }
-                    logging.debug(f"Loaded {len(tweet_cache)} tweets with KB items from database")
+                    # Load KB items from database
+                    db_kb_items = KnowledgeBaseItem.query.all()
+                    
+                    for kb_item in db_kb_items:
+                        # Create item entry for README generation
+                        kb_items.append({
+                            "main_category": kb_item.main_category,
+                            "sub_category": kb_item.sub_category,
+                            "item_name": kb_item.item_name or kb_item.title.replace(" ", "-").lower(),
+                            "path": f"{kb_item.main_category}/{kb_item.sub_category}/{kb_item.item_name or kb_item.title.replace(' ', '-').lower()}",
+                            "description": kb_item.description or kb_item.content[:200] + "..." if kb_item.content else "Knowledge base item",
+                            "last_updated": kb_item.last_updated.timestamp(),
+                            "tweet_id": kb_item.tweet_id,
+                            "created_date": kb_item.created_at.strftime('%Y-%m-%d'),
+                            "source_url": kb_item.source_url or f"https://twitter.com/user/status/{kb_item.tweet_id}" if kb_item.tweet_id else "N/A",
+                        })
+                    
+                    logging.debug(f"Loaded {len(kb_items)} KB items from database")
             else:
                 raise Exception("No Flask app context available")
         except Exception as e:
-            logging.error(f"Failed to load tweet cache from database: {e}")
-            raise MarkdownGenerationError(f"Failed to load tweet cache: {e}")
-
-        if tweet_cache:
-            logging.debug(f"Knowledge base directory: {kb_dir}")
-            if kb_dir.exists():
-                logging.debug("KB directory exists. Listing first 5 items:")
-                for i, (root, dirs, files) in enumerate(os.walk(kb_dir)):
-                    if i >= 5:
-                        break
-                    logging.debug(f"Directory: {root}")
-                    for file in files[:3]:
-                        logging.debug(f"  - File: {file}")
-            else:
-                logging.error(f"KB directory does not exist: {kb_dir}")
-                raise MarkdownGenerationError(f"KB directory does not exist: {kb_dir}")
-
-            for tweet_id, tweet_data in tweet_cache.items():
-                if not tweet_data.get("kb_item_created", False):
-                    logging.debug(
-                        f"Skipping tweet {tweet_id}: kb_item_created is False"
-                    )
-                    continue
-
-                kb_path_str = tweet_data.get("kb_item_path")
-                if not kb_path_str:
-                    logging.debug(f"Skipping tweet {tweet_id}: no kb_item_path")
-                    continue
-
-                kb_path = Path(kb_path_str)
-                paths_to_check = [
-                    kb_dir / kb_path,
-                    (
-                        kb_dir / kb_path.relative_to("kb-generated")
-                        if kb_path_str.startswith("kb-generated/")
-                        else kb_dir / kb_path
-                    ),
-                    kb_dir.parent / kb_path,
-                    Path(kb_path_str),
-                ]
-
-                readme_path = None
-                for path in paths_to_check:
-                    logging.debug(f"Checking path for tweet {tweet_id}: {path}")
-                    if path.exists() and path.is_file():
-                        readme_path = path
-                        logging.debug(f"Found KB item at: {readme_path}")
-                        break
-                    elif path.is_dir() and (path / "README.md").exists():
-                        readme_path = path / "README.md"
-                        logging.debug(
-                            f"Found KB item as README.md in directory: {readme_path}"
-                        )
-                        break
-
-                if not readme_path and kb_path_str.endswith(
-                    ("/README.md", "\\README.md")
-                ):
-                    dir_path = kb_dir / kb_path.parent
-                    if dir_path.exists() and dir_path.is_dir():
-                        readme_path = dir_path / "README.md"
-                        if readme_path.exists():
-                            logging.debug(
-                                f"Found KB item by checking directory: {readme_path}"
-                            )
-
-                if not readme_path:
-                    logging.warning(
-                        f"KB item path {kb_path_str} does not exist for tweet {tweet_id}"
-                    )
-                    continue
-
-                try:
-                    rel_path = readme_path.relative_to(kb_dir)
-                    path_parts = list(rel_path.parts)
-
-                    if len(path_parts) < 2:
-                        logging.warning(
-                            f"Invalid path structure for {kb_path_str}: {path_parts}"
-                        )
-                        continue
-
-                    main_cat = path_parts[0]
-                    if len(path_parts) >= 3:
-                        sub_cat = path_parts[1]
-                        item_name = (
-                            path_parts[-2]
-                            if path_parts[-1] == "README.md"
-                            else path_parts[-1].replace(".md", "")
-                        )
-                        item_path = str(
-                            rel_path.parent
-                            if rel_path.name == "README.md"
-                            else rel_path.with_suffix("")
-                        )
-                    elif len(path_parts) == 2:
-                        sub_cat = main_cat
-                        item_name = path_parts[1].replace(".md", "")
-                        item_path = str(
-                            rel_path.parent
-                            if rel_path.name == "README.md"
-                            else rel_path.with_suffix("")
-                        )
-                    else:
-                        continue
-
-                    logging.debug(
-                        f"Found item for tweet {tweet_id}: {readme_path} -> {item_path}"
-                    )
-
-                    kb_items.append(
-                        {
-                            "main_category": main_cat,
-                            "sub_category": sub_cat,
-                            "item_name": item_name,
-                            "path": item_path,
-                            "description": await get_item_description(readme_path),
-                            "last_updated": readme_path.stat().st_mtime,
-                            "tweet_id": tweet_id,
-                            "created_date": tweet_data.get("processed_date"),
-                            "source_url": f"https://twitter.com/user/status/{tweet_id}",
-                        }
-                    )
-                except Exception as e:
-                    logging.error(
-                        f"Error processing KB item {kb_path_str} for tweet {tweet_id}: {e}"
-                    )
-                    continue
+            logging.error(f"Failed to load KB items from database: {e}")
+            raise MarkdownGenerationError(f"Failed to load KB items: {e}")
 
         logging.info(
-            f"Cataloged {len(kb_items)} existing KB items for README generation (from cache: {len([t for t in tweet_cache.values() if t.get('kb_item_created', False)]) if tweet_cache else 0})"
+            f"Cataloged {len(kb_items)} existing KB items for README generation from database"
         )
 
         # Collect synthesis documents from database
