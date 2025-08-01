@@ -112,10 +112,21 @@ class UnifiedStateManager:
                 logger.error(f"Tweet {tweet_id} not found in unified table")
                 return False
             
-            # Apply updates
+            # Apply updates with proper type conversion
             for field, value in updates.items():
                 if hasattr(tweet, field):
-                    setattr(tweet, field, value)
+                    # Handle datetime fields that might come as strings
+                    if field in ['created_at', 'updated_at', 'cached_at', 'processed_at', 'kb_generated_at', 'reprocess_requested_at']:
+                        if isinstance(value, str):
+                            # Skip string timestamps - let SQLAlchemy handle them automatically
+                            continue
+                        elif value is None:
+                            setattr(tweet, field, value)
+                        else:
+                            # Assume it's already a datetime object
+                            setattr(tweet, field, value)
+                    else:
+                        setattr(tweet, field, value)
                 else:
                     logger.warning(f"Field {field} not found in UnifiedTweet model")
             

@@ -892,24 +892,11 @@ class KnowledgeBaseAgent:
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after content processing.")
 
-                # --- Phase 4: Database Sync (Standalone) ---
-                self.socketio_emit_log(f"🔍 DB Sync Check: skip_process_content={preferences.skip_process_content}, force_reprocess_db_sync={preferences.force_reprocess_db_sync}", "INFO")
-                if not preferences.skip_process_content or preferences.force_reprocess_db_sync:
-                    try:
-                        self.socketio_emit_log("🔄 Starting standalone database sync phase...", "INFO")
-                        self.socketio_emit_log("🔍 About to call execute_standalone_db_sync method...", "INFO")
-                        await self.execute_standalone_db_sync(preferences)
-                        self.socketio_emit_log("✅ Standalone database sync phase completed successfully", "INFO")
-                    except Exception as e:
-                        self.socketio_emit_log(f"❌ Error during standalone database sync: {e}", "ERROR")
-                        self.socketio_emit_log(f"❌ Database sync traceback: {traceback.format_exc()}", "ERROR")
-                        self.socketio_emit_phase_update('database_sync', 'error', f"Database sync failed: {e}")
-                        stats.error_count += 1
-                        # Continue with other phases even if DB sync fails
-                        self.socketio_emit_log("⚠️ Continuing with remaining phases despite DB sync error", "WARNING")
-                else:
-                    self.socketio_emit_log("Database sync skipped due to user preference.", "INFO")
-                    self.socketio_emit_phase_update('database_sync', 'completed', 'Completed - skipped by user preference', False, 0, 0, 0)
+                # --- Phase 4: Database Sync (REMOVED) ---
+                # Database sync is no longer needed as a separate phase since we're using
+                # the unified database approach where all data is stored directly in UnifiedTweet
+                self.socketio_emit_log("✅ Database sync phase skipped - using unified database approach", "INFO")
+                self.socketio_emit_phase_update('database_sync', 'completed', 'Completed - using unified database approach', False, 0, 0, 0)
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after database synchronization.")
 
@@ -1213,123 +1200,9 @@ class KnowledgeBaseAgent:
         except Exception as e:
             self.socketio_emit_log(f"Failed to process single tweet {tweet_id}: {e}", "ERROR")
 
-    async def execute_standalone_db_sync(self, preferences: UserPreferences) -> None:
-        """
-        Execute standalone database sync phase.
-        
-        This method runs database synchronization independently of content processing,
-        allowing it to be forced even when no new tweets need processing.
-        """
-        self.socketio_emit_log("🚀 DB Sync: Method called - starting database sync evaluation...", "INFO")
-        self.socketio_emit_phase_update('database_sync', 'active', 'Starting database sync evaluation...')
-        
-        try:
-            self.socketio_emit_log("🔍 DB Sync: Getting all tweets from state manager...", "INFO")
-            # Get all tweets for potential database sync
-            try:
-                all_tweets = self.state_manager.get_all_tweets()  # Remove await - this is synchronous
-                self.socketio_emit_log(f"🔍 DB Sync: Successfully retrieved {len(all_tweets) if all_tweets else 0} tweets", "INFO")
-            except Exception as e:
-                self.socketio_emit_log(f"❌ DB Sync: Error getting tweets from state manager: {e}", "ERROR")
-                self.socketio_emit_log(f"❌ DB Sync: Traceback: {traceback.format_exc()}", "ERROR")
-                raise
-            
-            if not all_tweets:
-                self.socketio_emit_log("No tweets found in system for database sync", "INFO")
-                self.socketio_emit_phase_update('database_sync', 'completed', 'No tweets to sync', False, 0, 0, 0)
-                return
-            
-            self.socketio_emit_log(f"🔍 DB Sync: Found {len(all_tweets)} tweets in system", "DEBUG")
-            
-            # Create force flags for phase execution helper
-            force_flags = {
-                'force_recache_tweets': preferences.force_recache_tweets,
-                'force_reprocess_media': preferences.force_reprocess_media,
-                'force_reprocess_llm': preferences.force_reprocess_llm,
-                'force_reprocess_kb_item': preferences.force_reprocess_kb_item,
-                'force_reprocess_db_sync': preferences.force_reprocess_db_sync
-            }
-            
-            self.socketio_emit_log(f"🔍 DB Sync: Creating execution plans with force flags: {force_flags}", "DEBUG")
-            
-            # Get execution plan for database sync
-            from knowledge_base_agent.phase_execution_helper import ProcessingPhase
-            execution_plans = self.phase_execution_helper.create_all_execution_plans(all_tweets, force_flags)
-            db_sync_plan = execution_plans[ProcessingPhase.DB_SYNC]
-            
-            self.socketio_emit_log(f"🔍 DB Sync: Execution plan created successfully", "DEBUG")
-            
-            self.socketio_emit_log(f"DB sync plan: {db_sync_plan.needs_processing_count} tweets need sync, {db_sync_plan.already_complete_count} already synced", "INFO")
-            
-            if db_sync_plan.should_skip_phase:
-                self.socketio_emit_log(f"✅ Database sync - all {db_sync_plan.already_complete_count} tweets already synced", "INFO")
-                self.socketio_emit_phase_update('database_sync', 'completed', 
-                                               f'All {db_sync_plan.already_complete_count} tweets already synced',
-                                               False, db_sync_plan.already_complete_count, db_sync_plan.already_complete_count, 0)
-                return
-            
-            # Execute database sync for tweets that need it
-            self.socketio_emit_log(f"🔄 Syncing {db_sync_plan.needs_processing_count} tweets to database", "INFO")
-            self.socketio_emit_phase_update('database_sync', 'active', 
-                                           f'Syncing {db_sync_plan.needs_processing_count} tweets to database...',
-                                           False, 0, db_sync_plan.needs_processing_count, 0)
-            
-            # Initialize content processor if needed (for _sync_to_db method)
-            if not self.content_processor:
-                await self.initialize()
-            
-            # Process each tweet that needs database sync
-            items_successfully_processed = 0
-            error_count = 0
-            
-            for i, tweet_id in enumerate(db_sync_plan.tweets_needing_processing):
-                if stop_flag.is_set():
-                    self.socketio_emit_log("Database sync stopped by flag.", "WARNING")
-                    self.socketio_emit_phase_update('database_sync', 'interrupted', 'Database sync stopped.')
-                    break
-                
-                try:
-                    tweet_data = all_tweets[tweet_id]
-                    self.socketio_emit_log(f"🔄 Syncing item {i+1} of {db_sync_plan.needs_processing_count} to database", "INFO")
-                    
-                    # Update progress
-                    self.socketio_emit_phase_update('database_sync', 'active', 
-                                                   f'Syncing item {i+1} of {db_sync_plan.needs_processing_count}...',
-                                                   False, i, db_sync_plan.needs_processing_count, error_count)
-                    
-                    # Use the content processor's sync method
-                    await self.content_processor._sync_to_unified_db(tweet_id, tweet_data)
-                    
-                    # Update state manager
-                    tweet_data['db_synced'] = True
-                    self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                    items_successfully_processed += 1
-                    
-                    self.socketio_emit_log(f"✅ Database sync complete for item {i+1}", "INFO")
-                    
-                except Exception as e:
-                    self.socketio_emit_log(f"❌ Error syncing tweet {tweet_id} to database: {e}", "ERROR")
-                    error_count += 1
-                    # Continue with other tweets
-            
-            # Final status update
-            if not stop_flag.is_set():
-                if error_count == 0:
-                    self.socketio_emit_log(f"✅ Database sync completed successfully for {items_successfully_processed} tweets", "INFO")
-                    self.socketio_emit_phase_update('database_sync', 'completed', 
-                                                   f'Synced {items_successfully_processed} tweets to database',
-                                                   False, items_successfully_processed, db_sync_plan.needs_processing_count, error_count)
-                else:
-                    self.socketio_emit_log(f"⚠️ Database sync completed with {error_count} errors. {items_successfully_processed} tweets synced successfully", "WARNING")
-                    self.socketio_emit_phase_update('database_sync', 'completed', 
-                                                   f'Synced {items_successfully_processed} tweets with {error_count} errors',
-                                                   False, items_successfully_processed, db_sync_plan.needs_processing_count, error_count)
-            
-        except Exception as e:
-            self.socketio_emit_log(f"❌ Critical error in standalone database sync: {e}", "ERROR")
-            self.socketio_emit_log(f"❌ DB Sync traceback: {traceback.format_exc()}", "ERROR")
-            self.socketio_emit_phase_update('database_sync', 'error', f'Database sync failed: {e}')
-            # Don't raise - let the pipeline continue with other phases
+    # execute_standalone_db_sync method REMOVED
+    # Database sync is no longer needed as a separate phase since we're using
+    # the unified database approach where all data is stored directly in UnifiedTweet
 
     async def regenerate_readme(self, preferences: UserPreferences) -> None:
         """

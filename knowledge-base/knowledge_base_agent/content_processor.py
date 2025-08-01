@@ -147,7 +147,7 @@ class StreamlinedContentProcessor:
             if not tweet_data:
                 # Initialize cache entry with comprehensive defaults
                 initial_data = {
-                    'url': f'https://twitter.com/user/status/{tweet_id}',
+                    'source_url': f'https://twitter.com/user/status/{tweet_id}',
                     'source': 'unprocessed_queue'
                 }
                 tweet_data = self.state_manager.create_tweet_with_full_defaults(tweet_id, initial_data)
