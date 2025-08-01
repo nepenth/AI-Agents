@@ -198,26 +198,32 @@ class AgentControlManager {
     }
 
     setupEventListeners() {
-        // Custom event listeners for polling-based notifications
-        document.addEventListener('agent_status_update', (event) => {
-            this.updateStatus(event.detail);
-        });
-
-        document.addEventListener('agent_run_completed', (event) => {
-            this.handleRunCompleted(event.detail);
-        });
-
-        document.addEventListener('agent_error', (event) => {
-            this.handleAgentError(event.detail);
-        });
-
-        // CRITICAL FIX: Listen for preference changes from execution plan
-        document.addEventListener('preferences-updated', (event) => {
-            if (event.detail.source === 'execution-plan') {
-                console.log('🔄 Agent controls received preferences from execution plan:', event.detail.preferences);
-                // Don't update execution plan again to avoid circular updates
-                this.syncButtonStatesOnly(event.detail.preferences);
-            }
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            customEvents: [
+                {
+                    event: 'agent_status_update',
+                    handler: (e) => this.updateStatus(e.detail)
+                },
+                {
+                    event: 'agent_run_completed',
+                    handler: (e) => this.handleRunCompleted(e.detail)
+                },
+                {
+                    event: 'agent_error',
+                    handler: (e) => this.handleAgentError(e.detail)
+                },
+                {
+                    event: 'preferences-updated',
+                    handler: (e) => {
+                        if (e.detail.source === 'execution-plan') {
+                            console.log('🔄 Agent controls received preferences from execution plan:', e.detail.preferences);
+                            // Don't update execution plan again to avoid circular updates
+                            this.syncButtonStatesOnly(e.detail.preferences);
+                        }
+                    }
+                }
+            ]
         });
     }
 
@@ -454,7 +460,7 @@ class AgentControlManager {
             force_reprocess_media: forceFlags.force_reprocess_media || false,
             force_reprocess_llm: forceFlags.force_reprocess_llm || false,
             force_reprocess_kb_item: forceFlags.force_reprocess_kb_item || false,
-            force_reprocess_db_sync: forceFlags.force_reprocess_db_sync || false,
+
 
             // Legacy/combined flag
             force_reprocess_content: forceFlags.force_reprocess_content || false,
@@ -513,9 +519,14 @@ class AgentControlManager {
             }
         }
 
-        // Restore skip flags
-        Object.keys(preferences).forEach(key => {
-            if (key.startsWith('skip_')) {
+        // Restore skip flags (only for preferences that have UI elements)
+        const skipPreferencesWithUI = [
+            // Add any skip preferences that actually have UI buttons
+            // Currently none of the skip_ preferences have UI elements
+        ];
+        
+        skipPreferencesWithUI.forEach(key => {
+            if (preferences[key] !== undefined) {
                 const btn = document.querySelector(`[data-pref="${key}"]`);
                 if (btn) {
                     if (preferences[key]) {
@@ -612,7 +623,7 @@ class AgentControlManager {
             'force-reprocess-media-btn',
             'force-reprocess-llm-btn',
             'force-reprocess-kb-item-btn',
-            'force-reprocess-db-sync-btn',
+
             'force-regenerate-synthesis-btn',
             'force-regenerate-embeddings-btn',
             'force-regenerate-readme-btn',
@@ -894,10 +905,13 @@ class AgentControlManager {
 
             if (result.success) {
                 const status = result.data;
-                let message = `Workers: ${status.active_workers || 0} active, ${status.total_workers || 0} total\n`;
+                let message = `Workers: ${status.active_workers || 0} active, ${status.total_workers || 0} total
+`;
                 message += `Tasks: ${status.active_tasks || 0} active, ${status.pending_tasks || 0} pending`;
 
-                alert(`Celery Status:\n\n${message}`);
+                alert(`Celery Status:
+
+${message}`);
                 this.showSuccess('Celery status retrieved');
             } else {
                 throw new Error(result.error || 'Failed to get status');
@@ -911,7 +925,7 @@ class AgentControlManager {
     // === SYSTEM UTILITIES ===
 
     async resetAgentState() {
-        if (!confirm('Are you sure you want to reset the agent state? This will:\n\n• Stop any running Celery tasks\n• Clear stuck database records\n• Clear Redis progress data\n• Reset agent to idle state\n\nThis is a comprehensive cleanup operation.')) {
+        if (!confirm('Are you sure you want to reset the agent state? This will:\\n\\n• Stop any running Celery tasks\\n• Clear stuck database records\\n• Clear Redis progress data\\n• Reset agent to idle state\\n\\nThis is a comprehensive cleanup operation.')) {
             return;
         }
 
@@ -924,7 +938,9 @@ class AgentControlManager {
                 
                 // Show additional details if stuck tasks were cleaned
                 if (result.stuck_tasks_cleaned > 0) {
-                    message += `\n\n✅ Cleaned up ${result.stuck_tasks_cleaned} stuck task(s)`;
+                    message += `
+
+✅ Cleaned up ${result.stuck_tasks_cleaned} stuck task(s)`;
                 }
                 
                 this.showSuccess(message);
@@ -989,11 +1005,17 @@ class AgentControlManager {
 
             if (result.success) {
                 const health = result.data;
-                let message = `System Health Check:\n\n`;
-                message += `Database: ${health.database ? '✅ OK' : '❌ Error'}\n`;
-                message += `Redis: ${health.redis ? '✅ OK' : '❌ Error'}\n`;
-                message += `Ollama: ${health.ollama ? '✅ OK' : '❌ Error'}\n`;
-                message += `GPU: ${health.gpu ? '✅ Available' : '⚠️ Not Available'}\n`;
+                let message = `System Health Check:
+
+`;
+                message += `Database: ${health.database ? '✅ OK' : '❌ Error'}
+`;
+                message += `Redis: ${health.redis ? '✅ OK' : '❌ Error'}
+`;
+                message += `Ollama: ${health.ollama ? '✅ OK' : '❌ Error'}
+`;
+                message += `GPU: ${health.gpu ? '✅ Available' : '⚠️ Not Available'}
+`;
 
                 alert(message);
                 this.showSuccess('Health check completed');
@@ -1042,11 +1064,15 @@ class AgentControlManager {
 
             if (result.success) {
                 const tests = result.data;
-                let message = `Connection Tests:\n\n`;
+                let message = `Connection Tests:
+
+`;
                 Object.entries(tests).forEach(([service, status]) => {
-                    message += `${service}: ${status.success ? '✅ OK' : '❌ Failed'}\n`;
+                    message += `${service}: ${status.success ? '✅ OK' : '❌ Failed'}
+`;
                     if (!status.success && status.error) {
-                        message += `  Error: ${status.error}\n`;
+                        message += `  Error: ${status.error}
+`;
                     }
                 });
 
@@ -1068,12 +1094,19 @@ class AgentControlManager {
 
             if (result.success) {
                 const info = result.data;
-                let message = `Debug Information:\n\n`;
-                message += `Agent Status: ${info.agent_status}\n`;
-                message += `Active Tasks: ${info.active_tasks}\n`;
-                message += `System Load: ${info.system_load}\n`;
-                message += `Memory Usage: ${info.memory_usage}\n`;
-                message += `Disk Usage: ${info.disk_usage}\n`;
+                let message = `Debug Information:
+
+`;
+                message += `Agent Status: ${info.agent_status}
+`;
+                message += `Active Tasks: ${info.active_tasks}
+`;
+                message += `System Load: ${info.system_load}
+`;
+                message += `Memory Usage: ${info.memory_usage}
+`;
+                message += `Disk Usage: ${info.disk_usage}
+`;
 
                 alert(message);
                 this.showSuccess('Debug info retrieved');
@@ -1169,4 +1202,5 @@ class AgentControlManager {
 // static/v2/js/executionPlan.js. 
 
 // Make globally available for non-module usage
+window.AgentControlManager = AgentControlManager;
 window.AgentControlManager = AgentControlManager;

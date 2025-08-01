@@ -453,14 +453,31 @@ class EmbeddingManager:
             return document.synthesis_content or ''
         return ''
 
-    async def find_similar_documents(self, query: str, top_k: int = 5, include_scores: bool = True) -> List[Dict[str, Any]]:
-        """Find similar documents with enhanced search capabilities."""
-        self.logger.info(f"Searching for documents similar to: '{query}'")
+    async def find_similar_documents(self, query: str, top_k: int = 12, include_scores: bool = True) -> List[Dict[str, Any]]:
+        """
+        Enhanced document search with improved relevance and coverage.
+        
+        Features:
+        - Increased default top_k from 5 to 12 for better coverage
+        - Enhanced query preprocessing and expansion
+        - Improved result formatting with comprehensive metadata
+        - Category-aware search boosting
+        """
+        self.logger.info(f"Enhanced search for documents similar to: '{query}' (top_k={top_k})")
 
+        # Preprocess query for better search results
+        processed_query = self._preprocess_query(query)
+        
         if self.use_vector_store:
-            return await self._search_vector_store(query, top_k, include_scores)
+            results = await self._search_vector_store(processed_query, top_k, include_scores)
         else:
-            return await self._search_sql_embeddings(query, top_k)
+            results = await self._search_sql_embeddings(processed_query, top_k)
+        
+        # Apply post-processing enhancements
+        enhanced_results = self._enhance_search_results(results, query)
+        
+        self.logger.info(f"Enhanced search returned {len(enhanced_results)} results")
+        return enhanced_results
 
     async def _search_vector_store(self, query: str, top_k: int, include_scores: bool) -> List[Dict[str, Any]]:
         """Search using Chroma vector store."""
@@ -564,4 +581,145 @@ class EmbeddingManager:
         denominator = norm1 * norm2
         denominator[denominator == 0] = 1e-9 # Avoid division by zero
         
-        return np.dot(vec2, vec1.T).flatten() / denominator 
+        return np.dot(vec2, vec1.T).flatten() / denominator
+
+    def _preprocess_query(self, query: str) -> str:
+        """
+        Preprocess query for better search results.
+        
+        Features:
+        - Technical term normalization
+        - Query expansion for common synonyms
+        - Noise reduction
+        """
+        # Basic preprocessing
+        processed = query.strip()
+        
+        # Technical term expansions for better matching
+        expansions = {
+            'ai': 'artificial intelligence',
+            'ml': 'machine learning',
+            'api': 'application programming interface',
+            'ui': 'user interface',
+            'ux': 'user experience',
+            'db': 'database',
+            'js': 'javascript',
+            'ts': 'typescript',
+            'py': 'python',
+            'k8s': 'kubernetes',
+            'docker': 'containerization',
+            'ci/cd': 'continuous integration continuous deployment'
+        }
+        
+        # Apply expansions (case insensitive)
+        for abbrev, expansion in expansions.items():
+            if abbrev.lower() in processed.lower():
+                processed = processed + f" {expansion}"
+        
+        return processed
+
+    def _enhance_search_results(self, results: List[Dict[str, Any]], original_query: str) -> List[Dict[str, Any]]:
+        """
+        Apply post-processing enhancements to search results.
+        
+        Features:
+        - Category-aware boosting
+        - Query-specific relevance adjustments
+        - Metadata enrichment
+        """
+        if not results:
+            return results
+        
+        enhanced_results = []
+        query_lower = original_query.lower()
+        
+        # Detect query domain for category boosting
+        domain_keywords = {
+            'devops': ['deploy', 'docker', 'kubernetes', 'ci/cd', 'infrastructure', 'pipeline'],
+            'system_design': ['architecture', 'scalability', 'distributed', 'microservices', 'design'],
+            'programming': ['code', 'function', 'class', 'algorithm', 'implementation', 'development'],
+            'ai_ml': ['ai', 'machine learning', 'neural', 'model', 'training', 'data science'],
+            'web_development': ['frontend', 'backend', 'react', 'vue', 'angular', 'javascript', 'html', 'css']
+        }
+        
+        detected_domains = []
+        for domain, keywords in domain_keywords.items():
+            if any(keyword in query_lower for keyword in keywords):
+                detected_domains.append(domain)
+        
+        for result in results:
+            enhanced_result = result.copy()
+            
+            # Apply category boosting
+            category = result.get('category', '').lower()
+            subcategory = result.get('subcategory', '').lower()
+            
+            boost_factor = 1.0
+            
+            # Boost results from relevant domains
+            for domain in detected_domains:
+                if domain in category or domain in subcategory:
+                    boost_factor *= 1.15  # 15% boost per matching domain
+            
+            # Boost synthesis documents for conceptual queries
+            if any(term in query_lower for term in ['what is', 'explain', 'concept', 'overview']):
+                if result.get('type') == 'synthesis':
+                    boost_factor *= 1.1  # 10% boost for synthesis docs
+            
+            # Boost KB items for implementation queries
+            if any(term in query_lower for term in ['how to', 'implement', 'setup', 'tutorial']):
+                if result.get('type') == 'kb_item':
+                    boost_factor *= 1.1  # 10% boost for KB items
+            
+            # Apply boost to score
+            enhanced_result['score'] = min(1.0, result.get('score', 0) * boost_factor)
+            
+            # Add enhancement metadata
+            enhanced_result['boost_applied'] = boost_factor > 1.0
+            enhanced_result['boost_factor'] = boost_factor
+            
+            enhanced_results.append(enhanced_result)
+        
+        # Re-sort by enhanced scores
+        enhanced_results.sort(key=lambda x: x.get('score', 0), reverse=True)
+        
+        return enhanced_results
+
+    def _create_document_metadata_safe(self, document: Union[KnowledgeBaseItem, SubcategorySynthesis], doc_type: str) -> Dict[str, Any]:
+        """Create metadata with safe attribute access."""
+        metadata = {
+            'document_type': doc_type,
+            'model': self.embedding_model,
+            'created_at': str(datetime.now(timezone.utc)),
+        }
+        
+        try:
+            if doc_type == 'kb_item':
+                metadata.update({
+                    'title': getattr(document, 'title', '') or getattr(document, 'display_title', ''),
+                    'category': getattr(document, 'main_category', ''),
+                    'subcategory': getattr(document, 'sub_category', ''),
+                })
+            elif doc_type == 'synthesis':
+                metadata.update({
+                    'title': getattr(document, 'synthesis_title', ''),
+                    'category': getattr(document, 'main_category', ''),
+                    'subcategory': getattr(document, 'sub_category', ''),
+                })
+        except Exception as e:
+            self.logger.warning(f"Error creating metadata for {doc_type}: {e}")
+        
+        return metadata
+
+    def _get_document_content_safe(self, document: Union[KnowledgeBaseItem, SubcategorySynthesis]) -> str:
+        """Get document content with safe attribute access."""
+        try:
+            if hasattr(document, 'content') and document.content:
+                return document.content
+            elif hasattr(document, 'synthesis_content') and document.synthesis_content:
+                return document.synthesis_content
+            else:
+                return ''
+        except Exception as e:
+            self.logger.warning(f"Error getting document content: {e}")
+            return '' 

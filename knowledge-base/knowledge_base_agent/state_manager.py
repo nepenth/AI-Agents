@@ -57,14 +57,22 @@ def check_knowledge_base_state(config) -> Dict[str, bool]:
         'has_cached_tweets': False
     }
     
-    # Check for processed tweets in state file and its content
-    if Path(config.processed_tweets_file).exists():
-        try:
-            with open(config.processed_tweets_file, 'r') as f:
-                processed_tweets = json.load(f)
-                state['has_processed_tweets'] = bool(processed_tweets)  # True only if there are actual tweets
-        except (FileNotFoundError, json.JSONDecodeError):
+    # Check for processed tweets in database
+    try:
+        from flask import current_app
+        from .models import TweetProcessingQueue
+        
+        if not current_app:
+            logging.error("No Flask app context available for checking processed tweets")
             state['has_processed_tweets'] = False
+        else:
+            with current_app.app_context():
+                # Check if there are any processed tweets in the database
+                processed_count = TweetProcessingQueue.query.filter_by(status='processed').count()
+                state['has_processed_tweets'] = processed_count > 0
+    except Exception as e:
+        logging.error(f"Failed to check processed tweets in database: {e}")
+        state['has_processed_tweets'] = False
     
     # Check for cached tweet data
     if list(config.media_cache_dir.glob("*.json")):

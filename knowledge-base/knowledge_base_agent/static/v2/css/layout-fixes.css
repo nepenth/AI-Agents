@@ -43,7 +43,8 @@
 .preferences-collapsible {
     overflow: hidden;
     transition: all 0.3s ease;
-    max-height: 2000px; /* Large enough to accommodate content */
+    max-height: 2000px;
+    /* Large enough to accommodate content */
     opacity: 1;
 }
 
@@ -60,7 +61,8 @@
 .utilities-collapsible {
     overflow: hidden;
     transition: all 0.3s ease;
-    max-height: 2000px; /* Large enough to accommodate content */
+    max-height: 2000px;
+    /* Large enough to accommodate content */
     opacity: 1;
 }
 
@@ -104,24 +106,47 @@
 
 /* === MAIN CONTENT SPACING FIXES === */
 .main-content {
-    gap: var(--space-2) !important;
-    padding: var(--space-3) !important;
+    gap: var(--space-1) !important;
+    padding: var(--space-2) !important;
 }
 
 /* === MAIN DASHBOARD AREA FIXES === */
 .dashboard-main-area {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: var(--space-3) !important;
+    gap: var(--space-2) !important;
     min-height: 0 !important;
     overflow: hidden !important;
+    align-items: stretch !important;
+    /* Ensure panels have equal height */
+    margin: 0 !important;
+    /* Remove any unwanted margins */
 }
 
-/* Ensure both panels take equal width */
-.dashboard-main-area > .dashboard-panel {
+/* Ensure both panels take equal width and are properly aligned */
+.dashboard-main-area>.dashboard-panel {
     width: 100% !important;
     min-width: 0 !important;
     flex: 1 !important;
+    margin: 0 !important;
+    /* Remove any panel margins that could cause misalignment */
+}
+
+/* Fix panel content height to prevent cutoff */
+.dashboard-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    /* Prevent panels from exceeding container height */
+}
+
+.dashboard-panel .panel-content {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    /* Allow content to scroll within the panel */
 }
 
 /* === GPU STATUS PANEL FIXES === */
@@ -513,12 +538,12 @@
     transition: all var(--transition-fast);
 }
 
-.theme-checkbox:checked + .theme-checkbox-custom {
+.theme-checkbox:checked+.theme-checkbox-custom {
     background: var(--gradient-primary);
     border-color: var(--primary-blue);
 }
 
-.theme-checkbox:checked + .theme-checkbox-custom::after {
+.theme-checkbox:checked+.theme-checkbox-custom::after {
     content: '✓';
     position: absolute;
     top: 50%;
@@ -548,7 +573,8 @@
 }
 
 /* === ADDITIONAL PANEL SPACING FIXES === */
-.glass-panel-v3, .glass-panel {
+.glass-panel-v3,
+.glass-panel {
     margin-bottom: var(--space-2) !important;
 }
 
@@ -576,22 +602,22 @@
         grid-template-columns: 1fr !important;
         grid-template-rows: 1fr 1fr !important;
     }
-    
+
     .theme-color-grid {
         grid-template-columns: repeat(3, 1fr);
     }
-    
+
     .theme-mode-toggle {
         flex-direction: column;
     }
-    
+
     .theme-settings-content {
         max-height: 300px;
         left: var(--space-2) !important;
         right: var(--space-2) !important;
         width: auto !important;
     }
-    
+
     .main-content {
         padding: var(--space-2) !important;
     }
@@ -603,6 +629,7 @@
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -732,12 +759,12 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-.compact-switch input:checked + .compact-slider {
+.compact-switch input:checked+.compact-slider {
     background: var(--gradient-primary);
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-.compact-switch input:checked + .compact-slider:before {
+.compact-switch input:checked+.compact-slider:before {
     transform: translateX(16px);
 }
 
@@ -871,4 +898,305 @@
 .theme-checkbox-label:focus-within .theme-checkbox-custom {
     border-color: var(--primary-blue);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+/* =
+== KNOWLEDGE BASE MODAL STYLES === */
+
+/* Knowledge Base Item Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    padding: 2rem;
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-overlay.closing {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.modal-container {
+    max-width: 900px;
+    max-height: 90vh;
+    width: 100%;
+    overflow-y: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transform: scale(0.9) translateY(20px);
+    transition: all 0.3s ease;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+}
+
+.modal-overlay.show .modal-container {
+    transform: scale(1) translateY(0);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 2rem 2rem 1rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 2rem;
+}
+
+.modal-title-section {
+    flex: 1;
+}
+
+.modal-title {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.modal-categories {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.modal-metadata {
+    padding: 1rem 2rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.metadata-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.metadata-item i {
+    color: var(--accent-primary);
+    width: 16px;
+    text-align: center;
+}
+
+.modal-media-section {
+    padding: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-media-section h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-media-section h3 i {
+    color: var(--accent-primary);
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.media-item {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.media-item:hover {
+    border-color: var(--accent-primary);
+    transform: scale(1.02);
+}
+
+.media-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.media-item img.expanded {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 90vw;
+    max-height: 90vh;
+    z-index: 10001;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.modal-content-section {
+    padding: 2rem;
+}
+
+.modal-content-section h3 {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-content-section h3 i {
+    color: var(--accent-primary);
+}
+
+.modal-content {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    font-size: 1rem;
+}
+
+.modal-content h1,
+.modal-content h2,
+.modal-content h3 {
+    color: var(--text-primary);
+    margin: 1.5rem 0 1rem 0;
+}
+
+.modal-content h1 {
+    font-size: 1.5rem;
+}
+
+.modal-content h2 {
+    font-size: 1.3rem;
+}
+
+.modal-content h3 {
+    font-size: 1.1rem;
+}
+
+.modal-content p {
+    margin: 1rem 0;
+}
+
+.modal-content strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.modal-content em {
+    font-style: italic;
+    color: var(--accent-primary);
+}
+
+.modal-content code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: var(--accent-primary);
+}
+
+.modal-content pre {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-content pre code {
+    background: none;
+    padding: 0;
+    color: var(--text-secondary);
+}
+
+.modal-content a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.modal-content a:hover {
+    border-bottom-color: var(--accent-primary);
+}
+
+.modal-content .no-content {
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding: 2rem;
+}
+
+/* Modal responsive styles */
+@media (max-width: 768px) {
+    .modal-overlay {
+        padding: 1rem;
+    }
+    
+    .modal-container {
+        max-height: 95vh;
+    }
+    
+    .modal-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1.5rem 1.5rem 1rem 1.5rem;
+    }
+    
+    .modal-actions {
+        justify-content: flex-end;
+    }
+    
+    .modal-metadata {
+        padding: 1rem 1.5rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .modal-media-section,
+    .modal-content-section {
+        padding: 1.5rem;
+    }
+    
+    .media-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-title {
+        font-size: 1.5rem;
+    }
 }

@@ -47,20 +47,28 @@ class DisplayComponentCoordinator {
     }
     
     setupEventListeners() {
-        // Listen for all coordinated events
+        // Use centralized EventListenerService
+        const customEvents = [
+            {
+                event: 'component_registered',
+                handler: (e) => this.handleComponentRegistered(e.detail)
+            },
+            {
+                event: 'component_destroyed',
+                handler: (e) => this.handleComponentDestroyed(e.detail)
+            }
+        ];
+
+        // Add coordinated events dynamically
         Object.keys(this.eventCoordination).forEach(eventType => {
-            document.addEventListener(eventType, (event) => {
-                this.coordinateEvent(eventType, event.detail);
+            customEvents.push({
+                event: eventType,
+                handler: (e) => this.coordinateEvent(eventType, e.detail)
             });
         });
-        
-        // Listen for component lifecycle events
-        document.addEventListener('component_registered', (event) => {
-            this.handleComponentRegistered(event.detail);
-        });
-        
-        document.addEventListener('component_destroyed', (event) => {
-            this.handleComponentDestroyed(event.detail);
+
+        EventListenerService.setupStandardListeners(this, {
+            customEvents: customEvents
         });
     }
     

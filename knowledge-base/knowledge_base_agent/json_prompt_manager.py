@@ -184,7 +184,17 @@ class JsonPromptManager:
                 raise JsonPromptManagerError(f"Failed to load prompt {cache_key}: {e}")
     
     def _find_prompt_file(self, prompt_id: str, model_type: str) -> Optional[Path]:
-        """Find the prompt file for given ID and model type."""
+        """Find the prompt file for given ID and model type with improved prompts support."""
+        
+        # First, try the improved prompts directory
+        improved_dir = self.prompts_dir / 'improved'
+        if improved_dir.exists():
+            improved_file = improved_dir / f"{prompt_id}.json"
+            if improved_file.exists():
+                logger.debug(f"Found improved prompt: {improved_file}")
+                return improved_file
+        
+        # Then try the standard model type directory
         model_dir = self.prompts_dir / model_type
         
         if not model_dir.exists():
@@ -207,6 +217,42 @@ class JsonPromptManager:
         
         return None
     
+    def get_prompt(self, prompt_id: str) -> str:
+        """
+        Get prompt content directly (for improved prompts compatibility).
+        
+        Args:
+            prompt_id: Unique identifier for the prompt
+            
+        Returns:
+            Prompt content as string
+            
+        Raises:
+            JsonPromptManagerError: If prompt cannot be loaded
+        """
+        try:
+            # First try improved prompts directory
+            improved_file = self.prompts_dir / 'improved' / f'{prompt_id}.json'
+            if improved_file.exists():
+                with open(improved_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data['template']['content']
+            
+            # Fallback to standard JsonPrompt system
+            try:
+                prompt = self.load_prompt(prompt_id, "standard")
+                result = prompt.render({})
+                return result.content
+            except:
+                # Try reasoning model type
+                prompt = self.load_prompt(prompt_id, "reasoning")
+                result = prompt.render({})
+                return result.content
+                
+        except Exception as e:
+            logger.error(f"Failed to get prompt {prompt_id}: {e}")
+            raise JsonPromptManagerError(f"Failed to get prompt {prompt_id}: {e}")
+
     def render_prompt(self, prompt_id: str, parameters: Dict[str, Any], 
                      model_type: str = "standard", variant: Optional[str] = None) -> PromptRenderResult:
         """

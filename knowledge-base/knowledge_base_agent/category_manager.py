@@ -3,23 +3,24 @@ Category Management Module
 
 This module handles the organization and management of knowledge base categories.
 It maintains the category hierarchy and ensures consistent category naming and
-structure across the knowledge base.
+structure across the knowledge base using a database-first architecture.
 
 Categories are organized in a two-level hierarchy:
-- Top-level categories (e.g., "Programming", "DevOps")
-- Subcategories (e.g., "Python", "Docker")
+- Top-level categories (e.g., "software_engineering", "devops")
+- Subcategories (e.g., "design_patterns", "containerization")
 
-The category structure is stored in a JSON file with the format:
-{
-    "programming": {
-        "python": ["description", "items_count"],
-        "javascript": ["description", "items_count"]
-    },
-    "devops": {
-        "docker": ["description", "items_count"],
-        "kubernetes": ["description", "items_count"]
-    }
-}
+The category structure is stored in the CategoryHierarchy database model with fields:
+- main_category: Primary category identifier
+- sub_category: Secondary category identifier  
+- display_name: Human-readable category name
+- description: Category description
+- sort_order: Display ordering
+- is_active: Active status flag
+- item_count: Number of items in category
+- last_updated: Timestamp of last modification
+
+The system automatically populates default categories on first run and supports
+dynamic category creation through AI-powered content classification.
 """
 
 import json
@@ -181,42 +182,90 @@ class CategoryManager:
     
     def __init__(self, config: Config, http_client: Optional['HTTPClient'] = None):
         self.config = config
-        self.http_client = http_client or config.http_client  # Use provided client or from config
-        self.categories_file = Path(config.categories_file)
+        self.http_client = http_client  # Use provided client or None
         self.knowledge_base_dir = Path(config.knowledge_base_dir)
         self._initialized = False
         
         # Ensure knowledge base directory exists
         self.knowledge_base_dir.mkdir(parents=True, exist_ok=True)
         
-        # Load categories synchronously in __init__
+        # Load categories from database synchronously in __init__
         self._load_categories_sync()
 
     def _load_categories_sync(self) -> None:
-        """Synchronous version of load_categories for __init__"""
+        """Load categories from database synchronously for __init__"""
         try:
-            if not self.categories_file.exists():
-                logging.info("Categories file not found. Creating with default categories.")
-                self.categories = self.DEFAULT_CATEGORIES.copy()
-                self._save_categories()
-                return
-
-            with self.categories_file.open('r', encoding='utf-8') as f:
-                data = json.load(f)
-                
-            if not isinstance(data, dict):
-                raise CategoryError("Categories must be a dictionary")
-                
-            for main_cat, sub_cats in data.items():
-                if not isinstance(sub_cats, list):
-                    raise CategoryError(f"Subcategories for {main_cat} must be a list")
-                    
-            self.categories = data
+            from flask import current_app
+            from .models import CategoryHierarchy
             
-        except json.JSONDecodeError as e:
-            raise StorageError(f"Invalid JSON in categories file: {e}")
+            if not current_app:
+                logging.warning("No Flask app context available, using default categories")
+                self.categories = self.DEFAULT_CATEGORIES.copy()
+                return
+                
+            with current_app.app_context():
+                # Load categories from database
+                category_records = CategoryHierarchy.query.filter_by(is_active=True).all()
+                
+                if not category_records:
+                    logging.info("No categories found in database. Using default categories.")
+                    self.categories = self.DEFAULT_CATEGORIES.copy()
+                    # Optionally populate database with defaults
+                    self._populate_database_with_defaults()
+                    return
+                
+                # Convert database records to the expected format
+                self.categories = {}
+                for record in category_records:
+                    main_cat = record.main_category
+                    sub_cat = record.sub_category
+                    
+                    if main_cat not in self.categories:
+                        self.categories[main_cat] = []
+                    
+                    if sub_cat not in self.categories[main_cat]:
+                        self.categories[main_cat].append(sub_cat)
+                
+                logging.info(f"Loaded {len(self.categories)} main categories from database")
+                
         except Exception as e:
-            raise StorageError(f"Failed to load categories: {e}")
+            logging.error(f"Failed to load categories from database: {e}")
+            logging.info("Falling back to default categories")
+            self.categories = self.DEFAULT_CATEGORIES.copy()
+
+    def _populate_database_with_defaults(self) -> None:
+        """Populate database with default categories"""
+        try:
+            from flask import current_app
+            from .models import CategoryHierarchy, db
+            
+            if not current_app:
+                return
+                
+            with current_app.app_context():
+                for main_cat, sub_cats in self.DEFAULT_CATEGORIES.items():
+                    for sub_cat in sub_cats:
+                        # Check if category combination already exists
+                        existing = CategoryHierarchy.query.filter_by(
+                            main_category=main_cat,
+                            sub_category=sub_cat
+                        ).first()
+                        
+                        if not existing:
+                            new_category = CategoryHierarchy(
+                                main_category=main_cat,
+                                sub_category=sub_cat,
+                                display_name=f"{main_cat.replace('_', ' ').title()} - {sub_cat.replace('_', ' ').title()}",
+                                description=f"Default category for {main_cat}/{sub_cat}",
+                                is_active=True
+                            )
+                            db.session.add(new_category)
+                
+                db.session.commit()
+                logging.info("Populated database with default categories")
+                
+        except Exception as e:
+            logging.error(f"Failed to populate database with defaults: {e}")
 
     async def initialize(self) -> None:
         """Initialize the category manager."""
@@ -233,41 +282,78 @@ class CategoryManager:
             CategoryError: If the categories format is invalid
         """
         try:
-            if not self.categories_file.exists():
-                logging.info("Categories file not found. Creating with default categories.")
-                self.categories = self.DEFAULT_CATEGORIES.copy()
-                self._save_categories()
-                return
-
-            with self.categories_file.open('r', encoding='utf-8') as f:
-                data = json.load(f)
-                
-            if not isinstance(data, dict):
-                raise CategoryError("Categories must be a dictionary")
-                
-            for main_cat, sub_cats in data.items():
-                if not isinstance(sub_cats, list):
-                    raise CategoryError(f"Subcategories for {main_cat} must be a list")
-                    
-            self.categories = data
+            from flask import current_app
+            from .models import CategoryHierarchy
             
-        except json.JSONDecodeError as e:
-            raise StorageError(f"Invalid JSON in categories file: {e}")
+            if not current_app:
+                logging.warning("No Flask app context available, using default categories")
+                self.categories = self.DEFAULT_CATEGORIES.copy()
+                return
+                
+            with current_app.app_context():
+                # Load categories from database
+                category_records = CategoryHierarchy.query.filter_by(is_active=True).all()
+                
+                if not category_records:
+                    logging.info("No categories found in database. Using default categories.")
+                    self.categories = self.DEFAULT_CATEGORIES.copy()
+                    self._populate_database_with_defaults()
+                    return
+                
+                # Convert database records to the expected format
+                self.categories = {}
+                for record in category_records:
+                    main_cat = record.main_category
+                    sub_cat = record.sub_category
+                    
+                    if main_cat not in self.categories:
+                        self.categories[main_cat] = []
+                    
+                    if sub_cat not in self.categories[main_cat]:
+                        self.categories[main_cat].append(sub_cat)
+                
+                logging.info(f"Loaded {len(self.categories)} main categories from database")
+                
         except Exception as e:
-            raise StorageError(f"Failed to load categories: {e}")
+            logging.error(f"Failed to load categories from database: {e}")
+            logging.info("Falling back to default categories")
+            self.categories = self.DEFAULT_CATEGORIES.copy()
 
     def _save_categories(self) -> None:
         """
-        Save categories to the JSON file.
+        Save categories to the database.
         
         Raises:
-            StorageError: If writing the categories file fails
+            StorageError: If writing to the database fails
         """
         try:
-            self.categories_file.parent.mkdir(parents=True, exist_ok=True)
-            with self.categories_file.open('w', encoding='utf-8') as f:
-                json.dump(self.categories, f, indent=2)
+            from flask import current_app
+            from .models import CategoryHierarchy, db
+            
+            if not current_app:
+                logging.warning("No Flask app context available, cannot save categories to database")
+                return
+                
+            with current_app.app_context():
+                # Clear existing categories and repopulate
+                CategoryHierarchy.query.delete()
+                
+                for main_cat, sub_cats in self.categories.items():
+                    for sub_cat in sub_cats:
+                        new_category = CategoryHierarchy(
+                            main_category=main_cat,
+                            sub_category=sub_cat,
+                            display_name=f"{main_cat.replace('_', ' ').title()} - {sub_cat.replace('_', ' ').title()}",
+                            description=f"Category for {main_cat}/{sub_cat}",
+                            is_active=True
+                        )
+                        db.session.add(new_category)
+                
+                db.session.commit()
+                logging.info(f"Saved {len(self.categories)} categories to database")
+                
         except Exception as e:
+            logging.error(f"Failed to save categories to database: {e}")
             raise StorageError(f"Failed to save categories: {e}")
 
     async def add_category(self, category_info: CategoryInfo) -> None:
@@ -395,21 +481,45 @@ class CategoryManager:
             }
 
     def save_categories(self):
-        categories_dict = {
-            name: {
-                "subcategories": list(cat['subcategories'].keys()),
-                "description": cat['description'],
-                "keywords": list(cat['keywords'])
-            }
-            for name, cat in self.categories.items()
-        }
+        """Save categories to database"""
         try:
-            self.categories_file.parent.mkdir(parents=True, exist_ok=True)
-            with self.categories_file.open('w', encoding='utf-8') as f:
-                json.dump(categories_dict, f, indent=4)
-            logging.info(f"Saved {len(self.categories)} categories to {self.categories_file}")
+            from flask import current_app
+            from .models import CategoryHierarchy, db
+            
+            if not current_app:
+                logging.warning("No Flask app context available, cannot save categories to database")
+                return
+                
+            with current_app.app_context():
+                # Clear existing categories and repopulate
+                CategoryHierarchy.query.delete()
+                
+                for name, cat in self.categories.items():
+                    # Handle both old and new category formats
+                    if isinstance(cat, dict) and 'subcategories' in cat:
+                        # New format with subcategories dict
+                        subcategories = list(cat['subcategories'].keys()) if isinstance(cat['subcategories'], dict) else cat['subcategories']
+                        description = cat.get('description', f"Category for {name}")
+                    else:
+                        # Simple format - cat is a list of subcategories
+                        subcategories = cat if isinstance(cat, list) else []
+                        description = f"Category for {name}"
+                    
+                    for sub_cat in subcategories:
+                        new_category = CategoryHierarchy(
+                            main_category=name,
+                            sub_category=sub_cat,
+                            display_name=f"{name.replace('_', ' ').title()} - {sub_cat.replace('_', ' ').title()}",
+                            description=description,
+                            is_active=True
+                        )
+                        db.session.add(new_category)
+                
+                db.session.commit()
+                logging.info(f"Saved {len(self.categories)} categories to database")
+                
         except Exception as e:
-            logging.error(f"Error saving categories: {e}")
+            logging.error(f"Error saving categories to database: {e}")
             raise
 
     def _validate_category_structure(self, category: dict) -> bool:
@@ -526,15 +636,72 @@ class CategoryManager:
         }
 
     async def load_categories(self) -> dict:
-        """Load categories asynchronously."""
+        """Load categories asynchronously from database."""
         try:
-            return await async_json_load(self.categories_file)
-        except FileNotFoundError:
-            return {"categories": []}
+            from flask import current_app
+            from .models import CategoryHierarchy
+            
+            if not current_app:
+                logging.warning("No Flask app context available, returning default categories")
+                return {"categories": list(self.DEFAULT_CATEGORIES.keys())}
+                
+            with current_app.app_context():
+                # Load categories from database
+                category_records = CategoryHierarchy.query.filter_by(is_active=True).all()
+                
+                if not category_records:
+                    return {"categories": list(self.DEFAULT_CATEGORIES.keys())}
+                
+                # Convert to expected format
+                categories = {}
+                for record in category_records:
+                    main_cat = record.main_category
+                    sub_cat = record.sub_category
+                    
+                    if main_cat not in categories:
+                        categories[main_cat] = []
+                    
+                    if sub_cat not in categories[main_cat]:
+                        categories[main_cat].append(sub_cat)
+                
+                return {"categories": list(categories.keys())}
+                
+        except Exception as e:
+            logging.error(f"Failed to load categories from database: {e}")
+            return {"categories": list(self.DEFAULT_CATEGORIES.keys())}
 
     async def save_categories(self, categories: dict) -> None:
-        """Save categories asynchronously."""
-        await async_json_dump(categories, self.categories_file)
+        """Save categories asynchronously to database."""
+        try:
+            from flask import current_app
+            from .models import CategoryHierarchy, db
+            
+            if not current_app:
+                logging.warning("No Flask app context available, cannot save categories to database")
+                return
+                
+            with current_app.app_context():
+                # Clear existing categories and repopulate
+                CategoryHierarchy.query.delete()
+                
+                for main_cat, sub_cats in categories.items():
+                    if isinstance(sub_cats, list):
+                        for sub_cat in sub_cats:
+                            new_category = CategoryHierarchy(
+                                main_category=main_cat,
+                                sub_category=sub_cat,
+                                display_name=f"{main_cat.replace('_', ' ').title()} - {sub_cat.replace('_', ' ').title()}",
+                                description=f"Category for {main_cat}/{sub_cat}",
+                                is_active=True
+                            )
+                            db.session.add(new_category)
+                
+                db.session.commit()
+                logging.info(f"Saved categories to database")
+                
+        except Exception as e:
+            logging.error(f"Failed to save categories to database: {e}")
+            raise
 
     async def ensure_category_exists(self, main_category: str, sub_category: str) -> None:
         """

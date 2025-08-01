@@ -136,8 +136,11 @@ def run_agent_task(self, task_id: str, preferences_dict: Dict[str, Any]):
                     state='PROGRESS',
                     meta={ 'phase_id': phase_id, 'status': status, 'message': message, 'progress': progress, 'task_id': task_id, **kwargs }
                 )
-            # Publish via pubsub for WebSocket layer
-            _safe_await(progress_manager.publish_phase_update(task_id, phase_id, status, message, progress))
+            
+            # CRITICAL FIX: Only publish phase updates for actual phase changes
+            # Don't publish generic completion messages that overwrite rich ones
+            if not (status == 'completed' and message and message.startswith('✅')):
+                _safe_await(progress_manager.publish_phase_update(task_id, phase_id, status, message, progress))
         
         # Create agent status update callback
         def status_callback(status_data: Dict[str, Any]):

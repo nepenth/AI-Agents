@@ -4,6 +4,8 @@ Statistics Manager for the Knowledge Base Agent.
 Handles loading and saving of processing statistics, such as average time per item
 for different processing phases, to aid in ETC (Estimated Time to Completion) calculations.
 Enhanced with dynamic real-time phase estimation based on item processing averages.
+
+MIGRATED: Now uses ProcessingStatistics database model instead of JSON files.
 """
 from pathlib import Path
 import json
@@ -14,42 +16,112 @@ from datetime import datetime, timezone
 from collections import deque
 import statistics
 
+# Legacy file path for fallback compatibility
 STATS_FILE_PATH = Path("data/processing_stats.json")
 
 def load_processing_stats(stats_file: Path = STATS_FILE_PATH) -> Dict[str, Any]:
-    """Loads processing statistics from the JSON file."""
+    """
+    Loads processing statistics from database.
+    
+    MIGRATED: Now uses ProcessingStatistics database model exclusively.
+    """
     default_stats = {
         "phases": {},
         "last_updated_timestamp": None,
         "runtime_phase_estimates": {}  # New: stores dynamic estimates during runs
     }
-    if not stats_file.exists():
-        logging.info(f"Processing stats file not found at {stats_file}. Returning default stats.")
-        return default_stats
+    
+    # Load from database
     try:
-        with open(stats_file, "r", encoding='utf-8') as f:
-            data = json.load(f)
-            if "phases" not in data: # Ensure basic structure
-                data["phases"] = {}
-            if "runtime_phase_estimates" not in data:
-                data["runtime_phase_estimates"] = {}
-            logging.debug(f"Successfully loaded processing stats from {stats_file}")
-            return data
-    except (json.JSONDecodeError, IOError) as e:
-        logging.error(f"Error loading processing stats from {stats_file}: {e}. Returning default stats.")
+        from flask import current_app
+        from .models import ProcessingStatistics
+        
+        if not current_app:
+            logging.error("No Flask app context available for loading processing stats")
+            return default_stats
+            
+        with current_app.app_context():
+            db_stats = ProcessingStatistics.query.all()
+            if not db_stats:
+                logging.info("No processing statistics found in database")
+                return default_stats
+                
+            phases = {}
+            last_updated = None
+            
+            for stat in db_stats:
+                if stat.metric_name == 'historical_average':
+                    phases[stat.phase_name] = {
+                        "total_items_processed": stat.total_items_processed,
+                        "total_duration_seconds": float(stat.total_duration_seconds) if stat.total_duration_seconds else 0.0,
+                        "avg_time_per_item_seconds": float(stat.avg_time_per_item_seconds) if stat.avg_time_per_item_seconds else 0.0
+                    }
+                    if not last_updated or (stat.recorded_at and stat.recorded_at > last_updated):
+                        last_updated = stat.recorded_at
+            
+            logging.debug(f"Successfully loaded processing stats from database: {len(phases)} phases")
+            return {
+                "phases": phases,
+                "last_updated_timestamp": last_updated.isoformat() if last_updated else None,
+                "runtime_phase_estimates": {}
+            }
+            
+    except Exception as e:
+        logging.error(f"Failed to load processing stats from database: {e}")
         return default_stats
 
 def save_processing_stats(data: Dict[str, Any], stats_file: Path = STATS_FILE_PATH) -> None:
-    """Saves processing statistics to the JSON file atomically."""
+    """
+    Saves processing statistics to database.
+    
+    MIGRATED: Now uses ProcessingStatistics database model exclusively.
+    """
     try:
-        stats_file.parent.mkdir(parents=True, exist_ok=True)
-        temp_file_path = stats_file.with_suffix(stats_file.suffix + ".tmp")
-        with open(temp_file_path, "w", encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
-        os.replace(temp_file_path, stats_file) # Atomic rename
-        logging.debug(f"Successfully saved processing stats to {stats_file}")
-    except IOError as e:
-        logging.error(f"Error saving processing stats to {stats_file}: {e}")
+        from flask import current_app
+        from .models import ProcessingStatistics, db
+        
+        if not current_app:
+            logging.error("No Flask app context available for saving processing stats")
+            return
+            
+        with current_app.app_context():
+            phases_data = data.get("phases", {})
+            
+            for phase_id, phase_stats in phases_data.items():
+                # Check if record exists
+                existing_stat = ProcessingStatistics.query.filter_by(
+                    phase_name=phase_id, 
+                    metric_name='historical_average'
+                ).first()
+                
+                if existing_stat:
+                    # Update existing record
+                    existing_stat.total_items_processed = phase_stats.get('total_items_processed', 0)
+                    existing_stat.total_duration_seconds = phase_stats.get('total_duration_seconds', 0.0)
+                    existing_stat.avg_time_per_item_seconds = phase_stats.get('avg_time_per_item_seconds', 0.0)
+                    existing_stat.metric_value = phase_stats.get('avg_time_per_item_seconds', 0.0)
+                    existing_stat.recorded_at = datetime.now(timezone.utc)
+                else:
+                    # Create new record
+                    new_stat = ProcessingStatistics(
+                        phase_name=phase_id,
+                        metric_name='historical_average',
+                        metric_value=phase_stats.get('avg_time_per_item_seconds', 0.0),
+                        metric_unit='seconds_per_item',
+                        total_items_processed=phase_stats.get('total_items_processed', 0),
+                        total_duration_seconds=phase_stats.get('total_duration_seconds', 0.0),
+                        avg_time_per_item_seconds=phase_stats.get('avg_time_per_item_seconds', 0.0),
+                        run_id='historical_data',
+                        recorded_at=datetime.now(timezone.utc)
+                    )
+                    db.session.add(new_stat)
+            
+            db.session.commit()
+            logging.debug(f"Successfully saved processing stats to database: {len(phases_data)} phases")
+            
+    except Exception as e:
+        logging.error(f"Failed to save processing stats to database: {e}")
+        raise
 
 def update_phase_stats(
     phase_id: str,

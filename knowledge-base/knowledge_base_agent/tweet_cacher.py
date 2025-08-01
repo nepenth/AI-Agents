@@ -50,7 +50,7 @@ async def cache_tweets(
         try:
             # Get existing state for the bookmarked tweet ID
             # This tweet_data will store the entire thread's information if it's a thread.
-            tweet_data = await state_manager.get_tweet(bookmarked_tweet_id) or {}
+            tweet_data = state_manager.get_tweet(bookmarked_tweet_id) or {}
 
             needs_processing = force_recache or not tweet_data.get('cache_complete', False)
 
@@ -77,7 +77,7 @@ async def cache_tweets(
                     overall_cache_success_for_thread = False
                     # Update state to reflect failure before continuing
                     tweet_data['cache_complete'] = False
-                    await state_manager.update_tweet_data(bookmarked_tweet_id, tweet_data)
+                    state_manager.update_tweet_data(bookmarked_tweet_id, tweet_data)
                     summary.failed_cache += 1
                     continue 
 
@@ -243,15 +243,15 @@ async def cache_tweets(
                  tweet_data['cache_complete'] = False
                  logging.warning(f"Cache processing for thread/tweet {bookmarked_tweet_id} marked incomplete. Success: {overall_cache_success_for_thread}, URLs Expanded: {tweet_data.get('urls_expanded')}, Media Processed: {tweet_data.get('media_processed')}")
 
-            await state_manager.update_tweet_data(bookmarked_tweet_id, tweet_data)
+            state_manager.update_tweet_data(bookmarked_tweet_id, tweet_data)
 
         except Exception as e:
             logging.error(f"Unhandled exception caching thread/tweet {bookmarked_tweet_id}: {e}", exc_info=True)
             try:
                 # Attempt to get the latest state and mark as incomplete
-                current_data = await state_manager.get_tweet(bookmarked_tweet_id) or {}
+                current_data = state_manager.get_tweet(bookmarked_tweet_id) or {}
                 current_data['cache_complete'] = False
-                await state_manager.update_tweet_data(bookmarked_tweet_id, current_data)
+                state_manager.update_tweet_data(bookmarked_tweet_id, current_data)
                 logging.info(f"Marked thread/tweet {bookmarked_tweet_id} cache_complete=False due to unhandled exception during caching.")
                 summary.failed_cache += 1
             except Exception as inner_e:
@@ -280,7 +280,7 @@ class TweetCacheValidator:
     
     def __init__(self, config: Config): # Takes Config now
         self.config = config # Store config
-        self.tweet_cache_path = config.tweet_cache_file # Absolute path
+        # Note: tweet_cache_file removed - now using database
         self.media_cache_dir = config.media_cache_dir # Absolute path
         self.kb_base_dir = config.knowledge_base_dir # Absolute path
         self.tweet_cache = {}
@@ -293,23 +293,76 @@ class TweetCacheValidator:
         }
         
     async def load_tweet_cache(self) -> Dict[str, Any]:
-        """Load the tweet cache from disk."""
-        if not self.tweet_cache_path.exists():
-            logging.warning(f"Tweet cache file not found at {self.tweet_cache_path}")
-            return {}
-            
+        """Load the tweet cache from database."""
         try:
-            with open(self.tweet_cache_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            logging.error(f"Failed to parse tweet cache JSON at {self.tweet_cache_path}")
+            from flask import current_app
+            from .models import TweetCache
+            
+            if not current_app:
+                logging.warning("No Flask app context available, returning empty cache")
+                return {}
+                
+            with current_app.app_context():
+                # Load all tweets from database
+                cached_tweets = TweetCache.query.all()
+                tweet_cache = {}
+                
+                for tweet in cached_tweets:
+                    tweet_cache[tweet.tweet_id] = {
+                        'cache_complete': tweet.cache_complete,
+                        'categories_processed': tweet.categories_processed,
+                        'kb_item_created': tweet.kb_item_created,
+                        'kb_item_path': tweet.kb_item_path,
+                        'categories': tweet.categories or {},
+                        'all_downloaded_media_for_thread': tweet.all_downloaded_media_for_thread or [],
+                        'is_thread': tweet.is_thread,
+                        # Add other fields as needed
+                    }
+                
+                logging.info(f"Loaded {len(tweet_cache)} tweets from database")
+                return tweet_cache
+                
+        except Exception as e:
+            logging.error(f"Failed to load tweet cache from database: {e}")
             return {}
     
     async def save_tweet_cache(self) -> None:
-        """Save the tweet cache to disk."""
-        with open(self.tweet_cache_path, 'w', encoding='utf-8') as f:
-            json.dump(self.tweet_cache, f, indent=2)
-        logging.info(f"Saved validated tweet cache with {len(self.modified_tweets)} modifications")
+        """Save the tweet cache to database."""
+        try:
+            from flask import current_app
+            from .models import TweetCache, db
+            
+            if not current_app:
+                logging.warning("No Flask app context available, cannot save tweet cache to database")
+                return
+                
+            with current_app.app_context():
+                # Update modified tweets in database
+                for tweet_id in self.modified_tweets:
+                    if tweet_id in self.tweet_cache:
+                        tweet_data = self.tweet_cache[tweet_id]
+                        
+                        # Find existing tweet or create new one
+                        existing_tweet = TweetCache.query.filter_by(tweet_id=tweet_id).first()
+                        if existing_tweet:
+                            # Update existing tweet
+                            existing_tweet.cache_complete = tweet_data.get('cache_complete', False)
+                            existing_tweet.categories_processed = tweet_data.get('categories_processed', False)
+                            existing_tweet.kb_item_created = tweet_data.get('kb_item_created', False)
+                            existing_tweet.kb_item_path = tweet_data.get('kb_item_path')
+                            existing_tweet.categories = tweet_data.get('categories', {})
+                            existing_tweet.all_downloaded_media_for_thread = tweet_data.get('all_downloaded_media_for_thread', [])
+                            existing_tweet.is_thread = tweet_data.get('is_thread', False)
+                        else:
+                            # Create new tweet (though this shouldn't happen in validation)
+                            logging.warning(f"Creating new tweet record during validation for {tweet_id}")
+                
+                db.session.commit()
+                logging.info(f"Saved validated tweet cache with {len(self.modified_tweets)} modifications to database")
+                
+        except Exception as e:
+            logging.error(f"Failed to save tweet cache to database: {e}")
+            raise
     
     async def validate(self) -> Tuple[int, int]:
         """

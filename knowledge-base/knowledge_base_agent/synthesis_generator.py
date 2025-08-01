@@ -22,7 +22,7 @@ from .models import KnowledgeBaseItem, SubcategorySynthesis, db
 from .custom_types import Synthesis as SynthesisType
 from .prompts_replacement import LLMPrompts, ReasoningPrompts
 from .preferences import UserPreferences
-from .file_utils import async_write_text
+
 from .naming_utils import (
     normalize_name_for_filesystem, 
     generate_short_name,
@@ -453,7 +453,9 @@ class SynthesisGenerator:
             # Use longer timeout for synthesis generation (can take 10+ minutes for large categories)
             synthesis_timeout = getattr(self.config, 'synthesis_timeout', 600)  # 10 minutes default
             
-            self.logger.info(f"Starting synthesis JSON generation for '{target_name}' with {item_count} items (timeout: {synthesis_timeout}s)")
+            # Calculate approximate item count from content length for logging
+            estimated_items = len(kb_items_content.split('\n\n')) if kb_items_content else 0
+            self.logger.info(f"Starting synthesis JSON generation for '{target_name}' with ~{estimated_items} content sections (timeout: {synthesis_timeout}s)")
             
             response_content = await self.http_client.ollama_generate(
                 model=getattr(self.config, 'synthesis_model', None) or self.config.text_model,
@@ -531,30 +533,16 @@ class SynthesisGenerator:
         short_name: Optional[str],
         source_items: List[Any]  # KB items or sub-syntheses
     ) -> Optional[SynthesisType]:
-        """Write synthesis document to filesystem and database with dependency tracking."""
+        """Store synthesis document in unified database (no file system writes)."""
         
         target_name = sub_category or main_category
         try:
             now = datetime.now(timezone.utc)
             
-            if sub_category:
-                normalized_sub = normalize_name_for_filesystem(sub_category)
-                file_name = f"synthesis_{normalized_sub}.md"
-                path_parts = [main_category, sub_category, file_name]
-                synthesis_title = synthesis_json.get("synthesis_title", f"Synthesis for {sub_category}")
-            else:
-                file_name = "synthesis_overview.md"
-                path_parts = [main_category, file_name]
-                synthesis_title = synthesis_json.get("synthesis_title", f"Synthesis for {main_category}")
+            # UNIFIED DATABASE APPROACH: Store only in database
+            synthesis_title = synthesis_json.get("synthesis_title", f"Synthesis for {target_name}")
             
-            # Use knowledge_base_dir from config for synthesis storage
-            knowledge_base_dir = Path(self.config.knowledge_base_dir)
-            synthesis_dir = knowledge_base_dir / "syntheses"
-            file_path = synthesis_dir.joinpath(*[normalize_name_for_filesystem(p) for p in path_parts])
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            await async_write_text(synthesis_markdown, file_path)
-            self.logger.info(f"Synthesis markdown saved to {file_path}")
+            self.logger.info(f"Storing synthesis for '{target_name}' in unified database")
             
             query = SubcategorySynthesis.query.filter_by(main_category=main_category)
             if sub_category:
@@ -565,34 +553,36 @@ class SynthesisGenerator:
             existing_synthesis = query.first()
             
             if existing_synthesis:
+                # Update existing synthesis record
                 existing_synthesis.synthesis_title = synthesis_title
                 existing_synthesis.synthesis_short_name = short_name
                 existing_synthesis.synthesis_content = synthesis_markdown
-                raw_json_content = json.dumps(synthesis_json, indent=2)
-                existing_synthesis.raw_json_content = raw_json_content
+                existing_synthesis.raw_json_content = json.dumps(synthesis_json, indent=2)
                 existing_synthesis.item_count = item_count
-                existing_synthesis.file_path = str(file_path)
                 existing_synthesis.last_updated = now
-                # CRITICAL FIX: Clear staleness flags after successful regeneration
+                # Clear staleness flags after successful regeneration
                 existing_synthesis.is_stale = False
                 existing_synthesis.needs_regeneration = False
                 db_synthesis = existing_synthesis
-                self.logger.info(f"Updated synthesis for '{target_name}' in database and cleared staleness flags.")
+                self.logger.info(f"Updated synthesis for '{target_name}' in unified database")
             else:
-                new_synthesis = SubcategorySynthesis()
-                new_synthesis.main_category = main_category
-                new_synthesis.sub_category = sub_category
-                new_synthesis.synthesis_title = synthesis_title
-                new_synthesis.synthesis_short_name = short_name
-                new_synthesis.synthesis_content = synthesis_markdown
-                new_synthesis.raw_json_content = json.dumps(synthesis_json, indent=2)
-                new_synthesis.item_count = item_count
-                new_synthesis.file_path = str(file_path)
-                new_synthesis.created_at = now
-                new_synthesis.last_updated = now
+                # Create new synthesis record
+                new_synthesis = SubcategorySynthesis(
+                    main_category=main_category,
+                    sub_category=sub_category,
+                    synthesis_title=synthesis_title,
+                    synthesis_content=synthesis_markdown,
+                    item_count=item_count,
+                    created_at=now,
+                    last_updated=now,
+                    raw_json_content=json.dumps(synthesis_json, indent=2),
+                    synthesis_short_name=short_name,
+                    # Legacy file_path field - kept for compatibility but not used
+                    file_path=f"syntheses/{main_category}/{sub_category or 'overview'}.md"
+                )
                 db.session.add(new_synthesis)
                 db_synthesis = new_synthesis
-                self.logger.info(f"Added new synthesis for '{target_name}' to database.")
+                self.logger.info(f"Created new synthesis for '{target_name}' in unified database")
             
             db.session.commit()
             
@@ -607,7 +597,7 @@ class SynthesisGenerator:
                 synthesis_content=synthesis_markdown,
                 raw_json_content=db_synthesis.raw_json_content,
                 item_count=item_count,
-                file_path=str(file_path),
+                file_path=db_synthesis.file_path,  # Use the database field
                 created_at=db_synthesis.created_at,
                 last_updated=db_synthesis.last_updated,
                 content_hash=getattr(db_synthesis, 'content_hash', None),

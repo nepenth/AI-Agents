@@ -1,0 +1,13 @@
+{
+  "prompt_id": "chat_implementation_query",
+  "version": "2.0",
+  "description": "Specialized prompt for implementation and how-to queries",
+  "template": {
+    "content": "The user is asking for implementation guidance. Structure your response for maximum practical value:\n\n**Response Format:**\n1. **Quick Answer** (2-3 sentences): Direct implementation approach\n2. **Step-by-Step Guide**: Detailed implementation steps with:\n   - Code examples from knowledge base\n   - Configuration snippets\n   - Command sequences\n3. **Prerequisites**: Required tools, dependencies, setup requirements\n4. **Common Issues**: Potential problems and their solutions\n5. **Best Practices**: Security, performance, and maintainability considerations\n6. **Related Topics**: Connected concepts for deeper understanding\n\n**Focus Areas:**\n• Provide working code examples when available in knowledge base\n• Include specific commands, configurations, and file structures\n• Mention version compatibility and environment considerations\n• Highlight critical steps that commonly cause issues\n• Reference specific sections of documentation from knowledge base\n\n**Source Citations:**\n• Use [📄 Document Title] for knowledge base items\n• Use [📋 Synthesis Title] for synthesis documents\n• Include relevant section references when possible\n\nProvide comprehensive, immediately actionable implementation guidance."
+  },
+  "metadata": {
+    "query_types": ["how_to", "implement", "tutorial", "setup", "configuration"],
+    "focus": "practical_implementation",
+    "expected_sections": ["quick_answer", "step_by_step", "prerequisites", "common_issues", "best_practices", "related_topics"]
+  }
+}

@@ -32,12 +32,12 @@ from flask_socketio import SocketIO
 from knowledge_base_agent.progress import ProcessingStats, PhaseDetail
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.http_client import HTTPClient
-from knowledge_base_agent.database_state_manager import DatabaseStateManager
+# DatabaseStateManager removed - using UnifiedStateManager instead
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.exceptions import ContentProcessingError, KnowledgeBaseItemCreationError
 from knowledge_base_agent.tweet_cacher import cache_tweets
 from knowledge_base_agent.media_processor import process_media
-from knowledge_base_agent.markdown_writer import MarkdownWriter
+# MarkdownWriter removed - no longer writing to disk, using unified DB only
 from knowledge_base_agent.custom_types import KnowledgeBaseItem
 from knowledge_base_agent.phase_execution_helper import PhaseExecutionHelper, ProcessingPhase, PhaseExecutionPlan
 from knowledge_base_agent.tweet_retry_manager import TweetRetryManager, RetryConfig
@@ -58,8 +58,7 @@ class StreamlinedContentProcessor:
     """
     
     def __init__(self, config=None, http_client=None, state_manager=None, 
-                 markdown_writer=None, category_manager=None,
-                 socketio=None, phase_emitter_func=None, task_id=None):
+                 category_manager=None, socketio=None, phase_emitter_func=None, task_id=None):
         self.config = config
         self.http_client = http_client
         self.state_manager = state_manager
@@ -67,7 +66,6 @@ class StreamlinedContentProcessor:
         self.phase_emitter_func = phase_emitter_func
         self.text_model = self.http_client.config.text_model
         self.category_manager = category_manager
-        self.markdown_writer = markdown_writer
         self.task_id = task_id
         
         # Initialize unified logging system if task_id is provided
@@ -138,21 +136,21 @@ class StreamlinedContentProcessor:
 
         # Load ALL tweet data for execution plan evaluation, not just unprocessed ones
         # The execution plans will determine what actually needs processing based on force flags
-        all_tweets = await self.state_manager.get_all_tweets()
+        all_tweets = self.state_manager.get_all_tweets()
         tweets_data_map: Dict[str, Dict[str, Any]] = {}
         
         # Ensure all unprocessed tweets are included in the data map, even if not cached yet
         all_tweet_ids = set(all_tweets.keys()) | set(unprocessed_tweets)
         
         for tweet_id in all_tweet_ids:
-            tweet_data = await self.state_manager.get_tweet(tweet_id)
+            tweet_data = self.state_manager.get_tweet(tweet_id)
             if not tweet_data:
                 # Initialize cache entry with comprehensive defaults
                 initial_data = {
                     'url': f'https://twitter.com/user/status/{tweet_id}',
                     'source': 'unprocessed_queue'
                 }
-                tweet_data = await self.state_manager.create_tweet_with_full_defaults(tweet_id, initial_data)
+                tweet_data = self.state_manager.create_tweet_with_full_defaults(tweet_id, initial_data)
                 logging.info(f"Initialized comprehensive cache entry for unprocessed tweet {tweet_id}")
             tweets_data_map[tweet_id] = tweet_data or {'tweet_id': tweet_id}
 
@@ -161,8 +159,8 @@ class StreamlinedContentProcessor:
             'force_recache_tweets': preferences.force_recache_tweets,
             'force_reprocess_media': preferences.force_reprocess_media,
             'force_reprocess_llm': preferences.force_reprocess_llm,
-            'force_reprocess_kb_item': preferences.force_reprocess_kb_item,
-            'force_reprocess_db_sync': preferences.force_reprocess_db_sync
+            'force_reprocess_kb_item': preferences.force_reprocess_kb_item
+            # force_reprocess_db_sync removed - no longer using separate DB sync phase
         }
 
         # Get initial execution plans for all phases
@@ -185,7 +183,7 @@ class StreamlinedContentProcessor:
                 if tweet_id not in all_tweet_ids:
                     all_tweet_ids.add(tweet_id)
                     if tweet_id not in tweets_data_map:
-                        tweet_data = await self.state_manager.get_tweet(tweet_id)
+                        tweet_data = self.state_manager.get_tweet(tweet_id)
                         tweets_data_map[tweet_id] = tweet_data
 
         # Execute each phase and regenerate plans after phases that change eligibility
@@ -301,7 +299,7 @@ class StreamlinedContentProcessor:
                 
                 # Update tweets_data_map with cached data
                 for tweet_id in plan.tweets_needing_processing:
-                    updated_data = await self.state_manager.get_tweet(tweet_id)
+                    updated_data = self.state_manager.get_tweet(tweet_id)
                     if updated_data:
                         tweets_data_map[tweet_id] = updated_data
 
@@ -414,7 +412,7 @@ class StreamlinedContentProcessor:
                     force_reprocess=preferences.force_reprocess_media
                 )
                 tweets_data_map[tweet_id] = updated_tweet_data
-                await self.state_manager.update_tweet_data(tweet_id, updated_tweet_data)
+                self.state_manager.update_tweet_data(tweet_id, updated_tweet_data)
                 
                 # Don't log individual completions - too verbose for Live Logs
                 
@@ -448,7 +446,7 @@ class StreamlinedContentProcessor:
                     self.socketio_emit_log(f"❌ Tweet {tweet_id} media processing failed permanently", "ERROR")
                 
                 # Update the tweet data in database with error information
-                await self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
+                self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
 
         if not stop_flag.is_set():
             # Create rich completion message for media phase
@@ -581,7 +579,7 @@ class StreamlinedContentProcessor:
                         self.socketio_emit_log(f"❌ Tweet {tweet_id} LLM processing failed permanently", "ERROR")
                     
                     # Update the tweet data in database with error information
-                    await self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
+                    self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
                 elif result_data:
                     main_cat, sub_cat, item_name = result_data
                     tweets_data_map[tweet_id]['main_category'] = main_cat
@@ -593,7 +591,7 @@ class StreamlinedContentProcessor:
                         'sub_category': sub_cat,
                         'item_name': item_name
                     }
-                    await self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
+                    self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
                     items_successfully_processed += 1
 
         # Update historical stats
@@ -715,27 +713,26 @@ class StreamlinedContentProcessor:
                     http_client=self.http_client, state_manager=self.state_manager
                 )
                 
-                # Write to filesystem
-                kb_item_dir_rel_project, media_paths_rel_kb_item_dir = await self.markdown_writer.write_kb_item(kb_item_obj)
+                # UNIFIED DB APPROACH: Store all KB item data directly in the unified database
+                # No disk writing - everything goes to the UnifiedTweet model
                 
-                # Validate file creation
-                readme_path_rel_project = kb_item_dir_rel_project / "README.md"
-                readme_abs_path = self.config.resolve_path_from_project_root(str(readme_path_rel_project))
-                if not readme_abs_path.exists():
-                    raise Exception(f"KB item README was not created at expected path: {readme_abs_path}")
-                
-                # Update tweet data with KB item content
-                tweet_data['kb_item_path'] = str(readme_path_rel_project)
-                tweet_data['kb_media_paths'] = json.dumps(media_paths_rel_kb_item_dir)
+                # Update tweet data with KB item content for unified database storage
                 tweet_data['kb_item_created'] = True
-                
-                # Transfer KB item content data to tweet_data for database storage
                 tweet_data['display_title'] = kb_item_obj.display_title
                 tweet_data['description'] = kb_item_obj.description
                 tweet_data['markdown_content'] = kb_item_obj.markdown_content
                 tweet_data['raw_json_content'] = kb_item_obj.raw_json_content
                 
-                await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                # Store media paths in the unified database (no filesystem paths needed)
+                if hasattr(kb_item_obj, 'media_files') and kb_item_obj.media_files:
+                    tweet_data['kb_media_paths'] = json.dumps(kb_item_obj.media_files)
+                else:
+                    tweet_data['kb_media_paths'] = json.dumps([])
+                
+                # Mark processing as complete
+                tweet_data['processing_complete'] = True
+                
+                self.state_manager.update_tweet_data(tweet_id, tweet_data)
                 items_successfully_processed += 1
                 
                 # Update progress when completing this item
@@ -770,7 +767,7 @@ class StreamlinedContentProcessor:
                     self.socketio_emit_log(f"❌ Tweet {tweet_id} KB item generation failed permanently", "ERROR")
                 
                 # Update the tweet data in database with error information
-                await self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
+                self.state_manager.update_tweet_data(tweet_id, tweets_data_map[tweet_id])
 
         # Update historical stats
         phase_end_time = time.monotonic()
@@ -930,9 +927,9 @@ class StreamlinedContentProcessor:
                     
                     # Enhanced error handling for individual sync operations
                     try:
-                        await self._sync_to_db(tweet_id, tweet_data, category_manager)
+                        await self._sync_to_unified_db(tweet_id, tweet_data)
                         tweet_data['db_synced'] = True
-                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                        self.state_manager.update_tweet_data(tweet_id, tweet_data)
                         items_successfully_processed += 1
                         
                         # Update progress when completing this item
@@ -1046,10 +1043,10 @@ class StreamlinedContentProcessor:
                     # Tweet completed successfully - clear retry metadata and mark as processed
                     if tweet_data.get('retry_count', 0) > 0:
                         cleared_data = self.retry_manager.clear_retry_metadata(tweet_id, tweet_data)
-                        await self.state_manager.update_tweet_data(tweet_id, cleared_data)
+                        self.state_manager.update_tweet_data(tweet_id, cleared_data)
                         self.socketio_emit_log(f"✅ Tweet {tweet_id} completed successfully after {tweet_data.get('retry_count', 0)} retries", "INFO")
                     
-                    await self.state_manager.mark_tweet_processed(tweet_id)
+                    self.state_manager.mark_tweet_processed(tweet_id)
                     stats.processed_count += 1
                     completion_stats['fully_completed'] += 1
                     
@@ -1067,7 +1064,7 @@ class StreamlinedContentProcessor:
                     if last_error and self.retry_manager.should_retry(tweet_id, tweet_data, last_error):
                         # Schedule for retry
                         retry_data = self.retry_manager.schedule_retry(tweet_id, tweet_data, last_error)
-                        await self.state_manager.update_tweet_data(tweet_id, retry_data)
+                        self.state_manager.update_tweet_data(tweet_id, retry_data)
                         completion_stats['scheduled_for_retry'] += 1
                         should_retry = True
                     
@@ -1152,7 +1149,7 @@ class StreamlinedContentProcessor:
                         tweet_data['_error_recovery_timestamp'] = datetime.now(timezone.utc).isoformat()
                         tweet_data['_original_error'] = str(error)
                         
-                        await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                        self.state_manager.update_tweet_data(tweet_id, tweet_data)
                         recovery_stats['saved_tweets'] += 1
                         
                 except Exception as save_error:
@@ -1291,7 +1288,7 @@ class StreamlinedContentProcessor:
             logging.error(f"Error in LLM Processing for tweet {tweet_id}: {e}", exc_info=True)
             raise
 
-    async def _sync_to_db(self, tweet_id: str, tweet_data: Dict[str, Any], category_manager: CategoryManager) -> None:
+    async def _sync_to_unified_db(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
         """
         Sync individual tweet to database.
         Enhanced with synthesis staleness tracking and validation.
@@ -1391,7 +1388,7 @@ class StreamlinedContentProcessor:
                 "source_url": tweet_data.get('url', f'https://twitter.com/{tweet_data.get("user_screen_name", "user")}/status/{tweet_id}'),
                 "created_at": created_at_dt,
                 "file_path": tweet_data.get('kb_item_path'),
-                "kb_media_paths": json.dumps(tweet_data.get('kb_media_paths', [])) if tweet_data.get('kb_media_paths') else None,
+                "kb_media_paths": self._ensure_json_string(tweet_data.get('kb_media_paths')),
                 "raw_json_content": raw_json_content,
             }
 
@@ -1443,6 +1440,129 @@ class StreamlinedContentProcessor:
             logging.exception(f"Error syncing tweet {tweet_id} to database: {e}")
             self.socketio_emit_log(f"Error syncing tweet {tweet_id} to database: {e}", "ERROR")
             raise
+
+    async def _sync_to_unified_db(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
+        """
+        Sync tweet data directly to UnifiedTweet model.
+        
+        This replaces the old dual-table sync with a clean, unified approach.
+        """
+        self.socketio_emit_log(f"Syncing tweet {tweet_id} to unified database...", "DEBUG")
+
+        try:
+            from knowledge_base_agent.models import UnifiedTweet
+            
+            # Get or create unified tweet record
+            unified_tweet = UnifiedTweet.query.filter_by(tweet_id=tweet_id).first()
+            
+            if not unified_tweet:
+                # Create new unified tweet
+                unified_tweet = UnifiedTweet(
+                    tweet_id=tweet_id,
+                    bookmarked_tweet_id=tweet_data.get('bookmarked_tweet_id', tweet_id)
+                )
+                db.session.add(unified_tweet)
+                self.socketio_emit_log(f"Creating new unified tweet record for {tweet_id}", "DEBUG")
+            else:
+                self.socketio_emit_log(f"Updating existing unified tweet record for {tweet_id}", "DEBUG")
+            
+            # Update all fields from tweet_data
+            self._update_unified_tweet_from_data(unified_tweet, tweet_data)
+            
+            # Commit changes
+            db.session.commit()
+            self.socketio_emit_log(f"✅ Unified database sync complete for {tweet_id}", "DEBUG")
+            
+        except Exception as e:
+            logging.exception(f"Error syncing tweet {tweet_id} to unified database: {e}")
+            self.socketio_emit_log(f"❌ Error syncing tweet {tweet_id} to unified database: {e}", "ERROR")
+            db.session.rollback()
+            raise
+
+    def _update_unified_tweet_from_data(self, unified_tweet: 'UnifiedTweet', tweet_data: Dict[str, Any]) -> None:
+        """Update UnifiedTweet object from tweet_data dictionary."""
+        
+        # Content data
+        if 'raw_json_content' in tweet_data:
+            unified_tweet.raw_tweet_data = tweet_data['raw_json_content']
+        if 'thread_tweets' in tweet_data:
+            unified_tweet.thread_tweets = tweet_data['thread_tweets']
+        if 'is_thread' in tweet_data:
+            unified_tweet.is_thread = tweet_data['is_thread']
+        if 'full_text' in tweet_data:
+            unified_tweet.full_text = tweet_data['full_text']
+        if 'all_downloaded_media_for_thread' in tweet_data:
+            unified_tweet.media_files = tweet_data['all_downloaded_media_for_thread']
+        if 'image_descriptions' in tweet_data:
+            unified_tweet.image_descriptions = tweet_data['image_descriptions']
+        
+        # Processing flags
+        if 'cache_complete' in tweet_data:
+            unified_tweet.cache_complete = tweet_data['cache_complete']
+        if 'media_processed' in tweet_data:
+            unified_tweet.media_processed = tweet_data['media_processed']
+        if 'categories_processed' in tweet_data:
+            unified_tweet.categories_processed = tweet_data['categories_processed']
+        if 'kb_item_created' in tweet_data:
+            unified_tweet.kb_item_created = tweet_data['kb_item_created']
+        
+        # Categorization data
+        if 'main_category' in tweet_data:
+            unified_tweet.main_category = tweet_data['main_category']
+        if 'sub_category' in tweet_data:
+            unified_tweet.sub_category = tweet_data['sub_category']
+        if 'item_name_suggestion' in tweet_data:
+            unified_tweet.kb_item_name = tweet_data['item_name_suggestion']
+        if 'categories' in tweet_data:
+            unified_tweet.categories_raw_response = tweet_data['categories']
+        
+        # KB data
+        if 'kb_item_path' in tweet_data:
+            unified_tweet.kb_file_path = tweet_data['kb_item_path']
+        if 'kb_media_paths' in tweet_data:
+            # Handle both JSON string and list formats
+            kb_media_paths = tweet_data['kb_media_paths']
+            if isinstance(kb_media_paths, str):
+                try:
+                    unified_tweet.kb_media_paths = json.loads(kb_media_paths)
+                except (json.JSONDecodeError, TypeError):
+                    unified_tweet.kb_media_paths = []
+            else:
+                unified_tweet.kb_media_paths = kb_media_paths or []
+        if 'display_title' in tweet_data:
+            unified_tweet.kb_display_title = tweet_data['display_title']
+        if 'markdown_content' in tweet_data:
+            unified_tweet.kb_content = tweet_data['markdown_content']
+        
+        # Error tracking
+        if 'kbitem_error' in tweet_data:
+            unified_tweet.kbitem_error = tweet_data['kbitem_error']
+        if 'llm_error' in tweet_data:
+            unified_tweet.llm_error = tweet_data['llm_error']
+        
+        # Runtime flags
+        if 'cache_succeeded_this_run' in tweet_data:
+            unified_tweet.cache_succeeded_this_run = tweet_data['cache_succeeded_this_run']
+        if 'media_succeeded_this_run' in tweet_data:
+            unified_tweet.media_succeeded_this_run = tweet_data['media_succeeded_this_run']
+        if 'llm_succeeded_this_run' in tweet_data:
+            unified_tweet.llm_succeeded_this_run = tweet_data['llm_succeeded_this_run']
+        if 'kbitem_succeeded_this_run' in tweet_data:
+            unified_tweet.kbitem_succeeded_this_run = tweet_data['kbitem_succeeded_this_run']
+        
+        # Metadata
+        if 'url' in tweet_data:
+            unified_tweet.source_url = tweet_data['url']
+        
+        # Update timestamp
+        unified_tweet.updated_at = datetime.now(timezone.utc)
+        
+        # Check if processing is complete
+        if (unified_tweet.cache_complete and unified_tweet.media_processed and 
+            unified_tweet.categories_processed and unified_tweet.kb_item_created):
+            unified_tweet.processing_complete = True
+            if not unified_tweet.processed_at:
+                unified_tweet.processed_at = datetime.now(timezone.utc)
 
     def socketio_emit_progress(self, processed_count, total_count, error_count, current_item_id, status_message):
         """Emit progress updates via unified logging system."""

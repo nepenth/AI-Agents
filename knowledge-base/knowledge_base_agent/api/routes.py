@@ -888,12 +888,23 @@ def get_agent_status():
     """Get current agent status with validation to prevent stale state issues."""
     from ..web import get_or_create_agent_state
     from ..models import CeleryTaskState
+    from flask import g
+    import time
+
+    # Simple caching to reduce database load
+    cache_key = 'agent_status_cache'
+    cache_duration = 2  # 2 seconds cache
+    
+    if hasattr(g, cache_key):
+        cached_data, cached_time = getattr(g, cache_key)
+        if time.time() - cached_time < cache_duration:
+            return jsonify(cached_data)
 
     state = get_or_create_agent_state()
     task_id = state.current_task_id
 
     if not task_id:
-        return jsonify({
+        idle_response = {
             'is_running': False,
             'task_id': None,
             'celery_task_id': None,
@@ -901,7 +912,9 @@ def get_agent_status():
             'phase': 'idle',
             'progress': 0,
             'status': 'IDLE'
-        })
+        }
+        setattr(g, cache_key, (idle_response, time.time()))
+        return jsonify(idle_response)
 
     # CRITICAL FIX: Validate that the task is actually still running
     try:
@@ -3182,9 +3195,9 @@ def explore_tweets():
         - created_before: Filter by creation date (ISO format)
     """
     try:
-        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        from ..models import UnifiedTweet, dbngQueueRepository
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         
         # Parse query parameters
@@ -3346,9 +3359,9 @@ def get_tweet_detail(tweet_id: str):
         tweet_id: The tweet ID to retrieve details for
     """
     try:
-        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        from ..models import UnifiedTweet, dbngQueueRepository
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         
         # Get tweet data
@@ -3498,7 +3511,7 @@ def update_tweet_flags(tweet_id: str):
         }
     """
     try:
-        from ..repositories import TweetCacheRepository
+        from ..models import UnifiedTweet, db
         
         data = request.get_json()
         if not data or 'flags' not in data:
@@ -3523,7 +3536,7 @@ def update_tweet_flags(tweet_id: str):
                 'error': f'Invalid flags: {", ".join(invalid_flags)}. Valid flags: {", ".join(valid_flags)}'
             }), 400
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         
         # Get current tweet data
         tweet = tweet_repo.get_by_tweet_id(tweet_id)
@@ -3586,7 +3599,7 @@ def update_tweet_field(tweet_id):
         - value: New value for the field
     """
     try:
-        from ..repositories import TweetCacheRepository
+        from ..models import UnifiedTweet, db
         
         data = request.get_json()
         field_name = data.get('field')
@@ -3606,7 +3619,7 @@ def update_tweet_field(tweet_id):
                 'error': f'Field {field_name} is not editable'
             }), 400
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         
         # Check if tweet exists
         tweet = tweet_repo.get_by_id(tweet_id)
@@ -3659,7 +3672,7 @@ def trigger_tweet_reprocess(tweet_id: str):
         }
     """
     try:
-        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        from ..models import UnifiedTweet, dbngQueueRepository
         
         data = request.get_json()
         if not data:
@@ -3675,7 +3688,7 @@ def trigger_tweet_reprocess(tweet_id: str):
                 'error': 'reprocess_type must be "pipeline" or "full"'
             }), 400
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         
         # Get current tweet data
@@ -3776,7 +3789,7 @@ def bulk_tweet_operations():
         }
     """
     try:
-        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
+        from ..models import UnifiedTweet, dbngQueueRepository
         
         data = request.get_json()
         if not data:
@@ -3807,7 +3820,7 @@ def bulk_tweet_operations():
                 'error': 'Maximum 1000 tweets per bulk operation'
             }), 400
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         
         # Validate operation type
@@ -3983,9 +3996,9 @@ def get_tweet_statistics():
     Get comprehensive statistics about tweets and processing status.
     """
     try:
-        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository, CategoryRepository
+        from ..models import UnifiedTweet, dbngQueueRepository, CategoryRepository
         
-        tweet_repo = TweetCacheRepository()
+        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         category_repo = CategoryRepository()
         
@@ -4028,6 +4041,24 @@ def get_tweet_statistics():
         }), 500
 
 
+
+    def _update_unified_tweet(self, tweet_id: str, updates: dict) -> bool:
+        """Helper method to update UnifiedTweet records."""
+        try:
+            tweet = UnifiedTweet.query.filter_by(tweet_id=tweet_id).first()
+            if not tweet:
+                return False
+            
+            for field, value in updates.items():
+                if hasattr(tweet, field):
+                    setattr(tweet, field, value)
+            
+            tweet.updated_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return True
+        except Exception as e:
+            db.session.rollback()
+            return False
 @bp.route('/v2/tweets/categories', methods=['GET'])
 def get_tweet_categories():
     """
@@ -4073,3 +4104,149 @@ def get_tweet_categories():
             'success': False,
             'error': f'Failed to get categories: {str(e)}'
         }), 500
+
+
+# === NEW API ENDPOINTS FOR UNIFIED DATABASE ARCHITECTURE ===
+
+@bp.route('/items', methods=['GET'])
+def get_knowledge_base_items():
+    """API endpoint to get all knowledge base items from the database."""
+    try:
+        # Query all knowledge base items
+        items = db.session.query(KnowledgeBaseItem).order_by(KnowledgeBaseItem.last_updated.desc()).all()
+        
+        items_list = []
+        for item in items:
+            items_list.append({
+                'id': item.id,
+                'tweet_id': item.tweet_id,
+                'title': item.title,
+                'display_title': item.display_title,
+                'description': item.description,
+                'content': item.content,
+                'main_category': item.main_category,
+                'sub_category': item.sub_category,
+                'item_name': item.item_name,
+                'source_url': item.source_url,
+                'created_at': item.created_at.isoformat() if item.created_at else None,
+                'last_updated': item.last_updated.isoformat() if item.last_updated else None,
+                'file_path': item.file_path,
+                'kb_media_paths': json.loads(item.kb_media_paths) if item.kb_media_paths else [],
+                'raw_json_content': json.loads(item.raw_json_content) if item.raw_json_content else None
+            })
+        
+        current_app.logger.info(f"Retrieved {len(items_list)} knowledge base items")
+        return jsonify(items_list)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving knowledge base items: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve knowledge base items'}), 500
+
+
+@bp.route('/syntheses', methods=['GET'])
+def get_synthesis_documents_v2():
+    """API endpoint to get all synthesis documents from the database."""
+    try:
+        # Query all synthesis documents
+        syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.last_updated.desc()).all()
+        
+        synthesis_list = []
+        for synth in syntheses:
+            synthesis_list.append({
+                'id': synth.id,
+                'main_category': synth.main_category,
+                'sub_category': synth.sub_category,
+                'synthesis_title': synth.synthesis_title,
+                'synthesis_short_name': synth.synthesis_short_name,
+                'synthesis_content': synth.synthesis_content,
+                'raw_json_content': json.loads(synth.raw_json_content) if synth.raw_json_content else None,
+                'item_count': synth.item_count,
+                'file_path': synth.file_path,
+                'created_at': synth.created_at.isoformat() if synth.created_at else None,
+                'last_updated': synth.last_updated.isoformat() if synth.last_updated else None,
+                'content_hash': synth.content_hash,
+                'is_stale': synth.is_stale,
+                'needs_regeneration': synth.needs_regeneration,
+                'dependency_item_ids': json.loads(synth.dependency_item_ids) if synth.dependency_item_ids else []
+            })
+        
+        current_app.logger.info(f"Retrieved {len(synthesis_list)} synthesis documents")
+        return jsonify(synthesis_list)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving synthesis documents: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve synthesis documents'}), 500
+
+
+@bp.route('/tweets/all', methods=['GET'])
+def get_all_tweets():
+    """API endpoint to get all tweets from the unified database."""
+    try:
+        # Import the UnifiedTweet model
+        from ..models import UnifiedTweet
+        
+        # Query all tweets
+        tweets = db.session.query(UnifiedTweet).order_by(UnifiedTweet.updated_at.desc()).all()
+        
+        tweets_list = []
+        for tweet in tweets:
+            tweets_list.append({
+                'id': tweet.id,
+                'tweet_id': tweet.tweet_id,
+                'bookmarked_tweet_id': tweet.bookmarked_tweet_id,
+                'is_thread': tweet.is_thread,
+                
+                # Processing flags
+                'cache_complete': tweet.cache_complete,
+                'media_processed': tweet.media_processed,
+                'categories_processed': tweet.categories_processed,
+                'kb_item_created': tweet.kb_item_created,
+                'processing_complete': tweet.processing_complete,
+                
+                # Content data
+                'full_text': tweet.full_text,
+                'thread_tweets': tweet.thread_tweets,
+                'media_files': tweet.media_files,
+                'image_descriptions': tweet.image_descriptions,
+                
+                # Categorization data
+                'main_category': tweet.main_category,
+                'sub_category': tweet.sub_category,
+                'categories_raw_response': tweet.categories_raw_response,
+                
+                # Knowledge base data
+                'kb_title': tweet.kb_title,
+                'kb_display_title': tweet.kb_display_title,
+                'kb_description': tweet.kb_description,
+                'kb_content': tweet.kb_content,
+                'kb_item_name': tweet.kb_item_name,
+                'kb_file_path': tweet.kb_file_path,
+                'kb_media_paths': tweet.kb_media_paths,
+                
+                # Metadata
+                'source': tweet.source,
+                'source_url': tweet.source_url,
+                
+                # Error tracking
+                'kbitem_error': tweet.kbitem_error,
+                'llm_error': tweet.llm_error,
+                'processing_errors': tweet.processing_errors,
+                'retry_count': tweet.retry_count,
+                'last_error': tweet.last_error,
+                
+                # Timestamps
+                'created_at': tweet.created_at.isoformat() if tweet.created_at else None,
+                'updated_at': tweet.updated_at.isoformat() if tweet.updated_at else None,
+                'cached_at': tweet.cached_at.isoformat() if tweet.cached_at else None,
+                'processed_at': tweet.processed_at.isoformat() if tweet.processed_at else None,
+                'kb_generated_at': tweet.kb_generated_at.isoformat() if tweet.kb_generated_at else None
+            })
+        
+        current_app.logger.info(f"Retrieved {len(tweets_list)} tweets from unified database")
+        return jsonify(tweets_list)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving tweets: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve tweets'}), 500
+
+

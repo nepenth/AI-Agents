@@ -159,22 +159,31 @@ class BookmarksFetcher:
                 raise BookmarksFetchError(f"Failed to initialize browser or login: {str(e)}") from e
 
     async def fetch_bookmarks(self) -> List[str]:
-        """Fetch bookmarks from Twitter, save to JSON, and return a list of tweet IDs."""
+        """Fetch bookmarks from Twitter, save to database, and return a list of tweet IDs."""
         current_bookmarks_data: Dict[str, Dict[str, str]] = {}
-        bookmarks_file_path = self.config.bookmarks_file # Path from config (e.g., data/tweet_bookmarks.json)
         
-        # Ensure parent directory for bookmarks file exists
-        bookmarks_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if bookmarks_file_path.exists():
-            try:
-                with open(bookmarks_file_path, 'r', encoding='utf-8') as f:
-                    current_bookmarks_data = json.load(f)
-                logging.info(f"Loaded {len(current_bookmarks_data)} existing bookmarks from {bookmarks_file_path}")
-            except json.JSONDecodeError:
-                logging.warning(f"Could not parse {bookmarks_file_path}, starting with empty bookmarks.")
-            except Exception as e:
-                logging.error(f"Error loading {bookmarks_file_path}: {e}, starting with empty bookmarks.")
+        # Load existing bookmarks from database
+        try:
+            from flask import current_app
+            from .models import TweetBookmark
+            
+            if current_app:
+                with current_app.app_context():
+                    # Load existing bookmarks from database
+                    existing_bookmarks = TweetBookmark.query.all()
+                    for bookmark in existing_bookmarks:
+                        current_bookmarks_data[bookmark.tweet_id] = {
+                            "url_path": bookmark.url_path,
+                            "full_url": bookmark.full_url,
+                            "first_fetched_at": bookmark.first_fetched_at.isoformat(),
+                            "last_seen_bookmarked_at": bookmark.last_seen_bookmarked_at.isoformat()
+                        }
+                    logging.info(f"Loaded {len(current_bookmarks_data)} existing bookmarks from database")
+            else:
+                raise Exception("No Flask app context available")
+        except Exception as e:
+            logging.error(f"Failed to load bookmarks from database: {e}")
+            raise BookmarksFetchError(f"Failed to load bookmarks: {e}")
 
         try:
             # Try to dismiss any modal dialog
@@ -293,29 +302,39 @@ class BookmarksFetcher:
             
             logging.info(f"Processed scraped bookmarks: Added {added_count} new, Updated {updated_count} existing.")
 
-            # Archive old bookmarks file (if it exists and is different type or for safety)
-            # This logic is simplified: if the target is JSON, old .txt is archived.
-            # More robust: check if old file exists and is NOT the same as bookmarks_file_path before archiving.
-            legacy_txt_bookmarks_file = bookmarks_file_path.with_suffix('.txt') # e.g. data/tweet_bookmarks.txt
-            if legacy_txt_bookmarks_file.exists() and legacy_txt_bookmarks_file != bookmarks_file_path:
-                archive_ts = time.strftime("%Y%m%d-%H%M%S")
-                archive_file_name = f"{bookmarks_file_path.stem}_{archive_ts}{legacy_txt_bookmarks_file.suffix}"
-                archive_path = self.config.data_processing_dir / ARCHIVE_DIR_NAME / archive_file_name
-                archive_path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    legacy_txt_bookmarks_file.rename(archive_path)
-                    logging.info(f"Archived legacy bookmarks file {legacy_txt_bookmarks_file} to {archive_path}")
-                except Exception as e:
-                    logging.error(f"Could not archive legacy bookmarks file {legacy_txt_bookmarks_file}: {e}")
-            
-            # Write new/updated bookmarks to JSON file
+            # Save new/updated bookmarks to database (preferred) or JSON file (fallback)
             try:
-                with open(bookmarks_file_path, 'w', encoding='utf-8') as f:
-                    json.dump(current_bookmarks_data, f, indent=2)
-                logging.info(f"Saved {len(current_bookmarks_data)} total bookmarks to {bookmarks_file_path}")
+                from flask import current_app
+                from .models import TweetBookmark, db
+                
+                if current_app:
+                    with current_app.app_context():
+                        for tweet_id, bookmark_data in current_bookmarks_data.items():
+                            existing_bookmark = TweetBookmark.query.filter_by(tweet_id=tweet_id).first()
+                            
+                            if existing_bookmark:
+                                # Update existing bookmark
+                                existing_bookmark.url_path = bookmark_data["url_path"]
+                                existing_bookmark.full_url = bookmark_data["full_url"]
+                                existing_bookmark.last_seen_bookmarked_at = datetime.fromisoformat(bookmark_data["last_seen_bookmarked_at"].replace('Z', '+00:00'))
+                            else:
+                                # Create new bookmark
+                                new_bookmark = TweetBookmark(
+                                    tweet_id=tweet_id,
+                                    url_path=bookmark_data["url_path"],
+                                    full_url=bookmark_data["full_url"],
+                                    first_fetched_at=datetime.fromisoformat(bookmark_data["first_fetched_at"].replace('Z', '+00:00')),
+                                    last_seen_bookmarked_at=datetime.fromisoformat(bookmark_data["last_seen_bookmarked_at"].replace('Z', '+00:00'))
+                                )
+                                db.session.add(new_bookmark)
+                        
+                        db.session.commit()
+                        logging.info(f"Saved {len(current_bookmarks_data)} total bookmarks to database")
+                else:
+                    raise Exception("No Flask app context available")
             except Exception as e:
-                logging.error(f"Failed to save bookmarks to {bookmarks_file_path}: {e}", exc_info=True)
-                raise BookmarksFetchError(f"Failed to save bookmarks JSON: {e}") from e
+                logging.error(f"Failed to save bookmarks to database: {e}")
+                raise BookmarksFetchError(f"Failed to save bookmarks: {e}") from e
 
             # Return a list of all full tweet URLs for the agent to process
             return [data["full_url"] for data in current_bookmarks_data.values() if "full_url" in data]

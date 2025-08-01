@@ -43,45 +43,46 @@ class TaskDisplayManager {
     }
     
     setupEventListeners() {
-        // Listen for task-related events
-        document.addEventListener('task_started', (event) => {
-            this.handleTaskStarted(event.detail);
-        });
-        
-        document.addEventListener('task_completed', (event) => {
-            this.handleTaskCompleted(event.detail);
-        });
-        
-        document.addEventListener('task_error', (event) => {
-            this.handleTaskError(event.detail);
-        });
-        
-        // Listen for log events to route to appropriate tasks
-        document.addEventListener('log', (event) => {
-            this.handleLogEvent(event.detail);
-        });
-        
-        // Listen for phase events to update task status
-        document.addEventListener('phase_start', (event) => {
-            this.handlePhaseEvent('start', event.detail);
-        });
-        
-        document.addEventListener('phase_complete', (event) => {
-            this.handlePhaseEvent('complete', event.detail);
-        });
-        
-        document.addEventListener('phase_error', (event) => {
-            this.handlePhaseEvent('error', event.detail);
-        });
-        
-        // Listen for progress events
-        document.addEventListener('progress_update', (event) => {
-            this.handleProgressEvent(event.detail);
-        });
-        
-        // Listen for agent status updates to detect new tasks
-        document.addEventListener('agent_status_update', (event) => {
-            this.handleAgentStatusUpdate(event.detail);
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            customEvents: [
+                {
+                    event: 'task_started',
+                    handler: (e) => this.handleTaskStarted(e.detail)
+                },
+                {
+                    event: 'task_completed',
+                    handler: (e) => this.handleTaskCompleted(e.detail)
+                },
+                {
+                    event: 'task_error',
+                    handler: (e) => this.handleTaskError(e.detail)
+                },
+                {
+                    event: 'log',
+                    handler: (e) => this.handleLogEvent(e.detail)
+                },
+                {
+                    event: 'phase_start',
+                    handler: (e) => this.handlePhaseEvent('start', e.detail)
+                },
+                {
+                    event: 'phase_complete',
+                    handler: (e) => this.handlePhaseEvent('complete', e.detail)
+                },
+                {
+                    event: 'phase_error',
+                    handler: (e) => this.handlePhaseEvent('error', e.detail)
+                },
+                {
+                    event: 'progress_update',
+                    handler: (e) => this.handleProgressEvent(e.detail)
+                },
+                {
+                    event: 'agent_status_update',
+                    handler: (e) => this.handleAgentStatusUpdate(e.detail)
+                }
+            ]
         });
     }
     
@@ -873,17 +874,8 @@ class TaskDisplayManager {
     }
     
     formatDuration(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        
-        if (hours > 0) {
-            return `${hours}h ${minutes % 60}m`;
-        } else if (minutes > 0) {
-            return `${minutes}m ${seconds % 60}s`;
-        } else {
-            return `${seconds}s`;
-        }
+        // Use centralized DurationFormatter service
+        return DurationFormatter.format(milliseconds);
     }
     
     escapeHtml(text) {

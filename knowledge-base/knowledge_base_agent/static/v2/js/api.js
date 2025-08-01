@@ -54,6 +54,11 @@ class API {
             body: preferences 
         });
     }
+
+    // Alias for backward compatibility
+    async updatePreferences(preferences) {
+        return this.savePreferences(preferences);
+    }
 }
 
 window.API = API; 

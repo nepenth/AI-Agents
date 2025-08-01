@@ -346,10 +346,10 @@ input:checked+.slider:before {
     grid-column: 2;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    gap: var(--space-2);
-    /* Reduced from --space-3 to --space-2 */
-    padding: var(--space-3);
-    /* Reduced from --space-4 to --space-3 */
+    gap: var(--space-1);
+    /* Further reduced from --space-2 to --space-1 */
+    padding: var(--space-2);
+    /* Further reduced from --space-3 to --space-2 */
     overflow: hidden;
     min-height: 0;
 }
@@ -406,8 +406,8 @@ input:checked+.slider:before {
 /* === Agent Controls Panel === */
 #agent-controls-panel {
     grid-row: 1;
-    padding: var(--space-2) var(--space-4);
-    /* Reduced top/bottom padding */
+    padding: var(--space-1) var(--space-3);
+    /* Further reduced padding for more compact layout */
 }
 
 .agent-controls-header {
@@ -527,12 +527,14 @@ input:checked+.slider:before {
     grid-row: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
-    /* Reduced from --space-6 to --space-3 */
+    gap: var(--space-2);
+    /* Further reduced from --space-3 to --space-2 */
     min-height: 0;
     overflow: hidden;
     flex: 1;
     /* Take up remaining space */
+    align-items: stretch;
+    /* Ensure panels have equal height */
 }
 
 .dashboard-panel {
@@ -572,7 +574,8 @@ input:checked+.slider:before {
 /* === GPU Status Panel === */
 #gpu-status-panel {
     grid-row: 3;
-    padding: var(--space-4) var(--space-6);
+    padding: var(--space-1) var(--space-3);
+    /* Reduced padding to match other panels */
 }
 
 #gpu-status-panel .panel-header {

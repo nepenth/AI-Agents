@@ -380,37 +380,47 @@
     background: rgba(var(--accent-color-rgb), 0.1);
 }
 
-/* Table Column Sizes */
+/* Table Column Sizes - Improved for better visibility */
 .select-col {
-    width: 40px;
+    width: 50px;
+    min-width: 50px;
 }
 
 .tweet-id-col {
-    width: 150px;
+    width: 160px;
+    min-width: 160px;
 }
 
 .status-col {
-    width: 120px;
+    width: 130px;
+    min-width: 130px;
 }
 
 .category-col {
-    width: 180px;
+    width: 220px;
+    min-width: 220px;
 }
 
 .media-col {
-    width: 80px;
+    width: 90px;
+    min-width: 90px;
+    text-align: center;
 }
 
 .progress-col {
-    width: 100px;
+    width: 140px;
+    min-width: 140px;
 }
 
 .updated-col {
-    width: 140px;
+    width: 150px;
+    min-width: 150px;
 }
 
 .actions-col {
-    width: 100px;
+    width: 110px;
+    min-width: 110px;
+    text-align: center;
 }
 
 /* Sortable Headers */
@@ -469,6 +479,13 @@
 }
 
 /* Progress Bar */
+.progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 120px;
+}
+
 .progress-bar {
     width: 100%;
     height: 8px;
@@ -488,8 +505,29 @@
 .progress-text {
     font-size: 0.75rem;
     color: var(--text-secondary);
-    margin-top: 0.25rem;
     text-align: center;
+    font-weight: 600;
+}
+
+.progress-details {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.progress-details i {
+    font-size: 0.7rem;
+    transition: color 0.2s ease;
+}
+
+.progress-details i.completed {
+    color: var(--accent-color);
+}
+
+.progress-details i.pending {
+    color: var(--text-muted);
+    opacity: 0.5;
 }
 
 /* Category Display */
@@ -767,6 +805,29 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
+}
+
+.reprocess-explanation {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.reprocess-explanation p {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-secondary);
+}
+
+.reprocess-explanation p:last-child {
+    margin-bottom: 0;
+}
+
+.reprocess-explanation strong {
+    color: var(--text-primary);
 }
 
 .reprocess-buttons {
@@ -1179,6 +1240,27 @@
     color: var(--text-secondary);
 }
 
+.media-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    text-align: center;
+}
+
+.media-error i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.media-error p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
 .image-descriptions {
     margin-top: 2rem;
     padding: 1rem;
@@ -1392,23 +1474,77 @@
 .tweet-table-wrapper {
     overflow-x: auto;
     margin: 1rem 0;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--glass-border-color);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .tweet-table {
-    min-width: 1200px;
+    min-width: 1250px;
     width: 100%;
+    table-layout: fixed;
 }
 
-/* Fix modal positioning */
+/* Fix modal positioning and prevent overlapping */
 .modal-overlay {
-    z-index: 9999;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 10000 !important;
     backdrop-filter: blur(8px);
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem;
+    box-sizing: border-box;
 }
 
 .modal {
+    position: relative !important;
     max-width: min(90vw, 1000px);
     max-height: 90vh;
-    margin: auto;
+    width: auto;
+    margin: 0;
+    z-index: 10001 !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ensure modal body scrolls properly */
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(90vh - 120px);
+    padding: 1.5rem;
+}
+
+/* Fix dashboard panel z-index to prevent overlap */
+#tweet-management-panel {
+    position: relative;
+    z-index: 1;
+}
+
+.panel-header {
+    position: relative;
+    z-index: 2;
+}
+
+.tweet-explorer-filters {
+    position: relative;
+    z-index: 2;
+}
+
+.results-summary {
+    position: relative;
+    z-index: 2;
+}
+
+.tweet-table-container {
+    position: relative;
+    z-index: 2;
 }
 
 /* Improve button spacing */

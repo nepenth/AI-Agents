@@ -44,12 +44,29 @@ async def generate_root_readme(
         kb_items = []
         tweet_cache = {}
 
-        if config.tweet_cache_file.exists():
-            async with aiofiles.open(
-                config.tweet_cache_file, "r", encoding="utf-8"
-            ) as f:
-                tweet_cache = json.loads(await f.read())
+        # Load tweet cache from database
+        try:
+            from flask import current_app
+            from .models import TweetCache
+            
+            if current_app:
+                with current_app.app_context():
+                    # Load tweet cache from database
+                    cached_tweets = TweetCache.query.filter_by(kb_item_created=True).all()
+                    for cached_tweet in cached_tweets:
+                        tweet_cache[cached_tweet.tweet_id] = {
+                            'kb_item_created': cached_tweet.kb_item_created,
+                            'kb_item_path': cached_tweet.kb_item_path,
+                            # Add other fields as needed
+                        }
+                    logging.debug(f"Loaded {len(tweet_cache)} tweets with KB items from database")
+            else:
+                raise Exception("No Flask app context available")
+        except Exception as e:
+            logging.error(f"Failed to load tweet cache from database: {e}")
+            raise MarkdownGenerationError(f"Failed to load tweet cache: {e}")
 
+        if tweet_cache:
             logging.debug(f"Knowledge base directory: {kb_dir}")
             if kb_dir.exists():
                 logging.debug("KB directory exists. Listing first 5 items:")

@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
 from sqlalchemy import Index, func, text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON
 from sqlalchemy.ext.hybrid import hybrid_property
 import json
 
@@ -32,7 +33,7 @@ class KnowledgeBaseItem(db.Model):
     created_at = db.Column(db.DateTime, nullable=False)
     last_updated = db.Column(db.DateTime, nullable=False)
     file_path = db.Column(db.String(500), nullable=True)
-    kb_media_paths = db.Column(db.Text, nullable=True)
+    kb_media_paths = db.Column(db.Text, nullable=True)  # JSON string of media paths
     raw_json_content = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
@@ -401,7 +402,215 @@ class JobHistory(db.Model):
         }
 
 
-# ===== NEW ENHANCED MODELS FOR JSON-TO-DATABASE MIGRATION =====
+# ===== UNIFIED TWEET MODEL - SINGLE SOURCE OF TRUTH =====
+
+class UnifiedTweet(db.Model):
+    """
+    Unified Tweet Model - Single source of truth for entire pipeline
+    
+    Handles the complete lifecycle from initial tweet fetch through 
+    knowledge base item generation, using consistent JSON storage.
+    
+    This model replaces both TweetCache and KnowledgeBaseItem to eliminate
+    data duplication and sync complexity.
+    """
+    __tablename__ = 'unified_tweet'
+    
+    # === PRIMARY IDENTIFICATION ===
+    id = db.Column(db.Integer, primary_key=True)
+    tweet_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    bookmarked_tweet_id = db.Column(db.String(50), nullable=False)
+    
+    # === PIPELINE PROCESSING FLAGS ===
+    # Phase 1: Tweet Caching
+    urls_expanded = db.Column(db.Boolean, default=False)
+    cache_complete = db.Column(db.Boolean, default=False)
+    
+    # Phase 2: Media Processing  
+    media_processed = db.Column(db.Boolean, default=False)
+    
+    # Phase 3: LLM Processing & Categorization
+    categories_processed = db.Column(db.Boolean, default=False)
+    
+    # Phase 4: Knowledge Base Item Generation
+    kb_item_created = db.Column(db.Boolean, default=False)
+    kb_item_written_to_disk = db.Column(db.Boolean, default=False)
+    
+    # Phase 5: Final Processing
+    processing_complete = db.Column(db.Boolean, default=False)
+    
+    # === CONTENT DATA (ALL JSON) ===
+    # Raw tweet data
+    raw_tweet_data = db.Column(JSON, nullable=True)  # Original tweet JSON from API
+    thread_tweets = db.Column(JSON, default=list)    # Thread data if applicable
+    is_thread = db.Column(db.Boolean, default=False)
+    
+    # Processed content
+    full_text = db.Column(db.Text, nullable=True)    # Extracted/cleaned text
+    urls_expanded_data = db.Column(JSON, default=list)  # Expanded URL data
+    
+    # Media data
+    media_files = db.Column(JSON, default=list)      # Downloaded media file paths (replaces all_downloaded_media_for_thread)
+    image_descriptions = db.Column(JSON, default=list)  # AI-generated descriptions
+    
+    # === CATEGORIZATION DATA (ALL JSON) ===
+    # LLM-generated categorization
+    main_category = db.Column(db.String(100), nullable=True)
+    sub_category = db.Column(db.String(100), nullable=True)
+    categories_raw_response = db.Column(JSON, nullable=True)  # Full LLM response (replaces categories field)
+    
+    # === KNOWLEDGE BASE DATA (ALL JSON) ===
+    # Generated KB item content
+    kb_title = db.Column(db.Text, nullable=True)
+    kb_display_title = db.Column(db.Text, nullable=True)
+    kb_description = db.Column(db.Text, nullable=True)
+    kb_content = db.Column(db.Text, nullable=True)      # Final markdown content
+    kb_item_name = db.Column(db.Text, nullable=True)    # Suggested filename (replaces item_name_suggestion)
+    
+    # KB file system data
+    kb_file_path = db.Column(db.Text, nullable=True)    # Path to generated README.md (replaces kb_item_path)
+    kb_media_paths = db.Column(JSON, default=list)      # Relative media paths
+    
+    # === METADATA ===
+    source = db.Column(db.String(50), default='twitter')
+    source_url = db.Column(db.Text, nullable=True)
+    
+    # === ERROR TRACKING ===
+    processing_errors = db.Column(JSON, default=dict)   # Phase-specific errors
+    retry_count = db.Column(db.Integer, default=0)
+    last_error = db.Column(db.Text, nullable=True)
+    kbitem_error = db.Column(db.Text, nullable=True)    # Preserve existing error field
+    llm_error = db.Column(db.Text, nullable=True)       # Preserve existing error field
+    
+    # === REPROCESSING CONTROLS ===
+    force_reprocess_pipeline = db.Column(db.Boolean, default=False)
+    force_recache = db.Column(db.Boolean, default=False)
+    reprocess_requested_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    reprocess_requested_by = db.Column(db.String(100), nullable=True)
+    recategorization_attempts = db.Column(db.Integer, default=0)
+    
+    # === RUNTIME FLAGS (for backward compatibility) ===
+    cache_succeeded_this_run = db.Column(db.Boolean, default=False)
+    media_succeeded_this_run = db.Column(db.Boolean, default=False)
+    llm_succeeded_this_run = db.Column(db.Boolean, default=False)
+    kbitem_succeeded_this_run = db.Column(db.Boolean, default=False)
+    db_synced = db.Column(db.Boolean, default=True)  # Always true for unified model
+    
+    # === TIMESTAMPS ===
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    cached_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    processed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    kb_generated_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    
+    # === COMPUTED PROPERTIES ===
+    @hybrid_property
+    def is_ready_for_media_processing(self):
+        """Check if tweet is ready for media processing phase."""
+        return self.cache_complete and not self.media_processed
+    
+    @hybrid_property
+    def is_ready_for_categorization(self):
+        """Check if tweet is ready for LLM categorization phase."""
+        return self.media_processed and not self.categories_processed
+    
+    @hybrid_property
+    def is_ready_for_kb_generation(self):
+        """Check if tweet is ready for knowledge base generation phase."""
+        return self.categories_processed and not self.kb_item_created
+    
+    @hybrid_property
+    def needs_reprocessing(self):
+        """Check if tweet needs reprocessing."""
+        return self.force_reprocess_pipeline or self.force_recache
+    
+    @hybrid_property
+    def pipeline_complete(self):
+        """Check if entire pipeline is complete."""
+        return (self.cache_complete and 
+                self.media_processed and 
+                self.categories_processed and 
+                self.kb_item_created and
+                self.processing_complete)
+    
+    def to_dict(self, include_content=True):
+        """Convert to dictionary for API responses with backward compatibility."""
+        data = {
+            'id': self.id,
+            'tweet_id': self.tweet_id,
+            'bookmarked_tweet_id': self.bookmarked_tweet_id,
+            'is_thread': self.is_thread,
+            'processing_flags': {
+                'urls_expanded': self.urls_expanded,
+                'media_processed': self.media_processed,
+                'cache_complete': self.cache_complete,
+                'categories_processed': self.categories_processed,
+                'kb_item_created': self.kb_item_created,
+                'processing_complete': self.processing_complete,
+                'pipeline_complete': self.pipeline_complete
+            },
+            'reprocessing_controls': {
+                'force_reprocess_pipeline': self.force_reprocess_pipeline,
+                'force_recache': self.force_recache,
+                'reprocess_requested_at': self.reprocess_requested_at.isoformat() if self.reprocess_requested_at else None,
+                'reprocess_requested_by': self.reprocess_requested_by,
+                'needs_reprocessing': self.needs_reprocessing
+            },
+            'categorization': {
+                'main_category': self.main_category,
+                'sub_category': self.sub_category,
+                'kb_item_name': self.kb_item_name,
+                'categories_raw_response': self.categories_raw_response
+            },
+            'knowledge_base': {
+                'kb_title': self.kb_title,
+                'kb_display_title': self.kb_display_title,
+                'kb_file_path': self.kb_file_path,
+                'kb_media_paths': self.kb_media_paths,
+                'kb_content': self.kb_content if include_content else None
+            },
+            'metadata': {
+                'source': self.source,
+                'source_url': self.source_url,
+                'recategorization_attempts': self.recategorization_attempts,
+                'retry_count': self.retry_count
+            },
+            'timestamps': {
+                'created_at': self.created_at.isoformat() if self.created_at else None,
+                'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+                'cached_at': self.cached_at.isoformat() if self.cached_at else None,
+                'processed_at': self.processed_at.isoformat() if self.processed_at else None,
+                'kb_generated_at': self.kb_generated_at.isoformat() if self.kb_generated_at else None
+            }
+        }
+        
+        if include_content:
+            data.update({
+                'content': {
+                    'raw_tweet_data': self.raw_tweet_data,
+                    'thread_tweets': self.thread_tweets,
+                    'full_text': self.full_text,
+                    'media_files': self.media_files,
+                    'image_descriptions': self.image_descriptions,
+                    'urls_expanded_data': self.urls_expanded_data
+                },
+                'errors': {
+                    'processing_errors': self.processing_errors,
+                    'last_error': self.last_error,
+                    'kbitem_error': self.kbitem_error,
+                    'llm_error': self.llm_error
+                }
+            })
+        
+        return data
+    
+    def __repr__(self):
+        return f'<UnifiedTweet {self.tweet_id} [{self.main_category}/{self.sub_category}]>'
+
+
+# ===== LEGACY MODELS (DEPRECATED - USE UnifiedTweet INSTEAD) =====
+# These models are kept temporarily for migration purposes only.
+# All new code should use UnifiedTweet model.
 
 class TweetCache(db.Model):
     """
@@ -416,8 +625,8 @@ class TweetCache(db.Model):
     tweet_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
     bookmarked_tweet_id = db.Column(db.String(50), nullable=False)
     is_thread = db.Column(db.Boolean, default=False)
-    thread_tweets = db.Column(JSONB, default=list)
-    all_downloaded_media_for_thread = db.Column(JSONB, default=list)
+    thread_tweets = db.Column(JSON, default=list)
+    all_downloaded_media_for_thread = db.Column(JSON, default=list)
     
     # Processing flags
     urls_expanded = db.Column(db.Boolean, default=False)
@@ -436,17 +645,17 @@ class TweetCache(db.Model):
     main_category = db.Column(db.String(100))
     sub_category = db.Column(db.String(100))
     item_name_suggestion = db.Column(db.Text)
-    categories = db.Column(JSONB, default=dict)
+    categories = db.Column(JSON, default=dict)
     
     # Knowledge base integration
     kb_item_path = db.Column(db.Text)
-    kb_media_paths = db.Column(JSONB, default=list)
+    kb_media_paths = db.Column(JSON, default=list)
     
     # Content and metadata
-    raw_json_content = db.Column(JSONB)
+    raw_json_content = db.Column(JSON)
     display_title = db.Column(db.Text)
     source = db.Column(db.String(50), default='unknown')
-    image_descriptions = db.Column(JSONB, default=list)
+    image_descriptions = db.Column(JSON, default=list)
     full_text = db.Column(db.Text)  # Extracted text for full-text search
     
     # Processing metadata
@@ -764,3 +973,230 @@ class RuntimeStatistics(db.Model):
             },
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class TweetBookmark(db.Model):
+    """
+    Tweet Bookmark Model (replaces tweet_bookmarks.json)
+    
+    Stores Twitter bookmark data with fetch timestamps and URL information.
+    """
+    __tablename__ = 'tweet_bookmarks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tweet_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    url_path = db.Column(db.String(500), nullable=False)
+    full_url = db.Column(db.String(500), nullable=False)
+    
+    # Timestamps
+    first_fetched_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    last_seen_bookmarked_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    
+    # Metadata
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    def __repr__(self):
+        return f'<TweetBookmark {self.tweet_id}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'tweet_id': self.tweet_id,
+            'url_path': self.url_path,
+            'full_url': self.full_url,
+            'first_fetched_at': self.first_fetched_at.isoformat() if self.first_fetched_at else None,
+            'last_seen_bookmarked_at': self.last_seen_bookmarked_at.isoformat() if self.last_seen_bookmarked_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+class UnifiedTweet(db.Model):
+    """
+    Unified Tweet Model - Single Source of Truth
+    
+    Replaces the dual TweetCache + KnowledgeBaseItem architecture with a single
+    comprehensive model that tracks all processing states and content.
+    """
+    __tablename__ = 'unified_tweet'
+    __table_args__ = {'extend_existing': True}
+    
+    # === PRIMARY IDENTIFICATION ===
+    id = db.Column(db.Integer, primary_key=True)
+    tweet_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    bookmarked_tweet_id = db.Column(db.String(50), nullable=True)
+    
+    # === PIPELINE PROCESSING FLAGS ===
+    urls_expanded = db.Column(db.Boolean, default=False)
+    cache_complete = db.Column(db.Boolean, default=False)
+    media_processed = db.Column(db.Boolean, default=False)
+    categories_processed = db.Column(db.Boolean, default=False)
+    kb_item_created = db.Column(db.Boolean, default=False)
+    processing_complete = db.Column(db.Boolean, default=False)
+    
+    # === CONTENT DATA ===
+    raw_tweet_data = db.Column(JSON, nullable=True)
+    thread_tweets = db.Column(JSON, nullable=True)
+    is_thread = db.Column(db.Boolean, default=False)
+    full_text = db.Column(db.Text, nullable=True)
+    urls_expanded_data = db.Column(JSON, nullable=True)
+    media_files = db.Column(JSON, nullable=True)
+    image_descriptions = db.Column(JSON, nullable=True)
+    
+    # === CATEGORIZATION DATA ===
+    main_category = db.Column(db.String(100), nullable=True)
+    sub_category = db.Column(db.String(100), nullable=True)
+    categories_raw_response = db.Column(JSON, nullable=True)
+    
+    # === KNOWLEDGE BASE DATA ===
+    kb_title = db.Column(db.Text, nullable=True)
+    kb_display_title = db.Column(db.Text, nullable=True)
+    kb_description = db.Column(db.Text, nullable=True)
+    kb_content = db.Column(db.Text, nullable=True)
+    kb_item_name = db.Column(db.Text, nullable=True)
+    kb_file_path = db.Column(db.Text, nullable=True)  # Legacy field for backward compatibility
+    kb_media_paths = db.Column(JSON, nullable=True)
+    
+    # === UNIFIED DB FIELDS (New) ===
+    display_title = db.Column(db.Text, nullable=True)  # Unified display title
+    description = db.Column(db.Text, nullable=True)    # Unified description
+    markdown_content = db.Column(db.Text, nullable=True)  # Full markdown content
+    raw_json_content = db.Column(db.Text, nullable=True)  # Raw JSON content
+    
+    # === METADATA ===
+    source = db.Column(db.String(50), default='twitter')
+    source_url = db.Column(db.Text, nullable=True)
+    
+    # === ERROR TRACKING ===
+    processing_errors = db.Column(JSON, nullable=True)
+    retry_count = db.Column(db.Integer, default=0)
+    last_error = db.Column(db.Text, nullable=True)
+    kbitem_error = db.Column(db.Text, nullable=True)
+    llm_error = db.Column(db.Text, nullable=True)
+    
+    # === REPROCESSING CONTROLS ===
+    force_reprocess_pipeline = db.Column(db.Boolean, default=False)
+    force_recache = db.Column(db.Boolean, default=False)
+    reprocess_requested_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    reprocess_requested_by = db.Column(db.String(100), nullable=True)
+    recategorization_attempts = db.Column(db.Integer, default=0)
+    
+    # === RUNTIME FLAGS (for current execution tracking) ===
+    cache_succeeded_this_run = db.Column(db.Boolean, default=False)
+    media_succeeded_this_run = db.Column(db.Boolean, default=False)
+    llm_succeeded_this_run = db.Column(db.Boolean, default=False)
+    kbitem_succeeded_this_run = db.Column(db.Boolean, default=False)
+    
+    # === TIMESTAMPS ===
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    cached_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    processed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    kb_generated_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    
+    def __repr__(self):
+        return f'<UnifiedTweet {self.tweet_id}>'
+    
+    def to_dict(self):
+        """Convert to dictionary format for backward compatibility."""
+        return {
+            'id': self.id,
+            'tweet_id': self.tweet_id,
+            'bookmarked_tweet_id': self.bookmarked_tweet_id,
+            
+            # Processing flags
+            'cache_complete': self.cache_complete,
+            'media_processed': self.media_processed,
+            'categories_processed': self.categories_processed,
+            'kb_item_created': self.kb_item_created,
+            'processing_complete': self.processing_complete,
+            
+            # Content
+            'raw_tweet_data': self.raw_tweet_data,
+            'thread_tweets': self.thread_tweets,
+            'is_thread': self.is_thread,
+            'full_text': self.full_text,
+            'media_files': self.media_files,
+            'image_descriptions': self.image_descriptions,
+            
+            # Categorization
+            'main_category': self.main_category,
+            'sub_category': self.sub_category,
+            'categories': {
+                'main_category': self.main_category,
+                'sub_category': self.sub_category,
+                'item_name': self.kb_item_name
+            } if self.main_category else None,
+            
+            # Knowledge Base (unified fields)
+            'title': self.display_title or self.kb_title,
+            'display_title': self.display_title,
+            'description': self.description,
+            'content': self.markdown_content or self.kb_content,
+            'markdown_content': self.markdown_content,
+            'raw_json_content': self.raw_json_content,
+            'kb_media_paths': self.kb_media_paths,
+            'item_name_suggestion': self.kb_item_name,
+            
+            # Metadata
+            'source': self.source,
+            'source_url': self.source_url,
+            
+            # Error tracking
+            'kbitem_error': self.kbitem_error,
+            'llm_error': self.llm_error,
+            'retry_count': self.retry_count,
+            
+            # Timestamps
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'cached_at': self.cached_at.isoformat() if self.cached_at else None,
+            'processed_at': self.processed_at.isoformat() if self.processed_at else None,
+            'last_updated': self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    @classmethod
+    def create_from_tweet_data(cls, tweet_id: str, tweet_data: dict):
+        """Create a new UnifiedTweet from tweet data dictionary."""
+        unified_tweet = cls(
+            tweet_id=tweet_id,
+            bookmarked_tweet_id=tweet_data.get('bookmarked_tweet_id'),
+            
+            # Processing flags
+            cache_complete=tweet_data.get('cache_complete', False),
+            media_processed=tweet_data.get('media_processed', False),
+            categories_processed=tweet_data.get('categories_processed', False),
+            kb_item_created=tweet_data.get('kb_item_created', False),
+            processing_complete=tweet_data.get('processing_complete', False),
+            
+            # Content
+            raw_tweet_data=tweet_data.get('raw_tweet_data'),
+            thread_tweets=tweet_data.get('thread_tweets'),
+            is_thread=tweet_data.get('is_thread', False),
+            full_text=tweet_data.get('full_text'),
+            media_files=tweet_data.get('media_files'),
+            image_descriptions=tweet_data.get('image_descriptions'),
+            
+            # Categorization
+            main_category=tweet_data.get('main_category'),
+            sub_category=tweet_data.get('sub_category'),
+            kb_item_name=tweet_data.get('item_name_suggestion'),
+            
+            # Knowledge Base
+            display_title=tweet_data.get('display_title'),
+            description=tweet_data.get('description'),
+            markdown_content=tweet_data.get('markdown_content'),
+            raw_json_content=tweet_data.get('raw_json_content'),
+            kb_media_paths=tweet_data.get('kb_media_paths'),
+            
+            # Metadata
+            source=tweet_data.get('source', 'twitter'),
+            source_url=tweet_data.get('source_url'),
+            
+            # Error tracking
+            kbitem_error=tweet_data.get('kbitem_error'),
+            llm_error=tweet_data.get('llm_error'),
+            retry_count=tweet_data.get('retry_count', 0)
+        )
+        
+        return unified_tweet

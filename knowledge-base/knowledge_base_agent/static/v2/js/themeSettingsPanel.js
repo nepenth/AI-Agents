@@ -36,60 +36,48 @@ class SettingsManager {
     }
     
     setupEventListeners() {
-        // Modal system event listeners
-        if (this.modalTrigger && this.modal) {
-            this.modalTrigger.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.openModal();
-            });
-            
-            this.modalCloseBtn?.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.closeModal();
-            });
-            
-            this.modalOverlay?.addEventListener('click', (e) => {
-                if (e.target === this.modalOverlay) {
-                    this.closeModal();
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            modals: [
+                {
+                    triggerSelector: this.modalTrigger,
+                    modalSelector: this.modal,
+                    closeSelector: this.modalCloseBtn,
+                    overlaySelector: this.modalOverlay,
+                    onOpen: () => this.openModal(),
+                    onClose: () => this.closeModal(),
+                    closeOnEscape: true,
+                    closeOnOverlay: true
                 }
-            });
-            
-            // Prevent modal content clicks from closing modal
-            const modalContent = this.modal?.querySelector('.settings-modal-content');
-            modalContent?.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-        }
-        
-        // Compact panel event listeners
-        if (this.compactTrigger && this.compactContent) {
-            this.compactTrigger.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.toggleCompactPanel();
-            });
-        }
-        
-        // Global event listeners
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (this.isModalOpen) {
-                    this.closeModal();
-                } else if (this.isCompactOpen) {
-                    this.closeCompactPanel();
+            ],
+            buttons: [
+                {
+                    selector: this.compactTrigger,
+                    handler: () => this.toggleCompactPanel(),
+                    preventDefault: true,
+                    stopPropagation: true,
+                    condition: () => this.compactTrigger && this.compactContent
                 }
-            }
-        });
-        
-        // Close compact panel when clicking outside
-        document.addEventListener('click', (e) => {
-            if (this.isCompactOpen && 
-                !this.compactTrigger?.contains(e.target) && 
-                !this.compactContent?.contains(e.target)) {
-                this.closeCompactPanel();
-            }
+            ],
+            customEvents: [
+                {
+                    event: 'click',
+                    handler: (e) => {
+                        if (this.isCompactOpen && 
+                            !this.compactTrigger?.contains(e.target) && 
+                            !this.compactContent?.contains(e.target)) {
+                            this.closeCompactPanel();
+                        }
+                    }
+                }
+            ],
+            delegated: [
+                {
+                    selector: '.settings-modal-content',
+                    event: 'click',
+                    handler: (e) => e.stopPropagation()
+                }
+            ]
         });
         
         // Theme control event listeners

@@ -12,6 +12,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/sidebar-nav.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/gpu-status.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/knowledge-base.css', v='2.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/tweet-management.css', v='2.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-chat.css', v='1.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-knowledge-base.css', v='1.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-tweet-management.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/core/mobile-optimizations.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/core/browser-compatibility.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/v2.css', v='1.3') }}">
@@ -147,34 +151,189 @@
     </div>
 
     <!-- JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-    <!-- Simplified Architecture - Load first -->
+    <!-- Enhanced SocketIO Loading with Robust Fallback -->
+    <script>
+    (function() {
+        'use strict';
+        
+        console.log('✅ [System] Starting enhanced SocketIO initialization...');
+        
+        // Global state management
+        window.SOCKETIO_DISABLED = false;
+        window.REST_API_MODE = false;
+        window.SOCKETIO_LOADING = true;
+        
+        function dispatchEvent(eventName, data = {}) {
+            const event = new CustomEvent(eventName, { detail: data });
+            document.dispatchEvent(event);
+        }
+        
+        function enableRestApiMode(reason) {
+            console.log(`ℹ️ [System] Switching to REST API mode: ${reason}`);
+            window.SOCKETIO_DISABLED = true;
+            window.REST_API_MODE = true;
+            window.SOCKETIO_LOADING = false;
+            dispatchEvent('socketio-failed', { error: reason });
+        }
+        
+        function enableSocketIOMode() {
+            console.log('✅ [System] SocketIO successfully loaded, enabling hybrid mode');
+            window.SOCKETIO_DISABLED = false;
+            window.REST_API_MODE = false;
+            window.SOCKETIO_LOADING = false;
+            dispatchEvent('socketio-ready');
+        }
+        
+        // Timeout for SocketIO loading (5 seconds)
+        const socketIOTimeout = setTimeout(() => {
+            if (window.SOCKETIO_LOADING) {
+                enableRestApiMode('SocketIO loading timeout (5s)');
+            }
+        }, 5000);
+        
+        // Try to load SocketIO from reliable CDNs
+        const socketIOSources = [
+            'https://cdn.socket.io/4.7.2/socket.io.min.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js',
+            'https://unpkg.com/socket.io-client@4.7.2/dist/socket.io.min.js'
+        ];
+        
+        let currentSourceIndex = 0;
+        
+        function tryLoadSocketIO() {
+            if (currentSourceIndex >= socketIOSources.length) {
+                clearTimeout(socketIOTimeout);
+                enableRestApiMode('All SocketIO CDN sources failed');
+                return;
+            }
+            
+            const script = document.createElement('script');
+            const source = socketIOSources[currentSourceIndex];
+            
+            console.log(`🔄 [System] Attempting to load SocketIO from: ${source}`);
+            
+            script.onload = function() {
+                clearTimeout(socketIOTimeout);
+                console.log(`✅ [System] SocketIO loaded successfully from: ${source}`);
+                
+                // Initialize SocketIO connection
+                try {
+                    // Determine the correct protocol and URL for SocketIO connection
+                    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                    const host = window.location.hostname;
+                    const port = window.location.port || (protocol === 'https:' ? '443' : '80');
+                    
+                    // For development, use the same host and port as the current page
+                    const socketUrl = `${protocol}//${host}:${port}`;
+                    
+                    console.log(`🔗 [SocketIO] Connecting to: ${socketUrl}`);
+                    
+                    window.socket = io(socketUrl, {
+                        transports: ['websocket', 'polling'],
+                        timeout: 10000,
+                        reconnection: true,
+                        reconnectionAttempts: 3,
+                        reconnectionDelay: 1000,
+                        forceNew: true,
+                        // Handle HTTPS/WSS properly
+                        secure: protocol === 'https:',
+                        // Add additional connection options
+                        autoConnect: true,
+                        upgrade: true
+                    });
+                    
+                    window.socket.on('connect', () => {
+                        console.log('🔗 [SocketIO] Connected successfully');
+                        enableSocketIOMode();
+                        
+                        // Dispatch event for UIManager integration
+                        document.dispatchEvent(new CustomEvent('socketio_ready', {
+                            detail: { socket: window.socket }
+                        }));
+                    });
+                    
+                    window.socket.on('connect_error', (error) => {
+                        console.error('❌ [SocketIO] Connection error:', error);
+                        enableRestApiMode(`SocketIO connection failed: ${error.message}`);
+                    });
+                    
+                    window.socket.on('disconnect', (reason) => {
+                        console.warn('⚠️ [SocketIO] Disconnected:', reason);
+                        // Don't switch to REST API mode on disconnect, allow reconnection
+                    });
+                    
+                } catch (error) {
+                    console.error('❌ [System] Failed to initialize SocketIO:', error);
+                    enableRestApiMode(`SocketIO initialization failed: ${error.message}`);
+                }
+            };
+            
+            script.onerror = function() {
+                console.warn(`❌ [System] Failed to load SocketIO from: ${source}`);
+                currentSourceIndex++;
+                tryLoadSocketIO();
+            };
+            
+            script.src = source;
+            document.head.appendChild(script);
+        }
+        
+        // Start loading SocketIO
+        tryLoadSocketIO();
+        
+    })();
+    </script>
+    
+    <!-- Enhanced Architecture - Load core managers first -->
+    <!-- Core Utility Services -->
+    <script src="{{ url_for('static', filename='v2/js/durationFormatter.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/cleanupService.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/eventListenerService.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/enhancedAPIService.js', v='1.0') }}"></script>
+    
+    <!-- Consolidated Architecture - Phase 3 -->
+    <script src="{{ url_for('static', filename='v2/js/baseManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/coreUIManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/unifiedDisplayManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/unifiedConnectionManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/agentSystemManager.js', v='1.0') }}"></script>
+    
+    <script src="{{ url_for('static', filename='v2/js/enhancedSocketIOManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/phaseProgressDisplayManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/simplifiedLogsManager.js', v='1.0') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/simplifiedUI.js', v='1.0') }}"></script>
+    
+    <!-- Required dependencies for ui-fixed.js -->
+    <script src="{{ url_for('static', filename='v2/js/eventDeduplicator.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/connectionManager.js', v='1.0') }}"></script>
+    
+    <script src="{{ url_for('static', filename='v2/js/ui-fixed.js', v='1.0') }}"></script>
     <!-- Component Coordinator - Load first to ensure availability -->
     <script src="{{ url_for('static', filename='v2/js/componentCoordinator.js', v='1.0') }}"></script>
     
     <!-- Enhanced Task State Management - Load early for state restoration -->
     <script src="{{ url_for('static', filename='v2/js/taskStateManager.js', v='1.0') }}"></script>
     
-    <!-- Tweet Management Manager - Component for tweet exploration and control -->
-    <script src="{{ url_for('static', filename='v2/js/managers/TweetManagementManager.js', v='1.6') }}"></script>
+
     
     <script src="{{ url_for('static', filename='v2/js/effects.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/staticPages.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/synthesis.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/schedule.js') }}"></script>
+
     <script src="{{ url_for('static', filename='v2/js/agentControls.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/gpuStatus.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/liveLogs.js') }}"></script>
+
     <script src="{{ url_for('static', filename='v2/js/executionPlan.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/phaseDisplay.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/progressDisplay.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/taskDisplay.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/historicalTasks.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/chat.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/kb.js') }}"></script>
+    
+    <!-- Modern Page Managers - Clean implementations following consolidated architecture -->
+    <script src="{{ url_for('static', filename='v2/js/modernChatManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/modernKnowledgeBaseManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/modernTweetManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/modernSynthesisManager.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/modernScheduleManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/themeManager.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/themeSettingsPanel.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/settingsFix.js') }}"></script>
@@ -183,12 +342,8 @@
     <script src="{{ url_for('static', filename='v2/js/notificationSystem.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/performanceMonitoring.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/performanceOptimizer.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/displayComponentsTest.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/componentCoordinationTests.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/errorRecoveryTests.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/performanceTests.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/performanceOptimizationTests.js') }}"></script>
-    <script src="{{ url_for('static', filename='v2/js/ui.js', v='1.4') }}"></script>
+
+    <!-- UI.js removed to prevent duplicate initialization with simplifiedUI.js -->
     {% block scripts %}{% endblock %}
 </body>
 </html> 
