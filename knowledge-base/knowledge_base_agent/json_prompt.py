@@ -493,10 +493,18 @@ class JsonPrompt:
         system_template = self.template_env.from_string(template_config.get('system_message', ''))
         user_template = self.template_env.from_string(template_config.get('user_message', ''))
         
-        return {
-            'system': system_template.render(**parameters),
-            'user': user_template.render(**parameters)
-        }
+        # For reasoning prompts, we need to determine which message to return based on the prompt type
+        # System message prompts should return system role, others return user role
+        if self.prompt_id == "system_message":
+            return {
+                'role': 'system',
+                'content': system_template.render(**parameters)
+            }
+        else:
+            return {
+                'role': 'user',
+                'content': user_template.render(**parameters)
+            }
     
     # Property accessors for prompt metadata
     @property

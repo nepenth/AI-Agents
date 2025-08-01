@@ -44,27 +44,30 @@ class ProgressDisplayManager {
     }
     
     setupEventListeners() {
-        // Listen for progress events from enhanced logging system
-        document.addEventListener('progress_update', (event) => {
-            this.handleProgressUpdate(event.detail);
-        });
-        
-        // Listen for phase events to create/update progress bars
-        document.addEventListener('phase_start', (event) => {
-            this.handlePhaseStart(event.detail);
-        });
-        
-        document.addEventListener('phase_complete', (event) => {
-            this.handlePhaseComplete(event.detail);
-        });
-        
-        document.addEventListener('phase_error', (event) => {
-            this.handlePhaseError(event.detail);
-        });
-        
-        // Listen for agent status changes
-        document.addEventListener('agent_status_update', (event) => {
-            this.handleAgentStatusUpdate(event.detail);
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            customEvents: [
+                {
+                    event: 'progress_update',
+                    handler: (e) => this.handleProgressUpdate(e.detail)
+                },
+                {
+                    event: 'phase_start',
+                    handler: (e) => this.handlePhaseStart(e.detail)
+                },
+                {
+                    event: 'phase_complete',
+                    handler: (e) => this.handlePhaseComplete(e.detail)
+                },
+                {
+                    event: 'phase_error',
+                    handler: (e) => this.handlePhaseError(e.detail)
+                },
+                {
+                    event: 'agent_status_update',
+                    handler: (e) => this.handleAgentStatusUpdate(e.detail)
+                }
+            ]
         });
     }
     
@@ -611,17 +614,8 @@ class ProgressDisplayManager {
     }
     
     formatDuration(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        
-        if (hours > 0) {
-            return `${hours}h ${minutes % 60}m`;
-        } else if (minutes > 0) {
-            return `${minutes}m ${seconds % 60}s`;
-        } else {
-            return `${seconds}s`;
-        }
+        // Use centralized DurationFormatter service
+        return DurationFormatter.format(milliseconds);
     }
     
     // === PUBLIC API ===

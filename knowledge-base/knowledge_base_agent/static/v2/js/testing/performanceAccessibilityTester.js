@@ -19,4 +19,561 @@ class PerformanceAccessibilityTester {
         if ('PerformanceObserver' in window) {
             // Monitor paint timing
             const paintObserver = new PerformanceObserver((list) => {
-                for (const entry of list.getEntries()) {\n                    this.performanceResults.push({\n                        type: 'paint',\n                        name: entry.name,\n                        startTime: entry.startTime,\n                        timestamp: Date.now()\n                    });\n                }\n            });\n            paintObserver.observe({ entryTypes: ['paint'] });\n            \n            // Monitor layout shifts\n            const layoutShiftObserver = new PerformanceObserver((list) => {\n                for (const entry of list.getEntries()) {\n                    if (!entry.hadRecentInput) {\n                        this.performanceResults.push({\n                            type: 'layout-shift',\n                            value: entry.value,\n                            startTime: entry.startTime,\n                            timestamp: Date.now()\n                        });\n                    }\n                }\n            });\n            layoutShiftObserver.observe({ entryTypes: ['layout-shift'] });\n            \n            // Monitor long tasks\n            const longTaskObserver = new PerformanceObserver((list) => {\n                for (const entry of list.getEntries()) {\n                    this.performanceResults.push({\n                        type: 'long-task',\n                        duration: entry.duration,\n                        startTime: entry.startTime,\n                        timestamp: Date.now()\n                    });\n                }\n            });\n            longTaskObserver.observe({ entryTypes: ['longtask'] });\n        }\n    }\n    \n    // Frame Rate Testing\n    startFrameRateMonitoring() {\n        if (this.isMonitoring) return;\n        \n        this.isMonitoring = true;\n        this.frameRateData = [];\n        let lastTime = performance.now();\n        let frameCount = 0;\n        \n        const measureFrameRate = (currentTime) => {\n            frameCount++;\n            \n            if (currentTime - lastTime >= 1000) {\n                const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));\n                this.frameRateData.push({\n                    fps: fps,\n                    timestamp: currentTime\n                });\n                \n                frameCount = 0;\n                lastTime = currentTime;\n            }\n            \n            if (this.isMonitoring) {\n                this.frameRateMonitor = requestAnimationFrame(measureFrameRate);\n            }\n        };\n        \n        this.frameRateMonitor = requestAnimationFrame(measureFrameRate);\n        console.log('📊 Frame rate monitoring started');\n    }\n    \n    stopFrameRateMonitoring() {\n        this.isMonitoring = false;\n        if (this.frameRateMonitor) {\n            cancelAnimationFrame(this.frameRateMonitor);\n        }\n        \n        const avgFps = this.frameRateData.reduce((sum, data) => sum + data.fps, 0) / this.frameRateData.length;\n        const minFps = Math.min(...this.frameRateData.map(d => d.fps));\n        const maxFps = Math.max(...this.frameRateData.map(d => d.fps));\n        \n        const result = {\n            average: Math.round(avgFps),\n            minimum: minFps,\n            maximum: maxFps,\n            samples: this.frameRateData.length,\n            data: this.frameRateData\n        };\n        \n        console.log('📊 Frame rate monitoring stopped:', result);\n        return result;\n    }\n    \n    // Animation Performance Testing\n    async testAnimationPerformance() {\n        console.log('🎬 Testing animation performance...');\n        \n        const animations = [\n            { name: 'glass-slide-in', class: 'animate-glass-slide-in' },\n            { name: 'glass-fade-in', class: 'animate-glass-fade-in' },\n            { name: 'lift-hover', class: 'animate-lift-hover' },\n            { name: 'shimmer', class: 'animate-shimmer-strong' }\n        ];\n        \n        const results = [];\n        \n        for (const animation of animations) {\n            const result = await this.testSingleAnimation(animation);\n            results.push(result);\n        }\n        \n        return results;\n    }\n    \n    async testSingleAnimation(animation) {\n        return new Promise((resolve) => {\n            // Create test element\n            const testElement = document.createElement('div');\n            testElement.className = 'glass-panel-v3';\n            testElement.style.cssText = `\n                position: fixed;\n                top: -200px;\n                left: -200px;\n                width: 100px;\n                height: 100px;\n                z-index: -1;\n            `;\n            document.body.appendChild(testElement);\n            \n            // Start monitoring\n            this.startFrameRateMonitoring();\n            const startTime = performance.now();\n            \n            // Trigger animation\n            testElement.classList.add(animation.class);\n            \n            // Wait for animation to complete\n            setTimeout(() => {\n                const endTime = performance.now();\n                const frameRateResult = this.stopFrameRateMonitoring();\n                \n                // Clean up\n                document.body.removeChild(testElement);\n                \n                resolve({\n                    animation: animation.name,\n                    duration: endTime - startTime,\n                    frameRate: frameRateResult,\n                    performance: frameRateResult.average >= 55 ? 'good' : \n                                frameRateResult.average >= 30 ? 'acceptable' : 'poor'\n                });\n            }, 1000);\n        });\n    }\n    \n    // Glass Effect Performance Testing\n    testGlassEffectPerformance() {\n        console.log('🔍 Testing glass effect performance...');\n        \n        const testElement = document.createElement('div');\n        testElement.className = 'glass-panel-v3';\n        testElement.style.cssText = `\n            position: fixed;\n            top: 50%;\n            left: 50%;\n            width: 300px;\n            height: 200px;\n            transform: translate(-50%, -50%);\n            z-index: 9999;\n        `;\n        \n        document.body.appendChild(testElement);\n        \n        // Test backdrop-filter performance\n        const startTime = performance.now();\n        this.startFrameRateMonitoring();\n        \n        // Simulate interaction\n        testElement.addEventListener('mouseenter', () => {\n            testElement.style.backdropFilter = 'blur(20px) saturate(200%)';\n        });\n        \n        testElement.addEventListener('mouseleave', () => {\n            testElement.style.backdropFilter = 'blur(10px) saturate(180%)';\n        });\n        \n        // Trigger hover states\n        testElement.dispatchEvent(new MouseEvent('mouseenter'));\n        \n        setTimeout(() => {\n            testElement.dispatchEvent(new MouseEvent('mouseleave'));\n            \n            setTimeout(() => {\n                const endTime = performance.now();\n                const frameRateResult = this.stopFrameRateMonitoring();\n                \n                document.body.removeChild(testElement);\n                \n                const result = {\n                    test: 'glass-effect-performance',\n                    duration: endTime - startTime,\n                    frameRate: frameRateResult,\n                    performance: frameRateResult.average >= 55 ? 'excellent' : \n                                frameRateResult.average >= 45 ? 'good' : \n                                frameRateResult.average >= 30 ? 'acceptable' : 'poor'\n                };\n                \n                console.log('🔍 Glass effect performance result:', result);\n                return result;\n            }, 500);\n        }, 500);\n    }\n    \n    // Accessibility Testing\n    async runAccessibilityAudit() {\n        console.log('♿ Running accessibility audit...');\n        \n        const results = {\n            colorContrast: await this.testColorContrast(),\n            keyboardNavigation: await this.testKeyboardNavigation(),\n            ariaLabels: await this.testAriaLabels(),\n            focusManagement: await this.testFocusManagement(),\n            semanticStructure: await this.testSemanticStructure(),\n            reducedMotion: await this.testReducedMotionSupport()\n        };\n        \n        this.accessibilityResults = results;\n        return results;\n    }\n    \n    async testColorContrast() {\n        const elements = document.querySelectorAll('*');\n        const contrastIssues = [];\n        \n        for (const element of elements) {\n            const styles = window.getComputedStyle(element);\n            const textColor = styles.color;\n            const backgroundColor = styles.backgroundColor;\n            \n            if (textColor && backgroundColor && backgroundColor !== 'rgba(0, 0, 0, 0)') {\n                const contrast = this.calculateContrastRatio(textColor, backgroundColor);\n                \n                if (contrast < 4.5) { // WCAG AA standard\n                    contrastIssues.push({\n                        element: element.tagName.toLowerCase(),\n                        class: element.className,\n                        textColor: textColor,\n                        backgroundColor: backgroundColor,\n                        contrast: contrast.toFixed(2),\n                        wcagLevel: contrast >= 3 ? 'AA Large' : 'Fail'\n                    });\n                }\n            }\n        }\n        \n        return {\n            passed: contrastIssues.length === 0,\n            issues: contrastIssues,\n            summary: `${contrastIssues.length} contrast issues found`\n        };\n    }\n    \n    calculateContrastRatio(color1, color2) {\n        // Simplified contrast calculation\n        // In production, use a proper color contrast library\n        const rgb1 = this.parseColor(color1);\n        const rgb2 = this.parseColor(color2);\n        \n        const l1 = this.getLuminance(rgb1);\n        const l2 = this.getLuminance(rgb2);\n        \n        const lighter = Math.max(l1, l2);\n        const darker = Math.min(l1, l2);\n        \n        return (lighter + 0.05) / (darker + 0.05);\n    }\n    \n    parseColor(color) {\n        // Simple RGB extraction - enhance for production\n        const match = color.match(/rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)/);\n        if (match) {\n            return {\n                r: parseInt(match[1]),\n                g: parseInt(match[2]),\n                b: parseInt(match[3])\n            };\n        }\n        return { r: 0, g: 0, b: 0 };\n    }\n    \n    getLuminance(rgb) {\n        const { r, g, b } = rgb;\n        const [rs, gs, bs] = [r, g, b].map(c => {\n            c = c / 255;\n            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);\n        });\n        return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;\n    }\n    \n    async testKeyboardNavigation() {\n        const focusableElements = document.querySelectorAll(\n            'button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])'\n        );\n        \n        const issues = [];\n        \n        for (const element of focusableElements) {\n            // Test if element is focusable\n            element.focus();\n            if (document.activeElement !== element) {\n                issues.push({\n                    element: element.tagName.toLowerCase(),\n                    class: element.className,\n                    issue: 'Element not focusable'\n                });\n            }\n            \n            // Test if element has visible focus indicator\n            const styles = window.getComputedStyle(element, ':focus');\n            if (!styles.outline || styles.outline === 'none') {\n                issues.push({\n                    element: element.tagName.toLowerCase(),\n                    class: element.className,\n                    issue: 'No visible focus indicator'\n                });\n            }\n        }\n        \n        return {\n            passed: issues.length === 0,\n            focusableElements: focusableElements.length,\n            issues: issues,\n            summary: `${issues.length} keyboard navigation issues found`\n        };\n    }\n    \n    async testAriaLabels() {\n        const elementsNeedingLabels = document.querySelectorAll(\n            'button:not([aria-label]):not([aria-labelledby]), ' +\n            'input:not([aria-label]):not([aria-labelledby]):not([id]), ' +\n            '[role=\"button\"]:not([aria-label]):not([aria-labelledby])'\n        );\n        \n        const issues = [];\n        \n        for (const element of elementsNeedingLabels) {\n            if (!element.textContent.trim() && !element.title) {\n                issues.push({\n                    element: element.tagName.toLowerCase(),\n                    class: element.className,\n                    issue: 'Missing accessible label'\n                });\n            }\n        }\n        \n        return {\n            passed: issues.length === 0,\n            issues: issues,\n            summary: `${issues.length} ARIA label issues found`\n        };\n    }\n    \n    async testFocusManagement() {\n        const modals = document.querySelectorAll('[role=\"dialog\"], .modal');\n        const issues = [];\n        \n        for (const modal of modals) {\n            // Test if modal traps focus\n            const focusableInModal = modal.querySelectorAll(\n                'button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])'\n            );\n            \n            if (focusableInModal.length === 0) {\n                issues.push({\n                    element: 'modal',\n                    class: modal.className,\n                    issue: 'Modal has no focusable elements'\n                });\n            }\n        }\n        \n        return {\n            passed: issues.length === 0,\n            issues: issues,\n            summary: `${issues.length} focus management issues found`\n        };\n    }\n    \n    async testSemanticStructure() {\n        const issues = [];\n        \n        // Test heading hierarchy\n        const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');\n        let lastLevel = 0;\n        \n        for (const heading of headings) {\n            const level = parseInt(heading.tagName.charAt(1));\n            if (level > lastLevel + 1) {\n                issues.push({\n                    element: heading.tagName.toLowerCase(),\n                    issue: `Heading level skipped (${lastLevel} to ${level})`\n                });\n            }\n            lastLevel = level;\n        }\n        \n        // Test landmark roles\n        const landmarks = document.querySelectorAll('main, nav, aside, header, footer, [role=\"main\"], [role=\"navigation\"], [role=\"complementary\"]');\n        if (landmarks.length === 0) {\n            issues.push({\n                element: 'page',\n                issue: 'No landmark roles found'\n            });\n        }\n        \n        return {\n            passed: issues.length === 0,\n            issues: issues,\n            summary: `${issues.length} semantic structure issues found`\n        };\n    }\n    \n    async testReducedMotionSupport() {\n        const animatedElements = document.querySelectorAll('[class*=\"animate-\"]');\n        const issues = [];\n        \n        // Test if reduced motion is respected\n        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;\n        \n        if (prefersReducedMotion) {\n            for (const element of animatedElements) {\n                const styles = window.getComputedStyle(element);\n                if (styles.animationDuration !== '0s' && styles.animationDuration !== 'none') {\n                    issues.push({\n                        element: element.tagName.toLowerCase(),\n                        class: element.className,\n                        issue: 'Animation not disabled for reduced motion preference'\n                    });\n                }\n            }\n        }\n        \n        return {\n            passed: issues.length === 0,\n            prefersReducedMotion: prefersReducedMotion,\n            animatedElements: animatedElements.length,\n            issues: issues,\n            summary: `${issues.length} reduced motion issues found`\n        };\n    }\n    \n    // Generate comprehensive report\n    generateReport() {\n        const report = {\n            timestamp: new Date().toISOString(),\n            performance: {\n                frameRate: this.frameRateData || [],\n                glassEffects: this.performanceResults.filter(r => r.type === 'glass-effect'),\n                animations: this.performanceResults.filter(r => r.type === 'animation'),\n                layoutShifts: this.performanceResults.filter(r => r.type === 'layout-shift'),\n                longTasks: this.performanceResults.filter(r => r.type === 'long-task')\n            },\n            accessibility: this.accessibilityResults,\n            summary: this.generateSummary()\n        };\n        \n        console.log('📋 Performance & Accessibility Report:', report);\n        return report;\n    }\n    \n    generateSummary() {\n        const performanceScore = this.calculatePerformanceScore();\n        const accessibilityScore = this.calculateAccessibilityScore();\n        \n        return {\n            performanceScore: performanceScore,\n            accessibilityScore: accessibilityScore,\n            overallScore: Math.round((performanceScore + accessibilityScore) / 2),\n            recommendations: this.generateRecommendations(performanceScore, accessibilityScore)\n        };\n    }\n    \n    calculatePerformanceScore() {\n        // Simple scoring based on frame rate and issues\n        const avgFps = this.frameRateData ? \n            this.frameRateData.reduce((sum, data) => sum + data.fps, 0) / this.frameRateData.length : 60;\n        \n        const layoutShifts = this.performanceResults.filter(r => r.type === 'layout-shift').length;\n        const longTasks = this.performanceResults.filter(r => r.type === 'long-task').length;\n        \n        let score = 100;\n        score -= Math.max(0, (60 - avgFps) * 2); // Deduct for low FPS\n        score -= layoutShifts * 5; // Deduct for layout shifts\n        score -= longTasks * 10; // Deduct for long tasks\n        \n        return Math.max(0, Math.round(score));\n    }\n    \n    calculateAccessibilityScore() {\n        if (!this.accessibilityResults) return 100;\n        \n        let score = 100;\n        Object.values(this.accessibilityResults).forEach(result => {\n            if (result.issues) {\n                score -= result.issues.length * 5;\n            }\n        });\n        \n        return Math.max(0, Math.round(score));\n    }\n    \n    generateRecommendations(performanceScore, accessibilityScore) {\n        const recommendations = [];\n        \n        if (performanceScore < 80) {\n            recommendations.push('Consider optimizing animations and reducing glass effect complexity');\n            recommendations.push('Monitor and reduce layout shifts');\n            recommendations.push('Break up long-running JavaScript tasks');\n        }\n        \n        if (accessibilityScore < 80) {\n            recommendations.push('Improve color contrast ratios');\n            recommendations.push('Add missing ARIA labels and descriptions');\n            recommendations.push('Ensure all interactive elements are keyboard accessible');\n            recommendations.push('Implement proper focus management');\n        }\n        \n        return recommendations;\n    }\n    \n    exportReport() {\n        const report = this.generateReport();\n        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });\n        const url = URL.createObjectURL(blob);\n        const a = document.createElement('a');\n        a.href = url;\n        a.download = `performance-accessibility-report-${Date.now()}.json`;\n        a.click();\n        URL.revokeObjectURL(url);\n    }\n}\n\n// Initialize testing framework\nwindow.PerformanceAccessibilityTester = PerformanceAccessibilityTester;\n\n// Auto-initialize in development mode\nif (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {\n    window.pat = new PerformanceAccessibilityTester();\n    \n    console.log('⚡ Performance & Accessibility Testing available:');\n    console.log('- pat.testAnimationPerformance() - Test animation frame rates');\n    console.log('- pat.testGlassEffectPerformance() - Test glass effect performance');\n    console.log('- pat.runAccessibilityAudit() - Run full accessibility audit');\n    console.log('- pat.generateReport() - Generate comprehensive report');\n    console.log('- pat.exportReport() - Export test results');\n}
+                for (const entry of list.getEntries()) {
+                    this.performanceResults.push({
+                        type: 'paint',
+                        name: entry.name,
+                        startTime: entry.startTime,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+            paintObserver.observe({ entryTypes: ['paint'] });
+            
+            // Monitor layout shifts
+            const layoutShiftObserver = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    if (!entry.hadRecentInput) {
+                        this.performanceResults.push({
+                            type: 'layout-shift',
+                            value: entry.value,
+                            startTime: entry.startTime,
+                            timestamp: Date.now()
+                        });
+                    }
+                }
+            });
+            layoutShiftObserver.observe({ entryTypes: ['layout-shift'] });
+            
+            // Monitor long tasks
+            const longTaskObserver = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    this.performanceResults.push({
+                        type: 'long-task',
+                        duration: entry.duration,
+                        startTime: entry.startTime,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+            longTaskObserver.observe({ entryTypes: ['longtask'] });
+        }
+    }
+    
+    // Frame Rate Testing
+    startFrameRateMonitoring() {
+        if (this.isMonitoring) return;
+        
+        this.isMonitoring = true;
+        this.frameRateData = [];
+        let lastTime = performance.now();
+        let frameCount = 0;
+        
+        const measureFrameRate = (currentTime) => {
+            frameCount++;
+            
+            if (currentTime - lastTime >= 1000) {
+                const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                this.frameRateData.push({
+                    fps: fps,
+                    timestamp: currentTime
+                });
+                
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+            
+            if (this.isMonitoring) {
+                this.frameRateMonitor = requestAnimationFrame(measureFrameRate);
+            }
+        };
+        
+        this.frameRateMonitor = requestAnimationFrame(measureFrameRate);
+        console.log('📊 Frame rate monitoring started');
+    }
+    
+    stopFrameRateMonitoring() {
+        this.isMonitoring = false;
+        if (this.frameRateMonitor) {
+            cancelAnimationFrame(this.frameRateMonitor);
+        }
+        
+        const avgFps = this.frameRateData.reduce((sum, data) => sum + data.fps, 0) / this.frameRateData.length;
+        const minFps = Math.min(...this.frameRateData.map(d => d.fps));
+        const maxFps = Math.max(...this.frameRateData.map(d => d.fps));
+        
+        const result = {
+            average: Math.round(avgFps),
+            minimum: minFps,
+            maximum: maxFps,
+            samples: this.frameRateData.length,
+            data: this.frameRateData
+        };
+        
+        console.log('📊 Frame rate monitoring stopped:', result);
+        return result;
+    }
+    
+    // Animation Performance Testing
+    async testAnimationPerformance() {
+        console.log('🎬 Testing animation performance...');
+        
+        const animations = [
+            { name: 'glass-slide-in', class: 'animate-glass-slide-in' },
+            { name: 'glass-fade-in', class: 'animate-glass-fade-in' },
+            { name: 'lift-hover', class: 'animate-lift-hover' },
+            { name: 'shimmer', class: 'animate-shimmer-strong' }
+        ];
+        
+        const results = [];
+        
+        for (const animation of animations) {
+            const result = await this.testSingleAnimation(animation);
+            results.push(result);
+        }
+        
+        return results;
+    }
+    
+    async testSingleAnimation(animation) {
+        return new Promise((resolve) => {
+            // Create test element
+            const testElement = document.createElement('div');
+            testElement.className = 'glass-panel-v3';
+            testElement.style.cssText = `
+                position: fixed;
+                top: -200px;
+                left: -200px;
+                width: 100px;
+                height: 100px;
+                z-index: -1;
+            `;
+            document.body.appendChild(testElement);
+            
+            // Start monitoring
+            this.startFrameRateMonitoring();
+            const startTime = performance.now();
+            
+            // Trigger animation
+            testElement.classList.add(animation.class);
+            
+            // Wait for animation to complete
+            setTimeout(() => {
+                const endTime = performance.now();
+                const frameRateResult = this.stopFrameRateMonitoring();
+                
+                // Clean up
+                document.body.removeChild(testElement);
+                
+                resolve({
+                    animation: animation.name,
+                    duration: endTime - startTime,
+                    frameRate: frameRateResult,
+                    performance: frameRateResult.average >= 55 ? 'good' : 
+                                frameRateResult.average >= 30 ? 'acceptable' : 'poor'
+                });
+            }, 1000);
+        });
+    }
+    
+    // Glass Effect Performance Testing
+    testGlassEffectPerformance() {
+        console.log('🔍 Testing glass effect performance...');
+        
+        const testElement = document.createElement('div');
+        testElement.className = 'glass-panel-v3';
+        testElement.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 300px;
+            height: 200px;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        `;
+        
+        document.body.appendChild(testElement);
+        
+        // Test backdrop-filter performance
+        const startTime = performance.now();
+        this.startFrameRateMonitoring();
+        
+        // Simulate interaction
+        testElement.addEventListener('mouseenter', () => {
+            testElement.style.backdropFilter = 'blur(20px) saturate(200%)';
+        });
+        
+        testElement.addEventListener('mouseleave', () => {
+            testElement.style.backdropFilter = 'blur(10px) saturate(180%)';
+        });
+        
+        // Trigger hover states
+        testElement.dispatchEvent(new MouseEvent('mouseenter'));
+        
+        setTimeout(() => {
+            testElement.dispatchEvent(new MouseEvent('mouseleave'));
+            
+            setTimeout(() => {
+                const endTime = performance.now();
+                const frameRateResult = this.stopFrameRateMonitoring();
+                
+                document.body.removeChild(testElement);
+                
+                const result = {
+                    test: 'glass-effect-performance',
+                    duration: endTime - startTime,
+                    frameRate: frameRateResult,
+                    performance: frameRateResult.average >= 55 ? 'excellent' : 
+                                frameRateResult.average >= 45 ? 'good' : 
+                                frameRateResult.average >= 30 ? 'acceptable' : 'poor'
+                };
+                
+                console.log('🔍 Glass effect performance result:', result);
+                return result;
+            }, 500);
+        }, 500);
+    }
+    
+    // Accessibility Testing
+    async runAccessibilityAudit() {
+        console.log('♿ Running accessibility audit...');
+        
+        const results = {
+            colorContrast: await this.testColorContrast(),
+            keyboardNavigation: await this.testKeyboardNavigation(),
+            ariaLabels: await this.testAriaLabels(),
+            focusManagement: await this.testFocusManagement(),
+            semanticStructure: await this.testSemanticStructure(),
+            reducedMotion: await this.testReducedMotionSupport()
+        };
+        
+        this.accessibilityResults = results;
+        return results;
+    }
+    
+    async testColorContrast() {
+        const elements = document.querySelectorAll('*');
+        const contrastIssues = [];
+        
+        for (const element of elements) {
+            const styles = window.getComputedStyle(element);
+            const textColor = styles.color;
+            const backgroundColor = styles.backgroundColor;
+            
+            if (textColor && backgroundColor && backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                const contrast = this.calculateContrastRatio(textColor, backgroundColor);
+                
+                if (contrast < 4.5) { // WCAG AA standard
+                    contrastIssues.push({
+                        element: element.tagName.toLowerCase(),
+                        class: element.className,
+                        textColor: textColor,
+                        backgroundColor: backgroundColor,
+                        contrast: contrast.toFixed(2),
+                        wcagLevel: contrast >= 3 ? 'AA Large' : 'Fail'
+                    });
+                }
+            }
+        }
+        
+        return {
+            passed: contrastIssues.length === 0,
+            issues: contrastIssues,
+            summary: `${contrastIssues.length} contrast issues found`
+        };
+    }
+    
+    calculateContrastRatio(color1, color2) {
+        // Simplified contrast calculation
+        // In production, use a proper color contrast library
+        const rgb1 = this.parseColor(color1);
+        const rgb2 = this.parseColor(color2);
+        
+        const l1 = this.getLuminance(rgb1);
+        const l2 = this.getLuminance(rgb2);
+        
+        const lighter = Math.max(l1, l2);
+        const darker = Math.min(l1, l2);
+        
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+    
+    parseColor(color) {
+        // Simple RGB extraction - enhance for production
+        const match = color.match(/rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)/);
+        if (match) {
+            return {
+                r: parseInt(match[1]),
+                g: parseInt(match[2]),
+                b: parseInt(match[3])
+            };
+        }
+        return { r: 0, g: 0, b: 0 };
+    }
+    
+    getLuminance(rgb) {
+        const { r, g, b } = rgb;
+        const [rs, gs, bs] = [r, g, b].map(c => {
+            c = c / 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    }
+    
+    async testKeyboardNavigation() {
+        const focusableElements = document.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])'
+        );
+        
+        const issues = [];
+        
+        for (const element of focusableElements) {
+            // Test if element is focusable
+            element.focus();
+            if (document.activeElement !== element) {
+                issues.push({
+                    element: element.tagName.toLowerCase(),
+                    class: element.className,
+                    issue: 'Element not focusable'
+                });
+            }
+            
+            // Test if element has visible focus indicator
+            const styles = window.getComputedStyle(element, ':focus');
+            if (!styles.outline || styles.outline === 'none') {
+                issues.push({
+                    element: element.tagName.toLowerCase(),
+                    class: element.className,
+                    issue: 'No visible focus indicator'
+                });
+            }
+        }
+        
+        return {
+            passed: issues.length === 0,
+            focusableElements: focusableElements.length,
+            issues: issues,
+            summary: `${issues.length} keyboard navigation issues found`
+        };
+    }
+    
+    async testAriaLabels() {
+        const elementsNeedingLabels = document.querySelectorAll(
+            'button:not([aria-label]):not([aria-labelledby]), ' +
+            'input:not([aria-label]):not([aria-labelledby]):not([id]), ' +
+            '[role=\"button\"]:not([aria-label]):not([aria-labelledby])'
+        );
+        
+        const issues = [];
+        
+        for (const element of elementsNeedingLabels) {
+            if (!element.textContent.trim() && !element.title) {
+                issues.push({
+                    element: element.tagName.toLowerCase(),
+                    class: element.className,
+                    issue: 'Missing accessible label'
+                });
+            }
+        }
+        
+        return {
+            passed: issues.length === 0,
+            issues: issues,
+            summary: `${issues.length} ARIA label issues found`
+        };
+    }
+    
+    async testFocusManagement() {
+        const modals = document.querySelectorAll('[role=\"dialog\"], .modal');
+        const issues = [];
+        
+        for (const modal of modals) {
+            // Test if modal traps focus
+            const focusableInModal = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])'
+            );
+            
+            if (focusableInModal.length === 0) {
+                issues.push({
+                    element: 'modal',
+                    class: modal.className,
+                    issue: 'Modal has no focusable elements'
+                });
+            }
+        }
+        
+        return {
+            passed: issues.length === 0,
+            issues: issues,
+            summary: `${issues.length} focus management issues found`
+        };
+    }
+    
+    async testSemanticStructure() {
+        const issues = [];
+        
+        // Test heading hierarchy
+        const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        let lastLevel = 0;
+        
+        for (const heading of headings) {
+            const level = parseInt(heading.tagName.charAt(1));
+            if (level > lastLevel + 1) {
+                issues.push({
+                    element: heading.tagName.toLowerCase(),
+                    issue: `Heading level skipped (${lastLevel} to ${level})`
+                });
+            }
+            lastLevel = level;
+        }
+        
+        // Test landmark roles
+        const landmarks = document.querySelectorAll('main, nav, aside, header, footer, [role=\"main\"], [role=\"navigation\"], [role=\"complementary\"]');
+        if (landmarks.length === 0) {
+            issues.push({
+                element: 'page',
+                issue: 'No landmark roles found'
+            });
+        }
+        
+        return {
+            passed: issues.length === 0,
+            issues: issues,
+            summary: `${issues.length} semantic structure issues found`
+        };
+    }
+    
+    async testReducedMotionSupport() {
+        const animatedElements = document.querySelectorAll('[class*=\"animate-\"]');
+        const issues = [];
+        
+        // Test if reduced motion is respected
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        
+        if (prefersReducedMotion) {
+            for (const element of animatedElements) {
+                const styles = window.getComputedStyle(element);
+                if (styles.animationDuration !== '0s' && styles.animationDuration !== 'none') {
+                    issues.push({
+                        element: element.tagName.toLowerCase(),
+                        class: element.className,
+                        issue: 'Animation not disabled for reduced motion preference'
+                    });
+                }
+            }
+        }
+        
+        return {
+            passed: issues.length === 0,
+            prefersReducedMotion: prefersReducedMotion,
+            animatedElements: animatedElements.length,
+            issues: issues,
+            summary: `${issues.length} reduced motion issues found`
+        };
+    }
+    
+    // Generate comprehensive report
+    generateReport() {
+        const report = {
+            timestamp: new Date().toISOString(),
+            performance: {
+                frameRate: this.frameRateData || [],
+                glassEffects: this.performanceResults.filter(r => r.type === 'glass-effect'),
+                animations: this.performanceResults.filter(r => r.type === 'animation'),
+                layoutShifts: this.performanceResults.filter(r => r.type === 'layout-shift'),
+                longTasks: this.performanceResults.filter(r => r.type === 'long-task')
+            },
+            accessibility: this.accessibilityResults,
+            summary: this.generateSummary()
+        };
+        
+        console.log('📋 Performance & Accessibility Report:', report);
+        return report;
+    }
+    
+    generateSummary() {
+        const performanceScore = this.calculatePerformanceScore();
+        const accessibilityScore = this.calculateAccessibilityScore();
+        
+        return {
+            performanceScore: performanceScore,
+            accessibilityScore: accessibilityScore,
+            overallScore: Math.round((performanceScore + accessibilityScore) / 2),
+            recommendations: this.generateRecommendations(performanceScore, accessibilityScore)
+        };
+    }
+    
+    calculatePerformanceScore() {
+        // Simple scoring based on frame rate and issues
+        const avgFps = this.frameRateData ? 
+            this.frameRateData.reduce((sum, data) => sum + data.fps, 0) / this.frameRateData.length : 60;
+        
+        const layoutShifts = this.performanceResults.filter(r => r.type === 'layout-shift').length;
+        const longTasks = this.performanceResults.filter(r => r.type === 'long-task').length;
+        
+        let score = 100;
+        score -= Math.max(0, (60 - avgFps) * 2); // Deduct for low FPS
+        score -= layoutShifts * 5; // Deduct for layout shifts
+        score -= longTasks * 10; // Deduct for long tasks
+        
+        return Math.max(0, Math.round(score));
+    }
+    
+    calculateAccessibilityScore() {
+        if (!this.accessibilityResults) return 100;
+        
+        let score = 100;
+        Object.values(this.accessibilityResults).forEach(result => {
+            if (result.issues) {
+                score -= result.issues.length * 5;
+            }
+        });
+        
+        return Math.max(0, Math.round(score));
+    }
+    
+    generateRecommendations(performanceScore, accessibilityScore) {
+        const recommendations = [];
+        
+        if (performanceScore < 80) {
+            recommendations.push('Consider optimizing animations and reducing glass effect complexity');
+            recommendations.push('Monitor and reduce layout shifts');
+            recommendations.push('Break up long-running JavaScript tasks');
+        }
+        
+        if (accessibilityScore < 80) {
+            recommendations.push('Improve color contrast ratios');
+            recommendations.push('Add missing ARIA labels and descriptions');
+            recommendations.push('Ensure all interactive elements are keyboard accessible');
+            recommendations.push('Implement proper focus management');
+        }
+        
+        return recommendations;
+    }
+    
+    exportReport() {
+        const report = this.generateReport();
+        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `performance-accessibility-report-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+}
+
+// Initialize testing framework
+window.PerformanceAccessibilityTester = PerformanceAccessibilityTester;
+
+// Auto-initialize in development mode
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.pat = new PerformanceAccessibilityTester();
+    
+    console.log('⚡ Performance & Accessibility Testing available:');
+    console.log('- pat.testAnimationPerformance() - Test animation frame rates');
+    console.log('- pat.testGlassEffectPerformance() - Test glass effect performance');
+    console.log('- pat.runAccessibilityAudit() - Run full accessibility audit');
+    console.log('- pat.generateReport() - Generate comprehensive report');
+    console.log('- pat.exportReport() - Export test results');
+}

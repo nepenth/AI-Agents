@@ -115,4 +115,370 @@ class VisualRegressionTester {
         this.testSuites.push({ name, tests });
     }
     
-    async runAllTests() {\n        if (this.isRunning) {\n            console.warn('Tests already running');\n            return;\n        }\n        \n        this.isRunning = true;\n        this.results = [];\n        \n        console.log('🧪 Starting visual regression tests...');\n        \n        for (const suite of this.testSuites) {\n            console.log(`📋 Running test suite: ${suite.name}`);\n            \n            for (const test of suite.tests) {\n                await this.runComponentTest(test, suite.name);\n            }\n        }\n        \n        this.isRunning = false;\n        this.generateReport();\n        \n        console.log('✅ Visual regression tests completed');\n        return this.results;\n    }\n    \n    async runComponentTest(test, suiteName) {\n        const elements = document.querySelectorAll(test.selector);\n        \n        if (elements.length === 0) {\n            this.results.push({\n                suite: suiteName,\n                test: test.name,\n                status: 'skipped',\n                reason: 'No elements found'\n            });\n            return;\n        }\n        \n        for (let i = 0; i < elements.length; i++) {\n            const element = elements[i];\n            \n            for (const state of test.states) {\n                try {\n                    const screenshot = await this.captureElementScreenshot(element, state);\n                    const result = await this.compareScreenshot(test.name, state, i, screenshot);\n                    \n                    this.results.push({\n                        suite: suiteName,\n                        test: test.name,\n                        state: state,\n                        element: i,\n                        status: result.status,\n                        diff: result.diff,\n                        screenshot: screenshot\n                    });\n                } catch (error) {\n                    this.results.push({\n                        suite: suiteName,\n                        test: test.name,\n                        state: state,\n                        element: i,\n                        status: 'error',\n                        error: error.message\n                    });\n                }\n            }\n        }\n    }\n    \n    async captureElementScreenshot(element, state) {\n        // Apply state to element\n        await this.applyElementState(element, state);\n        \n        // Wait for animations to complete\n        await this.waitForAnimations();\n        \n        // Get element bounds\n        const rect = element.getBoundingClientRect();\n        \n        // Set canvas size\n        this.canvas.width = rect.width;\n        this.canvas.height = rect.height;\n        \n        // Capture element using html2canvas-like approach\n        const screenshot = await this.renderElementToCanvas(element, rect);\n        \n        // Reset element state\n        await this.resetElementState(element, state);\n        \n        return screenshot;\n    }\n    \n    async applyElementState(element, state) {\n        switch (state) {\n            case 'hover':\n                element.classList.add('test-hover-state');\n                element.dispatchEvent(new MouseEvent('mouseenter'));\n                break;\n            case 'active':\n                element.classList.add('test-active-state');\n                element.dispatchEvent(new MouseEvent('mousedown'));\n                break;\n            case 'focus':\n                element.focus();\n                break;\n            case 'disabled':\n                element.disabled = true;\n                element.classList.add('disabled');\n                break;\n            case 'error':\n                element.classList.add('error');\n                break;\n            case 'animated':\n                element.classList.add('animate-glass-slide-in');\n                break;\n        }\n    }\n    \n    async resetElementState(element, state) {\n        switch (state) {\n            case 'hover':\n                element.classList.remove('test-hover-state');\n                element.dispatchEvent(new MouseEvent('mouseleave'));\n                break;\n            case 'active':\n                element.classList.remove('test-active-state');\n                element.dispatchEvent(new MouseEvent('mouseup'));\n                break;\n            case 'focus':\n                element.blur();\n                break;\n            case 'disabled':\n                element.disabled = false;\n                element.classList.remove('disabled');\n                break;\n            case 'error':\n                element.classList.remove('error');\n                break;\n            case 'animated':\n                element.classList.remove('animate-glass-slide-in');\n                break;\n        }\n    }\n    \n    async waitForAnimations() {\n        return new Promise(resolve => {\n            // Wait for CSS animations and transitions to complete\n            setTimeout(resolve, 500);\n        });\n    }\n    \n    async renderElementToCanvas(element, rect) {\n        // Simple canvas rendering - in production, use html2canvas or similar\n        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);\n        \n        // Get computed styles\n        const styles = window.getComputedStyle(element);\n        \n        // Draw background\n        this.context.fillStyle = styles.backgroundColor;\n        this.context.fillRect(0, 0, rect.width, rect.height);\n        \n        // Draw border\n        if (styles.borderWidth !== '0px') {\n            this.context.strokeStyle = styles.borderColor;\n            this.context.lineWidth = parseInt(styles.borderWidth);\n            this.context.strokeRect(0, 0, rect.width, rect.height);\n        }\n        \n        // Convert canvas to data URL\n        return this.canvas.toDataURL('image/png');\n    }\n    \n    async compareScreenshot(testName, state, elementIndex, screenshot) {\n        const key = `${testName}-${state}-${elementIndex}`;\n        const stored = localStorage.getItem(`vrt-baseline-${key}`);\n        \n        if (!stored) {\n            // First run - store as baseline\n            localStorage.setItem(`vrt-baseline-${key}`, screenshot);\n            return { status: 'baseline-created', diff: 0 };\n        }\n        \n        // Compare with baseline\n        const diff = this.calculateImageDiff(stored, screenshot);\n        const threshold = 0.05; // 5% difference threshold\n        \n        return {\n            status: diff > threshold ? 'failed' : 'passed',\n            diff: diff\n        };\n    }\n    \n    calculateImageDiff(baseline, current) {\n        // Simple pixel difference calculation\n        // In production, use a proper image diff library\n        if (baseline === current) return 0;\n        \n        // For now, return a mock difference\n        return Math.random() * 0.1; // 0-10% difference\n    }\n    \n    generateReport() {\n        const report = {\n            timestamp: new Date().toISOString(),\n            total: this.results.length,\n            passed: this.results.filter(r => r.status === 'passed').length,\n            failed: this.results.filter(r => r.status === 'failed').length,\n            skipped: this.results.filter(r => r.status === 'skipped').length,\n            errors: this.results.filter(r => r.status === 'error').length,\n            results: this.results\n        };\n        \n        console.table(this.results);\n        console.log('📊 Test Summary:', {\n            Total: report.total,\n            Passed: report.passed,\n            Failed: report.failed,\n            Skipped: report.skipped,\n            Errors: report.errors\n        });\n        \n        // Store report\n        localStorage.setItem('vrt-latest-report', JSON.stringify(report));\n        \n        return report;\n    }\n    \n    exportReport() {\n        const report = localStorage.getItem('vrt-latest-report');\n        if (!report) {\n            console.warn('No test report available');\n            return;\n        }\n        \n        const blob = new Blob([report], { type: 'application/json' });\n        const url = URL.createObjectURL(blob);\n        const a = document.createElement('a');\n        a.href = url;\n        a.download = `visual-regression-report-${Date.now()}.json`;\n        a.click();\n        URL.revokeObjectURL(url);\n    }\n    \n    clearBaselines() {\n        const keys = Object.keys(localStorage).filter(key => key.startsWith('vrt-baseline-'));\n        keys.forEach(key => localStorage.removeItem(key));\n        console.log(`🗑️ Cleared ${keys.length} baseline screenshots`);\n    }\n    \n    // Responsive design testing\n    async testResponsiveDesign() {\n        const viewports = [\n            { name: 'mobile', width: 375, height: 667 },\n            { name: 'tablet', width: 768, height: 1024 },\n            { name: 'desktop', width: 1920, height: 1080 }\n        ];\n        \n        const responsiveResults = [];\n        \n        for (const viewport of viewports) {\n            console.log(`📱 Testing ${viewport.name} viewport (${viewport.width}x${viewport.height})`);\n            \n            // Simulate viewport\n            this.setViewport(viewport.width, viewport.height);\n            \n            // Wait for layout to adjust\n            await this.waitForAnimations();\n            \n            // Run tests for this viewport\n            const results = await this.runAllTests();\n            responsiveResults.push({\n                viewport: viewport.name,\n                dimensions: `${viewport.width}x${viewport.height}`,\n                results: results\n            });\n        }\n        \n        // Reset viewport\n        this.resetViewport();\n        \n        return responsiveResults;\n    }\n    \n    setViewport(width, height) {\n        // Simulate viewport change\n        document.documentElement.style.width = `${width}px`;\n        document.documentElement.style.height = `${height}px`;\n        \n        // Trigger resize event\n        window.dispatchEvent(new Event('resize'));\n    }\n    \n    resetViewport() {\n        document.documentElement.style.width = '';\n        document.documentElement.style.height = '';\n        window.dispatchEvent(new Event('resize'));\n    }\n}\n\n// Cross-browser testing utilities\nclass CrossBrowserTester {\n    constructor() {\n        this.browserInfo = this.getBrowserInfo();\n    }\n    \n    getBrowserInfo() {\n        const ua = navigator.userAgent;\n        const browsers = {\n            chrome: /Chrome/.test(ua) && !/Edge/.test(ua),\n            firefox: /Firefox/.test(ua),\n            safari: /Safari/.test(ua) && !/Chrome/.test(ua),\n            edge: /Edge/.test(ua),\n            ie: /Trident/.test(ua)\n        };\n        \n        return {\n            name: Object.keys(browsers).find(key => browsers[key]) || 'unknown',\n            version: this.extractVersion(ua),\n            userAgent: ua,\n            supportsBackdropFilter: CSS.supports('backdrop-filter', 'blur(10px)'),\n            supportsGrid: CSS.supports('display', 'grid'),\n            supportsFlex: CSS.supports('display', 'flex')\n        };\n    }\n    \n    extractVersion(ua) {\n        const match = ua.match(/(Chrome|Firefox|Safari|Edge)\\/(\\d+)/);\n        return match ? match[2] : 'unknown';\n    }\n    \n    testFeatureSupport() {\n        const features = {\n            'backdrop-filter': CSS.supports('backdrop-filter', 'blur(10px)'),\n            'css-grid': CSS.supports('display', 'grid'),\n            'flexbox': CSS.supports('display', 'flex'),\n            'css-variables': CSS.supports('color', 'var(--test)'),\n            'transforms': CSS.supports('transform', 'translateX(10px)'),\n            'transitions': CSS.supports('transition', 'all 0.3s ease'),\n            'animations': CSS.supports('animation', 'test 1s ease'),\n            'border-radius': CSS.supports('border-radius', '10px'),\n            'box-shadow': CSS.supports('box-shadow', '0 0 10px rgba(0,0,0,0.1)')\n        };\n        \n        console.log('🌐 Browser Feature Support:', features);\n        return features;\n    }\n}\n\n// Initialize testing framework\nwindow.VisualRegressionTester = VisualRegressionTester;\nwindow.CrossBrowserTester = CrossBrowserTester;\n\n// Auto-initialize in development mode\nif (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {\n    window.vrt = new VisualRegressionTester();\n    window.cbt = new CrossBrowserTester();\n    \n    // Add testing commands to console\n    console.log('🧪 Visual Regression Testing available:');\n    console.log('- vrt.runAllTests() - Run all visual tests');\n    console.log('- vrt.testResponsiveDesign() - Test responsive breakpoints');\n    console.log('- vrt.exportReport() - Export test results');\n    console.log('- vrt.clearBaselines() - Clear baseline screenshots');\n    console.log('- cbt.testFeatureSupport() - Test browser feature support');\n}
+    async runAllTests() {
+        if (this.isRunning) {
+            console.warn('Tests already running');
+            return;
+        }
+        
+        this.isRunning = true;
+        this.results = [];
+        
+        console.log('🧪 Starting visual regression tests...');
+        
+        for (const suite of this.testSuites) {
+            console.log(`📋 Running test suite: ${suite.name}`);
+            
+            for (const test of suite.tests) {
+                await this.runComponentTest(test, suite.name);
+            }
+        }
+        
+        this.isRunning = false;
+        this.generateReport();
+        
+        console.log('✅ Visual regression tests completed');
+        return this.results;
+    }
+    
+    async runComponentTest(test, suiteName) {
+        const elements = document.querySelectorAll(test.selector);
+        
+        if (elements.length === 0) {
+            this.results.push({
+                suite: suiteName,
+                test: test.name,
+                status: 'skipped',
+                reason: 'No elements found'
+            });
+            return;
+        }
+        
+        for (let i = 0; i < elements.length; i++) {
+            const element = elements[i];
+            
+            for (const state of test.states) {
+                try {
+                    const screenshot = await this.captureElementScreenshot(element, state);
+                    const result = await this.compareScreenshot(test.name, state, i, screenshot);
+                    
+                    this.results.push({
+                        suite: suiteName,
+                        test: test.name,
+                        state: state,
+                        element: i,
+                        status: result.status,
+                        diff: result.diff,
+                        screenshot: screenshot
+                    });
+                } catch (error) {
+                    this.results.push({
+                        suite: suiteName,
+                        test: test.name,
+                        state: state,
+                        element: i,
+                        status: 'error',
+                        error: error.message
+                    });
+                }
+            }
+        }
+    }
+    
+    async captureElementScreenshot(element, state) {
+        // Apply state to element
+        await this.applyElementState(element, state);
+        
+        // Wait for animations to complete
+        await this.waitForAnimations();
+        
+        // Get element bounds
+        const rect = element.getBoundingClientRect();
+        
+        // Set canvas size
+        this.canvas.width = rect.width;
+        this.canvas.height = rect.height;
+        
+        // Capture element using html2canvas-like approach
+        const screenshot = await this.renderElementToCanvas(element, rect);
+        
+        // Reset element state
+        await this.resetElementState(element, state);
+        
+        return screenshot;
+    }
+    
+    async applyElementState(element, state) {
+        switch (state) {
+            case 'hover':
+                element.classList.add('test-hover-state');
+                element.dispatchEvent(new MouseEvent('mouseenter'));
+                break;
+            case 'active':
+                element.classList.add('test-active-state');
+                element.dispatchEvent(new MouseEvent('mousedown'));
+                break;
+            case 'focus':
+                element.focus();
+                break;
+            case 'disabled':
+                element.disabled = true;
+                element.classList.add('disabled');
+                break;
+            case 'error':
+                element.classList.add('error');
+                break;
+            case 'animated':
+                element.classList.add('animate-glass-slide-in');
+                break;
+        }
+    }
+    
+    async resetElementState(element, state) {
+        switch (state) {
+            case 'hover':
+                element.classList.remove('test-hover-state');
+                element.dispatchEvent(new MouseEvent('mouseleave'));
+                break;
+            case 'active':
+                element.classList.remove('test-active-state');
+                element.dispatchEvent(new MouseEvent('mouseup'));
+                break;
+            case 'focus':
+                element.blur();
+                break;
+            case 'disabled':
+                element.disabled = false;
+                element.classList.remove('disabled');
+                break;
+            case 'error':
+                element.classList.remove('error');
+                break;
+            case 'animated':
+                element.classList.remove('animate-glass-slide-in');
+                break;
+        }
+    }
+    
+    async waitForAnimations() {
+        return new Promise(resolve => {
+            // Wait for CSS animations and transitions to complete
+            setTimeout(resolve, 500);
+        });
+    }
+    
+    async renderElementToCanvas(element, rect) {
+        // Simple canvas rendering - in production, use html2canvas or similar
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Get computed styles
+        const styles = window.getComputedStyle(element);
+        
+        // Draw background
+        this.context.fillStyle = styles.backgroundColor;
+        this.context.fillRect(0, 0, rect.width, rect.height);
+        
+        // Draw border
+        if (styles.borderWidth !== '0px') {
+            this.context.strokeStyle = styles.borderColor;
+            this.context.lineWidth = parseInt(styles.borderWidth);
+            this.context.strokeRect(0, 0, rect.width, rect.height);
+        }
+        
+        // Convert canvas to data URL
+        return this.canvas.toDataURL('image/png');
+    }
+    
+    async compareScreenshot(testName, state, elementIndex, screenshot) {
+        const key = `${testName}-${state}-${elementIndex}`;
+        const stored = localStorage.getItem(`vrt-baseline-${key}`);
+        
+        if (!stored) {
+            // First run - store as baseline
+            localStorage.setItem(`vrt-baseline-${key}`, screenshot);
+            return { status: 'baseline-created', diff: 0 };
+        }
+        
+        // Compare with baseline
+        const diff = this.calculateImageDiff(stored, screenshot);
+        const threshold = 0.05; // 5% difference threshold
+        
+        return {
+            status: diff > threshold ? 'failed' : 'passed',
+            diff: diff
+        };
+    }
+    
+    calculateImageDiff(baseline, current) {
+        // Simple pixel difference calculation
+        // In production, use a proper image diff library
+        if (baseline === current) return 0;
+        
+        // For now, return a mock difference
+        return Math.random() * 0.1; // 0-10% difference
+    }
+    
+    generateReport() {
+        const report = {
+            timestamp: new Date().toISOString(),
+            total: this.results.length,
+            passed: this.results.filter(r => r.status === 'passed').length,
+            failed: this.results.filter(r => r.status === 'failed').length,
+            skipped: this.results.filter(r => r.status === 'skipped').length,
+            errors: this.results.filter(r => r.status === 'error').length,
+            results: this.results
+        };
+        
+        console.table(this.results);
+        console.log('📊 Test Summary:', {
+            Total: report.total,
+            Passed: report.passed,
+            Failed: report.failed,
+            Skipped: report.skipped,
+            Errors: report.errors
+        });
+        
+        // Store report
+        localStorage.setItem('vrt-latest-report', JSON.stringify(report));
+        
+        return report;
+    }
+    
+    exportReport() {
+        const report = localStorage.getItem('vrt-latest-report');
+        if (!report) {
+            console.warn('No test report available');
+            return;
+        }
+        
+        const blob = new Blob([report], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `visual-regression-report-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+    
+    clearBaselines() {
+        const keys = Object.keys(localStorage).filter(key => key.startsWith('vrt-baseline-'));
+        keys.forEach(key => localStorage.removeItem(key));
+        console.log(`🗑️ Cleared ${keys.length} baseline screenshots`);
+    }
+    
+    // Responsive design testing
+    async testResponsiveDesign() {
+        const viewports = [
+            { name: 'mobile', width: 375, height: 667 },
+            { name: 'tablet', width: 768, height: 1024 },
+            { name: 'desktop', width: 1920, height: 1080 }
+        ];
+        
+        const responsiveResults = [];
+        
+        for (const viewport of viewports) {
+            console.log(`📱 Testing ${viewport.name} viewport (${viewport.width}x${viewport.height})`);
+            
+            // Simulate viewport
+            this.setViewport(viewport.width, viewport.height);
+            
+            // Wait for layout to adjust
+            await this.waitForAnimations();
+            
+            // Run tests for this viewport
+            const results = await this.runAllTests();
+            responsiveResults.push({
+                viewport: viewport.name,
+                dimensions: `${viewport.width}x${viewport.height}`,
+                results: results
+            });
+        }
+        
+        // Reset viewport
+        this.resetViewport();
+        
+        return responsiveResults;
+    }
+    
+    setViewport(width, height) {
+        // Simulate viewport change
+        document.documentElement.style.width = `${width}px`;
+        document.documentElement.style.height = `${height}px`;
+        
+        // Trigger resize event
+        window.dispatchEvent(new Event('resize'));
+    }
+    
+    resetViewport() {
+        document.documentElement.style.width = '';
+        document.documentElement.style.height = '';
+        window.dispatchEvent(new Event('resize'));
+    }
+}
+
+// Cross-browser testing utilities
+class CrossBrowserTester {
+    constructor() {
+        this.browserInfo = this.getBrowserInfo();
+    }
+    
+    getBrowserInfo() {
+        const ua = navigator.userAgent;
+        const browsers = {
+            chrome: /Chrome/.test(ua) && !/Edge/.test(ua),
+            firefox: /Firefox/.test(ua),
+            safari: /Safari/.test(ua) && !/Chrome/.test(ua),
+            edge: /Edge/.test(ua),
+            ie: /Trident/.test(ua)
+        };
+        
+        return {
+            name: Object.keys(browsers).find(key => browsers[key]) || 'unknown',
+            version: this.extractVersion(ua),
+            userAgent: ua,
+            supportsBackdropFilter: CSS.supports('backdrop-filter', 'blur(10px)'),
+            supportsGrid: CSS.supports('display', 'grid'),
+            supportsFlex: CSS.supports('display', 'flex')
+        };
+    }
+    
+    extractVersion(ua) {
+        const match = ua.match(/(Chrome|Firefox|Safari|Edge)\\/(\\d+)/);
+        return match ? match[2] : 'unknown';
+    }
+    
+    testFeatureSupport() {
+        const features = {
+            'backdrop-filter': CSS.supports('backdrop-filter', 'blur(10px)'),
+            'css-grid': CSS.supports('display', 'grid'),
+            'flexbox': CSS.supports('display', 'flex'),
+            'css-variables': CSS.supports('color', 'var(--test)'),
+            'transforms': CSS.supports('transform', 'translateX(10px)'),
+            'transitions': CSS.supports('transition', 'all 0.3s ease'),
+            'animations': CSS.supports('animation', 'test 1s ease'),
+            'border-radius': CSS.supports('border-radius', '10px'),
+            'box-shadow': CSS.supports('box-shadow', '0 0 10px rgba(0,0,0,0.1)')
+        };
+        
+        console.log('🌐 Browser Feature Support:', features);
+        return features;
+    }
+}
+
+// Initialize testing framework
+window.VisualRegressionTester = VisualRegressionTester;
+window.CrossBrowserTester = CrossBrowserTester;
+
+// Auto-initialize in development mode
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.vrt = new VisualRegressionTester();
+    window.cbt = new CrossBrowserTester();
+    
+    // Add testing commands to console
+    console.log('🧪 Visual Regression Testing available:');
+    console.log('- vrt.runAllTests() - Run all visual tests');
+    console.log('- vrt.testResponsiveDesign() - Test responsive breakpoints');
+    console.log('- vrt.exportReport() - Export test results');
+    console.log('- vrt.clearBaselines() - Clear baseline screenshots');
+    console.log('- cbt.testFeatureSupport() - Test browser feature support');
+}

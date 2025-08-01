@@ -1,21 +1,32 @@
 """
-Chat Manager Module
+Enhanced Chat Manager Module
 
-This module handles the chat functionality, allowing users to query the
-knowledge base with enhanced technical expertise and comprehensive responses.
+This module handles the chat functionality with modern AI agent design patterns,
+providing expert-level technical guidance through optimized prompts, intelligent
+context preparation, and query-type specialization.
 """
 
 import logging
+import re
 from typing import List, Dict, Any, Optional, Tuple
 import time
 
 from .config import Config
 from .http_client import HTTPClient
 from .embedding_manager import EmbeddingManager
-from .prompts_replacement import LLMPrompts
+from .json_prompt_manager import JsonPromptManager
 
 class ChatManager:
-    """Manages the enhanced chat functionality with technical expertise and comprehensive responses."""
+    """
+    Enhanced Chat Manager with modern AI agent design patterns.
+    
+    Features:
+    - Query type detection and specialized prompts
+    - Intelligent context preparation with relevance scoring
+    - Enhanced search with increased document retrieval
+    - Smart content truncation preserving technical details
+    - Clear source attribution with document type indicators
+    """
 
     def __init__(self, config: Config, http_client: HTTPClient, embedding_manager: EmbeddingManager):
         self.config = config
@@ -24,169 +35,403 @@ class ChatManager:
         self.text_model = config.text_model
         self.chat_model = config.chat_model
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize JSON prompt manager for improved prompts
+        try:
+            self.json_prompt_manager = JsonPromptManager(config)
+            self.logger.info("Initialized enhanced JSON prompt manager")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize JSON prompt manager: {e}")
+            self.json_prompt_manager = None
 
-    def _classify_query_type(self, query: str) -> str:
+    def _detect_query_type(self, query: str) -> str:
         """
-        Classify the type of query to use appropriate response prompts.
-        Returns: "explanation", "implementation", "comparison", "troubleshooting", "architecture", or "general"
+        Enhanced query type detection for specialized prompt selection.
+        
+        Returns: "implementation", "comparison", "conceptual", or "general"
         """
         query_lower = query.lower()
         
-        # Implementation-focused queries
-        if any(word in query_lower for word in ['how to', 'implement', 'setup', 'configure', 'install', 'deploy', 'build']):
-            return "implementation"
+        # Implementation queries - how to do something
+        implementation_keywords = [
+            'how to', 'how do i', 'implement', 'setup', 'configure', 'install',
+            'create', 'build', 'deploy', 'run', 'execute', 'start', 'launch',
+            'tutorial', 'guide', 'step by step', 'walkthrough'
+        ]
         
-        # Comparison queries
-        elif any(word in query_lower for word in ['vs', 'versus', 'compare', 'difference', 'better', 'best', 'choose']):
-            return "comparison"
+        if any(keyword in query_lower for keyword in implementation_keywords):
+            return 'implementation'
         
-        # Troubleshooting queries
-        elif any(word in query_lower for word in ['error', 'problem', 'issue', 'debug', 'fix', 'broken', 'not working', 'troubleshoot']):
-            return "troubleshooting"
+        # Comparison queries - comparing options
+        comparison_keywords = [
+            'vs', 'versus', 'compare', 'comparison', 'difference', 'differences',
+            'better', 'best', 'choose', 'choice', 'which', 'should i use',
+            'pros and cons', 'advantages', 'disadvantages', 'trade-offs'
+        ]
         
-        # Architecture/design queries
-        elif any(word in query_lower for word in ['architecture', 'design', 'pattern', 'scalability', 'performance', 'system']):
-            return "architecture"
+        if any(keyword in query_lower for keyword in comparison_keywords):
+            return 'comparison'
         
-        # Explanation queries
-        elif any(word in query_lower for word in ['what is', 'explain', 'define', 'meaning', 'concept', 'understand']):
-            return "explanation"
+        # Conceptual queries - understanding concepts
+        conceptual_keywords = [
+            'what is', 'what are', 'explain', 'definition', 'concept', 'theory',
+            'understand', 'meaning', 'overview', 'introduction', 'basics',
+            'fundamentals', 'principles', 'architecture', 'design pattern'
+        ]
         
-        return "general"
+        if any(keyword in query_lower for keyword in conceptual_keywords):
+            return 'conceptual'
+        
+        # Default to general
+        return 'general'
+
+    def _get_specialized_prompt(self, query_type: str) -> str:
+        """Get specialized prompt based on query type."""
+        if not self.json_prompt_manager:
+            # Fallback to basic prompt if JSON manager not available
+            return self._get_fallback_prompt()
+        
+        prompt_map = {
+            'implementation': 'chat_implementation_query',
+            'comparison': 'chat_comparison_query',
+            'conceptual': 'chat_conceptual_query',
+            'general': 'chat_optimized_system'
+        }
+        
+        prompt_id = prompt_map.get(query_type, 'chat_optimized_system')
+        
+        try:
+            # Try to load from improved prompts first
+            prompt_file = self.json_prompt_manager.prompts_dir / 'improved' / f'{prompt_id}.json'
+            if prompt_file.exists():
+                import json
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    prompt_data = json.load(f)
+                    return prompt_data['template']['content']
+            
+            # Fallback to standard prompts
+            return self.json_prompt_manager.render_prompt(prompt_id, {}, "standard").content
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to load specialized prompt {prompt_id}: {e}")
+            return self._get_fallback_prompt()
+    
+    def _get_fallback_prompt(self) -> str:
+        """Fallback prompt if JSON prompts are not available."""
+        return """You are a Senior Technical Expert with deep expertise in software engineering, system design, DevOps, and modern technology implementation. You provide expert guidance based on the user's personal knowledge base.
+
+**Core Principles:**
+• Base all responses strictly on the provided knowledge base context
+• Provide technically accurate, implementation-focused advice
+• Use clear source attribution: [📄 Title] for KB items, [📋 Title] for synthesis docs
+• Connect related concepts and suggest exploration paths
+• State clearly when information isn't available in the knowledge base
+
+**Response Structure:**
+1. **Direct Answer**: Address the specific question immediately
+2. **Technical Details**: Implementation specifics, code examples, configurations
+3. **Context & Trade-offs**: Why this approach, alternatives, considerations
+4. **Sources**: Clear citations with document titles
+5. **Next Steps**: Related topics or follow-up actions
+
+Provide expert technical assistance based on the knowledge base context below."""
+
+    def _intelligent_truncate(self, content: str, max_length: int, query: str) -> str:
+        """Intelligently truncate content while preserving important sections."""
+        
+        if len(content) <= max_length:
+            return content
+        
+        # Try to preserve sections most relevant to the query
+        query_terms = set(query.lower().split())
+        
+        # Split into paragraphs
+        paragraphs = content.split('\n\n')
+        
+        # Score paragraphs by relevance to query
+        scored_paragraphs = []
+        for i, para in enumerate(paragraphs):
+            para_words = set(para.lower().split())
+            relevance_score = len(query_terms.intersection(para_words))
+            
+            # Boost score for code blocks and technical sections
+            if '```' in para or 'def ' in para or 'class ' in para or 'function' in para:
+                relevance_score += 3
+            if any(term in para.lower() for term in ['example', 'implementation', 'usage', 'configuration']):
+                relevance_score += 2
+            if any(term in para.lower() for term in ['install', 'setup', 'deploy', 'run']):
+                relevance_score += 2
+                
+            scored_paragraphs.append((relevance_score, i, para))
+        
+        # Sort by relevance, keeping original order for equal scores
+        scored_paragraphs.sort(key=lambda x: (-x[0], x[1]))
+        
+        # Build truncated content
+        selected_content = []
+        current_length = 0
+        
+        # Always include first paragraph (usually introduction)
+        if paragraphs:
+            selected_content.append(paragraphs[0])
+            current_length += len(paragraphs[0])
+        
+        # Add most relevant paragraphs
+        for score, idx, para in scored_paragraphs[1:]:
+            if current_length + len(para) + 150 < max_length:  # Leave room for truncation notice
+                selected_content.append(para)
+                current_length += len(para)
+            else:
+                break
+        
+        # Add truncation notice if content was truncated
+        if len(selected_content) < len(paragraphs):
+            selected_content.append("\n[... additional technical details available in full document ...]")
+        
+        return '\n\n'.join(selected_content)
 
     def _prepare_enhanced_context(self, similar_docs: List[Dict[str, Any]], query: str) -> Tuple[str, List[Dict[str, Any]]]:
         """
-        Prepare enhanced context from similar documents with rich metadata and structure.
+        Enhanced context preparation with intelligent summarization and relevance scoring.
         Returns tuple of (formatted_context, enhanced_sources)
         """
         if not similar_docs:
-            return "No relevant information found in the knowledge base.", []
-
-        # Separate documents by type
-        synthesis_docs = []
-        kb_item_docs = []
+            return "No relevant documents found in knowledge base.", []
         
-        for doc in similar_docs:
-            doc_type = doc.get('type', 'item')
-            if doc_type == 'synthesis':
-                synthesis_docs.append(doc)
-            else:
-                kb_item_docs.append(doc)
-
+        # Separate by relevance score for different treatment
+        high_relevance = [doc for doc in similar_docs if doc.get('score', 0) > 0.8]
+        medium_relevance = [doc for doc in similar_docs if 0.6 <= doc.get('score', 0) <= 0.8]
+        low_relevance = [doc for doc in similar_docs if doc.get('score', 0) < 0.6]
+        
         context_sections = []
         enhanced_sources = []
-
-        # Process synthesis documents first (higher-level insights)
-        if synthesis_docs:
-            context_sections.append("## 📋 SYNTHESIS DOCUMENTS (Strategic Insights & Patterns)")
-            for doc in synthesis_docs:
-                title = doc.get('title', 'Unknown Synthesis')
-                content = doc.get('content', '')
-                category = doc.get('main_category', 'Unknown')
-                subcategory = doc.get('sub_category', 'Unknown')
-                score = doc.get('score', 0.0)
+        
+        # High relevance: Full content with intelligent truncation
+        for doc in high_relevance[:3]:
+            content = doc.get('content', '')
+            title = doc.get('title', 'Untitled')
+            doc_type = doc.get('type', 'unknown')
+            score = doc.get('score', 0)
+            category = doc.get('category', doc.get('main_category', 'Unknown'))
+            subcategory = doc.get('subcategory', doc.get('sub_category', 'Unknown'))
+            
+            # Apply intelligent truncation for long content
+            max_length = 2500 if doc_type == 'synthesis' else 2000  # Increased limits
+            if len(content) > max_length:
+                content = self._intelligent_truncate(content, max_length, query)
+            
+            # Format with clear attribution
+            doc_marker = "📄" if doc_type == 'kb_item' else "📋"
+            context_sections.append(
+                f"**{doc_marker} {title}** (Relevance: {score:.3f})\n"
+                f"Category: {category}/{subcategory}\n{content}"
+            )
+            
+            enhanced_sources.append({
+                'title': title,
+                'type': doc_type,
+                'score': score,
+                'category': category,
+                'subcategory': subcategory,
+                'content_length': len(content),
+                'doc_type_display': f"{doc_marker} {doc_type.replace('_', ' ').title()}"
+            })
+        
+        # Medium relevance: Key points extraction
+        for doc in medium_relevance[:4]:
+            content = doc.get('content', '')
+            title = doc.get('title', 'Untitled')
+            doc_type = doc.get('type', 'unknown')
+            score = doc.get('score', 0)
+            category = doc.get('category', doc.get('main_category', 'Unknown'))
+            
+            # Extract key technical points relevant to query
+            key_points = self._extract_key_points(content, query)
+            
+            doc_marker = "📄" if doc_type == 'kb_item' else "📋"
+            context_sections.append(
+                f"**{doc_marker} {title}** (Relevance: {score:.3f})\n"
+                f"**Key Points:**\n{key_points}"
+            )
+            
+            enhanced_sources.append({
+                'title': title,
+                'type': doc_type,
+                'score': score,
+                'category': category,
+                'content_type': 'key_points',
+                'doc_type_display': f"{doc_marker} {doc_type.replace('_', ' ').title()}"
+            })
+        
+        # Low relevance: Brief mentions only if space allows
+        if len(context_sections) < 6:
+            for doc in low_relevance[:2]:
+                title = doc.get('title', 'Untitled')
+                doc_type = doc.get('type', 'unknown')
+                score = doc.get('score', 0)
+                
+                # Just title and brief description
+                brief_desc = self._extract_brief_description(doc.get('content', ''))
+                doc_marker = "📄" if doc_type == 'kb_item' else "📋"
                 
                 context_sections.append(
-                    f"### 📋 {category}/{subcategory} Synthesis: {title}\n"
-                    f"**Relevance Score**: {score:.3f}\n"
-                    f"**Content**: {content[:1500]}{'...' if len(content) > 1500 else ''}\n"
+                    f"**{doc_marker} {title}** (Relevance: {score:.3f})\n{brief_desc}"
                 )
                 
                 enhanced_sources.append({
-                    "id": doc.get("id"),
-                    "type": "synthesis",
-                    "title": title,
-                    "category": category,
-                    "subcategory": subcategory,
-                    "score": score,
-                    "doc_type_display": "📋 Synthesis",
-                    "url": f"/synthesis/{doc.get('id')}" if doc.get('id') else None
+                    'title': title,
+                    'type': doc_type,
+                    'score': score,
+                    'content_type': 'brief',
+                    'doc_type_display': f"{doc_marker} {doc_type.replace('_', ' ').title()}"
                 })
+        
+        # Combine all sections with clear separators
+        full_context = "\n\n" + "="*50 + "\n\n".join(context_sections) + "\n\n" + "="*50
+        
+        return full_context, enhanced_sources
 
-        # Process individual knowledge base items
-        if kb_item_docs:
-            context_sections.append("## 📄 KNOWLEDGE BASE ITEMS (Detailed Implementation & Examples)")
-            for doc in kb_item_docs:
-                title = doc.get('title', 'Unknown Item')
-                content = doc.get('content', '')
-                category = doc.get('main_category', 'Unknown')
-                subcategory = doc.get('sub_category', 'Unknown') 
-                score = doc.get('score', 0.0)
-                
-                context_sections.append(
-                    f"### 📄 {category}/{subcategory}: {title}\n"
-                    f"**Relevance Score**: {score:.3f}\n"
-                    f"**Content**: {content[:1200]}{'...' if len(content) > 1200 else ''}\n"
-                )
-                
-                enhanced_sources.append({
-                    "id": doc.get("id"),
-                    "type": "item",
-                    "title": title,
-                    "category": category,
-                    "subcategory": subcategory,
-                    "score": score,
-                    "doc_type_display": "📄 KB Item",
-                    "url": f"/item/{doc.get('id')}" if doc.get('id') else None
-                })
+    def _extract_key_points(self, content: str, query: str) -> str:
+        """Extract key technical points relevant to the query."""
+        
+        key_points = []
+        
+        # Extract code blocks
+        code_blocks = re.findall(r'```[\s\S]*?```', content)
+        if code_blocks:
+            key_points.append(f"• Code examples: {len(code_blocks)} code blocks with implementation details")
+        
+        # Extract bullet points and numbered lists
+        bullet_points = re.findall(r'^[•\-\*]\s+(.+)$', content, re.MULTILINE)
+        numbered_points = re.findall(r'^\d+\.\s+(.+)$', content, re.MULTILINE)
+        
+        all_points = bullet_points + numbered_points
+        
+        # Filter points relevant to query
+        query_terms = set(query.lower().split())
+        relevant_points = []
+        
+        for point in all_points[:15]:  # Limit to first 15 points
+            point_words = set(point.lower().split())
+            if query_terms.intersection(point_words) or len(point) > 50:  # Include substantial points
+                truncated_point = point[:120] + '...' if len(point) > 120 else point
+                relevant_points.append(f"• {truncated_point}")
+        
+        if relevant_points:
+            key_points.extend(relevant_points[:6])  # Top 6 relevant points
+        
+        # Extract technical terms and concepts
+        tech_terms = self._extract_technical_terms(content)
+        if tech_terms:
+            key_points.append(f"• Technical concepts: {', '.join(tech_terms[:10])}")
+        
+        # Extract section headers
+        headers = re.findall(r'^#+\s+(.+)$', content, re.MULTILINE)
+        if headers:
+            key_points.append(f"• Sections covered: {', '.join(headers[:5])}")
+        
+        return '\n'.join(key_points) if key_points else "Key technical information available in full document."
 
-        # Add query context and cross-reference suggestions
-        context_sections.append(
-            f"\n## 🎯 QUERY CONTEXT\n"
-            f"**User Query**: {query}\n"
-            f"**Available Sources**: {len(synthesis_docs)} synthesis documents, {len(kb_item_docs)} knowledge base items\n"
-            f"**Coverage**: Strategic insights from synthesis documents + detailed implementations from KB items\n"
-        )
+    def _extract_brief_description(self, content: str) -> str:
+        """Extract a brief description from content."""
+        
+        if not content:
+            return "No content available."
+        
+        # Try to get first paragraph or first 250 characters
+        first_para = content.split('\n\n')[0] if content else ""
+        
+        if len(first_para) > 250:
+            # Find a good breaking point
+            truncated = first_para[:250]
+            last_space = truncated.rfind(' ')
+            if last_space > 200:
+                truncated = truncated[:last_space]
+            return truncated + "..."
+        
+        return first_para
 
-        formatted_context = "\n\n".join(context_sections)
-        return formatted_context, enhanced_sources
+    def _extract_technical_terms(self, content: str) -> List[str]:
+        """Extract technical terms and concepts from content."""
+        
+        # Common technical term patterns
+        patterns = [
+            r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b',  # CamelCase (React, JavaScript)
+            r'\b[a-z]+(?:_[a-z]+)+\b',           # snake_case (user_id, api_key)
+            r'\b[A-Z]{2,}\b',                    # ACRONYMS (API, HTTP, SQL)
+            r'\b\w+\.\w+\b',                     # module.function (React.Component)
+        ]
+        
+        technical_terms = set()
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, content)
+            technical_terms.update(matches)
+        
+        # Filter out common non-technical words
+        common_words = {
+            'The', 'This', 'That', 'With', 'From', 'When', 'Where', 'What', 'How',
+            'And', 'But', 'For', 'Not', 'You', 'All', 'Can', 'Had', 'Her', 'Was',
+            'One', 'Our', 'Out', 'Day', 'Get', 'Has', 'Him', 'His', 'Its',
+            'New', 'Now', 'Old', 'See', 'Two', 'Way', 'Who', 'Boy', 'Did', 'Man',
+            'May', 'Say', 'She', 'Use', 'Her', 'Each', 'Which', 'Their', 'Time',
+            'Will', 'About', 'If', 'Up', 'Out', 'Many', 'Then', 'Them', 'These',
+            'So', 'Some', 'Would', 'Make', 'Like', 'Into', 'Him', 'Has', 'More'
+        }
+        
+        technical_terms = technical_terms - common_words
+        
+        return sorted(list(technical_terms))[:15]  # Return top 15 terms
 
     async def handle_chat_query(self, query: str, model: Optional[str] = None) -> Dict[str, Any]:
         """
-        Handles a chat query with enhanced technical expertise and comprehensive responses.
+        Enhanced chat query handler with modern AI agent design patterns.
+        
+        Features:
+        - Query type detection and specialized prompts
+        - Enhanced document retrieval (increased from 8 to 12)
+        - Intelligent context preparation with relevance scoring
+        - Performance metrics and comprehensive response metadata
         """
         try:
-            # 1. Classify query type for appropriate response strategy
-            query_type = self._classify_query_type(query)
-            self.logger.debug(f"Classified query type: {query_type}")
+            # 1. Enhanced query type detection
+            query_type = self._detect_query_type(query)
+            self.logger.info(f"Detected query type: {query_type} for query: '{query[:50]}...'")
 
-            # 2. Find similar documents with improved retrieval
+            # 2. Enhanced document retrieval with increased top_k
             similar_docs = await self.embedding_manager.find_similar_documents(
                 query, 
-                top_k=8  # Increased for better coverage
+                top_k=12,  # Increased from 8 to 12 for better coverage
+                include_scores=True
             )
+            
+            self.logger.info(f"Retrieved {len(similar_docs)} similar documents")
 
-            # 3. Prepare enhanced context with rich metadata
+            # 3. Enhanced context preparation with intelligent summarization
             context, enhanced_sources = self._prepare_enhanced_context(similar_docs, query)
             
-            # 4. Select appropriate system prompt based on context and query type
-            if any(source['type'] == 'synthesis' for source in enhanced_sources):
-                system_prompt = LLMPrompts.get_synthesis_aware_chat_prompt()
-            else:
-                system_prompt = LLMPrompts.get_chat_prompt()
+            # 4. Get specialized prompt based on query type
+            system_prompt = self._get_specialized_prompt(query_type)
             
-            # Add query-specific guidance
-            query_specific_prompt = LLMPrompts.get_contextual_chat_response_prompt(query_type)
-            
-            # 5. Construct enhanced user message
-            user_message = f"""{query_specific_prompt}
+            # 5. Construct enhanced user message with clear structure
+            user_message = f"""**USER QUERY:** {query}
 
-**User Query**: {query}
-
-**Available Knowledge Base Context**:
+**KNOWLEDGE BASE CONTEXT:**
 {context}
 
-**Response Instructions**:
-- Provide a comprehensive, expert-level response based on the available context
-- Use the enhanced citation system as specified in your system prompt
-- Include cross-references to related topics when relevant
-- Structure your response according to the query type guidelines
-- If applicable, suggest logical next steps or deeper exploration paths
-- Be specific about which sources support each part of your response
+**QUERY TYPE:** {query_type.upper()}
 
-Please provide your expert analysis and guidance based on the available knowledge base context."""
+**INSTRUCTIONS:**
+- Provide expert-level technical guidance based strictly on the knowledge base context
+- Use clear source attribution: [📄 Title] for KB items, [📋 Title] for synthesis docs
+- Structure your response according to the {query_type} query type guidelines
+- Include specific implementation details, code examples, and configurations when available
+- Suggest related topics and next steps for deeper exploration
+- If information is missing from the knowledge base, clearly state this limitation
 
-            # 6. Generate response using the LLM
+Please provide your comprehensive technical response."""
+
+            # 6. Generate response with optimized parameters
             target_model = model or self.chat_model or self.text_model
             
             messages = [
@@ -200,8 +445,9 @@ Please provide your expert analysis and guidance based on the available knowledg
             response_text = await self.http_client.ollama_chat(
                 model=target_model,
                 messages=messages,
-                temperature=0.2,  # Lower temperature for more focused, technical responses
-                top_p=0.9
+                temperature=0.1,  # Lower temperature for more consistent, technical responses
+                top_p=0.9,
+                timeout=120  # Increased timeout for complex queries
             )
             
             end_time = time.time()

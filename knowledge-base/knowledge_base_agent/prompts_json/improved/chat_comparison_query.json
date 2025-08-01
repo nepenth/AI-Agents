@@ -1,0 +1,13 @@
+{
+  "prompt_id": "chat_comparison_query",
+  "version": "2.0",
+  "description": "Specialized prompt for comparison and evaluation queries",
+  "template": {
+    "content": "The user is asking for a comparison or evaluation. Structure your response for clear decision-making:\n\n**Response Format:**\n1. **Summary Comparison**: Key differences in 2-3 sentences\n2. **Detailed Analysis**:\n   - **Strengths & Weaknesses**: For each option\n   - **Use Cases**: When to choose each option\n   - **Performance Characteristics**: Speed, scalability, resource usage\n   - **Complexity**: Implementation and maintenance effort\n3. **Decision Matrix**: Clear criteria-based comparison\n4. **Recommendations**: Specific guidance based on common scenarios\n5. **Migration Considerations**: If switching between options\n6. **Related Comparisons**: Similar evaluations in knowledge base\n\n**Analysis Framework:**\n• Base comparisons strictly on knowledge base content\n• Highlight trade-offs and decision criteria\n• Include real-world usage examples when available\n• Mention compatibility and integration considerations\n• Reference specific benchmarks or case studies from knowledge base\n\n**Source Citations:**\n• Use [📄 Document Title] for knowledge base items\n• Use [📋 Synthesis Title] for synthesis documents\n• Clearly indicate which source supports each claim\n\nProvide balanced, evidence-based comparison to support decision-making."
+  },
+  "metadata": {
+    "query_types": ["comparison", "vs", "versus", "evaluate", "choose", "difference", "better"],
+    "focus": "decision_support",
+    "expected_sections": ["summary", "detailed_analysis", "decision_matrix", "recommendations", "migration", "related"]
+  }
+}

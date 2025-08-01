@@ -31,52 +31,291 @@ class ThemeManager {
     }
     
     setupEventListeners() {
-        // No need for panel toggle listeners since we're using a modal now
-        // The modal is handled by SettingsModal class
-        
-        // Theme mode buttons
-        document.getElementById('light-mode-btn')?.addEventListener('click', () => {
-            this.setThemeMode('light');
-        });
-        
-        document.getElementById('dark-mode-btn')?.addEventListener('click', () => {
-            this.setThemeMode('dark');
-        });
-        
-        document.getElementById('auto-mode-btn')?.addEventListener('click', () => {
-            this.setThemeMode('auto');
-        });
-        
-        // Accent color buttons
-        document.querySelectorAll('.theme-color-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const theme = btn.dataset.theme;
-                this.setAccentColor(theme);
-            });
-        });
-        
-        // Seasonal theme buttons
-        document.querySelectorAll('.theme-seasonal-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const theme = btn.dataset.theme;
-                this.setSeasonalTheme(theme);
-            });
-        });
-        
-        // Accessibility toggles
-        document.getElementById('high-contrast-toggle')?.addEventListener('change', (e) => {
-            this.setHighContrast(e.target.checked);
-        });
-        
-        document.getElementById('reduced-motion-toggle')?.addEventListener('change', (e) => {
-            this.setReducedMotion(e.target.checked);
-        });
-        
-        // Legacy theme toggle (for backward compatibility)
-        document.getElementById('theme-toggle')?.addEventListener('change', (e) => {
-            this.setThemeMode(e.target.checked ? 'dark' : 'light');
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            buttons: [
+                {
+                    selector: '#light-mode-btn',
+                    handler: () => this.setThemeMode('light')
+                },
+                {
+                    selector: '#dark-mode-btn',
+                    handler: () => this.setThemeMode('dark')
+                },
+                {
+                    selector: '#auto-mode-btn',
+                    handler: () => this.setThemeMode('auto')
+                }
+            ],
+            inputs: [
+                {
+                    selector: '#high-contrast-toggle',
+                    events: ['change'],
+                    handler: (e) => this.setHighContrast(e.target.checked)
+                },
+                {
+                    selector: '#reduced-motion-toggle',
+                    events: ['change'],
+                    handler: (e) => this.setReducedMotion(e.target.checked)
+                },
+                {
+                    selector: '#theme-toggle',
+                    events: ['change'],
+                    handler: (e) => this.setThemeMode(e.target.checked ? 'dark' : 'light')
+                }
+            ],
+            delegated: [
+                {
+                    selector: '.theme-color-btn',
+                    event: 'click',
+                    handler: (e, target) => {
+                        const theme = target.dataset.theme;
+                        if (theme) this.setAccentColor(theme);
+                    }
+                },
+                {
+                    selector: '.theme-seasonal-btn',
+                    event: 'click',
+                    handler: (e, target) => {
+                        const theme = target.dataset.theme;
+                        if (theme) this.setSeasonalTheme(theme);
+                    }
+                }
+            ]
         });
     }
     
     setupSystemThemeListener() {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');\n        mediaQuery.addEventListener('change', (e) => {\n            this.systemPrefersDark = e.matches;\n            if (this.currentTheme === 'auto') {\n                this.applyTheme();\n            }\n        });\n    }\n    \n    setThemeMode(mode) {\n        this.currentTheme = mode;\n        this.applyTheme();\n        this.updateUI();\n        this.savePreferences();\n        this.triggerPreviewAnimation();\n    }\n    \n    setAccentColor(color) {\n        this.currentAccent = color;\n        this.applyTheme();\n        this.updateUI();\n        this.savePreferences();\n        this.triggerPreviewAnimation();\n    }\n    \n    setSeasonalTheme(theme) {\n        // Remove existing seasonal themes\n        document.body.classList.remove('theme-winter', 'theme-spring', 'theme-summer', 'theme-autumn');\n        \n        // Apply new seasonal theme\n        if (theme) {\n            document.body.classList.add(`theme-${theme}`);\n        }\n        \n        this.savePreferences();\n        this.triggerPreviewAnimation();\n    }\n    \n    setHighContrast(enabled) {\n        this.isHighContrast = enabled;\n        document.body.classList.toggle('high-contrast', enabled);\n        this.savePreferences();\n        this.triggerPreviewAnimation();\n    }\n    \n    setReducedMotion(enabled) {\n        this.isReducedMotion = enabled;\n        document.body.classList.toggle('reduced-motion', enabled);\n        this.savePreferences();\n    }\n    \n    applyTheme() {\n        const body = document.body;\n        \n        // Remove existing theme classes\n        body.classList.remove('light-mode', 'dark-mode');\n        body.classList.remove('theme-blue', 'theme-purple', 'theme-green', 'theme-orange', 'theme-pink');\n        \n        // Apply theme mode\n        let isDark = false;\n        if (this.currentTheme === 'dark') {\n            isDark = true;\n        } else if (this.currentTheme === 'auto') {\n            isDark = this.systemPrefersDark;\n        }\n        \n        body.classList.add(isDark ? 'dark-mode' : 'light-mode');\n        \n        // Apply accent color\n        body.classList.add(`theme-${this.currentAccent}`);\n        \n        // Apply accessibility settings\n        body.classList.toggle('high-contrast', this.isHighContrast);\n        body.classList.toggle('reduced-motion', this.isReducedMotion);\n        \n        // Update meta theme-color for mobile browsers\n        this.updateMetaThemeColor(isDark);\n    }\n    \n    updateMetaThemeColor(isDark) {\n        let metaThemeColor = document.querySelector('meta[name=\"theme-color\"]');\n        if (!metaThemeColor) {\n            metaThemeColor = document.createElement('meta');\n            metaThemeColor.name = 'theme-color';\n            document.head.appendChild(metaThemeColor);\n        }\n        \n        const color = isDark ? '#0f172a' : '#ffffff';\n        metaThemeColor.content = color;\n    }\n    \n    updateUI() {\n        // Update theme mode buttons\n        document.querySelectorAll('.theme-mode-btn').forEach(btn => {\n            btn.classList.remove('active');\n        });\n        \n        const activeMode = document.getElementById(`${this.currentTheme}-mode-btn`);\n        if (activeMode) {\n            activeMode.classList.add('active');\n        }\n        \n        // Update accent color buttons\n        document.querySelectorAll('.theme-color-btn').forEach(btn => {\n            btn.classList.remove('active');\n        });\n        \n        const activeColor = document.querySelector(`[data-theme=\"${this.currentAccent}\"]`);\n        if (activeColor) {\n            activeColor.classList.add('active');\n        }\n        \n        // Update accessibility toggles\n        const highContrastToggle = document.getElementById('high-contrast-toggle');\n        if (highContrastToggle) {\n            highContrastToggle.checked = this.isHighContrast;\n        }\n        \n        const reducedMotionToggle = document.getElementById('reduced-motion-toggle');\n        if (reducedMotionToggle) {\n            reducedMotionToggle.checked = this.isReducedMotion;\n        }\n        \n        // Update legacy toggle\n        const legacyToggle = document.getElementById('theme-toggle');\n        if (legacyToggle) {\n            legacyToggle.checked = this.currentTheme === 'dark' || \n                                  (this.currentTheme === 'auto' && this.systemPrefersDark);\n        }\n    }\n    \n    triggerPreviewAnimation() {\n        document.body.classList.add('theme-preview-animation');\n        setTimeout(() => {\n            document.body.classList.remove('theme-preview-animation');\n        }, 300);\n    }\n    \n    savePreferences() {\n        const preferences = {\n            theme: this.currentTheme,\n            accent: this.currentAccent,\n            highContrast: this.isHighContrast,\n            reducedMotion: this.isReducedMotion\n        };\n        \n        localStorage.setItem('themePreferences', JSON.stringify(preferences));\n    }\n    \n    loadPreferences() {\n        try {\n            const saved = localStorage.getItem('themePreferences');\n            if (saved) {\n                const preferences = JSON.parse(saved);\n                this.currentTheme = preferences.theme || 'auto';\n                this.currentAccent = preferences.accent || 'blue';\n                this.isHighContrast = preferences.highContrast || false;\n                this.isReducedMotion = preferences.reducedMotion || false;\n            }\n        } catch (error) {\n            console.warn('Failed to load theme preferences:', error);\n        }\n    }\n    \n    // Public API methods\n    getCurrentTheme() {\n        return {\n            mode: this.currentTheme,\n            accent: this.currentAccent,\n            highContrast: this.isHighContrast,\n            reducedMotion: this.isReducedMotion,\n            isDark: this.currentTheme === 'dark' || \n                   (this.currentTheme === 'auto' && this.systemPrefersDark)\n        };\n    }\n    \n    resetToDefaults() {\n        this.currentTheme = 'auto';\n        this.currentAccent = 'blue';\n        this.isHighContrast = false;\n        this.isReducedMotion = false;\n        \n        // Remove seasonal themes\n        document.body.classList.remove('theme-winter', 'theme-spring', 'theme-summer', 'theme-autumn');\n        \n        this.applyTheme();\n        this.updateUI();\n        this.savePreferences();\n        this.triggerPreviewAnimation();\n    }\n    \n    exportTheme() {\n        const theme = this.getCurrentTheme();\n        const blob = new Blob([JSON.stringify(theme, null, 2)], { type: 'application/json' });\n        const url = URL.createObjectURL(blob);\n        const a = document.createElement('a');\n        a.href = url;\n        a.download = 'theme-settings.json';\n        a.click();\n        URL.revokeObjectURL(url);\n    }\n    \n    importTheme(themeData) {\n        try {\n            if (typeof themeData === 'string') {\n                themeData = JSON.parse(themeData);\n            }\n            \n            this.currentTheme = themeData.mode || 'auto';\n            this.currentAccent = themeData.accent || 'blue';\n            this.isHighContrast = themeData.highContrast || false;\n            this.isReducedMotion = themeData.reducedMotion || false;\n            \n            this.applyTheme();\n            this.updateUI();\n            this.savePreferences();\n            this.triggerPreviewAnimation();\n            \n            return true;\n        } catch (error) {\n            console.error('Failed to import theme:', error);\n            return false;\n        }\n    }\n}\n\n// Initialize theme manager when DOM is ready\ndocument.addEventListener('DOMContentLoaded', () => {\n    window.themeManager = new ThemeManager();\n});\n\n// Make ThemeManager globally available\nwindow.ThemeManager = ThemeManager;
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        mediaQuery.addEventListener('change', (e) => {
+            this.systemPrefersDark = e.matches;
+            if (this.currentTheme === 'auto') {
+                this.applyTheme();
+            }
+        });
+    }
+    
+    setThemeMode(mode) {
+        this.currentTheme = mode;
+        this.applyTheme();
+        this.updateUI();
+        this.savePreferences();
+        this.triggerPreviewAnimation();
+    }
+    
+    setAccentColor(color) {
+        this.currentAccent = color;
+        this.applyTheme();
+        this.updateUI();
+        this.savePreferences();
+        this.triggerPreviewAnimation();
+    }
+    
+    setSeasonalTheme(theme) {
+        // Remove existing seasonal themes
+        document.body.classList.remove('theme-winter', 'theme-spring', 'theme-summer', 'theme-autumn');
+        
+        // Apply new seasonal theme
+        if (theme) {
+            document.body.classList.add(`theme-${theme}`);
+        }
+        
+        this.savePreferences();
+        this.triggerPreviewAnimation();
+    }
+    
+    setHighContrast(enabled) {
+        this.isHighContrast = enabled;
+        document.body.classList.toggle('high-contrast', enabled);
+        this.savePreferences();
+        this.triggerPreviewAnimation();
+    }
+    
+    setReducedMotion(enabled) {
+        this.isReducedMotion = enabled;
+        document.body.classList.toggle('reduced-motion', enabled);
+        this.savePreferences();
+    }
+    
+    applyTheme() {
+        const body = document.body;
+        
+        // Remove existing theme classes
+        body.classList.remove('light-mode', 'dark-mode');
+        body.classList.remove('theme-blue', 'theme-purple', 'theme-green', 'theme-orange', 'theme-pink');
+        
+        // Apply theme mode
+        let isDark = false;
+        if (this.currentTheme === 'dark') {
+            isDark = true;
+        } else if (this.currentTheme === 'auto') {
+            isDark = this.systemPrefersDark;
+        }
+        
+        body.classList.add(isDark ? 'dark-mode' : 'light-mode');
+        
+        // Apply accent color
+        body.classList.add(`theme-${this.currentAccent}`);
+        
+        // Apply accessibility settings
+        body.classList.toggle('high-contrast', this.isHighContrast);
+        body.classList.toggle('reduced-motion', this.isReducedMotion);
+        
+        // Update meta theme-color for mobile browsers
+        this.updateMetaThemeColor(isDark);
+    }
+    
+    updateMetaThemeColor(isDark) {
+        let metaThemeColor = document.querySelector('meta[name=\"theme-color\"]');
+        if (!metaThemeColor) {
+            metaThemeColor = document.createElement('meta');
+            metaThemeColor.name = 'theme-color';
+            document.head.appendChild(metaThemeColor);
+        }
+        
+        const color = isDark ? '#0f172a' : '#ffffff';
+        metaThemeColor.content = color;
+    }
+    
+    updateUI() {
+        // Update theme mode buttons
+        document.querySelectorAll('.theme-mode-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const activeMode = document.getElementById(`${this.currentTheme}-mode-btn`);
+        if (activeMode) {
+            activeMode.classList.add('active');
+        }
+        
+        // Update accent color buttons
+        document.querySelectorAll('.theme-color-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const activeColor = document.querySelector(`[data-theme=\"${this.currentAccent}\"]`);
+        if (activeColor) {
+            activeColor.classList.add('active');
+        }
+        
+        // Update accessibility toggles
+        const highContrastToggle = document.getElementById('high-contrast-toggle');
+        if (highContrastToggle) {
+            highContrastToggle.checked = this.isHighContrast;
+        }
+        
+        const reducedMotionToggle = document.getElementById('reduced-motion-toggle');
+        if (reducedMotionToggle) {
+            reducedMotionToggle.checked = this.isReducedMotion;
+        }
+        
+        // Update legacy toggle
+        const legacyToggle = document.getElementById('theme-toggle');
+        if (legacyToggle) {
+            legacyToggle.checked = this.currentTheme === 'dark' || 
+                                  (this.currentTheme === 'auto' && this.systemPrefersDark);
+        }
+    }
+    
+    triggerPreviewAnimation() {
+        document.body.classList.add('theme-preview-animation');
+        setTimeout(() => {
+            document.body.classList.remove('theme-preview-animation');
+        }, 300);
+    }
+    
+    savePreferences() {
+        const preferences = {
+            theme: this.currentTheme,
+            accent: this.currentAccent,
+            highContrast: this.isHighContrast,
+            reducedMotion: this.isReducedMotion
+        };
+        
+        localStorage.setItem('themePreferences', JSON.stringify(preferences));
+    }
+    
+    loadPreferences() {
+        try {
+            const saved = localStorage.getItem('themePreferences');
+            if (saved) {
+                const preferences = JSON.parse(saved);
+                this.currentTheme = preferences.theme || 'auto';
+                this.currentAccent = preferences.accent || 'blue';
+                this.isHighContrast = preferences.highContrast || false;
+                this.isReducedMotion = preferences.reducedMotion || false;
+            }
+        } catch (error) {
+            console.warn('Failed to load theme preferences:', error);
+        }
+    }
+    
+    // Public API methods
+    getCurrentTheme() {
+        return {
+            mode: this.currentTheme,
+            accent: this.currentAccent,
+            highContrast: this.isHighContrast,
+            reducedMotion: this.isReducedMotion,
+            isDark: this.currentTheme === 'dark' || 
+                   (this.currentTheme === 'auto' && this.systemPrefersDark)
+        };
+    }
+    
+    resetToDefaults() {
+        this.currentTheme = 'auto';
+        this.currentAccent = 'blue';
+        this.isHighContrast = false;
+        this.isReducedMotion = false;
+        
+        // Remove seasonal themes
+        document.body.classList.remove('theme-winter', 'theme-spring', 'theme-summer', 'theme-autumn');
+        
+        this.applyTheme();
+        this.updateUI();
+        this.savePreferences();
+        this.triggerPreviewAnimation();
+    }
+    
+    exportTheme() {
+        const theme = this.getCurrentTheme();
+        const blob = new Blob([JSON.stringify(theme, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'theme-settings.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+    
+    importTheme(themeData) {
+        try {
+            if (typeof themeData === 'string') {
+                themeData = JSON.parse(themeData);
+            }
+            
+            this.currentTheme = themeData.mode || 'auto';
+            this.currentAccent = themeData.accent || 'blue';
+            this.isHighContrast = themeData.highContrast || false;
+            this.isReducedMotion = themeData.reducedMotion || false;
+            
+            this.applyTheme();
+            this.updateUI();
+            this.savePreferences();
+            this.triggerPreviewAnimation();
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to import theme:', error);
+            return false;
+        }
+    }
+}
+
+// Initialize theme manager when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.themeManager = new ThemeManager();
+});
+
+// Make ThemeManager globally available
+window.ThemeManager = ThemeManager;

@@ -313,8 +313,8 @@ class SettingsFunctionality {
 }
 
 // Add CSS for feedback animations
-const style = document.createElement('style');
-style.textContent = `
+const settingsFixStyle = document.createElement('style');
+settingsFixStyle.textContent = `
     @keyframes slideInFade {
         from {
             opacity: 0;
@@ -337,7 +337,7 @@ style.textContent = `
         }
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(settingsFixStyle);
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

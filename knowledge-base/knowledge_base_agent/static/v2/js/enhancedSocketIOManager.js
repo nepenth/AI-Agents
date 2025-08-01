@@ -291,4 +291,404 @@ class EnhancedSocketIOManager {
         const customEvent = new CustomEvent(eventName, { 
             detail: data,
             bubbles: true,
-            cancelable: true\n        });\n        document.dispatchEvent(customEvent);\n    }\n    \n    bufferEvent(eventName, data) {\n        if (this.eventBuffer.length >= this.maxBufferSize) {\n            // Remove oldest event\n            this.eventBuffer.shift();\n        }\n        \n        this.eventBuffer.push({\n            eventName,\n            data,\n            timestamp: new Date().toISOString()\n        });\n        \n        this.eventStats.buffered++;\n    }\n    \n    processBufferedEvents() {\n        if (this.eventBuffer.length === 0) return;\n        \n        console.log(`📦 Processing ${this.eventBuffer.length} buffered events`);\n        \n        const events = [...this.eventBuffer];\n        this.eventBuffer = [];\n        \n        events.forEach(({ eventName, data }) => {\n            this.routeEvent(eventName, data);\n        });\n    }\n    \n    startHeartbeat() {\n        this.stopHeartbeat();\n        \n        this.heartbeatTimer = setInterval(() => {\n            if (this.isConnected && this.socket) {\n                this.socket.emit('ping');\n            }\n        }, this.heartbeatInterval);\n    }\n    \n    stopHeartbeat() {\n        if (this.heartbeatTimer) {\n            clearInterval(this.heartbeatTimer);\n            this.heartbeatTimer = null;\n        }\n    }\n    \n    handleHeartbeat() {\n        // Heartbeat received, connection is healthy\n        console.debug('💓 Heartbeat received');\n    }\n    \n    // Public API methods\n    \n    on(eventName, handler) {\n        if (!this.eventHandlers.has(eventName)) {\n            this.eventHandlers.set(eventName, new Set());\n        }\n        \n        this.eventHandlers.get(eventName).add(handler);\n        \n        // Return unsubscribe function\n        return () => this.off(eventName, handler);\n    }\n    \n    off(eventName, handler) {\n        const handlers = this.eventHandlers.get(eventName);\n        if (handlers) {\n            handlers.delete(handler);\n            if (handlers.size === 0) {\n                this.eventHandlers.delete(eventName);\n            }\n        }\n    }\n    \n    emit(eventName, data) {\n        if (!this.isConnected || !this.socket) {\n            console.warn(`⚠️ Cannot emit '${eventName}' - not connected`);\n            return false;\n        }\n        \n        try {\n            this.socket.emit(eventName, data);\n            return true;\n        } catch (error) {\n            console.error(`❌ Error emitting '${eventName}':`, error);\n            return false;\n        }\n    }\n    \n    disconnect() {\n        console.log('🔌 Manually disconnecting Socket.IO');\n        \n        this.stopHeartbeat();\n        \n        if (this.reconnectTimer) {\n            clearTimeout(this.reconnectTimer);\n            this.reconnectTimer = null;\n        }\n        \n        if (this.socket) {\n            this.socket.disconnect();\n            this.socket = null;\n        }\n        \n        this.isConnected = false;\n        this.isConnecting = false;\n        \n        this.notifyStatusChange('disconnected', 'Manually disconnected');\n    }\n    \n    reconnect() {\n        console.log('🔄 Manually triggering reconnection');\n        \n        this.disconnect();\n        \n        setTimeout(() => {\n            this.connectionAttempts = 0;\n            this.connect();\n        }, 1000);\n    }\n    \n    onStatusChange(callback) {\n        this.statusCallbacks.add(callback);\n        \n        // Return unsubscribe function\n        return () => this.statusCallbacks.delete(callback);\n    }\n    \n    notifyStatusChange(status, message) {\n        const statusData = {\n            status,\n            message,\n            timestamp: new Date().toISOString(),\n            connectionId: this.connectionId,\n            isConnected: this.isConnected,\n            connectionAttempts: this.connectionAttempts\n        };\n        \n        console.log(`📡 Connection status: ${status} - ${message}`);\n        \n        this.statusCallbacks.forEach(callback => {\n            try {\n                callback(statusData);\n            } catch (error) {\n                console.error('❌ Error in status callback:', error);\n            }\n        });\n        \n        // Emit as custom event\n        this.emitCustomEvent('socket_status_change', statusData);\n    }\n    \n    getStatus() {\n        return {\n            isConnected: this.isConnected,\n            isConnecting: this.isConnecting,\n            connectionAttempts: this.connectionAttempts,\n            lastConnectionTime: this.lastConnectionTime,\n            connectionId: this.connectionId,\n            eventStats: { ...this.eventStats },\n            bufferSize: this.eventBuffer.length,\n            hasHandlers: this.eventHandlers.size > 0\n        };\n    }\n    \n    getStats() {\n        return {\n            ...this.eventStats,\n            bufferSize: this.eventBuffer.length,\n            handlersCount: this.eventHandlers.size,\n            connectionAttempts: this.connectionAttempts,\n            isConnected: this.isConnected\n        };\n    }\n    \n    resetStats() {\n        this.eventStats = {\n            received: 0,\n            processed: 0,\n            errors: 0,\n            buffered: 0\n        };\n    }\n}\n\n/**\n * Socket Event Validator\n * \n * Validates and sanitizes incoming SocketIO events\n */\nclass SocketEventValidator {\n    constructor() {\n        this.validationRules = {\n            log: this.validateLogEvent,\n            live_log: this.validateLogEvent,\n            phase_update: this.validatePhaseEvent,\n            phase_status_update: this.validatePhaseEvent,\n            progress_update: this.validateProgressEvent,\n            agent_status: this.validateStatusEvent,\n            agent_status_update: this.validateStatusEvent\n        };\n    }\n    \n    validateEvent(eventName, data) {\n        try {\n            // Basic validation\n            if (data === null || data === undefined) {\n                return {\n                    isValid: false,\n                    error: 'Event data is null or undefined',\n                    sanitizedData: null\n                };\n            }\n            \n            // Get specific validator\n            const validator = this.validationRules[eventName];\n            if (validator) {\n                return validator.call(this, data);\n            }\n            \n            // Default validation for unknown events\n            return this.validateGenericEvent(data);\n            \n        } catch (error) {\n            return {\n                isValid: false,\n                error: `Validation error: ${error.message}`,\n                sanitizedData: null\n            };\n        }\n    }\n    \n    validateLogEvent(data) {\n        const sanitized = {\n            message: String(data.message || ''),\n            level: String(data.level || 'INFO').toUpperCase(),\n            timestamp: data.timestamp || new Date().toISOString()\n        };\n        \n        // Validate log level\n        const validLevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];\n        if (!validLevels.includes(sanitized.level)) {\n            sanitized.level = 'INFO';\n        }\n        \n        // Truncate very long messages\n        if (sanitized.message.length > 5000) {\n            sanitized.message = sanitized.message.substring(0, 4997) + '...';\n            sanitized.truncated = true;\n        }\n        \n        return {\n            isValid: true,\n            error: null,\n            sanitizedData: sanitized\n        };\n    }\n    \n    validatePhaseEvent(data) {\n        const sanitized = {\n            phase_id: String(data.phase_id || ''),\n            status: String(data.status || '').toLowerCase(),\n            message: String(data.message || ''),\n            timestamp: data.timestamp || new Date().toISOString()\n        };\n        \n        // Validate phase status\n        const validStatuses = ['pending', 'active', 'in_progress', 'completed', 'error', 'skipped', 'interrupted'];\n        if (!validStatuses.includes(sanitized.status)) {\n            return {\n                isValid: false,\n                error: `Invalid phase status: ${sanitized.status}`,\n                sanitizedData: null\n            };\n        }\n        \n        // Add progress data if present\n        if (data.processed_count !== undefined && data.total_count !== undefined) {\n            try {\n                sanitized.processed_count = parseInt(data.processed_count);\n                sanitized.total_count = parseInt(data.total_count);\n                \n                if (sanitized.processed_count < 0 || sanitized.total_count < 0) {\n                    return {\n                        isValid: false,\n                        error: 'Progress counts cannot be negative',\n                        sanitizedData: null\n                    };\n                }\n                \n                if (sanitized.total_count > 0) {\n                    sanitized.percentage = Math.round((sanitized.processed_count / sanitized.total_count) * 100);\n                }\n            } catch (error) {\n                // Remove invalid progress data\n                delete sanitized.processed_count;\n                delete sanitized.total_count;\n            }\n        }\n        \n        return {\n            isValid: true,\n            error: null,\n            sanitizedData: sanitized\n        };\n    }\n    \n    validateProgressEvent(data) {\n        try {\n            const processed = parseInt(data.processed_count);\n            const total = parseInt(data.total_count);\n            \n            if (processed < 0 || total < 0) {\n                return {\n                    isValid: false,\n                    error: 'Progress counts cannot be negative',\n                    sanitizedData: null\n                };\n            }\n            \n            if (total > 0 && processed > total) {\n                return {\n                    isValid: false,\n                    error: 'Processed count cannot exceed total',\n                    sanitizedData: null\n                };\n            }\n            \n            const sanitized = {\n                processed_count: processed,\n                total_count: total,\n                percentage: total > 0 ? Math.round((processed / total) * 100) : 0,\n                phase: String(data.phase || ''),\n                timestamp: data.timestamp || new Date().toISOString()\n            };\n            \n            return {\n                isValid: true,\n                error: null,\n                sanitizedData: sanitized\n            };\n            \n        } catch (error) {\n            return {\n                isValid: false,\n                error: 'Invalid progress data format',\n                sanitizedData: null\n            };\n        }\n    }\n    \n    validateStatusEvent(data) {\n        const sanitized = {\n            is_running: Boolean(data.is_running),\n            current_phase_id: data.current_phase_id ? String(data.current_phase_id) : null,\n            current_phase_message: String(data.current_phase_message || ''),\n            timestamp: data.timestamp || new Date().toISOString()\n        };\n        \n        // Add optional fields if present\n        if (data.task_id) {\n            sanitized.task_id = String(data.task_id);\n        }\n        \n        if (data.active_run_preferences) {\n            sanitized.active_run_preferences = data.active_run_preferences;\n        }\n        \n        return {\n            isValid: true,\n            error: null,\n            sanitizedData: sanitized\n        };\n    }\n    \n    validateGenericEvent(data) {\n        // Basic sanitization for unknown event types\n        const sanitized = {\n            ...data,\n            timestamp: data.timestamp || new Date().toISOString()\n        };\n        \n        return {\n            isValid: true,\n            error: null,\n            sanitizedData: sanitized\n        };\n    }\n}\n\n// Export for use in other modules\nif (typeof module !== 'undefined' && module.exports) {\n    module.exports = { EnhancedSocketIOManager, SocketEventValidator };\n} else {\n    window.EnhancedSocketIOManager = EnhancedSocketIOManager;\n    window.SocketEventValidator = SocketEventValidator;\n}"
+            cancelable: true
+        });
+        document.dispatchEvent(customEvent);
+    }
+    
+    bufferEvent(eventName, data) {
+        if (this.eventBuffer.length >= this.maxBufferSize) {
+            // Remove oldest event
+            this.eventBuffer.shift();
+        }
+        
+        this.eventBuffer.push({
+            eventName,
+            data,
+            timestamp: new Date().toISOString()
+        });
+        
+        this.eventStats.buffered++;
+    }
+    
+    processBufferedEvents() {
+        if (this.eventBuffer.length === 0) return;
+        
+        console.log(`📦 Processing ${this.eventBuffer.length} buffered events`);
+        
+        const events = [...this.eventBuffer];
+        this.eventBuffer = [];
+        
+        events.forEach(({ eventName, data }) => {
+            this.routeEvent(eventName, data);
+        });
+    }
+    
+    startHeartbeat() {
+        this.stopHeartbeat();
+        
+        this.heartbeatTimer = setInterval(() => {
+            if (this.isConnected && this.socket) {
+                this.socket.emit('ping');
+            }
+        }, this.heartbeatInterval);
+    }
+    
+    stopHeartbeat() {
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+        }
+    }
+    
+    handleHeartbeat() {
+        // Heartbeat received, connection is healthy
+        console.debug('💓 Heartbeat received');
+    }
+    
+    // Public API methods
+    
+    on(eventName, handler) {
+        if (!this.eventHandlers.has(eventName)) {
+            this.eventHandlers.set(eventName, new Set());
+        }
+        
+        this.eventHandlers.get(eventName).add(handler);
+        
+        // Return unsubscribe function
+        return () => this.off(eventName, handler);
+    }
+    
+    off(eventName, handler) {
+        const handlers = this.eventHandlers.get(eventName);
+        if (handlers) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
+                this.eventHandlers.delete(eventName);
+            }
+        }
+    }
+    
+    emit(eventName, data) {
+        if (!this.isConnected || !this.socket) {
+            console.warn(`⚠️ Cannot emit '${eventName}' - not connected`);
+            return false;
+        }
+        
+        try {
+            this.socket.emit(eventName, data);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error emitting '${eventName}':`, error);
+            return false;
+        }
+    }
+    
+    disconnect() {
+        console.log('🔌 Manually disconnecting Socket.IO');
+        
+        this.stopHeartbeat();
+        
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+        }
+        
+        this.isConnected = false;
+        this.isConnecting = false;
+        
+        this.notifyStatusChange('disconnected', 'Manually disconnected');
+    }
+    
+    reconnect() {
+        console.log('🔄 Manually triggering reconnection');
+        
+        this.disconnect();
+        
+        setTimeout(() => {
+            this.connectionAttempts = 0;
+            this.connect();
+        }, 1000);
+    }
+    
+    onStatusChange(callback) {
+        this.statusCallbacks.add(callback);
+        
+        // Return unsubscribe function
+        return () => this.statusCallbacks.delete(callback);
+    }
+    
+    notifyStatusChange(status, message) {
+        const statusData = {
+            status,
+            message,
+            timestamp: new Date().toISOString(),
+            connectionId: this.connectionId,
+            isConnected: this.isConnected,
+            connectionAttempts: this.connectionAttempts
+        };
+        
+        console.log(`📡 Connection status: ${status} - ${message}`);
+        
+        this.statusCallbacks.forEach(callback => {
+            try {
+                callback(statusData);
+            } catch (error) {
+                console.error('❌ Error in status callback:', error);
+            }
+        });
+        
+        // Emit as custom event
+        this.emitCustomEvent('socket_status_change', statusData);
+    }
+    
+    getStatus() {
+        return {
+            isConnected: this.isConnected,
+            isConnecting: this.isConnecting,
+            connectionAttempts: this.connectionAttempts,
+            lastConnectionTime: this.lastConnectionTime,
+            connectionId: this.connectionId,
+            eventStats: { ...this.eventStats },
+            bufferSize: this.eventBuffer.length,
+            hasHandlers: this.eventHandlers.size > 0
+        };
+    }
+    
+    getStats() {
+        return {
+            ...this.eventStats,
+            bufferSize: this.eventBuffer.length,
+            handlersCount: this.eventHandlers.size,
+            connectionAttempts: this.connectionAttempts,
+            isConnected: this.isConnected
+        };
+    }
+    
+    resetStats() {
+        this.eventStats = {
+            received: 0,
+            processed: 0,
+            errors: 0,
+            buffered: 0
+        };
+    }
+}
+
+/**
+ * Socket Event Validator
+ * 
+ * Validates and sanitizes incoming SocketIO events
+ */
+class SocketEventValidator {
+    constructor() {
+        this.validationRules = {
+            log: this.validateLogEvent,
+            live_log: this.validateLogEvent,
+            phase_update: this.validatePhaseEvent,
+            phase_status_update: this.validatePhaseEvent,
+            progress_update: this.validateProgressEvent,
+            agent_status: this.validateStatusEvent,
+            agent_status_update: this.validateStatusEvent
+        };
+    }
+    
+    validateEvent(eventName, data) {
+        try {
+            // Basic validation
+            if (data === null || data === undefined) {
+                return {
+                    isValid: false,
+                    error: 'Event data is null or undefined',
+                    sanitizedData: null
+                };
+            }
+            
+            // Get specific validator
+            const validator = this.validationRules[eventName];
+            if (validator) {
+                return validator.call(this, data);
+            }
+            
+            // Default validation for unknown events
+            return this.validateGenericEvent(data);
+            
+        } catch (error) {
+            return {
+                isValid: false,
+                error: `Validation error: ${error.message}`,
+                sanitizedData: null
+            };
+        }
+    }
+    
+    validateLogEvent(data) {
+        const sanitized = {
+            message: String(data.message || ''),
+            level: String(data.level || 'INFO').toUpperCase(),
+            timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        // Validate log level
+        const validLevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
+        if (!validLevels.includes(sanitized.level)) {
+            sanitized.level = 'INFO';
+        }
+        
+        // Truncate very long messages
+        if (sanitized.message.length > 5000) {
+            sanitized.message = sanitized.message.substring(0, 4997) + '...';
+            sanitized.truncated = true;
+        }
+        
+        return {
+            isValid: true,
+            error: null,
+            sanitizedData: sanitized
+        };
+    }
+    
+    validatePhaseEvent(data) {
+        const sanitized = {
+            phase_id: String(data.phase_id || ''),
+            status: String(data.status || '').toLowerCase(),
+            message: String(data.message || ''),
+            timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        // Validate phase status
+        const validStatuses = ['pending', 'active', 'in_progress', 'completed', 'error', 'skipped', 'interrupted'];
+        if (!validStatuses.includes(sanitized.status)) {
+            return {
+                isValid: false,
+                error: `Invalid phase status: ${sanitized.status}`,
+                sanitizedData: null
+            };
+        }
+        
+        // Add progress data if present
+        if (data.processed_count !== undefined && data.total_count !== undefined) {
+            try {
+                sanitized.processed_count = parseInt(data.processed_count);
+                sanitized.total_count = parseInt(data.total_count);
+                
+                if (sanitized.processed_count < 0 || sanitized.total_count < 0) {
+                    return {
+                        isValid: false,
+                        error: 'Progress counts cannot be negative',
+                        sanitizedData: null
+                    };
+                }
+                
+                if (sanitized.total_count > 0) {
+                    sanitized.percentage = Math.round((sanitized.processed_count / sanitized.total_count) * 100);
+                }
+            } catch (error) {
+                // Remove invalid progress data
+                delete sanitized.processed_count;
+                delete sanitized.total_count;
+            }
+        }
+        
+        return {
+            isValid: true,
+            error: null,
+            sanitizedData: sanitized
+        };
+    }
+    
+    validateProgressEvent(data) {
+        try {
+            const processed = parseInt(data.processed_count);
+            const total = parseInt(data.total_count);
+            
+            if (processed < 0 || total < 0) {
+                return {
+                    isValid: false,
+                    error: 'Progress counts cannot be negative',
+                    sanitizedData: null
+                };
+            }
+            
+            if (total > 0 && processed > total) {
+                return {
+                    isValid: false,
+                    error: 'Processed count cannot exceed total',
+                    sanitizedData: null
+                };
+            }
+            
+            const sanitized = {
+                processed_count: processed,
+                total_count: total,
+                percentage: total > 0 ? Math.round((processed / total) * 100) : 0,
+                phase: String(data.phase || ''),
+                timestamp: data.timestamp || new Date().toISOString()
+            };
+            
+            return {
+                isValid: true,
+                error: null,
+                sanitizedData: sanitized
+            };
+            
+        } catch (error) {
+            return {
+                isValid: false,
+                error: 'Invalid progress data format',
+                sanitizedData: null
+            };
+        }
+    }
+    
+    validateStatusEvent(data) {
+        const sanitized = {
+            is_running: Boolean(data.is_running),
+            current_phase_id: data.current_phase_id ? String(data.current_phase_id) : null,
+            current_phase_message: String(data.current_phase_message || ''),
+            timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        // Add optional fields if present
+        if (data.task_id) {
+            sanitized.task_id = String(data.task_id);
+        }
+        
+        if (data.active_run_preferences) {
+            sanitized.active_run_preferences = data.active_run_preferences;
+        }
+        
+        return {
+            isValid: true,
+            error: null,
+            sanitizedData: sanitized
+        };
+    }
+    
+    validateGenericEvent(data) {
+        // Basic sanitization for unknown event types
+        const sanitized = {
+            ...data,
+            timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        return {
+            isValid: true,
+            error: null,
+            sanitizedData: sanitized
+        };
+    }
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { EnhancedSocketIOManager, SocketEventValidator };
+} else {
+    window.EnhancedSocketIOManager = EnhancedSocketIOManager;
+    window.SocketEventValidator = SocketEventValidator;
+}

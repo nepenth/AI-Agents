@@ -23,7 +23,7 @@ import traceback
 # Core imports needed at module level
 from knowledge_base_agent.config import Config
 from knowledge_base_agent.exceptions import AgentError, MarkdownGenerationError
-from knowledge_base_agent.database_state_manager import DatabaseStateManager
+from knowledge_base_agent.unified_state_manager import UnifiedStateManager
 from knowledge_base_agent.git_helper import GitSyncHandler
 from knowledge_base_agent.category_manager import CategoryManager
 from knowledge_base_agent.custom_types import TweetData, KnowledgeBaseItem
@@ -83,7 +83,7 @@ class KnowledgeBaseAgent:
         self.app = app
         self.config = config
         self.http_client = HTTPClient(config)
-        self.state_manager = DatabaseStateManager(config)
+        self.state_manager = UnifiedStateManager(config, task_id)
         self.category_manager = CategoryManager(config, http_client=self.http_client)
         self.socketio = socketio
         self.task_id = task_id
@@ -184,7 +184,21 @@ class KnowledgeBaseAgent:
         log_data = {'message': message, 'level': level.upper()}
 
         # Socket.IO path (web-server run) -----------------------------------
-        # Use unified logging system
+        # CRITICAL FIX: Direct SocketIO emission for important messages
+        if self.socketio:
+            try:
+                # Add timestamp for frontend
+                log_data['timestamp'] = datetime.now(timezone.utc).isoformat()
+                log_data['task_id'] = self.task_id
+                
+                # Emit directly to SocketIO for immediate frontend delivery
+                self.socketio.emit('log', log_data)
+                self.socketio.emit('live_log', log_data)  # Also emit as live_log for compatibility
+                
+            except Exception as e:
+                logging.debug(f"Direct SocketIO emission failed: {e}")
+        
+        # Use unified logging system as secondary path
         if hasattr(self, 'unified_logger') and self.unified_logger:
             self.unified_logger.log(log_data.get('message', ''), log_data.get('level', 'INFO'))
         else:
@@ -391,16 +405,14 @@ class KnowledgeBaseAgent:
         
         # Import components here to avoid circular imports
         from knowledge_base_agent.content_processor import StreamlinedContentProcessor
-        from knowledge_base_agent.markdown_writer import MarkdownWriter
         from knowledge_base_agent.embedding_manager import EmbeddingManager
         from knowledge_base_agent.chat_manager import ChatManager
         
-        # Initialize the streamlined content processor
+        # Initialize the streamlined content processor (no markdown_writer - using unified DB only)
         self.content_processor = StreamlinedContentProcessor(
             config=self.config,
             http_client=self.http_client,
             state_manager=self.state_manager,
-            markdown_writer=MarkdownWriter(self.config),
             category_manager=self.category_manager,
             socketio=self.socketio,
             phase_emitter_func=self.socketio_emit_phase_update,
@@ -421,7 +433,7 @@ class KnowledgeBaseAgent:
                 embedding_manager=self.embedding_manager
             )
 
-        await self.state_manager.initialize()
+        self.state_manager.initialize()
         self._initialized = True
         self.logger.info("Agent initialization complete.")
         return self.content_processor, self.embedding_manager, self.chat_manager
@@ -460,7 +472,6 @@ class KnowledgeBaseAgent:
                 
                 current_progress_msg = f"Processing bookmark {i+1}/{total_bookmarks}: {bookmark_url[:50]}..."
                 self.socketio_emit_phase_update('fetch_bookmarks', 'in_progress', current_progress_msg)
-                self.socketio_emit_log(current_progress_msg, "DEBUG")
 
                 tweet_id = parse_tweet_id_from_url(bookmark_url)
                 if not tweet_id:
@@ -468,14 +479,13 @@ class KnowledgeBaseAgent:
                     self.socketio_emit_log(f"Invalid tweet URL in bookmark: {bookmark_url}", "WARNING")
                     continue
                 
-                processing_state = await self.state_manager.get_processing_state(tweet_id)
+                processing_state = self.state_manager.get_processing_state(tweet_id)
                 is_processed = processing_state.get("fully_processed", False)
-                in_unprocessed_queue = tweet_id in await self.state_manager.get_unprocessed_tweets()
+                in_unprocessed_queue = tweet_id in self.state_manager.get_unprocessed_tweets()
 
                 if not is_processed and not in_unprocessed_queue:
                     new_tweet_ids_this_run.append(tweet_id)
                     logging.info(f"Adding new tweet {tweet_id} from bookmark to unprocessed list.")
-                    self.socketio_emit_log(f"Queued new tweet {tweet_id} from bookmark.", "DEBUG")
                 elif is_processed:
                     logging.debug(f"Tweet {tweet_id} from bookmark already processed, skipping.")
                     self.socketio_emit_log(f"Tweet {tweet_id} (bookmark) already processed, skipping.", "DEBUG")
@@ -484,7 +494,7 @@ class KnowledgeBaseAgent:
                     self.socketio_emit_log(f"Tweet {tweet_id} (bookmark) already in queue, skipping.", "DEBUG")
             
             if new_tweet_ids_this_run:
-                await self.state_manager.add_tweets_to_unprocessed(new_tweet_ids_this_run)
+                self.state_manager.add_tweets_to_unprocessed(new_tweet_ids_this_run)
                 newly_added_tweet_ids_count = len(new_tweet_ids_this_run)
                 final_msg = f"Added {newly_added_tweet_ids_count} new tweets from bookmarks to the unprocessed queue."
                 logging.info(final_msg)
@@ -544,9 +554,9 @@ class KnowledgeBaseAgent:
                     continue
                 
                 # Check if already processed or in unprocessed queue
-                processing_state = await self.state_manager.get_processing_state(tweet_id)
+                processing_state = self.state_manager.get_processing_state(tweet_id)
                 is_processed = processing_state.get("fully_processed", False)
-                in_unprocessed_queue = tweet_id in await self.state_manager.get_unprocessed_tweets() # Assuming this returns a set/list
+                in_unprocessed_queue = tweet_id in self.state_manager.get_unprocessed_tweets() # Assuming this returns a set/list
 
                 if not is_processed and not in_unprocessed_queue:
                     # self.state_manager.unprocessed_tweets.append(tweet_id) # Deprecated direct access
@@ -558,7 +568,7 @@ class KnowledgeBaseAgent:
                     logging.info(f"Tweet {tweet_id} from bookmark already in unprocessed queue, skipping.")
             
             if new_tweet_ids:
-                await self.state_manager.add_tweets_to_unprocessed(new_tweet_ids)
+                self.state_manager.add_tweets_to_unprocessed(new_tweet_ids)
                 logging.info(f"Added {len(new_tweet_ids)} new tweets from bookmarks to unprocessed list.")
                 logging.info(f"Processing {len(new_tweet_ids)} new tweets from bookmarks via ContentProcessor...")
                 # Assuming UserPreferences needs to be instantiated. 
@@ -673,27 +683,19 @@ class KnowledgeBaseAgent:
             logging.warning(f"Cleanup failed: {e}")
 
     async def run(self, preferences: UserPreferences):
-        # Enhanced debug logging to track execution flow
-        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Entering agent.run() method", "DEBUG")
-        self.socketio_emit_log(f"DEBUG_AGENT_RUN: Prefs object received by run(): {preferences}", "DEBUG")
-        self.socketio_emit_log(f"DEBUG_AGENT_RUN: Prefs type in run(): {type(preferences)}", "DEBUG")
-        self.socketio_emit_log(f"DEBUG_AGENT_RUN: In run(), hasattr skip_fetch_bookmarks: {hasattr(preferences, 'skip_fetch_bookmarks')}", "DEBUG")
-        self.socketio_emit_log(f"DEBUG_AGENT_RUN: In run(), hasattr skip_fetching_new_bookmarks: {hasattr(preferences, 'skip_fetching_new_bookmarks')}", "DEBUG")
 
         try:
-            self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to call initialize()", "DEBUG")
             content_processor, embedding_manager, chat_manager = await self.initialize()
-            self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: initialize() completed successfully", "DEBUG")
         except Exception as init_error:
-            self.socketio_emit_log(f"❌ DEBUG_AGENT_RUN: Error in initialize(): {init_error}", "ERROR")
-            self.socketio_emit_log(f"❌ DEBUG_AGENT_RUN: Initialize traceback: {traceback.format_exc()}", "ERROR")
+            self.socketio_emit_log(f"❌ Error in initialize(): {init_error}", "ERROR")
+            self.socketio_emit_log(f"❌ Initialize traceback: {traceback.format_exc()}", "ERROR")
             raise
         
         if self._is_running:
             self.socketio_emit_log("Agent is already running.", "WARNING")
             return {"status": "already_running", "message": "Agent is already running."}
 
-        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Setting _is_running to True", "DEBUG")
+
         self._is_running = True
         self._current_run_preferences = preferences
         
@@ -721,10 +723,10 @@ class KnowledgeBaseAgent:
                         'plan_statuses': {}
                     })
         except Exception as status_error:
-            self.socketio_emit_log(f"❌ DEBUG_AGENT_RUN: Error emitting agent status: {status_error}", "ERROR")
+            self.socketio_emit_log(f"❌ Error emitting agent status: {status_error}", "ERROR")
             # Continue execution even if status emit fails
             
-        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to clear stop flag and initialize plan statuses", "DEBUG")
+
         clear_stop_flag() # Clear stop flag at the beginning of a run
         self._initialize_plan_statuses(preferences) # Initialize/reset with current preferences
         self.socketio_emit_log("Knowledge Base Agent run started.", "INFO")
@@ -734,7 +736,7 @@ class KnowledgeBaseAgent:
             for phase_id, status_info in self._plan_statuses.items():
                 self.socketio_emit_phase_update(phase_id, status_info['status'], status_info['message'])
 
-        self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to create ProcessingStats", "DEBUG")
+
         stats = ProcessingStats(start_time=datetime.now())
         phase_details_from_content_processor: List[PhaseDetail] = []
 
@@ -744,7 +746,7 @@ class KnowledgeBaseAgent:
 
         try:
             # Handle different run modes
-            self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: About to handle run mode: {preferences.run_mode}", "DEBUG")
+
             
             if preferences.run_mode == "synthesis_only":
                 self.socketio_emit_log("Running in synthesis-only mode - will only generate synthesis documents.", "INFO")
@@ -771,15 +773,15 @@ class KnowledgeBaseAgent:
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user in embedding-only mode.")
 
             elif preferences.run_mode == "full_pipeline":
-                self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Starting full_pipeline mode execution", "DEBUG")
+
                 # Existing full pipeline logic
                 # --- Phase 1: Parse User Preferences (already done by receiving `preferences` object) ---
-                self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Phase 1 - Emitting user_input_parsing completed", "DEBUG")
+
                 self.socketio_emit_phase_update('user_input_parsing', 'completed', 'User preferences parsed and applied.')
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after parsing preferences.")
 
                 # --- Phase 2: Fetch Bookmarks (Optional) ---
-                self.socketio_emit_log(f"🔍 DEBUG_AGENT_RUN: Phase 2 - Checking bookmark fetching (skip={preferences.skip_fetch_bookmarks})", "DEBUG")
+
                 if not preferences.skip_fetch_bookmarks:
                     self.socketio_emit_phase_update('fetch_bookmarks', 'active', 'Fetching bookmarks from source...', False)
                     try:
@@ -804,7 +806,7 @@ class KnowledgeBaseAgent:
                     self.socketio_emit_phase_update('content_processing_overall', 'active', 'Starting content processing pipeline...', False)
                     try:
                         # First get unprocessed tweets
-                        unprocessed_tweets = await self.state_manager.get_unprocessed_tweets()
+                        unprocessed_tweets = self.state_manager.get_unprocessed_tweets()
                         self.socketio_emit_log(f"Found {len(unprocessed_tweets)} unprocessed tweets in queue", "INFO")
                         
                         # Include already processed tweets if any force reprocessing flag is enabled
@@ -820,7 +822,7 @@ class KnowledgeBaseAgent:
                         
                         if any_force_reprocessing:
                             # Get processed tweets from state manager
-                            processed_tweets = await self.state_manager.get_processed_tweets()
+                            processed_tweets = self.state_manager.get_processed_tweets()
                             if processed_tweets:
                                 # Log which force flags are enabled
                                 force_flags_enabled = []
@@ -872,11 +874,11 @@ class KnowledgeBaseAgent:
                                 self.socketio_emit_phase_update(sub_phase, 'completed', 'Completed - no tweets to process', False, 0, 0, 0)
                             
                             # Check if we have any tweets in the system at all
-                            all_tweets = await self.state_manager.get_all_tweets()
+                            all_tweets = self.state_manager.get_all_tweets()
                             if len(all_tweets) == 0:
                                 self.socketio_emit_log("SYSTEM STATE: No tweets found in the system. You may need to run bookmark fetching first to add tweets to the processing queue.", "WARNING")
                             else:
-                                processed_tweets = await self.state_manager.get_processed_tweets()
+                                processed_tweets = self.state_manager.get_processed_tweets()
                                 self.socketio_emit_log(f"SYSTEM STATE: Found {len(all_tweets)} total tweets in cache, {len(processed_tweets)} are already processed. Try enabling force reprocessing flags or run bookmark fetching to add new tweets.", "INFO")
                     except Exception as e:
                         self.socketio_emit_log(f"Error during content processing: {e}", "ERROR")
@@ -1079,9 +1081,6 @@ class KnowledgeBaseAgent:
 
     def initialize_and_get_execution_plan_steps(self, preferences: UserPreferences) -> List[Dict[str, Any]]:
         """Defines the agent's execution plan steps with initial status based on preferences."""
-        self.socketio_emit_log(f"DEBUG_INIT_PLAN: Prefs object: {preferences}", "DEBUG")
-        self.socketio_emit_log(f"DEBUG_INIT_PLAN: Prefs type: {type(preferences)}", "DEBUG")
-        self.socketio_emit_log(f"DEBUG_INIT_PLAN: Has skip_fetch_bookmarks: {hasattr(preferences, 'skip_fetch_bookmarks')}", "DEBUG")
         
         plan = [
             {
@@ -1159,22 +1158,22 @@ class KnowledgeBaseAgent:
 
         try:
             with current_app.app_context():
-                tweet_data = await self.state_manager.get_tweet(tweet_id)
+                tweet_data = self.state_manager.get_tweet(tweet_id)
                 from knowledge_base_agent.tweet_cacher import cache_tweets
                 if not tweet_data or not tweet_data.get('cache_complete'):
                     self.socketio_emit_log(f"Tweet {tweet_id} not fully cached, attempting to cache now...", "INFO")
                     await cache_tweets([tweet_id], self.config, self.http_client, self.state_manager, force_recache=True) 
-                    tweet_data = await self.state_manager.get_tweet(tweet_id)
+                    tweet_data = self.state_manager.get_tweet(tweet_id)
                     if not tweet_data or not tweet_data.get('cache_complete'):
                         self.socketio_emit_log(f"Failed to fetch and cache tweet {tweet_id} for single processing.", "ERROR")
                         raise ContentProcessingError(f"Failed to fetch/cache tweet {tweet_id}.")
 
-                processing_state = await self.state_manager.get_processing_state(tweet_id)
+                processing_state = self.state_manager.get_processing_state(tweet_id)
                 is_processed = processing_state.get("fully_processed", False)
-                unprocessed_queue = await self.state_manager.get_unprocessed_tweets()
+                unprocessed_queue = self.state_manager.get_unprocessed_tweets()
                 
                 if not is_processed and tweet_id not in unprocessed_queue:
-                    await self.state_manager.add_tweets_to_unprocessed([tweet_id])
+                    self.state_manager.add_tweets_to_unprocessed([tweet_id])
                     self.socketio_emit_log(f"Added tweet {tweet_id} to unprocessed list for dedicated processing.", "INFO")
                 elif is_processed:
                     self.socketio_emit_log(f"Tweet {tweet_id} is already marked as processed. To re-process, use batch options with force flags or clear state.", "WARNING")
@@ -1228,7 +1227,7 @@ class KnowledgeBaseAgent:
             self.socketio_emit_log("🔍 DB Sync: Getting all tweets from state manager...", "INFO")
             # Get all tweets for potential database sync
             try:
-                all_tweets = await self.state_manager.get_all_tweets()
+                all_tweets = self.state_manager.get_all_tweets()  # Remove await - this is synchronous
                 self.socketio_emit_log(f"🔍 DB Sync: Successfully retrieved {len(all_tweets) if all_tweets else 0} tweets", "INFO")
             except Exception as e:
                 self.socketio_emit_log(f"❌ DB Sync: Error getting tweets from state manager: {e}", "ERROR")
@@ -1299,11 +1298,11 @@ class KnowledgeBaseAgent:
                                                    False, i, db_sync_plan.needs_processing_count, error_count)
                     
                     # Use the content processor's sync method
-                    await self.content_processor._sync_to_db(tweet_id, tweet_data, self.category_manager)
+                    await self.content_processor._sync_to_unified_db(tweet_id, tweet_data)
                     
                     # Update state manager
                     tweet_data['db_synced'] = True
-                    await self.state_manager.update_tweet_data(tweet_id, tweet_data)
+                    self.state_manager.update_tweet_data(tweet_id, tweet_data)
                     items_successfully_processed += 1
                     
                     self.socketio_emit_log(f"✅ Database sync complete for item {i+1}", "INFO")

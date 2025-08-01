@@ -68,25 +68,15 @@ class Config(BaseSettings):
     # These should be defined as relative paths in .env or defaults
     data_processing_dir_rel: Path = Field(..., alias="DATA_PROCESSING_DIR")
     knowledge_base_dir_rel: Path = Field(..., alias="KNOWLEDGE_BASE_DIR")
-    categories_file_rel: Path = Field(..., alias="CATEGORIES_FILE")
-    bookmarks_file_rel: Path = Field(default_factory=lambda: Path("data/tweet_bookmarks.json"), alias="BOOKMARKS_FILE")
-    processed_tweets_file_rel: Path = Field(..., alias="PROCESSED_TWEETS_FILE")
     media_cache_dir_rel: Path = Field(..., alias="MEDIA_CACHE_DIR")
-    tweet_cache_file_rel: Path = Field(..., alias="TWEET_CACHE_FILE")
     log_file_rel: Path = Field(default_factory=lambda: Path("logs/agent_{timestamp}.log"), alias="LOG_FILE") # Can include {timestamp}
-    unprocessed_tweets_file_rel: Path = Field(..., alias="UNPROCESSED_TWEETS_FILE")
     log_dir_rel: Path = Field(..., alias="LOG_DIR")
 
     # Resolved absolute paths (properties)
     data_processing_dir: Path
     knowledge_base_dir: Path
-    categories_file: Path
-    bookmarks_file: Path
-    processed_tweets_file: Path
     media_cache_dir: Path
-    tweet_cache_file: Path
     log_file: Path
-    unprocessed_tweets_file: Path
     log_dir: Path
     
     # X/Twitter credentials
@@ -226,7 +216,7 @@ class Config(BaseSettings):
     
     # Enhanced Task Configuration
     celery_task_track_started: bool = Field(True, alias="CELERY_TASK_TRACK_STARTED", description="Track when tasks are started")
-    celery_task_time_limit: int = Field(7200, alias="CELERY_TASK_TIME_LIMIT", description="Maximum task execution time in seconds (2 hours)")
+    celery_task_time_limit: int = Field(14400, alias="CELERY_TASK_TIME_LIMIT", description="Maximum task execution time in seconds (4 hours)")
     celery_worker_prefetch_multiplier: int = Field(1, alias="CELERY_WORKER_PREFETCH_MULTIPLIER", description="Number of tasks worker prefetches")
 
     @property
@@ -266,12 +256,7 @@ class Config(BaseSettings):
         
         self.data_processing_dir = (self.project_root / self.data_processing_dir_rel).resolve()
         self.knowledge_base_dir = (self.project_root / self.knowledge_base_dir_rel).resolve()
-        self.categories_file = (self.project_root / self.categories_file_rel).resolve()
-        self.bookmarks_file = (self.project_root / self.bookmarks_file_rel).resolve()
-        self.processed_tweets_file = (self.project_root / self.processed_tweets_file_rel).resolve()
-        self.unprocessed_tweets_file = (self.project_root / self.unprocessed_tweets_file_rel).resolve()
         self.media_cache_dir = (self.project_root / self.media_cache_dir_rel).resolve()
-        self.tweet_cache_file = (self.project_root / self.tweet_cache_file_rel).resolve()
         
         # Handle timestamp in log_file name before resolving
         log_file_str = str(self.log_file_rel)
@@ -285,9 +270,8 @@ class Config(BaseSettings):
         # Ensure directories for these resolved absolute paths
         # This replaces the old field_validator for paths
         paths_to_ensure_parent_exists = [
-            self.data_processing_dir, self.knowledge_base_dir, self.categories_file,
-            self.bookmarks_file, self.processed_tweets_file, self.media_cache_dir,
-            self.tweet_cache_file, self.log_file, self.unprocessed_tweets_file, self.log_dir
+            self.data_processing_dir, self.knowledge_base_dir, self.media_cache_dir,
+            self.log_file, self.log_dir
         ]
         for p in paths_to_ensure_parent_exists:
             p.parent.mkdir(parents=True, exist_ok=True)

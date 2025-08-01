@@ -23,10 +23,20 @@ class PhaseDisplayManager {
     initialize() {
         console.log('🎭 Initializing Phase Display Manager...');
         
-        this.createPhaseDisplay();
-        this.setupEventListeners();
-        
-        console.log('✅ Phase Display Manager initialized');
+        try {
+            this.createPhaseDisplay();
+            
+            // Only setup event listeners if elements were created successfully
+            if (this.elements) {
+                this.setupEventListeners();
+                console.log('✅ Phase Display Manager initialized');
+            } else {
+                console.warn('⚠️ Phase Display Manager elements not created, skipping event listeners');
+            }
+        } catch (error) {
+            console.error('❌ Phase Display Manager initialization failed:', error);
+            throw error;
+        }
     }
     
     createPhaseDisplay() {
@@ -62,24 +72,58 @@ class PhaseDisplayManager {
     }
     
     setupEventListeners() {
-        // Phase update events
-        document.addEventListener('phase_update', (event) => {
-            this.handlePhaseUpdate(event.detail);
+        // Ensure elements are initialized before setting up event listeners
+        if (!this.elements) {
+            console.warn('⚠️ PhaseDisplayManager elements not initialized, skipping event listener setup');
+            return;
+        }
+
+        // Check if EventListenerService is available
+        if (typeof EventListenerService === 'undefined') {
+            console.warn('⚠️ EventListenerService not available, using fallback event handling');
+            this.setupFallbackEventListeners();
+            return;
+        }
+
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            customEvents: [
+                {
+                    event: 'phase_update',
+                    handler: (e) => this.handlePhaseUpdate(e.detail)
+                },
+                {
+                    event: 'phase_start',
+                    handler: (e) => this.handlePhaseStart(e.detail)
+                },
+                {
+                    event: 'phase_complete',
+                    handler: (e) => this.handlePhaseComplete(e.detail)
+                },
+                {
+                    event: 'phase_error',
+                    handler: (e) => this.handlePhaseError(e.detail)
+                }
+            ],
+            buttons: [
+                {
+                    selector: this.elements.historyBtn,
+                    handler: () => this.showPhaseHistory(),
+                    condition: () => this.elements && this.elements.historyBtn
+                },
+                {
+                    selector: this.elements.resetBtn,
+                    handler: () => this.resetDisplay(),
+                    condition: () => this.elements && this.elements.resetBtn
+                }
+            ].filter(config => config.selector) // Remove null/undefined selectors
         });
+    }
+    
+    setupFallbackEventListeners() {
+        console.log('🔧 Setting up fallback event listeners for PhaseDisplayManager');
         
-        document.addEventListener('phase_start', (event) => {
-            this.handlePhaseStart(event.detail);
-        });
-        
-        document.addEventListener('phase_complete', (event) => {
-            this.handlePhaseComplete(event.detail);
-        });
-        
-        document.addEventListener('phase_error', (event) => {
-            this.handlePhaseError(event.detail);
-        });
-        
-        // Control buttons
+        // Fallback event listeners using traditional addEventListener
         if (this.elements.historyBtn) {
             this.elements.historyBtn.addEventListener('click', () => this.showPhaseHistory());
         }
@@ -87,6 +131,12 @@ class PhaseDisplayManager {
         if (this.elements.resetBtn) {
             this.elements.resetBtn.addEventListener('click', () => this.resetDisplay());
         }
+        
+        // Custom events for phase updates
+        document.addEventListener('phase_update', (e) => this.handlePhaseUpdate(e.detail));
+        document.addEventListener('phase_start', (e) => this.handlePhaseStart(e.detail));
+        document.addEventListener('phase_complete', (e) => this.handlePhaseComplete(e.detail));
+        document.addEventListener('phase_error', (e) => this.handlePhaseError(e.detail));
     }
     
     handlePhaseUpdate(data) {
@@ -333,7 +383,7 @@ class PhaseDisplayManager {
     }
 }
 
-class ProgressDisplayManager {
+class EnhancedProgressDisplayManager {
     constructor(container) {
         this.container = container;
         this.progressBars = new Map();
@@ -557,19 +607,12 @@ class ETCCalculator {
     }
     
     formatDuration(minutes) {
-        if (minutes < 1) {
-            return `${Math.round(minutes * 60)}s`;
-        } else if (minutes < 60) {
-            return `${Math.round(minutes)}m`;
-        } else {
-            const hours = Math.floor(minutes / 60);
-            const mins = Math.round(minutes % 60);
-            return `${hours}h ${mins}m`;
-        }
+        // Use centralized DurationFormatter service
+        return DurationFormatter.formatMinutes(minutes);
     }
 }
 
-class TaskDisplayManager {
+class EnhancedTaskDisplayManager {
     constructor(container) {
         this.container = container;
         this.tasks = new Map();
@@ -822,8 +865,8 @@ if (typeof module !== 'undefined' && module.exports) {
     };
 } else {
     window.PhaseDisplayManager = PhaseDisplayManager;
-    window.ProgressDisplayManager = ProgressDisplayManager;
+    window.EnhancedProgressDisplayManager = EnhancedProgressDisplayManager;
     window.ETCCalculator = ETCCalculator;
-    window.TaskDisplayManager = TaskDisplayManager;
+    window.EnhancedTaskDisplayManager = EnhancedTaskDisplayManager;
     window.IntegratedPhaseProgressManager = IntegratedPhaseProgressManager;
 }

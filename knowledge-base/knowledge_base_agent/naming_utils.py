@@ -193,7 +193,23 @@ async def generate_short_name(
     
     for attempt in range(max_retries):
         try:
-            system_prompt = LLMPrompts.get_short_name_generation_prompt()
+            # Check if we're using JSON prompts and pass the required parameter
+            from .prompts_replacement import LLMPrompts
+            manager = LLMPrompts._get_manager()
+            
+            if hasattr(manager, 'render_prompt'):
+                # Using JSON prompts - pass category_name parameter
+                try:
+                    prompt_result = manager.render_prompt("short_name_generation", {
+                        "category_name": name
+                    }, "standard")
+                    system_prompt = prompt_result.content
+                except Exception as e:
+                    logging.warning(f"JSON prompt failed, falling back to original: {e}")
+                    system_prompt = LLMPrompts.get_short_name_generation_prompt()
+            else:
+                # Using original prompts
+                system_prompt = LLMPrompts.get_short_name_generation_prompt()
             
             user_message = (
                 f"Generate a short, catchy name (2-3 words, max 25 characters) for the "

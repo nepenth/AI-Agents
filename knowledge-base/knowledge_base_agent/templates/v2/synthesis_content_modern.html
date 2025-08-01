@@ -1,0 +1,22 @@
+<!-- Modern Synthesis Content Template -->
+<!-- This template provides a simple container for the ModernSynthesisManager to populate -->
+<div id="main-content" class="modern-synthesis-page-container">
+    <!-- The ModernSynthesisManager will populate this container with its interface -->
+    <div class="loading-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 400px; color: var(--text-secondary);">
+        <div class="loading-spinner" style="width: 40px; height: 40px; border: 3px solid rgba(255, 255, 255, 0.1); border-top: 3px solid var(--accent-primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+        <span>Loading Synthesis Documents...</span>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modern-synthesis-page-container {
+    width: 100%;
+    height: 100%;
+    min-height: 600px;
+}
+</style>

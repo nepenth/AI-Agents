@@ -367,8 +367,8 @@ def serve_v2_page(page_name):
     template_map = {
         'index': 'v2/index.html',
         'chat': 'v2/chat_content.html',
-        'kb': 'v2/kb_content.html',
-        'synthesis': 'v2/synthesis_content.html',
+        'kb': 'v2/kb_content_modern.html',
+        'synthesis': 'v2/synthesis_content_modern.html',
         'schedule': 'v2/schedule_content.html',
         'logs': 'v2/logs_content.html',
         'environment': 'v2/environment_content.html',
@@ -622,27 +622,39 @@ def main():
         return
 
     # FIX: Add the real-time WebSocket logging handler, only when running as a web server.
-        setup_web_logging(config, add_ws_handler=True)
+    setup_web_logging(config, add_ws_handler=True)
 
-    logging.info(f"Starting gevent server on {config.web_server_host}:{config.web_server_port}")
+    logging.info(f"Starting Flask-SocketIO server on {config.web_server_host}:{config.web_server_port}")
     
-    # FIX: Manually create the gevent WSGI server to pass our custom logger.
-    # This avoids the 'multiple values for keyword argument "log"' TypeError
-    # that occurs with some versions of flask-socketio's run() method.
-    from gevent import pywsgi
-
-    paths_to_ignore = ['/api/agent/status', '/api/logs/recent', '/api/gpu-stats', '/api/system/info', '/socket.io/']
-    wsgi_log_filter = WsgiLogFilter(logging.getLogger(), paths_to_ignore)
-    
-    # The Flask `app` object is already patched by `socketio.init_app(app)`,
-    # so it can handle WebSocket requests when served this way.
-    server = pywsgi.WSGIServer(
-        (config.web_server_host, config.web_server_port), 
-        app,
-        log=wsgi_log_filter
-    )
-    
-    server.serve_forever()
+    # CRITICAL FIX: Use Flask-SocketIO's run method instead of plain gevent WSGI server
+    # This is required for proper WebSocket support
+    try:
+        # Use Flask-SocketIO's built-in server which properly handles WebSocket connections
+        socketio.run(
+            app,
+            host=config.web_server_host,
+            port=config.web_server_port,
+            debug=False,  # Set to False for production
+            use_reloader=False,  # Disable reloader to prevent issues
+            log_output=True,  # Enable logging
+            allow_unsafe_werkzeug=True  # Allow if needed for compatibility
+        )
+    except Exception as e:
+        logging.error(f"Failed to start Flask-SocketIO server: {e}")
+        logging.info("Falling back to gevent WSGI server (SocketIO will not work)")
+        
+        # Fallback to gevent WSGI server (SocketIO won't work but REST API will)
+        from gevent import pywsgi
+        paths_to_ignore = ['/api/agent/status', '/api/logs/recent', '/api/gpu-stats', '/api/system/info', '/socket.io/']
+        wsgi_log_filter = WsgiLogFilter(logging.getLogger(), paths_to_ignore)
+        
+        server = pywsgi.WSGIServer(
+            (config.web_server_host, config.web_server_port), 
+            app,
+            log=wsgi_log_filter
+        )
+        
+        server.serve_forever()
 
 
 if __name__ == '__main__':

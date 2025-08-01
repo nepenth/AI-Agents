@@ -154,7 +154,8 @@ class StaticPagesManager {
 
     cleanup() {
         console.log(`🧹 Cleaning up StaticPagesManager for ${this.pageType}...`);
-        // Clean up any event listeners or resources specific to each page type
+        
+        // Handle page-specific cleanup first
         if (this.pageType === 'schedule') {
             const saveButton = document.getElementById('save-schedule');
             if (saveButton) {
@@ -162,7 +163,9 @@ class StaticPagesManager {
                 saveButton.removeEventListener('click', this.saveScheduleHandler);
             }
         }
-        // Add cleanup for other page types as needed
+        
+        // Use centralized CleanupService for comprehensive cleanup
+        CleanupService.cleanup(this, { logCleanup: false }); // We already logged above
     }
 }
 

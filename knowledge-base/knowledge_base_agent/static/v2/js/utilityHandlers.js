@@ -12,85 +12,86 @@ class UtilityManager {
     }
     
     setupEventListeners() {
-        // Clear Task Queue
-        const clearQueueBtn = document.getElementById('clear-celery-queue-btn');
-        if (clearQueueBtn) {
-            clearQueueBtn.addEventListener('click', () => this.clearTaskQueue());
-        }
-        
-        // Purge All Tasks
-        const purgeTasksBtn = document.getElementById('purge-celery-tasks-btn');
-        if (purgeTasksBtn) {
-            purgeTasksBtn.addEventListener('click', () => this.purgeAllTasks());
-        }
-        
-        // Restart Workers
-        const restartWorkersBtn = document.getElementById('restart-celery-workers-btn');
-        if (restartWorkersBtn) {
-            restartWorkersBtn.addEventListener('click', () => this.restartWorkers());
-        }
-        
-        // Worker Status
-        const statusBtn = document.getElementById('celery-status-btn');
-        if (statusBtn) {
-            statusBtn.addEventListener('click', () => this.showWorkerStatus());
-        }
-        
-        // NEW: Clear Old Tasks
-        const clearOldTasksBtn = document.getElementById('clear-old-tasks-btn');
-        if (clearOldTasksBtn) {
-            clearOldTasksBtn.addEventListener('click', () => this.clearOldTasks());
-        }
-        
-        // NEW: Check Stuck Tasks
-        const stuckTasksBtn = document.getElementById('stuck-tasks-btn');
-        if (stuckTasksBtn) {
-            stuckTasksBtn.addEventListener('click', () => this.checkStuckTasks());
-        }
-        
-        // NEW: Revoke Tasks
-        const revokeTasksBtn = document.getElementById('revoke-tasks-btn');
-        if (revokeTasksBtn) {
-            revokeTasksBtn.addEventListener('click', () => this.revokeTasks());
-        }
-        
-        // NEW: Flush Redis
-        const flushRedisBtn = document.getElementById('flush-redis-btn');
-        if (flushRedisBtn) {
-            flushRedisBtn.addEventListener('click', () => this.flushRedis());
-        }
-        
-        // System utilities
-        const clearRedisBtn = document.getElementById('clear-redis-cache-btn');
-        if (clearRedisBtn) {
-            clearRedisBtn.addEventListener('click', () => this.clearRedisCache());
-        }
-        
-        const cleanupTempBtn = document.getElementById('cleanup-temp-files-btn');
-        if (cleanupTempBtn) {
-            cleanupTempBtn.addEventListener('click', () => this.cleanupTempFiles());
-        }
-        
-        const healthCheckBtn = document.getElementById('system-health-check-btn');
-        if (healthCheckBtn) {
-            healthCheckBtn.addEventListener('click', () => this.systemHealthCheck());
-        }
-        
-        // Debug Tools
-        const exportLogsBtn = document.getElementById('export-logs-btn');
-        if (exportLogsBtn) {
-            exportLogsBtn.addEventListener('click', () => this.exportLogs());
-        }
-        
-        const testConnectionsBtn = document.getElementById('test-connections-btn');
-        if (testConnectionsBtn) {
-            testConnectionsBtn.addEventListener('click', () => this.testConnections());
-        }
-        
-        const debugInfoBtn = document.getElementById('debug-info-btn');
-        if (debugInfoBtn) {
-            debugInfoBtn.addEventListener('click', () => this.showDebugInfo());
-        }
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            buttons: [
+                // Celery Task Management
+                {
+                    selector: '#clear-celery-queue-btn',
+                    handler: () => this.clearTaskQueue(),
+                    debounce: 1000 // Prevent accidental double-clicks
+                },
+                {
+                    selector: '#purge-celery-tasks-btn',
+                    handler: () => this.purgeAllTasks(),
+                    debounce: 1000
+                },
+                {
+                    selector: '#restart-celery-workers-btn',
+                    handler: () => this.restartWorkers(),
+                    debounce: 2000 // Longer debounce for restart operations
+                },
+                {
+                    selector: '#celery-status-btn',
+                    handler: () => this.showWorkerStatus(),
+                    debounce: 500
+                },
+                {
+                    selector: '#clear-old-tasks-btn',
+                    handler: () => this.clearOldTasks(),
+                    debounce: 1000
+                },
+                {
+                    selector: '#stuck-tasks-btn',
+                    handler: () => this.checkStuckTasks(),
+                    debounce: 500
+                },
+                {
+                    selector: '#revoke-tasks-btn',
+                    handler: () => this.revokeTasks(),
+                    debounce: 1000
+                },
+                {
+                    selector: '#flush-redis-btn',
+                    handler: () => this.flushRedis(),
+                    debounce: 2000 // Longer debounce for destructive operations
+                },
+                
+                // System Utilities
+                {
+                    selector: '#clear-redis-cache-btn',
+                    handler: () => this.clearRedisCache(),
+                    debounce: 1000
+                },
+                {
+                    selector: '#cleanup-temp-files-btn',
+                    handler: () => this.cleanupTempFiles(),
+                    debounce: 1000
+                },
+                {
+                    selector: '#system-health-check-btn',
+                    handler: () => this.systemHealthCheck(),
+                    debounce: 500
+                },
+                
+                // Debug Tools
+                {
+                    selector: '#export-logs-btn',
+                    handler: () => this.exportLogs(),
+                    debounce: 1000
+                },
+                {
+                    selector: '#test-connections-btn',
+                    handler: () => this.testConnections(),
+                    debounce: 500
+                },
+                {
+                    selector: '#debug-info-btn',
+                    handler: () => this.showDebugInfo(),
+                    debounce: 500
+                }
+            ]
+        });
     }
     
     // ===== CELERY TASK MANAGEMENT METHODS =====
@@ -1030,8 +1031,8 @@ class UtilityManager {
 // ===== CSS STYLES =====
 
 // Add required CSS animations and styles
-const style = document.createElement('style');
-style.textContent = `
+const utilityHandlersStyle = document.createElement('style');
+utilityHandlersStyle.textContent = `
     @keyframes slideInRight {
         from {
             opacity: 0;
@@ -1386,7 +1387,7 @@ style.textContent = `
         font-size: 0.9rem;
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(utilityHandlersStyle);
 
 // Make available globally
 window.UtilityManager = UtilityManager;

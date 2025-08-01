@@ -9,7 +9,7 @@
  * - Provides comprehensive phase status updates with timing and error handling
  * - Supports both main phases and sub-phases with hierarchical display
  */
-class PhaseDisplayManager {
+class LegacyPhaseDisplayManager {
     constructor() {
         this.phases = new Map();
         this.currentPhase = null;
@@ -73,13 +73,7 @@ class PhaseDisplayManager {
                 estimatedDuration: 90,
                 icon: 'fas fa-file-alt'
             },
-            'database_sync': {
-                name: 'Database Sync',
-                description: 'Synchronizing data to database',
-                parent: null,
-                estimatedDuration: 30,
-                icon: 'fas fa-sync'
-            },
+
             'synthesis_generation': {
                 name: 'Synthesis Generation',
                 description: 'Generating category syntheses',
@@ -129,26 +123,30 @@ class PhaseDisplayManager {
     }
     
     setupEventListeners() {
-        // Listen for phase events from enhanced logging system
-        document.addEventListener('phase_start', (event) => {
-            this.handlePhaseStart(event.detail);
-        });
-        
-        document.addEventListener('phase_complete', (event) => {
-            this.handlePhaseComplete(event.detail);
-        });
-        
-        document.addEventListener('phase_error', (event) => {
-            this.handlePhaseError(event.detail);
-        });
-        
-        document.addEventListener('phase_update', (event) => {
-            this.handlePhaseUpdate(event.detail);
-        });
-        
-        // Listen for agent status changes
-        document.addEventListener('agent_status_update', (event) => {
-            this.handleAgentStatusUpdate(event.detail);
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            customEvents: [
+                {
+                    event: 'phase_start',
+                    handler: (e) => this.handlePhaseStart(e.detail)
+                },
+                {
+                    event: 'phase_complete',
+                    handler: (e) => this.handlePhaseComplete(e.detail)
+                },
+                {
+                    event: 'phase_error',
+                    handler: (e) => this.handlePhaseError(e.detail)
+                },
+                {
+                    event: 'phase_update',
+                    handler: (e) => this.handlePhaseUpdate(e.detail)
+                },
+                {
+                    event: 'agent_status_update',
+                    handler: (e) => this.handleAgentStatusUpdate(e.detail)
+                }
+            ]
         });
     }
     
@@ -695,17 +693,8 @@ class PhaseDisplayManager {
     }
     
     formatDuration(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        
-        if (hours > 0) {
-            return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-        } else if (minutes > 0) {
-            return `${minutes}m ${seconds % 60}s`;
-        } else {
-            return `${seconds}s`;
-        }
+        // Use centralized DurationFormatter service
+        return DurationFormatter.format(milliseconds, { showSeconds: true });
     }
     
     handlePhaseTransition(completedPhaseId) {
@@ -714,7 +703,6 @@ class PhaseDisplayManager {
             'initialization',
             'fetch_bookmarks', 
             'content_processing',
-            'database_sync',
             'synthesis_generation',
             'embedding_generation',
             'readme_generation',
@@ -848,5 +836,5 @@ class PhaseDisplayManager {
     }
 }
 
-// Make globally available
-window.PhaseDisplayManager = PhaseDisplayManager;
+// Make globally available (legacy version)
+window.LegacyPhaseDisplayManager = LegacyPhaseDisplayManager;

@@ -74,45 +74,91 @@ class SimplifiedLogsManager {
     }
 
     setupEventListeners() {
-        // Clear logs button
-        if (this.clearLogsBtn) {
-            this.clearLogsBtn.addEventListener('click', () => this.clearLogs());
-        }
-
-        // Auto-scroll management
-        if (this.logsContainer) {
-            this.logsContainer.addEventListener('scroll', () => {
-                const { scrollTop, scrollHeight, clientHeight } = this.logsContainer;
-                this.autoScroll = scrollTop + clientHeight >= scrollHeight - 10;
-            });
-
-            // Double-click to toggle auto-scroll
-            this.logsContainer.addEventListener('dblclick', () => {
-                this.autoScroll = !this.autoScroll;
-                if (this.autoScroll) {
-                    this.scrollToBottom();
-                    this.showConnectionMessage('Auto-scroll enabled', 'info');
-                } else {
-                    this.showConnectionMessage('Auto-scroll disabled', 'info');
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            buttons: [
+                {
+                    selector: this.clearLogsBtn,
+                    handler: () => this.clearLogs(),
+                    debounce: 500 // Prevent accidental double-clicks
                 }
-            });
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'l') {
-                e.preventDefault();
-                this.clearLogs();
-            }
+            ],
+            customEvents: [
+                {
+                    target: this.logsContainer,
+                    event: 'scroll',
+                    handler: () => {
+                        const { scrollTop, scrollHeight, clientHeight } = this.logsContainer;
+                        this.autoScroll = scrollTop + clientHeight >= scrollHeight - 10;
+                    },
+                    throttle: 100 // Throttle scroll events for performance
+                },
+                {
+                    target: this.logsContainer,
+                    event: 'dblclick',
+                    handler: () => {
+                        this.autoScroll = !this.autoScroll;
+                        if (this.autoScroll) {
+                            this.scrollToBottom();
+                            this.showConnectionMessage('Auto-scroll enabled', 'info');
+                        } else {
+                            this.showConnectionMessage('Auto-scroll disabled', 'info');
+                        }
+                    }
+                },
+                {
+                    event: 'socketio-ready',
+                    handler: () => this.initializeSocketIOListeners()
+                },
+                {
+                    event: 'socketio-failed',
+                    handler: () => {
+                        console.warn('SocketIO not available - using polling fallback');
+                        this.startEmergencyPolling();
+                    }
+                }
+            ],
+            keyboard: [
+                {
+                    key: 'l',
+                    ctrlKey: true,
+                    handler: () => this.clearLogs()
+                }
+            ]
         });
     }
 
     setupSocketIOListeners() {
+        // Listen for SocketIO ready event from the async loader
+        document.addEventListener('socketio-ready', () => {
+            this.initializeSocketIOListeners();
+        });
+        
+        document.addEventListener('socketio-failed', () => {
+            console.warn('SocketIO not available - using polling fallback');
+            this.startEmergencyPolling();
+        });
+        
+        // Check if SocketIO is already available (in case we missed the event)
+        if (window.socket) {
+            this.initializeSocketIOListeners();
+        } else {
+            // Start with polling until SocketIO is available
+            this.startEmergencyPolling();
+        }
+    }
+    
+    initializeSocketIOListeners() {
         if (!window.socket) {
             console.warn('SocketIO not available - using polling fallback');
             this.startEmergencyPolling();
             return;
         }
+        
+        console.log('📝 Setting up SocketIO listeners for logs');
+        
+        // Stop emergency polling since SocketIO is available
+        this.stopEmergencyPolling();
 
         // Connection status monitoring
         window.socket.on('connect', () => {
@@ -201,30 +247,46 @@ class SimplifiedLogsManager {
             console.log('📝 Loading initial logs...');
             this.showLoadingState();
             
-            // Check if agent is running to determine if we need recent logs
+            // CRITICAL FIX: Clean log flow - check agent status first to determine approach
             const statusResponse = await this.api.getAgentStatus();
             const agentIsRunning = statusResponse?.is_running || false;
             const currentTaskId = statusResponse?.current_task_id || statusResponse?.task_id;
             
             if (agentIsRunning && currentTaskId) {
-                // Agent is running - load recent logs from PostgreSQL
-                console.log(`📝 Loading PostgreSQL logs for active task: ${currentTaskId}`);
-                await this.loadPostgreSQLLogs(currentTaskId, false);
+                // Agent is running - load recent logs for this task only
+                console.log(`📝 Agent is running with task: ${currentTaskId}, loading task-specific logs`);
                 this.currentTaskId = currentTaskId;
-                this.startPostgreSQLPolling();
+                
+                const success = await this.loadPostgreSQLLogs(currentTaskId, false);
+                if (success) {
+                    // Start PostgreSQL polling for new logs (no SocketIO duplication)
+                    this.startPostgreSQLPolling();
+                } else {
+                    this.showEmptyState('No logs available for current task. Logs will appear as the agent runs.');
+                }
             } else {
-                // Agent is idle - show appropriate message
-                this.showEmptyState('Agent is idle. Start an agent run to see live logs.');
+                // Agent is idle - try to load recent historical logs
+                console.log('📝 Agent is idle, loading recent historical logs');
+                
+                try {
+                    const recentLogsResponse = await this.api.getRecentLogs();
+                    console.log('📝 Recent logs API response:', recentLogsResponse);
+                    
+                    if (recentLogsResponse && recentLogsResponse.logs && recentLogsResponse.logs.length > 0) {
+                        console.log(`📝 Found ${recentLogsResponse.logs.length} recent historical logs`);
+                        this.displayInitialLogs(recentLogsResponse.logs);
+                    } else {
+                        this.showEmptyState('No recent logs available. Start an agent run to see live logs.');
+                    }
+                } catch (apiError) {
+                    console.warn('⚠️ Failed to load recent logs:', apiError);
+                    this.showEmptyState('No recent logs available. Start an agent run to see live logs.');
+                }
             }
             
         } catch (error) {
             console.error('❌ Failed to load initial logs:', error);
-            // Check if it's a structured API response with helpful message
-            if (error.response && error.response.message) {
-                this.showErrorState(error.response.message);
-            } else {
-                this.showErrorState('Failed to load recent logs: ' + error.message);
-            }
+            this.showErrorState('Failed to load logs: ' + error.message);
         }
     }
 
@@ -811,10 +873,14 @@ class SimplifiedLogsManager {
     cleanup() {
         console.log('🧹 Cleaning up SimplifiedLogsManager...');
         
+        // Stop polling first
         this.stopEmergencyPolling();
         this.stopPostgreSQLPolling();
         
-        // Remove event listeners
+        // Use centralized CleanupService for comprehensive cleanup
+        CleanupService.cleanup(this, { logCleanup: false }); // We already logged above
+        
+        // Remove SocketIO listeners manually since they're not tracked
         if (window.socket) {
             window.socket.off('connect');
             window.socket.off('disconnect');
@@ -829,4 +895,6 @@ class SimplifiedLogsManager {
 }
 
 // Make available globally
+window.SimplifiedLogsManager = SimplifiedLogsManager;
+window.LiveLogsManager = SimplifiedLogsManager; // Alias for backward compatibility
 window.SimplifiedLogsManager = SimplifiedLogsManager;

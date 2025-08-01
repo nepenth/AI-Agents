@@ -18,7 +18,7 @@ class ProcessingPhase(Enum):
     MEDIA = "media" 
     LLM = "llm"
     KB_ITEM = "kb_item"
-    DB_SYNC = "db_sync"
+    # DB_SYNC removed - database operations now handled directly in unified DB
     SYNTHESIS = "synthesis"
     EMBEDDING = "embedding"
 
@@ -165,19 +165,6 @@ class PhaseExecutionHelper:
                 tweet_data.get('main_category') and
                 tweet_data.get('item_name_suggestion')
             )
-        
-        # DB Sync phase: Requires successful KB item creation
-        if phase == ProcessingPhase.DB_SYNC:
-            return (
-                not tweet_data.get('_cache_error') and
-                not tweet_data.get('_media_error') and
-                not tweet_data.get('_llm_error') and
-                not tweet_data.get('_kbitem_error') and
-                tweet_data.get('kb_item_created', False) and
-                tweet_data.get('main_category') and
-                tweet_data.get('item_name_suggestion') and
-                tweet_data.get('kb_item_path')
-            )
 
         # Global phases are not per-tweet, so they are not eligible in a per-tweet context.
         # The create_phase_execution_plan handles them separately.
@@ -223,11 +210,7 @@ class PhaseExecutionHelper:
             
             return force_kb or not kb_item_created
         
-        if phase == ProcessingPhase.DB_SYNC:
-            force_kb = force_flags.get('force_reprocess_kb_item', False)  # KB regeneration implies DB re-sync
-            force_db_sync = force_flags.get('force_reprocess_db_sync', False)  # Direct DB sync force
-            db_synced = tweet_data.get('db_synced', False)
-            return force_kb or force_db_sync or not db_synced
+
 
         if phase == ProcessingPhase.SYNTHESIS:
             force_synthesis = force_flags.get('force_regenerate_synthesis', False)
@@ -266,8 +249,7 @@ class PhaseExecutionHelper:
             ProcessingPhase.MEDIA: [ProcessingPhase.CACHE],
             ProcessingPhase.LLM: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA],
             ProcessingPhase.KB_ITEM: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA, ProcessingPhase.LLM],
-            ProcessingPhase.DB_SYNC: [ProcessingPhase.CACHE, ProcessingPhase.MEDIA, ProcessingPhase.LLM, ProcessingPhase.KB_ITEM],
-            ProcessingPhase.SYNTHESIS: [ProcessingPhase.DB_SYNC], # Depends on all items being in DB
+            ProcessingPhase.SYNTHESIS: [ProcessingPhase.KB_ITEM], # Depends on all KB items being created
             ProcessingPhase.EMBEDDING: [ProcessingPhase.SYNTHESIS] # Depends on synthesis also being generated
         }
         return dependencies.get(phase, [])
@@ -283,27 +265,21 @@ class PhaseExecutionHelper:
         """
         missing = []
         
-        if phase in [ProcessingPhase.MEDIA, ProcessingPhase.LLM, ProcessingPhase.KB_ITEM, ProcessingPhase.DB_SYNC]:
+        if phase in [ProcessingPhase.MEDIA, ProcessingPhase.LLM, ProcessingPhase.KB_ITEM]:
             if not tweet_data.get('cache_complete'):
                 missing.append('cache_complete')
         
-        if phase in [ProcessingPhase.LLM, ProcessingPhase.KB_ITEM, ProcessingPhase.DB_SYNC]:
+        if phase in [ProcessingPhase.LLM, ProcessingPhase.KB_ITEM]:
             if not tweet_data.get('media_processed'):
                 missing.append('media_processed')
         
-        if phase in [ProcessingPhase.KB_ITEM, ProcessingPhase.DB_SYNC]:
+        if phase in [ProcessingPhase.KB_ITEM]:
             if not tweet_data.get('categories_processed'):
                 missing.append('categories_processed')
             if not tweet_data.get('main_category'):
                 missing.append('main_category')
             if not tweet_data.get('item_name_suggestion'):
                 missing.append('item_name_suggestion')
-        
-        if phase == ProcessingPhase.DB_SYNC:
-            if not tweet_data.get('kb_item_created'):
-                missing.append('kb_item_created')
-            if not tweet_data.get('kb_item_path'):
-                missing.append('kb_item_path')
         
         # Prerequisites for global phases would be checked differently, not per-tweet.
         # This function is per-tweet, so we can't validate SYNTHESIS or EMBEDDING here effectively.

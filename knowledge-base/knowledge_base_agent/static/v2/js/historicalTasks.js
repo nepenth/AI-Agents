@@ -50,25 +50,31 @@ class HistoricalTasksManager {
     }
     
     setupEventListeners() {
-        // Collapsible toggle
-        if (this.toggleCompletedTasksBtn) {
-            this.toggleCompletedTasksBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleCollapsible();
-            });
-        }
-        
-        // Listen for new task completions to refresh the list
-        document.addEventListener('task_completed', () => {
-            this.loadCompletedTasks();
-        });
-        
-        // Listen for agent status updates
-        document.addEventListener('agent_status_update', (event) => {
-            // If agent starts running while viewing historical task, exit historical view
-            if (event.detail.is_running && this.isViewingHistoricalTask) {
-                this.exitHistoricalView();
-            }
+        // Use centralized EventListenerService
+        EventListenerService.setupStandardListeners(this, {
+            buttons: [
+                {
+                    selector: this.toggleCompletedTasksBtn,
+                    handler: () => this.toggleCollapsible(),
+                    stopPropagation: true,
+                    condition: () => this.toggleCompletedTasksBtn
+                }
+            ],
+            customEvents: [
+                {
+                    event: 'task_completed',
+                    handler: () => this.loadCompletedTasks()
+                },
+                {
+                    event: 'agent_status_update',
+                    handler: (e) => {
+                        // If agent starts running while viewing historical task, exit historical view
+                        if (e.detail.is_running && this.isViewingHistoricalTask) {
+                            this.exitHistoricalView();
+                        }
+                    }
+                }
+            ]
         });
     }
     

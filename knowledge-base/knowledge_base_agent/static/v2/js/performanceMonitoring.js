@@ -28,7 +28,7 @@ class PerformanceMonitor {
             
             // Performance monitoring
             metricsInterval: config.metricsInterval || 5000, // 5 seconds
-            latencyThreshold: config.latencyThreshold || 1000, // 1 second
+            latencyThreshold: config.latencyThreshold || 2000, // 2 seconds (production appropriate)
             
             // DOM optimization
             virtualScrollThreshold: config.virtualScrollThreshold || 100,
