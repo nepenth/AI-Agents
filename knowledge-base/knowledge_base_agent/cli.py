@@ -176,7 +176,7 @@ def interactive():
         'force_reprocess_media': prefs.force_reprocess_media,
         'force_reprocess_llm': prefs.force_reprocess_llm,
         'force_reprocess_kb_item': prefs.force_reprocess_kb_item,
-        'force_reprocess_db_sync': prefs.force_reprocess_db_sync,
+        # 'force_reprocess_db_sync' removed - using unified database approach
         'force_reprocess_content': prefs.force_reprocess_content,
         'synthesis_mode': prefs.synthesis_mode,
         'synthesis_min_items': prefs.synthesis_min_items,

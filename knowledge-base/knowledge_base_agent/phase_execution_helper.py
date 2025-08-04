@@ -329,7 +329,8 @@ class PhaseExecutionHelper:
         
         # Categorize tweets by processing stage
         for tweet_id, tweet_data in tweets_data_map.items():
-            if tweet_data.get('db_synced'):
+            if tweet_data.get('kb_item_created'):
+                # With unified database approach, KB item creation means fully complete
                 analysis['tweets_by_stage']['fully_complete'].append(tweet_id)
             elif tweet_data.get('kb_item_created'):
                 analysis['tweets_by_stage']['through_kb_item'].append(tweet_id)
@@ -367,8 +368,7 @@ class PhaseExecutionHelper:
             return tweet_data.get('categories_processed', False)
         elif phase == ProcessingPhase.KB_ITEM:
             return tweet_data.get('kb_item_created', False)
-        elif phase == ProcessingPhase.DB_SYNC:
-            return tweet_data.get('db_synced', False)
+        # DB_SYNC phase removed - using unified database approach
         # Global phases' completion status is not stored per tweet.
         # This would need to be checked via a different mechanism.
         elif phase in [ProcessingPhase.SYNTHESIS, ProcessingPhase.EMBEDDING]:

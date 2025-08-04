@@ -218,6 +218,16 @@ class EnhancedUnifiedLogger:
         self.event_emitter.emit_log_event(
             message, level, component, structured_data, traceback_info
         )
+        
+        # ENHANCED: Also emit via modern real-time communication system
+        from .realtime_communication import emit_log_event
+        emit_log_event(
+            task_id=self.task_id,
+            level=level,
+            message=message,
+            component=component,
+            config=self.config
+        )
     
     def log_error(self, message: str, error: Exception = None, 
                   component: str = None, structured_data: Dict[str, Any] = None):

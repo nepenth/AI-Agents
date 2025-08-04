@@ -528,9 +528,8 @@ async def create_knowledge_base_item(
         # For this construction, we assume they are.
         # NOTE: We do NOT set the actual kb_item_path here - that's done after successful file creation
         
-        # Media paths will be determined by MarkdownWriter during actual file copying
-        # MarkdownWriter uses standardized naming (image_1.jpg, video_1.mp4, etc.)
-        # So we leave this empty and let ContentProcessor use the actual returned paths
+        # Media paths are stored directly in the unified database
+        # No file copying needed - using unified database approach
         kb_media_paths_rel_item_dir_json_str = json.dumps([])
 
         kb_item = KnowledgeBaseItem(

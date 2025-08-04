@@ -75,6 +75,10 @@ class StreamlinedContentProcessor:
         else:
             self.unified_logger = None
         
+        # Initialize modern real-time communication system
+        from .realtime_communication import get_realtime_emitter
+        self.realtime_emitter = get_realtime_emitter(config)
+        
         # Initialize phase execution helper
         self.phase_helper = PhaseExecutionHelper(config)
         
@@ -93,13 +97,25 @@ class StreamlinedContentProcessor:
                     f"base_delay={retry_config.base_delay}s, strategy={retry_config.retry_strategy.value}")
 
     def socketio_emit_log(self, message: str, level: str = "INFO") -> None:
-        """Helper method to emit general logs via unified logging system."""
-        # MODERN: Use unified logging system
+        """Helper method to emit general logs via unified logging system and cross-process SocketIO."""
+        # MODERN: Use unified logging system for persistence
         if self.unified_logger:
             self.unified_logger.log(message, level.upper())
         elif self.socketio:
             # LEGACY: Fallback to direct SocketIO
             self.socketio.emit('log', {'message': message, 'level': level.upper()})
+        
+        # ENHANCED: Also emit via modern real-time communication system
+        if self.task_id and self.realtime_emitter:
+            from .realtime_communication import emit_log_event
+            emit_log_event(
+                task_id=self.task_id,
+                level=level.upper(),
+                message=message,
+                component="content_processor",
+                config=self.config
+            )
+        
         # Standard logging will also occur via Python's logging module
         logger_level = getattr(logging, level.upper(), logging.INFO)
         logging.log(logger_level, f"[ContentProcessor] {message}")
@@ -215,7 +231,7 @@ class StreamlinedContentProcessor:
             
             # KB Item phase
             await self._execute_kb_item_phase(execution_plans[ProcessingPhase.KB_ITEM], tweets_data_map, preferences, stats)
-            # Database sync is handled as a separate standalone phase by the main agent
+            # Database operations are handled directly within each phase using unified database approach
         except Exception as e:
             self.socketio_emit_log(f"Error during phase execution: {e}", "ERROR")
             if self.phase_emitter_func:
@@ -323,6 +339,18 @@ class StreamlinedContentProcessor:
                     plan.needs_processing_count,  # processed_count
                     total_tweets,  # total_count
                     0   # error_count
+                )
+            
+            # ENHANCED: Emit cross-process phase completion for real-time updates
+            if self.task_id and self.realtime_emitter:
+                from .realtime_communication import emit_phase_complete
+                emit_phase_complete(
+                    task_id=self.task_id,
+                    phase_id='tweet_caching',
+                    processed_count=plan.needs_processing_count,
+                    total_count=total_tweets,
+                    error_count=0,
+                    config=self.config
                 )
         except Exception as e:
             self.socketio_emit_log(f"Error in Tweet Caching: {e}", "ERROR")
@@ -466,6 +494,18 @@ class StreamlinedContentProcessor:
                     plan.needs_processing_count,  # All items processed
                     total_tweets,  # Total count
                     stats.error_count
+                )
+            
+            # ENHANCED: Emit cross-process phase completion for real-time updates
+            if self.task_id and self.realtime_emitter:
+                from .realtime_communication import emit_phase_complete
+                emit_phase_complete(
+                    task_id=self.task_id,
+                    phase_id='media_analysis',
+                    processed_count=plan.needs_processing_count,
+                    total_count=total_tweets,
+                    error_count=stats.error_count,
+                    config=self.config
                 )
 
     async def _execute_llm_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], 
@@ -807,205 +847,13 @@ class StreamlinedContentProcessor:
                 }
                 self.unified_logger.emit_phase_complete('kb_item_generation', completion_result)
 
-    async def _execute_db_sync_phase(self, plan: PhaseExecutionPlan, tweets_data_map: Dict[str, Any], 
-                                   preferences, stats, category_manager):
-        """Execute database sync phase using execution plan."""
-        try:
-            self.socketio_emit_log(f"🔄 Starting DB sync phase evaluation...", "INFO")
-            
-            # Validate database connection early
-            try:
-                from knowledge_base_agent.models import db
-                # Test database connection with proper SQLAlchemy 2.0 syntax
-                with db.engine.connect() as connection:
-                    connection.execute(db.text("SELECT 1"))
-                self.socketio_emit_log(f"✅ Database connection validated successfully", "DEBUG")
-            except Exception as db_conn_error:
-                self.socketio_emit_log(f"❌ Database connection test failed: {db_conn_error}", "ERROR")
-                if self.phase_emitter_func:
-                    self.phase_emitter_func('database_sync', 'error', f'Database connection failed: {db_conn_error}')
-                raise Exception(f"Database connection validation failed: {db_conn_error}")
-            
-            # Perform database validation and repair if needed
-            await self._validate_and_repair_database(tweets_data_map, preferences)
-            
-            if plan.should_skip_phase:
-                self.socketio_emit_log(f"✅ DB sync phase - all {plan.already_complete_count} tweets already synced", "INFO")
-                # Emit active status first to show phase is being processed
-                if self.phase_emitter_func:
-                    self.phase_emitter_func('database_sync', 'active', f'Checking {plan.already_complete_count} tweets...')
-                # Brief delay to allow UI to register the active status
-                await asyncio.sleep(0.1)
-                if self.phase_emitter_func:
-                    self.phase_emitter_func('database_sync', 'completed', 
-                                           f'All {plan.already_complete_count} tweets already synced to database',
-                                           False,  # is_sub_step_update
-                                           plan.already_complete_count,  # processed_count
-                                           plan.already_complete_count,  # total_count
-                                           0)  # error_count
-                    
-                # Use enhanced logging if available
-                if hasattr(self, 'unified_logger') and self.unified_logger:
-                    completion_result = {
-                        'processed_count': 0,
-                        'total_count': plan.already_complete_count,
-                        'skipped_count': plan.already_complete_count
-                    }
-                    self.unified_logger.emit_phase_complete('database_sync', completion_result)
-                return
-        except Exception as e:
-            self.socketio_emit_log(f"❌ Error in DB sync phase initialization: {e}", "ERROR")
-            self.socketio_emit_log(f"❌ DB sync initialization traceback: {traceback.format_exc()}", "ERROR")
-            if self.phase_emitter_func:
-                self.phase_emitter_func('database_sync', 'error', f'DB sync initialization failed: {e}')
-            raise
 
-    async def _validate_and_repair_database(self, tweets_data_map: Dict[str, Any], preferences):
-        """
-        Validate and repair database entries for Knowledge Base items.
-        This ensures data consistency between filesystem and database.
-        """
-        try:
-            # For now, skip advanced database validation as db_validation module may not exist
-            # This is a placeholder for future database validation implementation
-            pass
-            
-            self.socketio_emit_log("📊 Basic database validation complete", "INFO")
-                
-        except Exception as e:
-            self.socketio_emit_log(f"⚠️ Database validation/repair failed: {e}", "WARNING")
-            logging.warning(f"Database validation/repair failed: {e}", exc_info=True)
-            # Don't raise - this is a best-effort operation
+
+    # Database validation and sync methods removed - using unified database approach
+    # All data is now written directly to UnifiedTweet during processing phases
         
-        # Continue with main DB sync processing
-        try:
-            self.socketio_emit_log(f"🔄 DB sync phase: processing {plan.needs_processing_count} tweets", "INFO")
-            
-            # Load historical stats for ETC calculation
-            processing_stats_data = load_processing_stats()
-            phase_historical_stats = processing_stats_data.get("phases", {}).get("database_sync", {})
-            avg_time_per_item = phase_historical_stats.get("avg_time_per_item_seconds", 0.0)
-            initial_estimated_duration = avg_time_per_item * plan.needs_processing_count if avg_time_per_item > 0 else 0
-
-            if self.phase_emitter_func:
-                self.phase_emitter_func(
-                    'database_sync', 
-                    'active', 
-                    f'Syncing {plan.needs_processing_count} tweets to database...',
-                    False,
-                    0,  # processed_count starts at 0
-                    plan.needs_processing_count,  # total_count
-                    0,  # error_count starts at 0
-                    initial_estimated_duration
-                )
-
-            phase_start_time = time.monotonic()
-            items_successfully_processed = 0
-
-            for i, tweet_id in enumerate(plan.tweets_needing_processing):
-                if stop_flag.is_set():
-                    self.socketio_emit_log("Database sync stopped by flag.", "WARNING")
-                    if self.phase_emitter_func:
-                        self.phase_emitter_func('database_sync', 'interrupted', 'Database sync stopped.')
-                    break
-
-                try:
-                    tweet_data = tweets_data_map[tweet_id]
-                    self.socketio_emit_log(f"🔄 Syncing item {i+1} of {plan.needs_processing_count} to database", "INFO")
-                    
-                    # Update progress when starting to process this item
-                    if self.phase_emitter_func:
-                        self.phase_emitter_func(
-                            'database_sync', 
-                            'active', 
-                            f'Syncing item {i+1} of {plan.needs_processing_count} to database...',
-                            False,
-                            i,  # Current index shows item being processed (0-based)
-                            plan.needs_processing_count,
-                            stats.error_count
-                        )
-                    
-                    # Enhanced error handling for individual sync operations
-                    try:
-                        await self._sync_to_unified_db(tweet_id, tweet_data)
-                        tweet_data['db_synced'] = True
-                        self.state_manager.update_tweet_data(tweet_id, tweet_data)
-                        items_successfully_processed += 1
-                        
-                        # Update progress when completing this item
-                        if self.phase_emitter_func:
-                            self.phase_emitter_func(
-                                'database_sync', 
-                                'active', 
-                                f'Completed database sync {i + 1} of {plan.needs_processing_count}',
-                                False,
-                                i + 1,  # Completed items count
-                                plan.needs_processing_count,
-                                stats.error_count
-                            )
-                        
-                        self.socketio_emit_log(f"✅ Database sync complete for item {i+1}", "INFO")
-                    except Exception as sync_error:
-                        # Log individual sync errors with more detail
-                        error_msg = f"Database sync failed for tweet {tweet_id}: {sync_error}"
-                        self.socketio_emit_log(f"❌ {error_msg}", "ERROR")
-                        self.socketio_emit_log(f"❌ Sync error traceback: {traceback.format_exc()}", "ERROR")
-                        
-                        stats.error_count += 1
-                        tweets_data_map[tweet_id]['_db_error'] = str(sync_error)
-                        tweets_data_map[tweet_id]['db_synced'] = False
-                        
-                        # Continue with next item rather than failing entire phase
-                        continue
-                    
-                except Exception as item_error:
-                    # Handle errors in item preparation/retrieval
-                    error_msg = f"Error preparing tweet {tweet_id} for database sync: {item_error}"
-                    self.socketio_emit_log(f"❌ {error_msg}", "ERROR")
-                    self.socketio_emit_log(f"❌ Item preparation traceback: {traceback.format_exc()}", "ERROR")
-                    
-                    stats.error_count += 1
-                    tweets_data_map[tweet_id]['_db_prep_error'] = str(item_error)
-                    tweets_data_map[tweet_id]['db_synced'] = False
-
-            # Update historical stats
-            phase_end_time = time.monotonic()
-            duration_this_run = phase_end_time - phase_start_time
-            
-            if items_successfully_processed > 0:
-                update_phase_stats(
-                    phase_id="database_sync",
-                    items_processed_this_run=items_successfully_processed,
-                    duration_this_run_seconds=duration_this_run
-                )
-
-            if not stop_flag.is_set():
-                self.socketio_emit_log(f"✅ Database sync completed for {plan.needs_processing_count} tweets", "INFO")
-                if self.phase_emitter_func:
-                    self.phase_emitter_func('database_sync', 'completed', 
-                                           f'Synced {plan.needs_processing_count} tweets to database',
-                                           False,  # is_sub_step_update
-                                           items_successfully_processed,  # processed_count
-                                           plan.needs_processing_count,  # total_count
-                                           stats.error_count)  # error_count
-                    
-                # Use enhanced logging if available
-                if hasattr(self, 'unified_logger') and self.unified_logger:
-                    completion_result = {
-                        'processed_count': items_successfully_processed,
-                        'total_count': plan.needs_processing_count,
-                        'error_count': stats.error_count,
-                        'duration_seconds': duration_this_run
-                    }
-                    self.unified_logger.emit_phase_complete('database_sync', completion_result)
-                    
-        except Exception as e:
-            self.socketio_emit_log(f"❌ Critical error in DB sync phase: {e}", "ERROR")
-            self.socketio_emit_log(f"❌ DB sync phase traceback: {traceback.format_exc()}", "ERROR")
-            logging.error(f"Critical error in DB sync phase: {e}", exc_info=True)
-            if self.phase_emitter_func:
-                self.phase_emitter_func('database_sync', 'error', f'DB sync phase failed: {e}')
-            raise
+        # Database sync phase completely removed - using unified database approach
+        # All data is now written directly to UnifiedTweet during each processing phase
 
     async def _finalize_processing(self, tweets_data_map: Dict[str, Any], unprocessed_tweets: List[str], stats):
         """
@@ -1032,7 +880,7 @@ class StreamlinedContentProcessor:
                     tweet_data.get('media_processed', False),
                     tweet_data.get('categories_processed', False),
                     tweet_data.get('kb_item_created', False)
-                    # Note: db_synced is handled separately in the DB sync phase
+                    # Note: Database operations are handled directly within each phase
                 ])
                 
                 # Check for errors
@@ -1288,17 +1136,8 @@ class StreamlinedContentProcessor:
             logging.error(f"Error in LLM Processing for tweet {tweet_id}: {e}", exc_info=True)
             raise
 
-    async def _sync_to_unified_db(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
-        """
-        Sync individual tweet to database.
-        Enhanced with synthesis staleness tracking and validation.
-        """
-        self.socketio_emit_log(f"Syncing tweet {tweet_id} to database...", "DEBUG")
-
-        try:
-            # Validate required data before syncing (with more lenient validation)
-            required_fields = ['main_category', 'sub_category', 'item_name_suggestion']
-            missing_fields = [field for field in required_fields if not tweet_data.get(field)]
+    # Database sync methods removed - using unified database approach
+    # All data is now written directly to UnifiedTweet during processing phases
             
             if missing_fields:
                 # Log warning but don't fail - provide defaults
@@ -1441,13 +1280,8 @@ class StreamlinedContentProcessor:
             self.socketio_emit_log(f"Error syncing tweet {tweet_id} to database: {e}", "ERROR")
             raise
 
-    async def _sync_to_unified_db(self, tweet_id: str, tweet_data: Dict[str, Any]) -> None:
-        """
-        Sync tweet data directly to UnifiedTweet model.
-        
-        This replaces the old dual-table sync with a clean, unified approach.
-        """
-        self.socketio_emit_log(f"Syncing tweet {tweet_id} to unified database...", "DEBUG")
+    # Final database sync method removed - using unified database approach
+    # All data is now written directly to UnifiedTweet during processing phases
 
         try:
             from knowledge_base_agent.models import UnifiedTweet

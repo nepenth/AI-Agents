@@ -196,6 +196,121 @@ def get_active_task():
         return jsonify({'error': str(e)}), 500
 
 
+# Enhanced endpoint for task logs with sequence support
+@bp.route('/v2/tasks/<task_id>/logs', methods=['GET'])
+def get_task_logs(task_id: str):
+    """Get historical logs for a task with sequence-based pagination."""
+    try:
+        since_sequence = request.args.get('since_sequence', 0, type=int)
+        limit = request.args.get('limit', 100, type=int)
+        
+        # Get logs from PostgreSQL for persistence
+        log_service = LogQueryService()
+        logs = log_service.get_task_logs(
+            task_id=task_id,
+            since_sequence=since_sequence,
+            limit=limit
+        )
+        
+        # Also try to get any recent logs from Redis
+        try:
+            async def _get_redis_logs():
+                progress_manager = get_progress_manager()
+                redis_logs = await progress_manager.get_logs(task_id, limit=50)
+                return redis_logs
+            
+            redis_logs = run_async_in_gevent_context(_get_redis_logs())
+            
+            # Merge logs if we have both sources
+            if redis_logs and logs:
+                # Combine and deduplicate by timestamp
+                all_logs = logs + redis_logs
+                seen_timestamps = set()
+                unique_logs = []
+                for log in sorted(all_logs, key=lambda x: x.get('timestamp', '')):
+                    timestamp = log.get('timestamp')
+                    if timestamp not in seen_timestamps:
+                        seen_timestamps.add(timestamp)
+                        unique_logs.append(log)
+                logs = unique_logs[-limit:]  # Keep most recent
+            elif redis_logs and not logs:
+                logs = redis_logs
+                
+        except Exception as e:
+            logger.debug(f"Could not get Redis logs for {task_id}: {e}")
+        
+        return jsonify({
+            'logs': logs,
+            'task_id': task_id,
+            'since_sequence': since_sequence,
+            'limit': limit,
+            'count': len(logs)
+        })
+        
+    except Exception as e:
+        logger.error("Error getting logs for task %s: %s", task_id, e, exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+# Enhanced endpoint for task status with phase details
+@bp.route('/v2/tasks/<task_id>/status', methods=['GET'])
+def get_comprehensive_task_status(task_id: str):
+    """Get comprehensive task status including phase states and progress."""
+    try:
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        # Get comprehensive task status from database
+        task_status = task_manager.get_task_status(task_id)
+        if not task_status:
+            return jsonify({'error': 'Task not found'}), 404
+
+        # Enhance with real-time Redis data
+        try:
+            async def _get_enhanced_data():
+                progress_manager = get_progress_manager()
+                
+                # Get current progress
+                progress_data = await progress_manager.get_progress(task_id)
+                
+                # Get recent logs for context
+                recent_logs = await progress_manager.get_logs(task_id, limit=10)
+                
+                return {
+                    'progress': progress_data,
+                    'recent_logs': recent_logs
+                }
+            
+            enhanced_data = run_async_in_gevent_context(_get_enhanced_data())
+            
+            if enhanced_data['progress']:
+                task_status['current_progress'] = enhanced_data['progress']
+            if enhanced_data['recent_logs']:
+                task_status['recent_logs'] = enhanced_data['recent_logs']
+                
+        except Exception as e:
+            logger.debug(f"Could not get enhanced data for {task_id}: {e}")
+
+        # Add Celery task information if available
+        try:
+            if task_status.get('celery_task_id'):
+                celery_task = celery_app.AsyncResult(task_status['celery_task_id'])
+                task_status['celery_info'] = {
+                    'state': celery_task.state,
+                    'info': celery_task.info if isinstance(celery_task.info, dict) else str(celery_task.info),
+                    'ready': celery_task.ready(),
+                    'successful': celery_task.successful() if celery_task.ready() else None
+                }
+        except Exception as e:
+            logger.debug(f"Could not get Celery info for {task_id}: {e}")
+
+        return jsonify(task_status)
+
+    except Exception as e:
+        logger.error("Error getting comprehensive status for %s: %s", task_id, e, exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 # New endpoint for job history
 @bp.route('/v2/jobs/history', methods=['GET'])
 def get_job_history():
@@ -2790,14 +2905,22 @@ def get_environment_settings():
 
 @bp.route('/kb/all')
 def get_kb_all():
-    """Returns a JSON object with all KB items and syntheses for the TOC."""
+    """Returns a JSON object with all KB items and syntheses for the TOC from unified database."""
     try:
-        items = db.session.query(KnowledgeBaseItem).order_by(KnowledgeBaseItem.main_category, KnowledgeBaseItem.sub_category, KnowledgeBaseItem.title).all()
+        from ..models import UnifiedTweet
+        # Get KB items from unified database
+        items = db.session.query(UnifiedTweet).filter(
+            UnifiedTweet.kb_item_created == True,
+            UnifiedTweet.kb_content.isnot(None)
+        ).order_by(UnifiedTweet.main_category, UnifiedTweet.sub_category, UnifiedTweet.kb_display_title).all()
         syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.main_category, SubcategorySynthesis.sub_category).all()  # type: ignore
         
         items_data = [{
-            'id': item.id, 'title': item.title, 'display_title': item.display_title,
-            'main_category': item.main_category, 'sub_category': item.sub_category
+            'id': item.id, 
+            'title': item.kb_display_title or item.kb_item_name or f'Tweet {item.tweet_id}', 
+            'display_title': item.kb_display_title,
+            'main_category': item.main_category, 
+            'sub_category': item.sub_category
         } for item in items]
         
         syntheses_data = [{
@@ -2922,13 +3045,14 @@ def get_kb_item(item_id):
         item_data = {
             'id': item.id,
             'tweet_id': item.tweet_id,
-            'title': item.title,
-            'display_title': item.display_title,
-            'description': item.description,
-            'content': item.content,
+            'title': item.kb_display_title or item.kb_item_name or f'Tweet {item.tweet_id}',
+            'display_title': item.kb_display_title,
+            'description': item.full_text[:200] + '...' if item.full_text and len(item.full_text) > 200 else item.full_text,
+            'content': item.kb_content,
+            'markdown_content': item.kb_content,  # Backward compatibility
             'main_category': item.main_category,
             'sub_category': item.sub_category,
-            'item_name': item.item_name,
+            'item_name': item.kb_item_name,
             'source_url': item.source_url,
             'created_at': item.created_at.isoformat() if item.created_at else None,
             'last_updated': item.last_updated.isoformat() if item.last_updated else None,
@@ -4110,29 +4234,43 @@ def get_tweet_categories():
 
 @bp.route('/items', methods=['GET'])
 def get_knowledge_base_items():
-    """API endpoint to get all knowledge base items from the database."""
+    """API endpoint to get all knowledge base items from the unified database."""
     try:
-        # Query all knowledge base items
-        items = db.session.query(KnowledgeBaseItem).order_by(KnowledgeBaseItem.last_updated.desc()).all()
+        # Query all knowledge base items from UnifiedTweet model
+        from ..models import UnifiedTweet
+        items = db.session.query(UnifiedTweet).filter(
+            UnifiedTweet.kb_item_created == True,
+            UnifiedTweet.kb_content.isnot(None)
+        ).order_by(UnifiedTweet.updated_at.desc()).all()
         
         items_list = []
         for item in items:
+            # Parse raw JSON content if it exists
+            raw_content = None
+            if item.raw_tweet_data:
+                try:
+                    raw_content = json.loads(item.raw_tweet_data)
+                except json.JSONDecodeError:
+                    raw_content = None
+            
             items_list.append({
                 'id': item.id,
                 'tweet_id': item.tweet_id,
-                'title': item.title,
-                'display_title': item.display_title,
-                'description': item.description,
-                'content': item.content,
+                'title': item.kb_display_title or item.kb_item_name or f'Tweet {item.tweet_id}',
+                'display_title': item.kb_display_title,
+                'description': item.full_text[:200] + '...' if item.full_text and len(item.full_text) > 200 else item.full_text,
+                'content': item.kb_content,  # Main content field from unified database
+                'markdown_content': item.kb_content,  # Backward compatibility
                 'main_category': item.main_category,
                 'sub_category': item.sub_category,
-                'item_name': item.item_name,
+                'item_name': item.kb_item_name,
                 'source_url': item.source_url,
                 'created_at': item.created_at.isoformat() if item.created_at else None,
-                'last_updated': item.last_updated.isoformat() if item.last_updated else None,
-                'file_path': item.file_path,
-                'kb_media_paths': json.loads(item.kb_media_paths) if item.kb_media_paths else [],
-                'raw_json_content': json.loads(item.raw_json_content) if item.raw_json_content else None
+                'last_updated': item.updated_at.isoformat() if item.updated_at else None,
+                'file_path': item.kb_file_path,
+                'kb_media_paths': item.kb_media_paths if item.kb_media_paths else [],
+                'media_files': item.media_files if item.media_files else [],
+                'raw_json_content': raw_content
             })
         
         current_app.logger.info(f"Retrieved {len(items_list)} knowledge base items")

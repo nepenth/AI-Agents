@@ -254,8 +254,14 @@ def create_app():
         logging.critical(f"FATAL: Could not load configuration. Error: {e}", exc_info=True)
         sys.exit(1)
 
-    # FIX 1: Enable CORS to allow the frontend to connect to Socket.IO
-    socketio = SocketIO(async_mode='gevent', logger=False, engineio_logger=False, cors_allowed_origins="*")
+    # ENHANCED: Configure Socket.IO with Redis message_queue for cross-process communication
+    socketio = SocketIO(
+        async_mode='gevent', 
+        logger=False, 
+        engineio_logger=False, 
+        cors_allowed_origins="*",
+        message_queue=config_instance.celery_broker_url  # Enable cross-process emits from Celery workers
+    )
     migrate = Migrate()
     realtime_manager = EnhancedRealtimeManager(socketio, config_instance)
 
@@ -358,6 +364,12 @@ def index_v2():
         return send_from_directory(os.path.join(app.root_path, 'static'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
     return render_template('v2/_layout.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon from static directory."""
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/v2/page/<string:page_name>')
 def serve_v2_page(page_name):
@@ -517,7 +529,23 @@ def handle_connect(auth=None):
     
     state = get_or_create_agent_state()
     emit('agent_status', state.to_dict())
-    emit('initial_logs', {'logs': []})
+    
+    # ENHANCED: Send initial logs from database for persistence
+    try:
+        from .task_state_manager import TaskStateManager
+        config = current_app.config.get('APP_CONFIG')
+        task_manager = TaskStateManager(config)
+        
+        # Get active task and its logs
+        active_task = task_manager.get_active_task()
+        if active_task and active_task.get('logs'):
+            emit('initial_logs', {'logs': active_task['logs'][-50:]})  # Last 50 logs
+        else:
+            emit('initial_logs', {'logs': []})
+    except Exception as e:
+        logging.debug(f"Could not get initial logs: {e}")
+        emit('initial_logs', {'logs': []})
+    
     config = current_app.config.get('APP_CONFIG')
     if config:
         # Use safe attribute access with defaults - Git is now always available
@@ -559,13 +587,40 @@ def handle_disconnect():
     """SocketIO: Handle client disconnection (notification only)."""
     logging.info("Client disconnected")
 
+@socketio.on('join_task')
+def handle_join_task(data):
+    """SocketIO: Join a task-specific room for targeted updates."""
+    task_id = data.get('task_id')
+    if task_id:
+        from flask_socketio import join_room
+        room = f"task:{task_id}"
+        join_room(room)
+        emit('joined_task', {'task_id': task_id, 'room': room})
+        logging.debug(f"Client joined task room: {room}")
+
+@socketio.on('leave_task')
+def handle_leave_task(data):
+    """SocketIO: Leave a task-specific room."""
+    task_id = data.get('task_id')
+    if task_id:
+        from flask_socketio import leave_room
+        room = f"task:{task_id}"
+        leave_room(room)
+        emit('left_task', {'task_id': task_id, 'room': room})
+        logging.debug(f"Client left task room: {room}")
+
 @socketio.on('run_agent')
 def handle_run_agent(data):
     """SocketIO handler now delegates to Celery."""
     from .tasks import run_agent_task, generate_task_id
+    from flask_socketio import join_room
     
     preferences = data.get('preferences', {})
     task_id = generate_task_id()
+    
+    # Join the task-specific room for targeted updates
+    room = f"task:{task_id}"
+    join_room(room)
     
     # Queue Celery task
     run_agent_task.apply_async(
