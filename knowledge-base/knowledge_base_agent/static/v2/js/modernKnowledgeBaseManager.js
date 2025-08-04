@@ -1,15 +1,18 @@
 /**
- * Modern Knowledge Base Manager
- * 
- * Features:
- * - Browse knowledge base items with modern UI
- * - Category-based filtering and search
- * - Integration with unified database structure
- * - Responsive grid layout with glass morphism design
- * - Quick preview and full content viewing
- * - Export and sharing capabilities
- */
 
+Modern Knowledge Base Manager
+Features:
+Browse knowledge base items with modern UI
+Category-based filtering and search
+Integration with unified database structure
+Responsive grid layout with glass morphism design
+Quick preview and full content viewing
+Export and sharing capabilities
+Safer content rendering with optional sanitization
+Consistent ID handling and robust date parsing
+Preferences persisted in localStorage
+*/
+console.log('🔍 Loading ModernKnowledgeBaseManager...');
 class ModernKnowledgeBaseManager extends BaseManager {
     constructor(options = {}) {
         super({
@@ -18,9 +21,17 @@ class ModernKnowledgeBaseManager extends BaseManager {
             componentName: 'ModernKnowledgeBaseManager',
             ...options
         });
-        
+
+        // External helpers (optional): markdownRenderer(text) -> HTML, htmlSanitizer(html) -> sanitizedHTML
+        this.markdownRenderer = options.markdownRenderer || null;
+        this.htmlSanitizer = options.htmlSanitizer || null;
+
+        // API / media paths
+        this.apiBase = options.apiBase || '/api'; // Updated for unified database API endpoints
+        this.mediaBase = options.mediaBase || '/data/media_cache'; // Flask route in web.py
+
         // Knowledge base state
-        this.items = new Map();
+        this.items = new Map(); // key: String(id), value: item
         this.categories = new Map();
         this.filteredItems = [];
         this.currentFilter = {
@@ -28,20 +39,20 @@ class ModernKnowledgeBaseManager extends BaseManager {
             search: '',
             sortBy: 'updated-desc'
         };
-        
+
         // UI state
         this.viewMode = 'grid'; // 'grid' or 'list'
         this.selectedItem = null;
     }
-    
+
     async initializeElements() {
         this.elements.container = document.getElementById('main-content');
         if (!this.elements.container) {
             throw new Error('Main content container not found');
         }
-        
+
         await this.createKnowledgeBaseInterface();
-        
+
         // Cache interactive elements
         this.elements.searchInput = document.getElementById('kb-search');
         this.elements.categoryFilter = document.getElementById('category-filter');
@@ -53,8 +64,13 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.elements.emptyState = document.getElementById('empty-state');
         this.elements.refreshBtn = document.getElementById('refresh-btn');
         this.elements.exportBtn = document.getElementById('export-btn');
+
+        // Load persisted preferences
+        this.loadPreferences();
+        // Reflect initial view mode icon and class
+        this.applyViewModeUI();
     }
-    
+
     async setupEventListeners() {
         this.eventService.setupStandardListeners(this, {
             inputs: [
@@ -75,7 +91,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     handler: this.handleSortChange
                 }
             ],
-            
+
             buttons: [
                 {
                     selector: this.elements.viewToggle,
@@ -91,7 +107,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     handler: this.handleExportAll
                 }
             ],
-            
+
             delegated: [
                 {
                     container: this.elements.itemsGrid,
@@ -106,7 +122,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     handler: this.handleItemAction
                 }
             ],
-            
+
             keyboard: [
                 {
                     key: 'Escape',
@@ -115,42 +131,41 @@ class ModernKnowledgeBaseManager extends BaseManager {
             ]
         });
     }
-    
+
     async loadInitialData() {
         try {
             this.showLoadingState();
             this.log('Starting to load initial data...');
-            
+
             // Load knowledge base items
             await this.loadKnowledgeBaseItems();
             this.log(`Loaded ${this.items.size} items`);
-            
+
             // Load categories for filtering
             this.extractCategories();
             this.log(`Extracted ${this.categories.size} categories`);
-            
+
             // Apply initial filtering and display
             this.applyFilters();
             this.updateCategoryFilter();
             this.log('Applied filters and updated UI');
-            
-            this.setState({ 
+
+            this.setState({
                 initialized: true,
-                loading: false 
+                loading: false
             });
-            
+
             this.log('Knowledge Base Manager initialization completed');
-            
+
         } catch (error) {
             this.setError(error, 'loading knowledge base data');
             this.showEmptyState('Failed to load knowledge base items');
         }
     }
-    
+
     async createKnowledgeBaseInterface() {
         this.elements.container.innerHTML = `
             <div class="modern-kb-container glass-panel-v3 animate-glass-fade-in">
-                <!-- Header -->
                 <header class="kb-header">
                     <div class="header-title">
                         <h1>
@@ -159,7 +174,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         </h1>
                         <p class="header-subtitle">Explore your curated knowledge collection</p>
                     </div>
-                    
+    
                     <div class="header-actions">
                         <button id="refresh-btn" class="glass-button glass-button--small" title="Refresh">
                             <i class="fas fa-sync-alt"></i>
@@ -169,8 +184,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         </button>
                     </div>
                 </header>
-                
-                <!-- Controls -->
+    
                 <div class="kb-controls glass-panel-v3--secondary">
                     <div class="controls-left">
                         <div class="search-container">
@@ -182,12 +196,12 @@ class ModernKnowledgeBaseManager extends BaseManager {
                                 class="glass-input"
                             >
                         </div>
-                        
+    
                         <select id="category-filter" class="glass-select">
                             <option value="all">All Categories</option>
                         </select>
                     </div>
-                    
+    
                     <div class="controls-right">
                         <select id="sort-select" class="glass-select">
                             <option value="updated-desc">Recently Updated</option>
@@ -196,7 +210,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                             <option value="title-desc">Title Z-A</option>
                             <option value="category-asc">Category A-Z</option>
                         </select>
-                        
+    
                         <div class="view-toggle-group">
                             <button id="view-toggle" class="glass-button glass-button--small" title="Toggle View">
                                 <i class="fas fa-th"></i>
@@ -204,8 +218,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         </div>
                     </div>
                 </div>
-                
-                <!-- Stats -->
+    
                 <div class="kb-stats">
                     <div class="stat-item">
                         <span class="stat-label">Total Items</span>
@@ -216,124 +229,165 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         <span id="categories-count" class="stat-value">--</span>
                     </div>
                 </div>
-                
-                <!-- Content -->
+    
                 <div class="kb-content">
-                    <!-- Loading State -->
                     <div id="loading-state" class="loading-state">
                         <div class="loading-spinner"></div>
                         <span>Loading knowledge base...</span>
                     </div>
-                    
-                    <!-- Empty State -->
+    
                     <div id="empty-state" class="empty-state hidden">
                         <i class="fas fa-book-open"></i>
                         <h3>No items found</h3>
                         <p>Try adjusting your search or filter criteria</p>
                     </div>
-                    
-                    <!-- Items Grid -->
+    
                     <div id="items-grid" class="items-grid">
-                        <!-- Items will be populated here -->
                     </div>
                 </div>
             </div>
         `;
     }
-    
+
     async loadKnowledgeBaseItems() {
         try {
             this.items.clear();
-            
-            // Load knowledge base items from the correct API endpoint
-            const response = await this.apiCall('/items', {
+
+            const response = await this.apiCall(`${this.apiBase}/items`, {
                 errorMessage: 'Failed to load knowledge base items',
                 cache: false,
                 showLoading: false
             });
-            
+
             if (Array.isArray(response)) {
                 response.forEach(item => {
-                    this.items.set(item.id, item);
+                    const idKey = String(item.id);
+
+                    // Normalize dates
+                    item._updatedAtMs = this.parseDateToMs(item.last_updated || item.created_at);
+                    item._createdAtMs = this.parseDateToMs(item.created_at);
+
+                    // Normalize media files from unified database
+                    // Handle kb_media_paths
+                    if (typeof item.kb_media_paths === 'string') {
+                        try {
+                            item.kb_media_paths = JSON.parse(item.kb_media_paths);
+                        } catch {
+                            item.kb_media_paths = [];
+                        }
+                    }
+                    if (!Array.isArray(item.kb_media_paths)) {
+                        item.kb_media_paths = [];
+                    }
+
+                    // Handle media_files from unified database
+                    if (typeof item.media_files === 'string') {
+                        try {
+                            item.media_files = JSON.parse(item.media_files);
+                        } catch {
+                            item.media_files = [];
+                        }
+                    }
+                    if (!Array.isArray(item.media_files)) {
+                        item.media_files = [];
+                    }
+
+                    // Combine all media files for display
+                    item.all_media_files = [...(item.kb_media_paths || []), ...(item.media_files || [])];
+
+                    // Ensure content field exists (fallbacks)
+                    if (!item.content) {
+                        item.content = item.markdown_content || item.kb_content || item.full_text || item.description || '';
+                    }
+
+                    this.items.set(idKey, item);
                 });
                 this.log(`Loaded ${response.length} knowledge base items`);
             } else {
                 this.logWarn('API returned non-array response:', response);
             }
-            
+
             this.log(`Total items loaded: ${this.items.size}`);
-            
+
         } catch (error) {
             this.logError('Failed to load knowledge base items:', error);
             throw error;
         }
     }
-    
+
     extractCategories() {
         this.categories.clear();
-        
+
         this.items.forEach(item => {
-            const category = item.main_category || 'Uncategorized';
-            if (!this.categories.has(category)) {
-                this.categories.set(category, {
+            const category = (item.main_category || 'Uncategorized');
+            const categoryKey = String(category);
+
+            if (!this.categories.has(categoryKey)) {
+                this.categories.set(categoryKey, {
                     name: category,
                     count: 0,
                     items: []
                 });
             }
-            
-            const categoryData = this.categories.get(category);
+
+            const categoryData = this.categories.get(categoryKey);
             categoryData.count++;
             categoryData.items.push(item);
         });
-        
+
         this.log(`Extracted ${this.categories.size} categories`);
     }
-    
+
     updateCategoryFilter() {
         if (!this.elements.categoryFilter) return;
-        
+
         const options = ['<option value="all">All Categories</option>'];
-        
+
         Array.from(this.categories.entries())
             .sort(([a], [b]) => a.localeCompare(b))
             .forEach(([categoryName, categoryData]) => {
                 options.push(`
-                    <option value="${categoryName}">
-                        ${categoryName} (${categoryData.count})
+                    <option value="${this.escapeAttr(categoryName)}">
+                        ${this.escapeHTML(categoryData.name)} (${categoryData.count})
                     </option>
                 `);
             });
-        
+
         this.elements.categoryFilter.innerHTML = options.join('');
+
+        if (this.currentFilter.category !== 'all' && !this.categories.has(this.currentFilter.category)) {
+            this.currentFilter.category = 'all';
+        }
+        this.elements.categoryFilter.value = this.currentFilter.category;
     }
-    
+
     applyFilters() {
         let filtered = Array.from(this.items.values());
-        
-        // Apply category filter
+
+        // Category filter
         if (this.currentFilter.category !== 'all') {
-            filtered = filtered.filter(item => 
-                (item.main_category || 'Uncategorized') === this.currentFilter.category
+            const selected = this.currentFilter.category;
+            filtered = filtered.filter(item =>
+                String(item.main_category || 'Uncategorized') === selected
             );
         }
-        
-        // Apply search filter
+
+        // Search filter
         if (this.currentFilter.search) {
             const searchTerm = this.currentFilter.search.toLowerCase();
-            filtered = filtered.filter(item => 
+            filtered = filtered.filter(item =>
                 (item.title || '').toLowerCase().includes(searchTerm) ||
                 (item.content || '').toLowerCase().includes(searchTerm) ||
                 (item.main_category || '').toLowerCase().includes(searchTerm) ||
                 (item.sub_category || '').toLowerCase().includes(searchTerm)
             );
         }
-        
-        // Apply sorting
+
+        // Sort
         const [sortBy, sortOrder] = this.currentFilter.sortBy.split('-');
         filtered.sort((a, b) => {
             let aVal, bVal;
-            
+
             switch (sortBy) {
                 case 'title':
                     aVal = (a.title || '').toLowerCase();
@@ -345,45 +399,51 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     break;
                 case 'updated':
                 default:
-                    aVal = new Date(a.last_updated || a.created_at || 0);
-                    bVal = new Date(b.last_updated || b.created_at || 0);
+                    aVal = a._updatedAtMs || 0;
+                    bVal = b._updatedAtMs || 0;
                     break;
             }
-            
+
             const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
             return sortOrder === 'desc' ? -comparison : comparison;
         });
-        
+
         this.filteredItems = filtered;
         this.renderItems();
         this.updateStats();
+        this.persistPreferences();
     }
-    
+
     renderItems() {
         if (!this.elements.itemsGrid) return;
-        
+
         if (this.filteredItems.length === 0) {
             this.showEmptyState();
             return;
         }
-        
+
         this.hideLoadingState();
         this.hideEmptyState();
-        
+
         const itemsHTML = this.filteredItems.map(item => this.createItemHTML(item)).join('');
         this.elements.itemsGrid.innerHTML = itemsHTML;
-        this.elements.itemsGrid.className = `items-grid ${this.viewMode}-view`;
+
+        // Preserve classes and only toggle view mode class
+        this.applyViewModeUI();
     }
-    
+
     createItemHTML(item) {
-        const title = item.title || 'Untitled';
-        const category = item.main_category || 'Uncategorized';
-        const subCategory = item.sub_category || '';
-        const lastUpdated = this.formatDate(item.last_updated || item.created_at);
+        const title = this.escapeHTML(item.title || 'Untitled');
+        const category = this.escapeHTML(item.main_category || 'Uncategorized');
+        const subCategory = this.escapeHTML(item.sub_category || '');
+        const lastUpdated = this.formatRelativeDate(item.last_updated || item.created_at);
         const preview = this.createPreview(item.content || '');
-        
+
+        const idAttr = this.escapeAttr(String(item.id));
+        const sourceLink = item.source_url ? `<span class="source-link"><i class="fas fa-external-link-alt"></i> Source</span>` : '';
+
         return `
-            <div class="kb-item glass-panel-v3--interactive" data-item-id="${item.id}" data-item-type="kb_item">
+            <div class="kb-item glass-panel-v3--interactive" data-item-id="${idAttr}" data-item-type="kb_item">
                 <div class="item-header">
                     <div class="item-type">
                         <i class="fas fa-file-alt"></i>
@@ -398,51 +458,53 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         </button>
                     </div>
                 </div>
-                
+    
                 <div class="item-content">
                     <h3 class="item-title">${title}</h3>
-                    
+    
                     <div class="item-categories">
                         <span class="category-badge main-category">${category}</span>
                         ${subCategory ? `<span class="category-badge sub-category">${subCategory}</span>` : ''}
                     </div>
-                    
+    
                     <div class="item-preview">${preview}</div>
                 </div>
-                
+    
                 <div class="item-footer">
                     <div class="item-metadata">
                         <span class="last-updated">Updated ${lastUpdated}</span>
-                        ${item.source_url ? `<span class="source-link"><i class="fas fa-external-link-alt"></i> Source</span>` : ''}
+                        ${sourceLink}
                     </div>
                 </div>
             </div>
         `;
     }
-    
+
     createPreview(content) {
         if (!content) return 'No content available';
-        
-        // Strip markdown and HTML, then truncate
-        const plainText = content
-            .replace(/[#*_`~\[\]()]/g, '') // Remove markdown
-            .replace(/<[^>]*>/g, '') // Remove HTML
-            .replace(/\s+/g, ' ') // Normalize whitespace
-            .trim();
-        
-        return plainText.length > 200 
-            ? plainText.substring(0, 200) + '...'
-            : plainText;
+        const plainText = this.toPlainText(content).trim();
+        return plainText.length > 200
+            ? this.escapeHTML(plainText.substring(0, 200)) + '...'
+            : this.escapeHTML(plainText);
     }
-    
-    formatDate(dateString) {
+
+    toPlainText(content) {
+        const withoutMd = String(content).replace(/[#*_`~$$$\(\)]/g, ' ');
+        const withoutHtml = withoutMd.replace(/<[^>]*>/g, ' ');
+        return withoutHtml.replace(/\s+/g, ' ');
+    }
+
+    formatRelativeDate(dateString) {
         if (!dateString) return 'Unknown';
-        
-        const date = new Date(dateString);
+
+        const dateMs = this.parseDateToMs(dateString);
+        if (!dateMs) return 'Unknown';
+
+        const date = new Date(dateMs);
         const now = new Date();
         const diffMs = now - date;
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        
+
         if (diffDays === 0) {
             return 'Today';
         } else if (diffDays === 1) {
@@ -455,18 +517,25 @@ class ModernKnowledgeBaseManager extends BaseManager {
             return date.toLocaleDateString();
         }
     }
-    
+
+    parseDateToMs(input) {
+        if (!input) return 0;
+        if (typeof input === 'number') return input;
+        const ms = Date.parse(input);
+        return Number.isNaN(ms) ? 0 : ms;
+    }
+
     updateStats() {
         if (this.elements.itemsCount) {
-            this.elements.itemsCount.textContent = this.filteredItems.length.toString();
+            this.elements.itemsCount.textContent = String(this.filteredItems.length);
         }
-        
+
         const categoriesCountEl = document.getElementById('categories-count');
         if (categoriesCountEl) {
-            categoriesCountEl.textContent = this.categories.size.toString();
+            categoriesCountEl.textContent = String(this.categories.size);
         }
     }
-    
+
     showLoadingState() {
         if (this.elements.loadingState) {
             this.elements.loadingState.classList.remove('hidden');
@@ -478,7 +547,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
             this.elements.emptyState.classList.add('hidden');
         }
     }
-    
+
     hideLoadingState() {
         if (this.elements.loadingState) {
             this.elements.loadingState.classList.add('hidden');
@@ -487,7 +556,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
             this.elements.itemsGrid.classList.remove('hidden');
         }
     }
-    
+
     showEmptyState(message = null) {
         if (this.elements.emptyState) {
             this.elements.emptyState.classList.remove('hidden');
@@ -503,46 +572,53 @@ class ModernKnowledgeBaseManager extends BaseManager {
             this.elements.loadingState.classList.add('hidden');
         }
     }
-    
+
     hideEmptyState() {
         if (this.elements.emptyState) {
             this.elements.emptyState.classList.add('hidden');
         }
-    }    
-   
- // Event Handlers
+    }
+
+    // Event Handlers
     handleSearch = (e) => {
         this.currentFilter.search = e.target.value.trim();
         this.applyFilters();
     }
-    
+
     handleCategoryFilter = (e) => {
         this.currentFilter.category = e.target.value;
         this.applyFilters();
     }
-    
+
     handleSortChange = (e) => {
         this.currentFilter.sortBy = e.target.value;
         this.applyFilters();
     }
-    
+
     handleViewToggle = () => {
         this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid';
-        
-        // Update toggle button icon
-        const icon = this.elements.viewToggle.querySelector('i');
-        if (icon) {
-            icon.className = this.viewMode === 'grid' ? 'fas fa-th' : 'fas fa-list';
-        }
-        
-        // Update grid class
-        if (this.elements.itemsGrid) {
-            this.elements.itemsGrid.className = `items-grid ${this.viewMode}-view`;
-        }
-        
+        this.applyViewModeUI();
+        this.persistPreferences();
         this.log(`View mode changed to: ${this.viewMode}`);
     }
-    
+
+    applyViewModeUI() {
+        if (this.elements.viewToggle) {
+            const icon = this.elements.viewToggle.querySelector('i');
+            if (icon) {
+                icon.className = this.viewMode === 'grid' ? 'fas fa-th' : 'fas fa-list';
+            }
+        }
+
+        if (this.elements.itemsGrid) {
+            this.elements.itemsGrid.classList.remove('grid-view', 'list-view');
+            this.elements.itemsGrid.classList.add(`${this.viewMode}-view`);
+            if (!this.elements.itemsGrid.classList.contains('items-grid')) {
+                this.elements.itemsGrid.classList.add('items-grid');
+            }
+        }
+    }
+
     handleRefresh = async () => {
         try {
             this.log('Refreshing knowledge base data...');
@@ -551,47 +627,50 @@ class ModernKnowledgeBaseManager extends BaseManager {
             this.setError(error, 'refreshing knowledge base data');
         }
     }
-    
+
     handleExportAll = () => {
         try {
             const allItems = Array.from(this.items.values());
             const exportData = this.formatItemsForExport(allItems);
             const filename = `knowledge_base_export_${new Date().toISOString().split('T')[0]}.md`;
-            
+
             this.downloadFile(exportData, filename, 'text/markdown');
             this.log(`Exported ${allItems.length} items to ${filename}`);
-            
+
         } catch (error) {
             this.setError(error, 'exporting knowledge base items');
         }
     }
-    
+
     handleItemClick = (e) => {
         const itemElement = e.target.closest('.kb-item');
         if (!itemElement) return;
-        
+
+        // If click originated from an action button, ignore here
+        if (e.target.closest('.item-action-btn')) return;
+
         const itemId = itemElement.dataset.itemId;
         const itemType = itemElement.dataset.itemType;
-        
+
         this.log(`Item clicked: ID=${itemId}, Type=${itemType}`);
         this.viewItem(itemId, itemType);
     }
-    
+
     handleItemAction = (e) => {
         e.stopPropagation();
-        
+
         const actionBtn = e.target.closest('.item-action-btn');
         if (!actionBtn) return;
-        
+
         const action = actionBtn.dataset.action;
         const itemElement = e.target.closest('.kb-item');
         if (!itemElement) return;
-        
+
         const itemId = itemElement.dataset.itemId;
         const itemType = itemElement.dataset.itemType;
-        
+
         this.log(`Item action: ${action} on ID=${itemId}, Type=${itemType}`);
-        
+
         switch (action) {
             case 'view':
                 this.viewItem(itemId, itemType);
@@ -601,44 +680,60 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 break;
         }
     }
-    
+
     handleEscape = () => {
         this.closeModal();
     }
-    
+
     // Item Operations
     viewItem(itemId, itemType) {
         this.log(`Opening item: ID=${itemId}, Type=${itemType}`);
         this.openItemModal(itemId, itemType);
     }
-    
+
     openItemModal(itemId, itemType) {
-        const item = this.items.get(parseInt(itemId));
+        const key = String(itemId);
+        const item = this.items.get(key);
         if (!item) {
             this.logError(`Item with ID ${itemId} not found`);
             return;
         }
-        
+
         this.selectedItem = item;
         this.createAndShowModal(item);
     }
-    
+
     createAndShowModal(item) {
-        // Remove existing modal if present
         const existingModal = document.getElementById('kb-item-modal');
         if (existingModal) {
             existingModal.remove();
         }
-        
-        const title = item.title || 'Untitled';
-        const category = item.main_category || 'Uncategorized';
-        const subCategory = item.sub_category || '';
+
+        const title = this.escapeHTML(item.title || 'Untitled');
+        const category = this.escapeHTML(item.main_category || 'Uncategorized');
+        const subCategory = this.escapeHTML(item.sub_category || '');
         const content = item.content || 'No content available';
-        const lastUpdated = new Date(item.last_updated || item.created_at).toLocaleString();
+        const lastUpdated = new Date(this.parseDateToMs(item.last_updated || item.created_at)).toLocaleString();
         const sourceUrl = item.source_url;
-        const mediaFiles = item.kb_media_paths || [];
-        
-        // Create modal HTML
+        const mediaFiles = item.all_media_files || [];
+
+        const mediaGridHTML = mediaFiles.length > 0
+            ? `
+            <div class="modal-media-section">
+                <h3><i class="fas fa-images"></i> Media Files</h3>
+                <div class="media-grid">
+                    ${mediaFiles.map(mediaPath => `
+                        <div class="media-item">
+                            <img src="${this.mediaUrl(mediaPath)}" alt="Knowledge base media"
+                                 onclick="this.classList.toggle('expanded')"
+                                 title="Click to expand" loading="lazy">
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            `
+            : '';
+
         const modalHTML = `
             <div id="kb-item-modal" class="modal-overlay">
                 <div class="modal-container glass-panel-v3">
@@ -662,50 +757,33 @@ class ModernKnowledgeBaseManager extends BaseManager {
                             </button>
                         </div>
                     </div>
-                    
+    
                     <div class="modal-metadata">
                         <div class="metadata-item">
                             <i class="fas fa-clock"></i>
-                            <span>Last Updated: ${lastUpdated}</span>
+                            <span>Last Updated: ${this.escapeHTML(lastUpdated)}</span>
                         </div>
                         ${item.tweet_id ? `<div class="metadata-item">
                             <i class="fas fa-hashtag"></i>
-                            <span>Tweet ID: ${item.tweet_id}</span>
+                            <span>Tweet ID: ${this.escapeHTML(String(item.tweet_id))}</span>
                         </div>` : ''}
                     </div>
-                    
-                    ${mediaFiles.length > 0 ? `
-                    <div class="modal-media-section">
-                        <h3><i class="fas fa-images"></i> Media Files</h3>
-                        <div class="media-grid">
-                            ${mediaFiles.map(mediaPath => `
-                                <div class="media-item">
-                                    <img src="/media/${mediaPath}" alt="Knowledge base media" 
-                                         onclick="this.classList.toggle('expanded')" 
-                                         title="Click to expand">
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    ` : ''}
-                    
+    
+                    ${mediaGridHTML}
+    
                     <div class="modal-content-section">
                         <h3><i class="fas fa-file-text"></i> Content</h3>
                         <div class="modal-content">
-                            ${this.formatContentForDisplay(content)}
+                            ${this.renderContentHTML(content)}
                         </div>
                     </div>
                 </div>
             </div>
         `;
-        
-        // Add modal to DOM
+
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-        
-        // Setup modal event listeners
         this.setupModalEventListeners(item);
-        
-        // Show modal with animation
+
         requestAnimationFrame(() => {
             const modal = document.getElementById('kb-item-modal');
             if (modal) {
@@ -713,12 +791,11 @@ class ModernKnowledgeBaseManager extends BaseManager {
             }
         });
     }
-    
+
     setupModalEventListeners(item) {
         const modal = document.getElementById('kb-item-modal');
         if (!modal) return;
-        
-        // Use EventListenerService for modal events
+
         this.eventService.setupStandardListeners(this, {
             buttons: [
                 {
@@ -727,13 +804,13 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 },
                 {
                     selector: '#modal-export-btn',
-                    handler: () => this.exportItem(item.id, 'kb_item')
+                    handler: () => this.exportItem(String(item.id), 'kb_item')
                 },
                 {
                     selector: '#modal-source-btn',
                     handler: () => {
                         if (item.source_url) {
-                            window.open(item.source_url, '_blank');
+                            window.open(item.source_url, '_blank', 'noopener,noreferrer');
                         }
                     },
                     condition: () => !!item.source_url
@@ -752,67 +829,64 @@ class ModernKnowledgeBaseManager extends BaseManager {
             ]
         });
     }
-    
+
     closeModal = () => {
         const modal = document.getElementById('kb-item-modal');
         if (modal) {
             modal.classList.add('closing');
             setTimeout(() => {
                 modal.remove();
-            }, 300); // Match CSS transition duration
+            }, 300);
         }
         this.selectedItem = null;
     }
-    
-    formatContentForDisplay(content) {
-        if (!content) return '<p class="no-content">No content available</p>';
-        
-        // Convert markdown-like formatting to HTML
-        let formatted = content
-            // Headers
-            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-            .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-            // Bold and italic
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            // Code blocks
-            .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-            .replace(/`(.*?)`/g, '<code>$1</code>')
-            // Links
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-            // Line breaks
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n/g, '<br>');
-        
-        // Wrap in paragraphs
-        formatted = '<p>' + formatted + '</p>';
-        
-        // Clean up empty paragraphs
-        formatted = formatted.replace(/<p><\/p>/g, '');
-        
-        return formatted;
+
+    renderContentHTML(content) {
+        let html = '';
+        const text = String(content || '');
+
+        if (this.markdownRenderer) {
+            try {
+                html = this.markdownRenderer(text);
+            } catch {
+                html = this.escapeHTML(text).replace(/\n/g, '<br>');
+            }
+        } else {
+            const escaped = this.escapeHTML(text);
+            html = `<p>${escaped.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+        }
+
+        if (this.htmlSanitizer) {
+            try {
+                html = this.htmlSanitizer(html);
+            } catch {
+                html = `<pre>${this.escapeHTML(text)}</pre>`;
+            }
+        }
+
+        return html;
     }
-    
+
     exportItem(itemId, itemType) {
-        const item = this.items.get(parseInt(itemId));
+        const key = String(itemId);
+        const item = this.items.get(key);
         if (!item) {
             this.logError(`Item with ID ${itemId} not found for export`);
             return;
         }
-        
+
         try {
             const content = this.formatItemForExport(item);
             const filename = `${this.sanitizeFilename(item.title || 'item')}.md`;
-            
+
             this.downloadFile(content, filename, 'text/markdown');
             this.log(`Exported item: ${item.title}`);
-            
+
         } catch (error) {
             this.setError(error, 'exporting item');
         }
     }
-    
+
     formatItemForExport(item) {
         const title = item.title || 'Untitled';
         const content = item.content || '';
@@ -820,66 +894,123 @@ class ModernKnowledgeBaseManager extends BaseManager {
         const subCategory = item.sub_category || '';
         const lastUpdated = item.last_updated || item.created_at;
         const sourceUrl = item.source_url || '';
-        
+
         return `# ${title}
-
-**Category:** ${category}${subCategory ? ` > ${subCategory}` : ''}
-**Last Updated:** ${new Date(lastUpdated).toLocaleString()}
-**Type:** Knowledge Base Item
+Category: ${category}${subCategory ? ` > ${subCategory}` : ''}
+Last Updated: ${new Date(this.parseDateToMs(lastUpdated)).toLocaleString()}
+Type: Knowledge Base Item
 ${sourceUrl ? `**Source:** ${sourceUrl}` : ''}
-
----
 
 ${content}
 `;
     }
-    
+
+
     formatItemsForExport(items) {
         const header = `# Knowledge Base Export
-
-**Export Date:** ${new Date().toLocaleString()}
-**Total Items:** ${items.length}
-
----
+    Export Date: ${new Date().toLocaleString()}
+    Total Items: ${items.length}
 
 `;
-        
+
+
         const itemsContent = items.map(item => this.formatItemForExport(item)).join('\n\n---\n\n');
-        
+
         return header + itemsContent;
     }
-    
+
     sanitizeFilename(filename) {
-        return filename
+        return String(filename)
             .replace(/[^a-z0-9]/gi, '_')
             .replace(/_+/g, '_')
             .replace(/^_|_$/g, '')
             .toLowerCase();
     }
-    
+
     downloadFile(content, filename, mimeType) {
         try {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
-            
+
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            
+
             URL.revokeObjectURL(url);
-            
+
         } catch (error) {
             this.logError('Failed to download file:', error);
             throw error;
         }
     }
-    
+
+    mediaUrl(path) {
+        const safe = String(path).split('/').map(encodeURIComponent).join('/');
+        return `${this.mediaBase}/${safe}`;
+    }
+
+    // Preferences persistence
+    loadPreferences() {
+        try {
+            const raw = localStorage.getItem('kb_manager_prefs');
+            if (!raw) return;
+            const prefs = JSON.parse(raw);
+            if (prefs.viewMode === 'grid' || prefs.viewMode === 'list') {
+                this.viewMode = prefs.viewMode;
+            }
+            if (typeof prefs.sortBy === 'string') {
+                this.currentFilter.sortBy = prefs.sortBy;
+                if (this.elements.sortSelect) {
+                    this.elements.sortSelect.value = prefs.sortBy;
+                }
+            }
+            if (typeof prefs.category === 'string') {
+                this.currentFilter.category = prefs.category;
+            }
+            if (typeof prefs.search === 'string') {
+                this.currentFilter.search = prefs.search;
+                if (this.elements.searchInput) {
+                    this.elements.searchInput.value = prefs.search;
+                }
+            }
+        } catch {
+            // ignore corrupt prefs
+        }
+    }
+
+    persistPreferences() {
+        try {
+            const prefs = {
+                viewMode: this.viewMode,
+                sortBy: this.currentFilter.sortBy,
+                category: this.currentFilter.category,
+                search: this.currentFilter.search
+            };
+            localStorage.setItem('kb_manager_prefs', JSON.stringify(prefs));
+        } catch {
+            // ignore storage errors
+        }
+    }
+
+    // Escaping helpers
+    escapeHTML(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    escapeAttr(str) {
+        return this.escapeHTML(str).replace(/"/g, '&quot;');
+    }
+
     // State change handler
     onStateChange(newState, previousState) {
-        // Handle loading state changes
         if (newState.loading !== previousState.loading) {
             if (newState.loading) {
                 this.showLoadingState();
@@ -887,31 +1018,31 @@ ${content}
                 this.hideLoadingState();
             }
         }
-        
-        // Handle error state changes
+
         if (newState.error !== previousState.error) {
             if (newState.error) {
                 this.logError('State error:', newState.error);
             }
         }
     }
-    
+
     cleanup() {
-        // Close any open modals
         this.closeModal();
-        
-        // Use CleanupService for comprehensive cleanup
         this.cleanupService.cleanup(this);
-        
-        // Clear component-specific data
         this.items.clear();
         this.categories.clear();
         this.filteredItems = [];
         this.selectedItem = null;
-        
-        // Call parent cleanup
         super.cleanup();
     }
+}
+
+console.log('✅ ModernKnowledgeBaseManager class defined successfully');
+
+// Make available globally for browser usage
+if (typeof window !== 'undefined') {
+    window.ModernKnowledgeBaseManager = ModernKnowledgeBaseManager;
+    console.log('✅ ModernKnowledgeBaseManager attached to window object');
 }
 
 // Export for use in other modules

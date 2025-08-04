@@ -892,13 +892,8 @@ class KnowledgeBaseAgent:
 
                 if stop_flag.is_set(): raise InterruptedError("Run stopped by user after content processing.")
 
-                # --- Phase 4: Database Sync (REMOVED) ---
-                # Database sync is no longer needed as a separate phase since we're using
-                # the unified database approach where all data is stored directly in UnifiedTweet
-                self.socketio_emit_log("✅ Database sync phase skipped - using unified database approach", "INFO")
-                self.socketio_emit_phase_update('database_sync', 'completed', 'Completed - using unified database approach', False, 0, 0, 0)
-
-                if stop_flag.is_set(): raise InterruptedError("Run stopped by user after database synchronization.")
+                # Database sync phase completely removed - using unified database approach
+                # All data is now stored directly in UnifiedTweet during content processing
 
                 # --- Phase 6: Synthesis Generation (Optional) ---
                 if not preferences.skip_synthesis_generation:
@@ -1114,13 +1109,7 @@ class KnowledgeBaseAgent:
                 "initial_status": "skipped" if preferences.skip_readme_generation else "pending",
                 "initial_message": "User preference: Skip Readme generation" if preferences.skip_readme_generation else "Waiting for Root README generation..."
             },
-            {
-                "id": "database_sync",
-                "name": "Database Synchronization",
-                "icon": "bi-database",
-                "initial_status": "forced" if preferences.force_reprocess_db_sync else ("skipped" if preferences.skip_process_content else "pending"),
-                "initial_message": "Force flag: Database sync will be forced" if preferences.force_reprocess_db_sync else ("User preference: Skip content processing" if preferences.skip_process_content else "Waiting for database synchronization...")
-            },
+
             {
                 "id": "git_sync",
                 "name": "Git Synchronization",

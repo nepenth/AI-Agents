@@ -311,7 +311,7 @@ The interface provides comprehensive control over agent execution:
 | `media_processor.py` | Media download and description | `process_media()` |
 | `ai_categorization.py` | AI-powered categorization | `categorize_and_name_content()` |
 | `kb_item_generator.py` | Knowledge base item generation | `create_knowledge_base_item()` |
-| `markdown_writer.py` | Filesystem operations | `write_kb_item()` |
+| `unified_state_manager.py` | Unified database operations | `update_tweet_data()` |
 | `synthesis_generator.py` | Synthesis document creation | `generate_subcategory_synthesis()` |
 | `embedding_manager.py` | Vector store management | `generate_and_store_embeddings()` |
 
