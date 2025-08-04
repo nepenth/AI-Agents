@@ -27,7 +27,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.htmlSanitizer = options.htmlSanitizer || null;
 
         // API / media paths
-        this.apiBase = options.apiBase || '/api'; // Updated for unified database API endpoints
+        this.apiBase = options.apiBase || ''; // EnhancedAPIService already adds /api prefix
         this.mediaBase = options.mediaBase || '/data/media_cache'; // Flask route in web.py
 
         // Knowledge base state
@@ -292,7 +292,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         item.media_files = [];
                     }
 
-                    // Combine all media files for display
+                    // Combine all media files for display (kb_media_paths already parsed above)
                     item.all_media_files = [...(item.kb_media_paths || []), ...(item.media_files || [])];
 
                     // Ensure content field exists (fallbacks)
@@ -433,7 +433,17 @@ class ModernKnowledgeBaseManager extends BaseManager {
     }
 
     createItemHTML(item) {
-        const title = this.escapeHTML(item.title || 'Untitled');
+        // Smart title selection: prefer display_title, then content if title looks like a filename, then title
+        let title = item.display_title;
+        if (!title) {
+            // If title looks like a filename (contains hyphens and no spaces), use content instead
+            if (item.title && item.title.includes('-') && !item.title.includes(' ') && item.content) {
+                title = item.content.split('\n')[0].substring(0, 60); // First line, max 60 chars
+            } else {
+                title = item.title || item.item_name;
+            }
+        }
+        title = this.escapeHTML(title || 'Untitled');
         const category = this.escapeHTML(item.main_category || 'Uncategorized');
         const subCategory = this.escapeHTML(item.sub_category || '');
         const lastUpdated = this.formatRelativeDate(item.last_updated || item.created_at);
@@ -709,13 +719,25 @@ class ModernKnowledgeBaseManager extends BaseManager {
             existingModal.remove();
         }
 
-        const title = this.escapeHTML(item.title || 'Untitled');
+        // Smart title selection: prefer display_title, then content if title looks like a filename, then title
+        let title = item.display_title;
+        if (!title) {
+            // If title looks like a filename (contains hyphens and no spaces), use content instead
+            if (item.title && item.title.includes('-') && !item.title.includes(' ') && item.content) {
+                title = item.content.split('\n')[0].substring(0, 60); // First line, max 60 chars
+            } else {
+                title = item.title || item.item_name;
+            }
+        }
+        title = this.escapeHTML(title || 'Untitled');
         const category = this.escapeHTML(item.main_category || 'Uncategorized');
         const subCategory = this.escapeHTML(item.sub_category || '');
         const content = item.content || 'No content available';
         const lastUpdated = new Date(this.parseDateToMs(item.last_updated || item.created_at)).toLocaleString();
         const sourceUrl = item.source_url;
-        const mediaFiles = item.all_media_files || [];
+
+        // Only use media_files since kb_media_paths often reference non-existent files
+        const mediaFiles = item.media_files || [];
 
         const mediaGridHTML = mediaFiles.length > 0
             ? `
@@ -948,8 +970,17 @@ ${content}
     }
 
     mediaUrl(path) {
-        const safe = String(path).split('/').map(encodeURIComponent).join('/');
-        return `${this.mediaBase}/${safe}`;
+        const pathStr = String(path);
+
+        // Handle different media path formats
+        if (pathStr.startsWith('data/media_cache/')) {
+            // Full path from media_files - use direct route
+            return `/${pathStr}`;
+        } else {
+            // Relative path from kb_media_paths - use API media route
+            const safe = pathStr.split('/').map(encodeURIComponent).join('/');
+            return `/api/media/${safe}`;
+        }
     }
 
     // Preferences persistence
