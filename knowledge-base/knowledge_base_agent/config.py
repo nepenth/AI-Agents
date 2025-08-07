@@ -9,13 +9,7 @@ from knowledge_base_agent.exceptions import ConfigurationError
 import os
 from dotenv import load_dotenv
 
-# Load .env file
 from dotenv import load_dotenv
-from pathlib import Path
-
-# Explicitly load the .env file from the project root
-dotenv_path = Path(__file__).resolve().parent.parent / '.env'
-load_dotenv(dotenv_path=dotenv_path)
 
 # This will be set by main.py or web.py at startup
 PROJECT_ROOT: Optional[Path] = None
