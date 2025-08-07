@@ -130,6 +130,7 @@ class Config(BaseSettings):
     max_retries: int = Field(5, alias="MAX_RETRIES")
     max_concurrent_requests: int = Field(1, alias="MAX_CONCURRENT_REQUESTS")
     request_timeout: int = Field(180, alias="REQUEST_TIMEOUT")
+    chat_timeout: int = Field(300, alias="CHAT_TIMEOUT", description="Timeout for chat/conversation requests in seconds (default: 5 minutes)")
     retry_backoff: bool = Field(True, alias="RETRY_BACKOFF")
     
     # Reprocessing flags
@@ -431,8 +432,6 @@ class Config(BaseSettings):
                 
                 logging.info(f"PROJECT_ROOT dynamically detected: {PROJECT_ROOT}")
 
-        # Drop inherited AVAILABLE_CHAT_MODELS env var so Pydantic Settings can read the JSON array from .env
-        os.environ.pop("AVAILABLE_CHAT_MODELS", None)
         logging.info("Loading environment variables for Config via Pydantic .env settings file")
 
         # Instantiate and return the settings; Pydantic will JSON-decode AVAILABLE_CHAT_MODELS

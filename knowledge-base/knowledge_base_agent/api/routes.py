@@ -31,22 +31,44 @@ from ..celery_app import celery_app
 def run_async_in_gevent_context(coro):
     """
     Helper function to run async coroutines in a gevent context where an event loop may already be running.
-    This handles the common Flask-SocketIO + gevent + asyncio integration issues.
+    This handles the common Flask-SocketIO + gevent + asyncio integration issues and preserves Flask app context.
     """
+    from flask import current_app
+    
+    # Capture the current app instance before entering the thread pool
+    app = current_app._get_current_object()
+    
+    def run_with_app_context():
+        """Run the coroutine with Flask app context."""
+        with app.app_context():
+            return asyncio.run(coro)
+    
     try:
         # Try to get the current event loop
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If loop is running (gevent context), use run_in_executor with a thread pool
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, coro)
-                return future.result(timeout=150) # Increased timeout
-        else:
-            # If no loop is running, we can use run_until_complete
-            return loop.run_until_complete(coro)
-    except RuntimeError:
-        # No event loop exists, create one
-        return asyncio.run(coro)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If loop is running (gevent context), use run_in_executor with a thread pool
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_with_app_context)
+                    return future.result(timeout=150) # Increased timeout
+            else:
+                # If no loop is running, we can use run_until_complete
+                return loop.run_until_complete(coro)
+        except RuntimeError as e:
+            if "There is no current event loop" in str(e) or "Event loop is closed" in str(e):
+                # No event loop exists or it's closed, create a new one in a thread
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_with_app_context)
+                    return future.result(timeout=150)
+            else:
+                raise
+    except Exception as e:
+        logging.error(f"Error in run_async_in_gevent_context: {e}", exc_info=True)
+        # Last resort: try to run in a new thread with a new event loop
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(run_with_app_context)
+            return future.result(timeout=150)
 
 bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)

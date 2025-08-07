@@ -35,11 +35,16 @@ class HTTPClient:
     async def initialize(self):
         """Initialize the HTTP client session."""
         if not self.initialized:
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=self.timeout)
-            )
-            self.initialized = True
-            logging.info("HTTPClient session initialized")
+            try:
+                self.session = aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=self.timeout)
+                )
+                self.initialized = True
+                logging.info("HTTPClient session initialized")
+            except Exception as e:
+                logging.error(f"Failed to initialize HTTPClient session: {e}")
+                self.session = None
+                self.initialized = False
         
     async def close(self):
         """Close the HTTP client session."""
@@ -47,6 +52,19 @@ class HTTPClient:
             await self.session.close()
             self.initialized = False
             logging.info("HTTPClient session closed")
+    
+    async def _get_session(self):
+        """Get a working session, creating a new one if needed for event loop compatibility."""
+        # Always create a new session for each request to avoid event loop issues
+        try:
+            session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=self.timeout)
+            )
+            logging.debug("Created new aiohttp session for current request")
+            return session
+        except Exception as e:
+            logging.error(f"Failed to create new session: {e}")
+            raise AIError(f"Failed to create HTTP session: {e}")
             
     async def ensure_session(self):
         """Ensure a session exists."""
@@ -156,34 +174,40 @@ class HTTPClient:
                 logging.debug(f"Complete Ollama payload: {payload}")
                 
                 start_time = time.time()
-                async with self.session.post(
-                    api_endpoint,
-                    json=payload,
-                    timeout=request_timeout
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logging.error(f"Ollama API error: {response.status} - {error_text}")
-                        logging.error(f"Request URL: {api_endpoint}, Payload: {payload}")
-                        raise AIError(f"Ollama API returned status {response.status}")
-                    
-                    result = await response.json()
-                    elapsed = time.time() - start_time
-                    
-                    response_text = result.get("response", "").strip()
-                    if not response_text:
-                        if payload.get("format") == "json":
-                             logging.error(f"Ollama API returned empty 'response' field in JSON mode. Full result: {result}")
-                             raise AIError("Empty 'response' field from Ollama API in JSON mode.")
-                        else:
-                             raise AIError("Empty response from Ollama API")
-                    
-                    logging.debug(f"Received response of length: {len(response_text)} in {elapsed:.2f}s. Model: {model}. JSON mode: {payload.get('format') == 'json'}")
-                    
-                    if self.batch_size > 1:
-                        await asyncio.sleep(0.1)
+                session = await self._get_session()
+                try:
+                    async with session.post(
+                        api_endpoint,
+                        json=payload,
+                        timeout=request_timeout
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            logging.error(f"Ollama API error: {response.status} - {error_text}")
+                            logging.error(f"Request URL: {api_endpoint}, Payload: {payload}")
+                            raise AIError(f"Ollama API returned status {response.status}")
                         
-                    return response_text
+                        result = await response.json()
+                        elapsed = time.time() - start_time
+                        
+                        response_text = result.get("response", "").strip()
+                        if not response_text:
+                            if payload.get("format") == "json":
+                                 logging.error(f"Ollama API returned empty 'response' field in JSON mode. Full result: {result}")
+                                 raise AIError("Empty 'response' field from Ollama API in JSON mode.")
+                            else:
+                                 raise AIError("Empty response from Ollama API")
+                        
+                        logging.debug(f"Received response of length: {len(response_text)} in {elapsed:.2f}s. Model: {model}. JSON mode: {payload.get('format') == 'json'}")
+                        
+                        if self.batch_size > 1:
+                            await asyncio.sleep(0.1)
+                            
+                        return response_text
+                finally:
+                    # Always close the session
+                    if session and not session.closed:
+                        await session.close()
                     
             except asyncio.TimeoutError:
                 logging.error(f"Ollama request timed out after {request_timeout} seconds for model {model}")
@@ -280,50 +304,56 @@ class HTTPClient:
                 logging.debug(f"Complete Ollama chat payload: {str(payload)[:500]}...")
                 
                 start_time = time.time()
-                async with self.session.post(
-                    api_endpoint,
-                    json=payload,
-                    timeout=request_timeout
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logging.error(f"Ollama chat API error: {response.status} - {error_text}")
-                        logging.error(f"Request URL: {api_endpoint}, Payload: {str(payload)[:500]}")
-                        raise AIError(f"Ollama chat API returned status {response.status}")
-                    
-                    result = await response.json()
-                    elapsed = time.time() - start_time
-                    
-                    # Chat API returns a different format
-                    if "message" not in result or not isinstance(result.get("message"), dict):
-                        logging.error(f"Ollama chat API returned unexpected response format: {result}")
-                        raise AIError("Unexpected response format from Ollama chat API")
-                    
-                    response_message = result.get("message", {})
-                    
-                    # Handle tool calls if present
-                    if "tool_calls" in response_message:
-                        # For tool calls, we might want to return structured data
-                        # but for now, return the content if available
-                        response_text = response_message.get("content", "").strip()
-                        if not response_text:
-                            # If no content but has tool calls, return a structured response
-                            tool_calls = response_message["tool_calls"]
-                            logging.debug(f"Received {len(tool_calls)} tool calls from model")
-                            response_text = f"[Tool calls: {len(tool_calls)} functions requested]"
-                    else:
-                        response_text = response_message.get("content", "").strip()
-                    
-                    if not response_text:
-                        logging.error(f"Ollama chat API returned empty response: {result}")
-                        raise AIError("Empty response from Ollama chat API")
-                    
-                    logging.debug(f"Received chat response of length: {len(response_text)} in {elapsed:.2f}s. Model: {model}")
-                    
-                    if self.batch_size > 1:
-                        await asyncio.sleep(0.1)
+                session = await self._get_session()
+                try:
+                    async with session.post(
+                        api_endpoint,
+                        json=payload,
+                        timeout=request_timeout
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            logging.error(f"Ollama chat API error: {response.status} - {error_text}")
+                            logging.error(f"Request URL: {api_endpoint}, Payload: {str(payload)[:500]}")
+                            raise AIError(f"Ollama chat API returned status {response.status}")
                         
-                    return response_text
+                        result = await response.json()
+                        elapsed = time.time() - start_time
+                        
+                        # Chat API returns a different format
+                        if "message" not in result or not isinstance(result.get("message"), dict):
+                            logging.error(f"Ollama chat API returned unexpected response format: {result}")
+                            raise AIError("Unexpected response format from Ollama chat API")
+                        
+                        response_message = result.get("message", {})
+                        
+                        # Handle tool calls if present
+                        if "tool_calls" in response_message:
+                            # For tool calls, we might want to return structured data
+                            # but for now, return the content if available
+                            response_text = response_message.get("content", "").strip()
+                            if not response_text:
+                                # If no content but has tool calls, return a structured response
+                                tool_calls = response_message["tool_calls"]
+                                logging.debug(f"Received {len(tool_calls)} tool calls from model")
+                                response_text = f"[Tool calls: {len(tool_calls)} functions requested]"
+                        else:
+                            response_text = response_message.get("content", "").strip()
+                        
+                        if not response_text:
+                            logging.error(f"Ollama chat API returned empty response: {result}")
+                            raise AIError("Empty response from Ollama chat API")
+                        
+                        logging.debug(f"Received chat response of length: {len(response_text)} in {elapsed:.2f}s. Model: {model}")
+                        
+                        if self.batch_size > 1:
+                            await asyncio.sleep(0.1)
+                            
+                        return response_text
+                finally:
+                    # Always close the session
+                    if session and not session.closed:
+                        await session.close()
                     
             except asyncio.TimeoutError:
                 logging.error(f"Ollama chat request timed out after {request_timeout} seconds for model {model}")
@@ -379,44 +409,50 @@ class HTTPClient:
                 }
 
                 start_time = time.time()
-                async with self.session.post(
-                    api_endpoint,
-                    json=payload,
-                    timeout=request_timeout
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logging.error(f"Ollama embedding API error: {response.status} - {error_text}")
-                        raise AIError(f"Ollama embedding API returned status {response.status}: {error_text}")
+                session = await self._get_session()
+                try:
+                    async with session.post(
+                        api_endpoint,
+                        json=payload,
+                        timeout=request_timeout
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            logging.error(f"Ollama embedding API error: {response.status} - {error_text}")
+                            raise AIError(f"Ollama embedding API returned status {response.status}: {error_text}")
 
-                    result = await response.json()
-                    elapsed = time.time() - start_time
-                    
-                    # Log the full response for debugging
-                    logging.debug(f"Raw Ollama embedding response: {result}")
-                    
-                    # Updated to match new API response format
-                    embeddings = result.get("embeddings")
-                    if embeddings is None:
-                        logging.error(f"Ollama API returned None for embeddings. Full response: {result}")
-                        raise AIError("Ollama API returned None for embeddings field")
-                    
-                    if not isinstance(embeddings, list) or len(embeddings) == 0:
-                        logging.error(f"Ollama API returned invalid embeddings format: {type(embeddings)} - {embeddings}")
-                        raise AIError(f"Ollama API returned invalid embeddings format: {type(embeddings)}")
-                    
-                    # Extract the first embedding from the array
-                    embedding = embeddings[0]
-                    if not isinstance(embedding, list):
-                        logging.error(f"Ollama API returned non-list embedding: {type(embedding)} - {embedding}")
-                        raise AIError(f"Ollama API returned non-list embedding: {type(embedding)}")
-                    
-                    if len(embedding) == 0:
-                        logging.error(f"Ollama API returned empty embedding list. Full response: {result}")
-                        raise AIError("Ollama API returned empty embedding list")
+                        result = await response.json()
+                        elapsed = time.time() - start_time
+                        
+                        # Log the full response for debugging
+                        logging.debug(f"Raw Ollama embedding response: {result}")
+                        
+                        # Updated to match new API response format
+                        embeddings = result.get("embeddings")
+                        if embeddings is None:
+                            logging.error(f"Ollama API returned None for embeddings. Full response: {result}")
+                            raise AIError("Ollama API returned None for embeddings field")
+                        
+                        if not isinstance(embeddings, list) or len(embeddings) == 0:
+                            logging.error(f"Ollama API returned invalid embeddings format: {type(embeddings)} - {embeddings}")
+                            raise AIError(f"Ollama API returned invalid embeddings format: {type(embeddings)}")
+                        
+                        # Extract the first embedding from the array
+                        embedding = embeddings[0]
+                        if not isinstance(embedding, list):
+                            logging.error(f"Ollama API returned non-list embedding: {type(embedding)} - {embedding}")
+                            raise AIError(f"Ollama API returned non-list embedding: {type(embedding)}")
+                        
+                        if len(embedding) == 0:
+                            logging.error(f"Ollama API returned empty embedding list. Full response: {result}")
+                            raise AIError("Ollama API returned empty embedding list")
 
-                    logging.debug(f"Received embedding of dimension {len(embedding)} in {elapsed:.2f}s. Model: {model}")
-                    return embedding
+                        logging.debug(f"Received embedding of dimension {len(embedding)} in {elapsed:.2f}s. Model: {model}")
+                        return embedding
+                finally:
+                    # Always close the session
+                    if session and not session.closed:
+                        await session.close()
 
             except asyncio.TimeoutError:
                 logging.error(f"Ollama embedding request timed out after {request_timeout} seconds for model {model}")
@@ -448,14 +484,17 @@ class HTTPClient:
     )
     async def get(self, url: str, **kwargs) -> Any:
         """Make GET request with retry logic."""
+        session = await self._get_session()
         try:
-            await self.ensure_session()
-            async with self.session.get(url, **kwargs) as response:
+            async with session.get(url, **kwargs) as response:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
             logging.error(f"HTTP GET failed for {url}: {str(e)}")
             raise NetworkError(f"Failed to fetch {url}") from e
+        finally:
+            if session and not session.closed:
+                await session.close()
 
     @retry(
         stop=stop_after_attempt(3),
@@ -463,14 +502,17 @@ class HTTPClient:
     )
     async def post(self, url: str, **kwargs) -> Any:
         """Make POST request with retry logic."""
+        session = await self._get_session()
         try:
-            await self.ensure_session()
-            async with self.session.post(url, **kwargs) as response:
+            async with session.post(url, **kwargs) as response:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
             logging.error(f"HTTP POST failed for {url}: {str(e)}")
             raise NetworkError(f"Failed to post to {url}") from e
+        finally:
+            if session and not session.closed:
+                await session.close()
 
     @retry(
         stop=stop_after_attempt(3),
@@ -478,9 +520,9 @@ class HTTPClient:
     )
     async def download_media(self, url: str, output_path: Path) -> None:
         """Download media from URL to specified path."""
+        session = await self._get_session()
         try:
-            await self.ensure_session()
-            async with self.session.get(url) as response:
+            async with session.get(url) as response:
                 response.raise_for_status()
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 async with aiofiles.open(output_path, 'wb') as f:
@@ -489,6 +531,9 @@ class HTTPClient:
         except Exception as e:
             logging.error(f"Failed to download media from {url}: {str(e)}")
             raise NetworkError(f"Failed to download media from {url}") from e
+        finally:
+            if session and not session.closed:
+                await session.close()
 
     @retry(
         stop=stop_after_attempt(3),
@@ -497,9 +542,9 @@ class HTTPClient:
     )
     async def get_final_url(self, url: str) -> str:
         """Follow redirects to get the final URL."""
+        session = await self._get_session()
         try:
-            await self.ensure_session()
-            async with self.session.get(url, allow_redirects=True) as response:
+            async with session.get(url, allow_redirects=True) as response:
                 response.raise_for_status()
                 final_url = str(response.url)
                 logging.debug(f"Expanded URL {url} to {final_url}")
@@ -507,6 +552,9 @@ class HTTPClient:
         except Exception as e:
             logging.error(f"Failed to expand URL {url}: {str(e)}")
             raise NetworkError(f"Failed to get final URL for {url}") from e
+        finally:
+            if session and not session.closed:
+                await session.close()
         
     def _get_optimized_options(self, model: str, task_type: str = "general") -> Dict[str, Any]:
         """
