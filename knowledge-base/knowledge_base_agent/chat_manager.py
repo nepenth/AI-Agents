@@ -383,7 +383,7 @@ Provide expert technical assistance based on the knowledge base context below.""
         
         return sorted(list(technical_terms))[:15]  # Return top 15 terms
 
-    async def handle_chat_query(self, query: str, model: Optional[str] = None) -> Dict[str, Any]:
+    async def handle_chat_query(self, query: str, model: Optional[str] = None, use_knowledge_base: bool = True) -> Dict[str, Any]:
         """
         Enhanced chat query handler with modern AI agent design patterns.
         
@@ -398,12 +398,14 @@ Provide expert technical assistance based on the knowledge base context below.""
             query_type = self._detect_query_type(query)
             self.logger.info(f"Detected query type: {query_type} for query: '{query[:50]}...'")
 
-            # 2. Enhanced document retrieval with increased top_k
-            similar_docs = await self.embedding_manager.find_similar_documents(
-                query, 
-                top_k=12,  # Increased from 8 to 12 for better coverage
-                include_scores=True
-            )
+            similar_docs = []
+            if use_knowledge_base:
+                # 2. Enhanced document retrieval with increased top_k
+                similar_docs = await self.embedding_manager.find_similar_documents(
+                    query,
+                    top_k=12,  # Increased from 8 to 12 for better coverage
+                    include_scores=True
+                )
             
             self.logger.info(f"Retrieved {len(similar_docs)} similar documents")
 
@@ -527,25 +529,35 @@ Please provide your comprehensive technical response."""
             }
 
     async def get_available_models(self) -> List[Dict[str, str]]:
-        """Get list of available chat models."""
+        """Get list of available chat models from the Ollama API."""
         try:
-            # This would typically call the Ollama API to get available models
-            # For now, return configured models
+            response = await self.http_client.get(f"{self.config.ollama_url}/api/tags")
+            response.raise_for_status()
+            models_data = response.json()
+
+            # Extract model names and format for the frontend
+            models = [{"id": model['name'], "name": model['name']} for model in models_data.get('models', [])]
+
+            # Add configured models to the list if they are not already present
+            configured_models = []
+            if self.chat_model:
+                configured_models.append({"id": self.chat_model, "name": f"Chat Model ({self.chat_model})"})
+            if self.text_model and self.text_model != self.chat_model:
+                configured_models.append({"id": self.text_model, "name": f"Text Model ({self.text_model})"})
+
+            for model in configured_models:
+                if model['id'] not in [m['id'] for m in models]:
+                    models.insert(0, model)
+
+            return models
+        except Exception as e:
+            self.logger.error(f"Error getting available models from Ollama API: {e}")
+            # Fallback to configured models
             models = []
             if self.chat_model:
                 models.append({"id": self.chat_model, "name": f"Chat Model ({self.chat_model})"})
             if self.text_model and self.text_model != self.chat_model:
                 models.append({"id": self.text_model, "name": f"Text Model ({self.text_model})"})
-            
-            # Add some common model options if none configured
             if not models:
-                models = [
-                    {"id": "llama2", "name": "Llama 2"},
-                    {"id": "codellama", "name": "Code Llama"},
-                    {"id": "mistral", "name": "Mistral"}
-                ]
-            
+                return [{"id": "default", "name": "Default Model"}]
             return models
-        except Exception as e:
-            self.logger.error(f"Error getting available models: {e}")
-            return [{"id": "default", "name": "Default Model"}]

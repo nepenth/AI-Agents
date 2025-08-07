@@ -112,6 +112,7 @@ class ModernChatManager extends BaseManager {
         // Header actions
         this.elements.archiveSessionBtn = document.getElementById('archive-session-btn');
         this.elements.exportSessionBtn = document.getElementById('export-session-btn');
+        this.elements.deleteAllChatsBtn = document.getElementById('delete-all-chats-btn');
         // Validate critical elements
         const requiredElements = ['sessionsList', 'chatMessages', 'chatInput', 'sendBtn'];
         for (const elementName of requiredElements) {
@@ -177,6 +178,11 @@ class ModernChatManager extends BaseManager {
                 {
                     selector: this.elements.voiceBtn,
                     handler: this.handleVoiceInput,
+                    debounce: 300
+                },
+                {
+                    selector: this.elements.deleteAllChatsBtn,
+                    handler: this.handleDeleteAllChats,
                     debounce: 300
                 }
             ],
@@ -384,6 +390,10 @@ class ModernChatManager extends BaseManager {
                             <div class="status-indicator online"></div>
                             <span class="status-text">Connected</span>
                         </div>
+                        <button id="delete-all-chats-btn" class="delete-all-btn" title="Delete All Chats">
+                            <i class="fas fa-trash-alt"></i>
+                            <span>Delete All</span>
+                        </button>
                     </div>
                 </aside>
                 <!-- Main Chat Area -->
@@ -923,7 +933,7 @@ class ModernChatManager extends BaseManager {
     async archiveCurrentSession() {
         if (!this.activeSession) return;
         try {
-            await this.apiCall(`/api/chat/sessions/${this.activeSession.session_id}/archive`, {
+            await this.apiCall(`/chat/sessions/${this.activeSession.session_id}/archive`, {
                 method: 'POST',
                 errorMessage: 'Failed to archive session'
             });
@@ -956,11 +966,11 @@ class ModernChatManager extends BaseManager {
     }
     async switchToSession(sessionId) {
         try {
-            const session = await this.apiCall(`/api/chat/sessions/${sessionId}`, {
+            const session = await this.apiCall(`/chat/sessions/${sessionId}`, {
                 errorMessage: 'Failed to load chat session'
             });
             // Set as active session
-            await this.apiCall(`/api/chat/sessions/${sessionId}/activate`, {
+            await this.apiCall(`/chat/sessions/${sessionId}/activate`, {
                 method: 'POST',
                 errorMessage: 'Failed to activate session'
             });
@@ -977,7 +987,7 @@ class ModernChatManager extends BaseManager {
     }
     async viewArchivedSession(sessionId) {
         try {
-            const session = await this.apiCall(`/api/chat/sessions/${sessionId}`, {
+            const session = await this.apiCall(`/chat/sessions/${sessionId}`, {
                 errorMessage: 'Failed to load archived session'
             });
             await this.loadSessionMessages(session, true); // Read-only mode
@@ -1041,7 +1051,7 @@ class ModernChatManager extends BaseManager {
             this.isTyping = true;
             const startTime = Date.now();
             // Send message to API with knowledge base integration
-            const response = await this.apiCall('/api/chat/enhanced', {
+            const response = await this.apiCall('/chat/enhanced', {
                 method: 'POST',
                 body: {
                     message: message,
@@ -1251,7 +1261,7 @@ class ModernChatManager extends BaseManager {
     }
     async archiveSession(sessionId) {
         try {
-            await this.apiCall(`/api/chat/sessions/${sessionId}/archive`, {
+            await this.apiCall(`/chat/sessions/${sessionId}/archive`, {
                 method: 'POST',
                 errorMessage: 'Failed to archive session'
             });
@@ -1281,7 +1291,7 @@ class ModernChatManager extends BaseManager {
     }
     async restoreSession(sessionId) {
         try {
-            await this.apiCall(`/api/chat/sessions/${sessionId}/restore`, {
+            await this.apiCall(`/chat/sessions/${sessionId}/restore`, {
                 method: 'POST',
                 errorMessage: 'Failed to restore session'
             });
@@ -1309,9 +1319,41 @@ class ModernChatManager extends BaseManager {
         }
         await this.deleteSession(sessionId);
     }
+
+    handleDeleteAllChats = async () => {
+        // Confirm deletion
+        if (!confirm('Are you sure you want to delete ALL chat conversations? This action cannot be undone.')) {
+            return;
+        }
+        await this.deleteAllSessions();
+    }
+
+    handleDeleteAllChats = async () => {
+        // Confirm deletion
+        if (!confirm('Are you sure you want to delete ALL chat conversations? This action cannot be undone.')) {
+            return;
+        }
+        await this.deleteAllSessions();
+    }
+
+    async deleteAllSessions() {
+        try {
+            await this.apiCall('/chat/sessions', {
+                method: 'DELETE',
+                errorMessage: 'Failed to delete all sessions'
+            });
+            this.sessions.clear();
+            this.archivedSessions.clear();
+            await this.createNewSession();
+            this.updateSessionsList();
+            this.updateSessionsCount();
+        } catch (error) {
+            this.setError(error, 'deleting all sessions');
+        }
+    }
     async deleteSession(sessionId) {
         try {
-            await this.apiCall(`/api/chat/sessions/${sessionId}`, {
+            await this.apiCall(`/chat/sessions/${sessionId}`, {
                 method: 'DELETE',
                 errorMessage: 'Failed to delete session'
             });
@@ -1399,7 +1441,7 @@ class ModernChatManager extends BaseManager {
     async saveSessionState() {
         if (!this.activeSession) return;
         try {
-            await this.apiCall(`/api/chat/sessions/${this.activeSession.session_id}/state`, {
+            await this.apiCall(`/chat/sessions/${this.activeSession.session_id}/state`, {
                 method: 'POST',
                 body: {
                     ui_state: {
@@ -1484,14 +1526,12 @@ class ModernChatManager extends BaseManager {
     handleKnowledgeBaseLink = (e) => {
         e.preventDefault();
         const kbItem = e.target.dataset.kbItem;
-        // TODO: open knowledge base item
-        alert(`Open KB: ${kbItem}`);
+        window.open(`/kb/item/${kbItem}`, '_blank');
     }
     handleSynthesisLink = (e) => {
         e.preventDefault();
         const synthesis = e.target.dataset.synthesis;
-        // TODO: open synthesis document
-        alert(`Open Synthesis: ${synthesis}`);
+        window.open(`/synthesis/${synthesis}`, '_blank');
     }
     handleSuggestionClick = (e) => {
         const card = e.target.closest('.suggestion-card');
