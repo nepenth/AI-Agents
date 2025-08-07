@@ -581,7 +581,7 @@ class ModernChatManager extends BaseManager {
     async loadAvailableModels() {
         try {
             this.log('Loading available models from API...');
-            const models = await this.apiCall('/api/chat/models/available', {
+            const models = await this.apiCall('/chat/models/available', {
                 errorMessage: 'Failed to load available models'
             });
 
@@ -628,7 +628,7 @@ class ModernChatManager extends BaseManager {
     async restoreActiveSession() {
         try {
             this.log('Attempting to restore active session from API...');
-            const sessionData = await this.apiCall('/api/chat/sessions/active', {
+            const sessionData = await this.apiCall('/chat/sessions/active', {
                 errorMessage: 'Failed to restore active session',
                 // A 404 is expected if no active session exists, so we handle it gracefully
                 handle404: true
@@ -653,7 +653,7 @@ class ModernChatManager extends BaseManager {
     async loadSessionHistory() {
         try {
             this.log('Loading session history from API...');
-            const sessions = await this.apiCall('/api/chat/sessions', {
+            const sessions = await this.apiCall('/chat/sessions', {
                 errorMessage: 'Failed to load chat sessions'
             });
 
@@ -679,7 +679,7 @@ class ModernChatManager extends BaseManager {
     async createNewSession() {
         try {
             this.log('Creating new session via API...');
-            const newSession = await this.apiCall('/api/chat/sessions', {
+            const newSession = await this.apiCall('/chat/sessions', {
                 method: 'POST',
                 body: {
                     title: 'New Conversation'
