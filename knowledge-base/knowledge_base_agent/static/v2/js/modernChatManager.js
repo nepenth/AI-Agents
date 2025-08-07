@@ -51,8 +51,14 @@ class ModernChatManager extends BaseManager {
             tablet: 1024,
             desktop: 1200
         };
-        // Message rendering optimization
-        this.messageRenderer = new MessageRenderer(this);
+        // Message rendering optimization - use enhanced renderer if available
+        if (typeof EnhancedMessageRenderer !== 'undefined') {
+            this.messageRenderer = new EnhancedMessageRenderer(this);
+            this.log('Using enhanced message renderer with markdown support');
+        } else {
+            this.messageRenderer = new MessageRenderer(this);
+            this.logWarn('Enhanced message renderer not available, using fallback');
+        }
         this.virtualScroll = null;
         // Duration formatter
         this.durationFormatter = {

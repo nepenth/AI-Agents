@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/knowledge-base.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/tweet-management.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-chat.css', v='1.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/enhanced-chat-formatting.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-knowledge-base.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-tweet-management.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/core/mobile-optimizations.css', v='2.0') }}">
@@ -345,6 +346,10 @@
     <script src="{{ url_for('static', filename='v2/js/taskDisplay.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/historicalTasks.js') }}"></script>
 
+    <!-- Enhanced Chat Components - Load before modern managers -->
+    <script src="{{ url_for('static', filename='v2/js/markdownLoader.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='v2/js/enhancedMessageRenderer.js', v='1.0') }}"></script>
+    
     <!-- Modern Page Managers - Clean implementations following consolidated architecture -->
     <script src="{{ url_for('static', filename='v2/js/modernChatManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/modernKnowledgeBaseManager.js', v='1.0') }}"></script>

@@ -15,6 +15,7 @@ from .config import Config
 from .http_client import HTTPClient
 from .embedding_manager import EmbeddingManager
 from .json_prompt_manager import JsonPromptManager
+from .response_formatter import get_response_formatter
 
 class ChatManager:
     """
@@ -43,6 +44,14 @@ class ChatManager:
         except Exception as e:
             self.logger.warning(f"Failed to initialize JSON prompt manager: {e}")
             self.json_prompt_manager = None
+        
+        # Initialize response formatter for better output formatting
+        try:
+            self.response_formatter = get_response_formatter()
+            self.logger.info("Initialized response formatter for enhanced output")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize response formatter: {e}")
+            self.response_formatter = None
 
     def _detect_query_type(self, query: str) -> str:
         """
@@ -91,6 +100,19 @@ class ChatManager:
             # Fallback to basic prompt if JSON manager not available
             return self._get_fallback_prompt()
         
+        # Try to use the enhanced formatting prompt first
+        try:
+            enhanced_prompt_file = self.json_prompt_manager.prompts_dir / 'improved' / 'chat_enhanced_formatting.json'
+            if enhanced_prompt_file.exists():
+                import json
+                with open(enhanced_prompt_file, 'r', encoding='utf-8') as f:
+                    prompt_data = json.load(f)
+                    self.logger.info("Using enhanced formatting prompt for better AI responses")
+                    return prompt_data['template']['content']
+        except Exception as e:
+            self.logger.warning(f"Failed to load enhanced formatting prompt: {e}")
+        
+        # Fallback to query-specific prompts
         prompt_map = {
             'implementation': 'chat_implementation_query',
             'comparison': 'chat_comparison_query',
@@ -449,11 +471,24 @@ Please provide your comprehensive technical response."""
                 messages=messages,
                 temperature=0.1,  # Lower temperature for more consistent, technical responses
                 top_p=0.9,
-                timeout=120  # Increased timeout for complex queries
+                timeout=self.config.chat_timeout  # Use configurable chat timeout
             )
             
             end_time = time.time()
             response_time = end_time - start_time
+            
+            # Format the response for better readability
+            if self.response_formatter:
+                try:
+                    formatted_response = self.response_formatter.format_response(
+                        response_text, 
+                        context={'query_type': query_type, 'model': target_model}
+                    )
+                    self.logger.info("Applied response formatting for improved readability")
+                    response_text = formatted_response
+                except Exception as e:
+                    self.logger.warning(f"Failed to format response: {e}")
+                    # Continue with unformatted response
             
             # Calculate more accurate token counts using improved estimation
             # Based on OpenAI's rule of thumb: ~4 characters per token for English text
@@ -529,35 +564,46 @@ Please provide your comprehensive technical response."""
             }
 
     async def get_available_models(self) -> List[Dict[str, str]]:
-        """Get list of available chat models from the Ollama API."""
+        """Get list of available chat models from config and Ollama API."""
+        models = []
+        
+        # First, add models from the AVAILABLE_CHAT_MODELS config
+        if hasattr(self.config, 'available_chat_models') and self.config.available_chat_models:
+            for model_id in self.config.available_chat_models:
+                models.append({"id": model_id, "name": f"Chat Model ({model_id})"})
+            self.logger.info(f"Added {len(self.config.available_chat_models)} models from config")
+        
+        # Add currently configured models if not already present
+        configured_models = []
+        if self.chat_model:
+            configured_models.append({"id": self.chat_model, "name": f"Default Chat Model ({self.chat_model})"})
+        if self.text_model and self.text_model != self.chat_model:
+            configured_models.append({"id": self.text_model, "name": f"Text Model ({self.text_model})"})
+
+        for model in configured_models:
+            if model['id'] not in [m['id'] for m in models]:
+                models.insert(0, model)
+        
+        # Try to get additional models from Ollama API (optional)
         try:
             response = await self.http_client.get(f"{self.config.ollama_url}/api/tags")
             response.raise_for_status()
             models_data = response.json()
 
-            # Extract model names and format for the frontend
-            models = [{"id": model['name'], "name": model['name']} for model in models_data.get('models', [])]
-
-            # Add configured models to the list if they are not already present
-            configured_models = []
-            if self.chat_model:
-                configured_models.append({"id": self.chat_model, "name": f"Chat Model ({self.chat_model})"})
-            if self.text_model and self.text_model != self.chat_model:
-                configured_models.append({"id": self.text_model, "name": f"Text Model ({self.text_model})"})
-
-            for model in configured_models:
+            # Add any additional models from Ollama that aren't already in our list
+            ollama_models = [{"id": model['name'], "name": f"Ollama Model ({model['name']})"} 
+                           for model in models_data.get('models', [])]
+            
+            for model in ollama_models:
                 if model['id'] not in [m['id'] for m in models]:
-                    models.insert(0, model)
-
-            return models
+                    models.append(model)
+                    
         except Exception as e:
-            self.logger.error(f"Error getting available models from Ollama API: {e}")
-            # Fallback to configured models
-            models = []
-            if self.chat_model:
-                models.append({"id": self.chat_model, "name": f"Chat Model ({self.chat_model})"})
-            if self.text_model and self.text_model != self.chat_model:
-                models.append({"id": self.text_model, "name": f"Text Model ({self.text_model})"})
-            if not models:
-                return [{"id": "default", "name": "Default Model"}]
-            return models
+            self.logger.warning(f"Could not fetch models from Ollama API: {e}")
+        
+        # Ensure we have at least one model
+        if not models:
+            models = [{"id": "default", "name": "Default Model"}]
+            
+        self.logger.info(f"Returning {len(models)} available models")
+        return models
