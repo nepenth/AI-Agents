@@ -64,14 +64,13 @@ downloaded_media/*
 .cursor/
 
 # scripts folder
-.scripts/
 agent.mdc
 
 # Local DB
 knowledge_base_agent/instance/knowledge_base_agent.db
 *.db
-*.db-shm
-*.db-wal
+*-shm
+*-wal
 
 #temporary backups
 *bak

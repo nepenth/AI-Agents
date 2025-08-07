@@ -3,340 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Frontend Fixes Test</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
-        .success { color: green; }
-        .error { color: red; }
-        .info { color: blue; }
-        button { margin: 5px; padding: 10px; }
-        #log { background: #f5f5f5; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; }
-    </style>
+    <title>Test Frontend API Response</title>
 </head>
 <body>
-    <h1>Frontend Fixes Test</h1>
-    
-    <div class="test-section">
-        <h2>1. SocketIO Loading Test</h2>
-        <p>Status: <span id="socketio-status">Testing...</span></p>
-        <p>Mode: <span id="api-mode">Unknown</span></p>
-        <button onclick="testSocketIO()">Test SocketIO Connection</button>
-    </div>
-    
-    <div class="test-section">
-        <h2>2. API Methods Test</h2>
-        <p>API Client: <span id="api-status">Not initialized</span></p>
-        <button onclick="testAPIClient()">Test API Client</button>
-        <button onclick="testPreferencesAPI()">Test Preferences API</button>
-    </div>
-    
-    <div class="test-section">
-        <h2>3. Test Log</h2>
-        <div id="log"></div>
-        <button onclick="clearLog()">Clear Log</button>
-    </div>
+    <h1>Testing Knowledge Base API Response</h1>
+    <div id="results"></div>
 
-    <!-- Include the API client -->
     <script>
-    // Simple API client for testing
-    class API {
-        constructor(baseURL = '/api') {
-            this.baseURL = baseURL;
-        }
-
-        async request(endpoint, { method = 'GET', headers = {}, body = null } = {}) {
-            const cfg = { method, headers: { 'Content-Type': 'application/json', ...headers } };
-            if (body) cfg.body = typeof body === 'string' ? body : JSON.stringify(body);
+        async function testAPI() {
             try {
-                const res = await fetch(`${this.baseURL}${endpoint}`, cfg);
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(`HTTP ${res.status} – ${text || res.statusText}`);
-                }
-                const ct = res.headers.get('content-type') || '';
-                return ct.includes('application/json') ? res.json() : res.text();
-            } catch (err) {
-                console.error('API request error', err);
-                throw err;
-            }
-        }
-
-        // Agent Status Methods
-        async getAgentStatus() {
-            return this.request('/agent/status');
-        }
-
-        async resetAgentState() {
-            return this.request('/agent/reset-state', { method: 'POST' });
-        }
-
-        // Agent Control Methods
-        async startAgent(preferences = {}) {
-            return this.request('/v2/agent/start', { 
-                method: 'POST', 
-                body: { preferences } 
-            });
-        }
-
-        async stopAgent() {
-            return this.request('/agent/stop', { method: 'POST' });
-        }
-
-        // Preferences Methods
-        async getPreferences() {
-            return this.request('/preferences');
-        }
-
-        async savePreferences(preferences) {
-            return this.request('/preferences', { 
-                method: 'POST', 
-                body: preferences 
-            });
-        }
-
-        // Alias for backward compatibility
-        async updatePreferences(preferences) {
-            return this.savePreferences(preferences);
-        }
-    }
-
-    // Enhanced SocketIO Loading Test
-    (function() {
-        'use strict';
-        
-        log('✅ [System] Starting enhanced SocketIO initialization...');
-        
-        // Global state management
-        window.SOCKETIO_DISABLED = false;
-        window.REST_API_MODE = false;
-        window.SOCKETIO_LOADING = true;
-        
-        function dispatchEvent(eventName, data = {}) {
-            const event = new CustomEvent(eventName, { detail: data });
-            document.dispatchEvent(event);
-        }
-        
-        function enableRestApiMode(reason) {
-            log(`ℹ️ [System] Switching to REST API mode: ${reason}`);
-            window.SOCKETIO_DISABLED = true;
-            window.REST_API_MODE = true;
-            window.SOCKETIO_LOADING = false;
-            updateStatus('socketio-status', 'Failed - Using REST API', 'error');
-            updateStatus('api-mode', 'REST API Only', 'info');
-            dispatchEvent('socketio-failed', { error: reason });
-        }
-        
-        function enableSocketIOMode() {
-            log('✅ [System] SocketIO successfully loaded, enabling hybrid mode');
-            window.SOCKETIO_DISABLED = false;
-            window.REST_API_MODE = false;
-            window.SOCKETIO_LOADING = false;
-            updateStatus('socketio-status', 'Connected', 'success');
-            updateStatus('api-mode', 'Hybrid (REST + SocketIO)', 'success');
-            dispatchEvent('socketio-ready');
-        }
-        
-        // Timeout for SocketIO loading (5 seconds)
-        const socketIOTimeout = setTimeout(() => {
-            if (window.SOCKETIO_LOADING) {
-                enableRestApiMode('SocketIO loading timeout (5s)');
-            }
-        }, 5000);
-        
-        // Try to load SocketIO from multiple CDNs
-        const socketIOSources = [
-            'https://cdn.socket.io/4.7.2/socket.io.min.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js',
-            'https://unpkg.com/socket.io-client@4.7.2/dist/socket.io.min.js'
-        ];
-        
-        let currentSourceIndex = 0;
-        
-        function tryLoadSocketIO() {
-            if (currentSourceIndex >= socketIOSources.length) {
-                clearTimeout(socketIOTimeout);
-                enableRestApiMode('All SocketIO CDN sources failed');
-                return;
-            }
-            
-            const script = document.createElement('script');
-            const source = socketIOSources[currentSourceIndex];
-            
-            log(`🔄 [System] Attempting to load SocketIO from: ${source}`);
-            
-            script.onload = function() {
-                clearTimeout(socketIOTimeout);
-                log(`✅ [System] SocketIO loaded successfully from: ${source}`);
+                const response = await fetch('/api/items?limit=5');
+                const data = await response.json();
                 
-                // Initialize SocketIO connection
-                try {
-                    window.socket = io({
-                        transports: ['websocket', 'polling'],
-                        timeout: 10000,
-                        reconnection: true,
-                        reconnectionAttempts: 3,
-                        reconnectionDelay: 1000
-                    });
+                const resultsDiv = document.getElementById('results');
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    resultsDiv.innerHTML = '<h2>API Response Test Results:</h2>';
                     
-                    window.socket.on('connect', () => {
-                        log('🔗 [SocketIO] Connected successfully');
-                        enableSocketIOMode();
+                    data.slice(0, 3).forEach((item, index) => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.style.border = '1px solid #ccc';
+                        itemDiv.style.margin = '10px 0';
+                        itemDiv.style.padding = '10px';
+                        
+                        itemDiv.innerHTML = `
+                            <h3>Item ${index + 1} (Tweet ID: ${item.tweet_id})</h3>
+                            <p><strong>title:</strong> "${item.title}"</p>
+                            <p><strong>display_title:</strong> "${item.display_title}"</p>
+                            <p><strong>item_name:</strong> "${item.item_name}"</p>
+                            <p><strong>main_category:</strong> "${item.main_category}"</p>
+                            <p><strong>sub_category:</strong> "${item.sub_category}"</p>
+                            <p><strong>content length:</strong> ${item.content ? item.content.length : 0}</p>
+                            
+                            <h4>Title Selection Logic Test:</h4>
+                            <p><strong>Preferred title:</strong> "${item.display_title || item.title || item.item_name || 'Untitled'}"</p>
+                        `;
+                        
+                        resultsDiv.appendChild(itemDiv);
                     });
-                    
-                    window.socket.on('connect_error', (error) => {
-                        log(`❌ [SocketIO] Connection error: ${error.message}`);
-                        enableRestApiMode(`SocketIO connection failed: ${error.message}`);
-                    });
-                    
-                    window.socket.on('disconnect', (reason) => {
-                        log(`⚠️ [SocketIO] Disconnected: ${reason}`);
-                        // Don't switch to REST API mode on disconnect, allow reconnection
-                    });
-                    
-                } catch (error) {
-                    log(`❌ [System] Failed to initialize SocketIO: ${error.message}`);
-                    enableRestApiMode(`SocketIO initialization failed: ${error.message}`);
-                }
-            };
-            
-            script.onerror = function() {
-                log(`❌ [System] Failed to load SocketIO from: ${source}`);
-                currentSourceIndex++;
-                tryLoadSocketIO();
-            };
-            
-            script.src = source;
-            document.head.appendChild(script);
-        }
-        
-        // Start loading SocketIO
-        tryLoadSocketIO();
-        
-    })();
-
-    // Test functions
-    function log(message) {
-        const logDiv = document.getElementById('log');
-        const timestamp = new Date().toLocaleTimeString();
-        logDiv.innerHTML += `[${timestamp}] ${message}\n`;
-        logDiv.scrollTop = logDiv.scrollHeight;
-        console.log(message);
-    }
-
-    function updateStatus(elementId, text, className = '') {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.textContent = text;
-            element.className = className;
-        }
-    }
-
-    function clearLog() {
-        document.getElementById('log').innerHTML = '';
-    }
-
-    function testSocketIO() {
-        log('🧪 Testing SocketIO connection...');
-        
-        if (window.socket) {
-            if (window.socket.connected) {
-                log('✅ SocketIO is connected and working');
-                updateStatus('socketio-status', 'Connected and Working', 'success');
-            } else {
-                log('⚠️ SocketIO loaded but not connected');
-                updateStatus('socketio-status', 'Loaded but Disconnected', 'error');
-            }
-        } else {
-            log('❌ SocketIO not available');
-            updateStatus('socketio-status', 'Not Available', 'error');
-        }
-        
-        log(`🔧 REST API Mode: ${window.REST_API_MODE}`);
-        log(`🔧 SocketIO Disabled: ${window.SOCKETIO_DISABLED}`);
-    }
-
-    function testAPIClient() {
-        log('🧪 Testing API client initialization...');
-        
-        try {
-            window.testAPI = new API();
-            log('✅ API client created successfully');
-            updateStatus('api-status', 'Initialized', 'success');
-            
-            // Test if methods exist
-            const methods = ['getAgentStatus', 'savePreferences', 'updatePreferences'];
-            methods.forEach(method => {
-                if (typeof window.testAPI[method] === 'function') {
-                    log(`✅ Method ${method} exists`);
                 } else {
-                    log(`❌ Method ${method} missing`);
+                    resultsDiv.innerHTML = '<p>Error: No data received or invalid format</p>';
                 }
-            });
-            
-        } catch (error) {
-            log(`❌ Failed to create API client: ${error.message}`);
-            updateStatus('api-status', 'Failed', 'error');
-        }
-    }
-
-    async function testPreferencesAPI() {
-        log('🧪 Testing preferences API methods...');
-        
-        if (!window.testAPI) {
-            log('❌ API client not initialized. Run API client test first.');
-            return;
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
         }
         
-        try {
-            // Test savePreferences method
-            log('🔄 Testing savePreferences method...');
-            const testPrefs = { test: true, timestamp: Date.now() };
-            
-            try {
-                await window.testAPI.savePreferences(testPrefs);
-                log('✅ savePreferences method works');
-            } catch (error) {
-                log(`⚠️ savePreferences failed (expected if server not running): ${error.message}`);
-            }
-            
-            // Test updatePreferences method (alias)
-            log('🔄 Testing updatePreferences method (alias)...');
-            try {
-                await window.testAPI.updatePreferences(testPrefs);
-                log('✅ updatePreferences method works (alias functional)');
-            } catch (error) {
-                log(`⚠️ updatePreferences failed (expected if server not running): ${error.message}`);
-            }
-            
-            // Test getPreferences method
-            log('🔄 Testing getPreferences method...');
-            try {
-                await window.testAPI.getPreferences();
-                log('✅ getPreferences method works');
-            } catch (error) {
-                log(`⚠️ getPreferences failed (expected if server not running): ${error.message}`);
-            }
-            
-        } catch (error) {
-            log(`❌ Preferences API test failed: ${error.message}`);
-        }
-    }
-
-    // Initialize when page loads
-    document.addEventListener('DOMContentLoaded', () => {
-        log('🚀 Frontend fixes test page loaded');
-        updateStatus('api-status', 'Ready for testing', 'info');
-        
-        // Listen for SocketIO events
-        document.addEventListener('socketio-ready', () => {
-            log('📡 Received socketio-ready event');
-        });
-        
-        document.addEventListener('socketio-failed', (event) => {
-            log(`📡 Received socketio-failed event: ${event.detail.error}`);
-        });
-    });
+        // Run test when page loads
+        testAPI();
     </script>
 </body>
 </html>

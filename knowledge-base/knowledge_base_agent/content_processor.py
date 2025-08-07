@@ -440,6 +440,12 @@ class StreamlinedContentProcessor:
                     force_reprocess=preferences.force_reprocess_media
                 )
                 tweets_data_map[tweet_id] = updated_tweet_data
+                
+                # Validate data integrity before updating database
+                is_valid, validation_issues = self.validate_tweet_data_integrity(tweet_id, updated_tweet_data)
+                if not is_valid:
+                    self.socketio_emit_log(f"⚠️ Data validation issues for tweet {tweet_id}: {', '.join(validation_issues[:3])}", "WARNING")
+                
                 self.state_manager.update_tweet_data(tweet_id, updated_tweet_data)
                 
                 # Don't log individual completions - too verbose for Live Logs
@@ -854,6 +860,281 @@ class StreamlinedContentProcessor:
         
         # Database sync phase completely removed - using unified database approach
         # All data is now written directly to UnifiedTweet during each processing phase
+
+    def validate_tweet_data_integrity(self, tweet_id: str, tweet_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Comprehensive data integrity validation for unified database.
+        
+        Validates:
+        - Required fields for completed phases
+        - Media file existence on filesystem
+        - JSON field formatting
+        - Display title generation
+        - Category data completeness
+        
+        Returns:
+            (is_valid, list_of_issues)
+        """
+        issues = []
+        
+        # Validate KB item requirements if marked as created
+        if tweet_data.get('kb_item_created'):
+            required_kb_fields = {
+                'kb_content': 'Knowledge base content',
+                'main_category': 'Main category',
+                'sub_category': 'Sub category', 
+                'kb_item_name': 'Item name',
+                'kb_display_title': 'Display title'
+            }
+            
+            for field, description in required_kb_fields.items():
+                value = tweet_data.get(field)
+                if not value or (isinstance(value, str) and not value.strip()):
+                    issues.append(f"Missing {description}")
+                    # Reset KB creation flag to trigger reprocessing
+                    tweet_data['kb_item_created'] = False
+                    if field in ['main_category', 'sub_category']:
+                        tweet_data['categories_processed'] = False
+        
+        # Validate category processing requirements
+        if tweet_data.get('categories_processed'):
+            category_fields = ['main_category', 'sub_category', 'kb_item_name']
+            for field in category_fields:
+                value = tweet_data.get(field)
+                if not value or (isinstance(value, str) and not value.strip()):
+                    issues.append(f"Missing categorization field: {field}")
+                    tweet_data['categories_processed'] = False
+        
+        # Validate and clean media file references
+        media_issues = self._validate_media_files(tweet_id, tweet_data)
+        issues.extend(media_issues)
+        
+        # Validate JSON field formatting
+        json_issues = self._validate_json_fields(tweet_data)
+        issues.extend(json_issues)
+        
+        # Generate display title if missing
+        if tweet_data.get('kb_item_created') and not tweet_data.get('kb_display_title'):
+            title = self._generate_display_title(tweet_data)
+            if title:
+                tweet_data['kb_display_title'] = title
+                issues.append("Generated display title from content")
+            else:
+                issues.append("Cannot generate display title - insufficient content")
+        
+        return len(issues) == 0, issues
+
+    def _validate_media_files(self, tweet_id: str, tweet_data: Dict[str, Any]) -> List[str]:
+        """Validate that referenced media files actually exist on filesystem"""
+        issues = []
+        
+        # Validate media_files array
+        if tweet_data.get('media_files'):
+            valid_media = []
+            for media_path in tweet_data['media_files']:
+                if self._media_file_exists(tweet_id, media_path):
+                    valid_media.append(media_path)
+                else:
+                    issues.append(f"Removed invalid media reference: {media_path}")
+            
+            if len(valid_media) != len(tweet_data['media_files']):
+                tweet_data['media_files'] = valid_media
+                issues.append(f"Cleaned media_files array: {len(tweet_data['media_files'])} → {len(valid_media)}")
+        
+        # Validate kb_media_paths array
+        if tweet_data.get('kb_media_paths'):
+            # Handle JSON string format
+            if isinstance(tweet_data['kb_media_paths'], str):
+                try:
+                    tweet_data['kb_media_paths'] = json.loads(tweet_data['kb_media_paths'])
+                    issues.append("Parsed kb_media_paths from JSON string")
+                except (json.JSONDecodeError, TypeError):
+                    tweet_data['kb_media_paths'] = []
+                    issues.append("Reset invalid kb_media_paths JSON to empty array")
+            
+            if isinstance(tweet_data['kb_media_paths'], list):
+                valid_kb_media = []
+                for media_path in tweet_data['kb_media_paths']:
+                    if self._media_file_exists(tweet_id, media_path):
+                        valid_kb_media.append(media_path)
+                    else:
+                        issues.append(f"Removed invalid KB media reference: {media_path}")
+                
+                if len(valid_kb_media) != len(tweet_data['kb_media_paths']):
+                    tweet_data['kb_media_paths'] = valid_kb_media
+                    issues.append(f"Cleaned kb_media_paths array: {len(tweet_data['kb_media_paths'])} → {len(valid_kb_media)}")
+        
+        return issues
+
+    def _media_file_exists(self, tweet_id: str, media_path: str) -> bool:
+        """Check if media file actually exists on filesystem"""
+        if not media_path:
+            return False
+        
+        # Try multiple possible paths where media might be stored
+        possible_paths = [
+            Path(media_path),  # Absolute or relative path as-is
+            Path("data/media_cache") / media_path,  # Relative to media cache
+            Path("data/media_cache") / tweet_id / Path(media_path).name,  # In tweet-specific folder
+            self.config.project_root / "data" / "media_cache" / tweet_id / Path(media_path).name,  # Full project path
+        ]
+        
+        for path in possible_paths:
+            try:
+                if path.exists() and path.is_file() and path.stat().st_size > 0:
+                    return True
+            except (OSError, PermissionError):
+                continue
+        
+        return False
+
+    def _validate_json_fields(self, tweet_data: Dict[str, Any]) -> List[str]:
+        """Validate and fix JSON fields that might be stored as strings"""
+        issues = []
+        
+        json_fields = {
+            'thread_tweets': list,
+            'media_files': list,
+            'image_descriptions': list,
+            'raw_tweet_data': dict,
+            'categories_raw_response': dict,
+            'kb_media_paths': list
+        }
+        
+        for field_name, expected_type in json_fields.items():
+            field_value = tweet_data.get(field_name)
+            
+            if isinstance(field_value, str) and field_value.strip():
+                try:
+                    parsed = json.loads(field_value)
+                    if isinstance(parsed, expected_type):
+                        tweet_data[field_name] = parsed
+                        issues.append(f"Parsed {field_name} from JSON string")
+                    else:
+                        # Wrong type after parsing
+                        default_value = [] if expected_type == list else {}
+                        tweet_data[field_name] = default_value
+                        issues.append(f"Reset {field_name} to default due to type mismatch")
+                except (json.JSONDecodeError, TypeError):
+                    # Invalid JSON, set to default
+                    default_value = [] if expected_type == list else {}
+                    tweet_data[field_name] = default_value
+                    issues.append(f"Reset invalid JSON field {field_name} to default")
+        
+        return issues
+
+    def _generate_display_title(self, tweet_data: Dict[str, Any]) -> Optional[str]:
+        """Generate a meaningful display title from available content"""
+        # Try KB content first
+        if tweet_data.get('kb_content'):
+            title = self._extract_title_from_content(tweet_data['kb_content'])
+            if title:
+                return title
+        
+        # Try tweet text
+        if tweet_data.get('full_text'):
+            # Clean up tweet text for title
+            text = tweet_data['full_text'].strip()
+            # Remove URLs and mentions for cleaner title
+            words = text.split()
+            clean_words = [w for w in words if not w.startswith(('http', '@')) and len(w) > 2]
+            clean_title = ' '.join(clean_words)[:100]
+            
+            if clean_title and len(clean_title) > 10:
+                return clean_title
+        
+        # Try KB item name
+        if tweet_data.get('kb_item_name'):
+            return tweet_data['kb_item_name'][:100]
+        
+        # Last resort: use tweet ID
+        tweet_id = tweet_data.get('tweet_id', 'unknown')
+        return f"Tweet {tweet_id}"
+
+    def _extract_title_from_content(self, content: str) -> Optional[str]:
+        """Extract a meaningful title from KB content"""
+        if not content:
+            return None
+        
+        lines = content.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Skip markdown headers
+            if line.startswith('#'):
+                continue
+            
+            # Skip very short lines
+            if len(line) < 10:
+                continue
+            
+            # Skip lines that look like metadata
+            if ':' in line and len(line.split(':')) == 2:
+                continue
+            
+            # Skip lines that are mostly punctuation
+            if len([c for c in line if c.isalnum()]) < len(line) * 0.5:
+                continue
+            
+            # This looks like a good title candidate
+            return line[:100]
+        
+        return None
+
+    def flag_tweet_for_reprocessing(self, tweet_id: str, reason: str, reset_phases: List[str] = None):
+        """
+        Flag a tweet for reprocessing by resetting appropriate phase flags.
+        
+        Args:
+            tweet_id: Tweet to flag for reprocessing
+            reason: Reason for reprocessing (for logging)
+            reset_phases: List of phases to reset ('cache', 'media', 'categories', 'kb_item')
+        """
+        if not reset_phases:
+            reset_phases = ['kb_item', 'categories']  # Default to resetting KB and category phases
+        
+        try:
+            tweet_data = self.state_manager.get_tweet(tweet_id)
+            if not tweet_data:
+                self.socketio_emit_log(f"Cannot flag tweet {tweet_id} for reprocessing - not found", "WARNING")
+                return
+            
+            # Reset specified phases
+            phase_flags = {
+                'cache': 'cache_complete',
+                'media': 'media_processed', 
+                'categories': 'categories_processed',
+                'kb_item': 'kb_item_created'
+            }
+            
+            reset_flags = []
+            for phase in reset_phases:
+                if phase in phase_flags:
+                    flag_name = phase_flags[phase]
+                    tweet_data[flag_name] = False
+                    reset_flags.append(flag_name)
+            
+            # Always reset processing_complete if any phase is reset
+            if reset_flags:
+                tweet_data['processing_complete'] = False
+                reset_flags.append('processing_complete')
+            
+            # Update the tweet data
+            self.state_manager.update_tweet_data(tweet_id, tweet_data)
+            
+            self.socketio_emit_log(
+                f"🔄 Flagged tweet {tweet_id} for reprocessing: {reason} (reset: {', '.join(reset_flags)})",
+                "INFO"
+            )
+            
+        except Exception as e:
+            self.socketio_emit_log(
+                f"❌ Error flagging tweet {tweet_id} for reprocessing: {str(e)}",
+                "ERROR"
+            )
 
     async def _finalize_processing(self, tweets_data_map: Dict[str, Any], unprocessed_tweets: List[str], stats):
         """
