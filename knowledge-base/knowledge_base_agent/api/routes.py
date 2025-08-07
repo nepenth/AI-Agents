@@ -1430,8 +1430,9 @@ def api_chat_enhanced():
             return jsonify({'error': 'Chat functionality not available'}), 503
         
         # Process chat query asynchronously
+        use_knowledge_base = data.get('use_knowledge_base', True)
         result = run_async_in_gevent_context(
-            chat_mgr.handle_chat_query(message, model)
+            chat_mgr.handle_chat_query(message, model, use_knowledge_base=use_knowledge_base)
         )
         
         if 'error' in result:
@@ -1640,6 +1641,20 @@ def api_delete_chat_session(session_id):
     except Exception as e:
         logging.error(f"Error deleting chat session {session_id}: {e}", exc_info=True)
         return jsonify({'error': 'Failed to delete chat session'}), 500
+
+@bp.route('/chat/sessions', methods=['DELETE'])
+def api_delete_all_chat_sessions():
+    """Delete all chat sessions."""
+    try:
+        from ..models import ChatSession, db
+
+        num_deleted = db.session.query(ChatSession).delete()
+        db.session.commit()
+
+        return jsonify({'message': f'Successfully deleted {num_deleted} sessions'})
+    except Exception as e:
+        logging.error(f"Error deleting all chat sessions: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to delete all chat sessions'}), 500
 
 @bp.route('/chat/sessions/active', methods=['GET'])
 def api_get_active_chat_session():
