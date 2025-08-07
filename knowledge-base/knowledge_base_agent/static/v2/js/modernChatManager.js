@@ -918,7 +918,8 @@ class ModernChatManager extends BaseManager {
     setupResponsiveDesign() {
         this.updateLayout();
         // Handle window resize
-        this.handleWindowResize = EventListenerService.getInstance().throttle('window-resize', () => {
+        const eventListenerService = EventListenerService.getInstance();
+        this.handleWindowResize = eventListenerService.throttle('window-resize', () => {
             this.updateLayout();
         }, 100);
     }
