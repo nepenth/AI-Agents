@@ -292,12 +292,6 @@ class ModernChatManager extends BaseManager {
             ],
             customEvents: [
                 {
-                    target: window,
-                    event: 'resize',
-                    handler: this.handleWindowResize,
-                    throttle: 100
-                },
-                {
                     event: 'chat_session_updated',
                     handler: (e) => this.handleSessionUpdate(e.detail)
                 },
@@ -918,10 +912,12 @@ class ModernChatManager extends BaseManager {
     setupResponsiveDesign() {
         this.updateLayout();
         // Handle window resize
-        const eventListenerService = EventListenerService.getInstance();
-        this.handleWindowResize = eventListenerService.throttle('window-resize', () => {
-            this.updateLayout();
-        }, 100);
+        this.handleWindowResize = () => {
+            EventListenerService.getInstance().throttle('window-resize', () => {
+                this.updateLayout();
+            }, 100);
+        };
+        window.addEventListener('resize', this.handleWindowResize);
     }
     initializeVirtualScroll() {
         if (this.virtualScroll) return;

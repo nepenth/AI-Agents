@@ -1393,49 +1393,40 @@ def api_chat_enhanced():
         if not message:
             return jsonify({'error': 'Message cannot be empty'}), 400
         
-        # Get optional model selection and session ID
         model = data.get('model')
         session_id = data.get('session_id')
+        use_knowledge_base = data.get('use_knowledge_base', True)
         
-        # Create new session if none provided
-        if not session_id:
-            session_id = str(uuid.uuid4())
-            now = datetime.now(timezone.utc)
-            
-            session = ChatSession()
-            session.session_id = session_id
-            session.title = message[:50] + "..." if len(message) > 50 else message
-            session.created_at = now
-            session.last_updated = now
-            session.is_archived = False
-            session.message_count = 0
-            
-            db.session.add(session)
-            db.session.commit()
-        else:
-            # Get existing session
+        # Get or create session
+        if session_id:
             session = ChatSession.query.filter_by(session_id=session_id).first()
             if not session:
                 return jsonify({'error': 'Session not found'}), 404
+        else:
+            session_id = str(uuid.uuid4())
+            session = ChatSession(
+                session_id=session_id,
+                title=message[:50] + "..." if len(message) > 50 else message,
+                created_at=datetime.now(timezone.utc),
+                last_updated=datetime.now(timezone.utc)
+            )
+            db.session.add(session)
         
         # Save user message
-        now = datetime.now(timezone.utc)
-        user_message = ChatMessage()
-        user_message.session_id = session_id
-        user_message.role = 'user'
-        user_message.content = message
-        user_message.created_at = now
-        
+        user_message = ChatMessage(
+            session_id=session_id,
+            role='user',
+            content=message,
+            created_at=datetime.now(timezone.utc)
+        )
         db.session.add(user_message)
         
-        # Get chat manager
+        # Get chat manager and process query
         from ..web import get_chat_manager
         chat_mgr = get_chat_manager()
         if not chat_mgr:
             return jsonify({'error': 'Chat functionality not available'}), 503
-        
-        # Process chat query asynchronously
-        use_knowledge_base = data.get('use_knowledge_base', True)
+
         result = run_async_in_gevent_context(
             chat_mgr.handle_chat_query(message, model, use_knowledge_base=use_knowledge_base)
         )
@@ -1444,30 +1435,29 @@ def api_chat_enhanced():
             return jsonify(result), 500
         
         # Save assistant response
-        assistant_message = ChatMessage()
-        assistant_message.session_id = session_id
-        assistant_message.role = 'assistant'
-        assistant_message.content = result.get('response', '')
-        assistant_message.created_at = datetime.now(timezone.utc)
-        assistant_message.model_used = model or 'default'
-        assistant_message.sources = json.dumps(result.get('sources', []))
-        assistant_message.context_stats = json.dumps(result.get('context_stats', {}))
-        assistant_message.performance_metrics = json.dumps(result.get('performance_metrics', {}))
-        
+        assistant_message = ChatMessage(
+            session_id=session_id,
+            role='assistant',
+            content=result.get('response', ''),
+            created_at=datetime.now(timezone.utc),
+            model_used=model or 'default',
+            sources=json.dumps(result.get('sources', [])),
+            context_stats=json.dumps(result.get('context_stats', {})),
+            performance_metrics=json.dumps(result.get('performance_metrics', {}))
+        )
         db.session.add(assistant_message)
         
         # Update session
-        session.message_count += 2
+        session.message_count = (session.message_count or 0) + 2
         session.last_updated = datetime.now(timezone.utc)
         
         db.session.commit()
         
-        # Add session_id to result
         result['session_id'] = session_id
-        
         return jsonify(result)
         
     except Exception as e:
+        db.session.rollback()
         logging.error(f"Error in enhanced chat API: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
