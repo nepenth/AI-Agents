@@ -580,33 +580,30 @@ class ModernChatManager extends BaseManager {
     }
     async loadAvailableModels() {
         try {
-            console.log('Loading available models...');
-           
-            // Always use fallback models for now to fix the loading issue
-            this.availableModels = [
-                { id: 'llama3.2:latest', name: 'Llama 3.2', description: 'Latest Llama model' },
-                { id: 'llama3.1:latest', name: 'Llama 3.1', description: 'Previous Llama version' },
-                { id: 'mistral:latest', name: 'Mistral', description: 'Mistral AI model' },
-                { id: 'codellama:latest', name: 'Code Llama', description: 'Code-focused model' }
-            ];
-           
+            this.log('Loading available models from API...');
+            const models = await this.apiCall('/api/chat/models/available', {
+                errorMessage: 'Failed to load available models'
+            });
+
+            this.availableModels = models && models.length > 0 ? models : [{
+                id: 'default',
+                name: 'Default Model'
+            }];
             this.updateModelSelector();
-           
-            // Select first available model if none selected
+
             if (!this.selectedModel && this.availableModels.length > 0) {
                 this.selectedModel = this.availableModels[0].id;
                 if (this.elements.modelSelector) {
                     this.elements.modelSelector.value = this.selectedModel;
                 }
             }
-           
-            console.log(`Loaded ${this.availableModels.length} available models, selected: ${this.selectedModel}`);
+            this.log(`Loaded ${this.availableModels.length} available models, selected: ${this.selectedModel}`);
         } catch (error) {
-            console.error('Failed to load available models:', error);
-            // Fallback to hard-coded defaults
-            this.availableModels = [
-                { id: 'llama3.2:latest', name: 'Llama 3.2', description: 'Default model' }
-            ];
+            this.setError(error, 'loading available models');
+            this.availableModels = [{
+                id: 'default',
+                name: 'Default Model (fallback)'
+            }];
             this.selectedModel = this.availableModels[0].id;
             this.updateModelSelector();
         }
@@ -630,66 +627,82 @@ class ModernChatManager extends BaseManager {
     }
     async restoreActiveSession() {
         try {
-            console.log('Restoring active session...');
-           
-            // For now, create a new session to fix the loading state
-            await this.createNewSession();
-            console.log('Active session created (new session)');
+            this.log('Attempting to restore active session from API...');
+            const sessionData = await this.apiCall('/api/chat/sessions/active', {
+                errorMessage: 'Failed to restore active session',
+                // A 404 is expected if no active session exists, so we handle it gracefully
+                handle404: true
+            });
+
+            if (sessionData && sessionData.session_id) {
+                this.log(`Restored active session ${sessionData.session_id}`);
+                this.activeSession = sessionData;
+                this.currentSessionId = sessionData.session_id;
+                await this.loadSessionMessages(this.activeSession);
+                this.updateSessionInfo();
+            } else {
+                this.log('No active session found, creating a new one.');
+                await this.createNewSession();
+            }
         } catch (error) {
-            console.error('Failed to restore active session:', error);
-            // Create new session as fallback
+            this.setError(error, 'restoring active session');
+            // Fallback to creating a new session on any error
             await this.createNewSession();
         }
     }
     async loadSessionHistory() {
         try {
-            console.log('Loading session history...');
-           
-            // For now, use empty sessions to fix the loading state
+            this.log('Loading session history from API...');
+            const sessions = await this.apiCall('/api/chat/sessions', {
+                errorMessage: 'Failed to load chat sessions'
+            });
+
             this.sessions.clear();
             this.archivedSessions.clear();
-           
+
+            sessions.forEach(session => {
+                if (session.is_archived) {
+                    this.archivedSessions.set(session.session_id, session);
+                } else {
+                    this.sessions.set(session.session_id, session);
+                }
+            });
+
             this.updateSessionsList();
             this.updateSessionsCount();
-            console.log('Session history loaded (empty for now)');
+            this.log(`Loaded ${this.sessions.size} active and ${this.archivedSessions.size} archived sessions.`);
         } catch (error) {
-            console.error('Failed to load chat sessions:', error);
-            this.updateSessionsList([]); // Show empty state
+            this.setError(error, 'loading session history');
+            this.updateSessionsList(); // Show empty state
         }
     }
     async createNewSession() {
         try {
-            console.log('Creating new session...');
-           
-            // Create a simple session object for now
-            const sessionId = 'session_' + Date.now();
-            const session = {
-                session_id: sessionId,
-                id: sessionId,
-                title: 'New Conversation',
-                message_count: 0,
-                created_at: new Date().toISOString(),
-                last_updated: new Date().toISOString(),
-                is_archived: false,
+            this.log('Creating new session via API...');
+            const newSession = await this.apiCall('/api/chat/sessions', {
+                method: 'POST',
+                body: {
+                    title: 'New Conversation'
+                },
+                errorMessage: 'Failed to create new session'
+            });
+
+            this.currentSessionId = newSession.session_id;
+            this.activeSession = { ...newSession,
                 messages: []
-            };
-           
-            this.currentSessionId = session.session_id;
-            this.activeSession = session;
-            this.sessions.set(session.session_id, session);
-           
-            // Update UI
+            }; // Start with an empty message array
+            this.sessions.set(newSession.session_id, this.activeSession);
+
             this.clearChatMessages();
             this.showWelcomeMessage();
             this.updateSessionInfo();
             this.updateSessionsList();
             this.updateSessionsCount();
-           
-            // Update performance metrics
+
             this.performanceMetrics.sessionsCreated++;
-            console.log('New chat session created:', session.session_id);
+            this.log(`New chat session created: ${newSession.session_id}`);
         } catch (error) {
-            console.error('Error creating new chat session:', error);
+            this.setError(error, 'creating new chat session');
         }
     }
     updateSessionsList(filteredSessions = null) {
