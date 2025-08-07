@@ -1641,6 +1641,148 @@ def api_delete_chat_session(session_id):
         logging.error(f"Error deleting chat session {session_id}: {e}", exc_info=True)
         return jsonify({'error': 'Failed to delete chat session'}), 500
 
+@bp.route('/chat/sessions/active', methods=['GET'])
+def api_get_active_chat_session():
+    """Get the currently active chat session."""
+    
+    try:
+        from ..models import ChatSession, ChatMessage
+        import json
+        
+        # Find the most recent non-archived session
+        session = ChatSession.query.filter_by(is_archived=False).order_by(ChatSession.last_updated.desc()).first()
+        
+        if not session:
+            return jsonify({'message': 'No active session found'}), 404
+        
+        # Get messages for the session
+        messages = ChatMessage.query.filter_by(session_id=session.session_id).order_by(ChatMessage.created_at.asc()).all()
+        
+        message_list = []
+        for msg in messages:
+            message_data = {
+                'role': msg.role,
+                'content': msg.content,
+                'created_at': msg.created_at.isoformat(),
+                'model_used': msg.model_used
+            }
+            
+            # Add optional fields if they exist
+            if msg.sources:
+                try:
+                    message_data['sources'] = json.loads(msg.sources)
+                except (json.JSONDecodeError, TypeError):
+                    message_data['sources'] = []
+            
+            if msg.context_stats:
+                try:
+                    message_data['context_stats'] = json.loads(msg.context_stats)
+                except (json.JSONDecodeError, TypeError):
+                    message_data['context_stats'] = {}
+            
+            if msg.performance_metrics:
+                try:
+                    message_data['performance_metrics'] = json.loads(msg.performance_metrics)
+                except (json.JSONDecodeError, TypeError):
+                    message_data['performance_metrics'] = {}
+            
+            message_list.append(message_data)
+        
+        return jsonify({
+            'session_id': session.session_id,
+            'title': session.title,
+            'message_count': session.message_count,
+            'is_archived': session.is_archived,
+            'created_at': session.created_at.isoformat(),
+            'last_updated': session.last_updated.isoformat(),
+            'messages': message_list
+        })
+        
+    except Exception as e:
+        logging.error(f"Error retrieving active chat session: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve active chat session'}), 500
+
+@bp.route('/chat/sessions/<session_id>/activate', methods=['POST'])
+def api_activate_chat_session(session_id):
+    """Set a session as the active session."""
+    
+    try:
+        from ..models import ChatSession, db
+        from datetime import datetime, timezone
+        
+        session = ChatSession.query.filter_by(session_id=session_id).first()
+        
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Update last_updated to make it the most recent
+        session.last_updated = datetime.now(timezone.utc)
+        session.is_archived = False  # Ensure it's not archived
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Session activated successfully'})
+        
+    except Exception as e:
+        logging.error(f"Error activating chat session {session_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to activate chat session'}), 500
+
+@bp.route('/chat/sessions/<session_id>/restore', methods=['POST'])
+def api_restore_chat_session(session_id):
+    """Restore an archived session."""
+    
+    try:
+        from ..models import ChatSession, db
+        from datetime import datetime, timezone
+        
+        session = ChatSession.query.filter_by(session_id=session_id).first()
+        
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        session.is_archived = False
+        session.last_updated = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Session restored successfully'})
+        
+    except Exception as e:
+        logging.error(f"Error restoring chat session {session_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to restore chat session'}), 500
+
+@bp.route('/chat/sessions/<session_id>/state', methods=['POST'])
+def api_save_chat_session_state(session_id):
+    """Save UI state for a chat session."""
+    
+    try:
+        from ..models import ChatSession, db
+        from datetime import datetime, timezone
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        session = ChatSession.query.filter_by(session_id=session_id).first()
+        
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Store UI state (this could be expanded to include more state)
+        ui_state = data.get('ui_state', {})
+        
+        # For now, we'll just update the last_updated timestamp
+        # In the future, you could add a ui_state JSON field to the ChatSession model
+        session.last_updated = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Session state saved successfully'})
+        
+    except Exception as e:
+        logging.error(f"Error saving chat session state {session_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to save session state'}), 500
+
 @bp.route('/preferences', methods=['GET'])
 def get_preferences():
     """Get current user preferences."""
@@ -1716,13 +1858,41 @@ def get_synthesis_documents():
     """API endpoint to get all synthesis documents."""
     try:
         syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.last_updated.desc()).all()  # type: ignore
-        synthesis_list = [{
-            "id": synth.id,
-            "title": synth.synthesis_title,
-            "summary": (synth.synthesis_content or "")[:200] + '...',
-            "topic": f"{synth.main_category}/{synth.sub_category}",
-            "last_updated": synth.last_updated.isoformat()
-        } for synth in syntheses]
+        
+        synthesis_list = []
+        for synth in syntheses:
+            # Parse raw JSON content if it exists
+            raw_json_content_parsed = None
+            if synth.raw_json_content:
+                try:
+                    raw_json_content_parsed = json.loads(synth.raw_json_content)
+                except (json.JSONDecodeError, TypeError):
+                    raw_json_content_parsed = None
+            
+            synthesis_data = {
+                "id": synth.id,
+                "synthesis_title": synth.synthesis_title,
+                "synthesis_short_name": synth.synthesis_short_name,
+                "title": synth.synthesis_title,  # Alias for compatibility
+                "main_category": synth.main_category,
+                "sub_category": synth.sub_category,
+                "synthesis_content": synth.synthesis_content,
+                "content": synth.synthesis_content,  # Alias for compatibility
+                "item_count": synth.item_count,
+                "content_hash": synth.content_hash,
+                "is_stale": synth.is_stale,
+                "needs_regeneration": synth.needs_regeneration,
+                "dependency_item_ids": synth.dependency_item_ids,
+                "raw_json_content": synth.raw_json_content,
+                "raw_json_content_parsed": raw_json_content_parsed,
+                "file_path": synth.file_path,
+                "created_at": synth.created_at.isoformat() if synth.created_at else None,
+                "last_updated": synth.last_updated.isoformat() if synth.last_updated else None,
+                "topic": f"{synth.main_category}/{synth.sub_category}",  # Legacy compatibility
+                "summary": (synth.synthesis_content or "")[:200] + '...' if synth.synthesis_content and len(synth.synthesis_content) > 200 else synth.synthesis_content or ""  # Legacy compatibility
+            }
+            synthesis_list.append(synthesis_data)
+            
         return jsonify(synthesis_list)
     except Exception as e:
         current_app.logger.error(f"API Error fetching syntheses: {e}", exc_info=True)
@@ -2568,28 +2738,6 @@ def generate_ollama_optimization():
             'success': False,
             'error': str(e)
         }), 500
-
-@bp.route('/syntheses', methods=['GET'])
-def api_synthesis_list():
-    """API endpoint to get all synthesis documents."""
-    try:
-        syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.last_updated.desc()).all()  # type: ignore
-        synthesis_list = []
-        for synth in syntheses:
-            synthesis_list.append({
-                'id': synth.id,
-                'synthesis_title': synth.synthesis_title,
-                'synthesis_short_name': synth.synthesis_short_name,
-                'main_category': synth.main_category,
-                'sub_category': synth.sub_category,
-                'item_count': synth.item_count,
-                'created_at': synth.created_at.isoformat() if synth.created_at else None,
-                'last_updated': synth.last_updated.isoformat() if synth.last_updated else None
-            })
-        return jsonify(synthesis_list)
-    except Exception as e:
-        logging.error(f"Error retrieving synthesis list: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to retrieve synthesis documents'}), 500
 
 @bp.route('/gpu-stats', methods=['GET'])
 def api_gpu_stats():
@@ -4245,13 +4393,16 @@ def get_knowledge_base_items():
         
         items_list = []
         for item in items:
-            # Parse raw JSON content if it exists
+            # Handle raw JSON content - it might already be parsed or be a string
             raw_content = None
             if item.raw_tweet_data:
-                try:
-                    raw_content = json.loads(item.raw_tweet_data)
-                except json.JSONDecodeError:
-                    raw_content = None
+                if isinstance(item.raw_tweet_data, dict):
+                    raw_content = item.raw_tweet_data
+                elif isinstance(item.raw_tweet_data, str):
+                    try:
+                        raw_content = json.loads(item.raw_tweet_data)
+                    except json.JSONDecodeError:
+                        raw_content = None
             
             items_list.append({
                 'id': item.id,

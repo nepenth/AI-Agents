@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +14,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/gpu-status.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/knowledge-base.css', v='2.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/components/tweet-management.css', v='2.0') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-chat.css', v='1.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-chat.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-knowledge-base.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/modern-tweet-management.css', v='1.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/core/mobile-optimizations.css', v='2.0') }}">
@@ -27,25 +28,36 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='v2/css/historical-tasks.css', v='1.0') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
+
 <body class="light-mode">
     <div style="position:absolute;top:-9999px;left:-9999px">
         <svg id="effectSvg" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <filter id="displacementFilter">
-                <feImage xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%230001' /%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23FFF' style='filter:blur(5px)' /%3E%3C/svg%3E" x="0%" y="0%" width="100%" height="100%" result="thing9" id="thing9" />
-                <feImage xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23FFF1' style='filter:blur(15px)' /%3E%3C/svg%3E" x="0%" y="0%" width="100%" height="100%" result="thing0" id="thing0" />
-                <feImage xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23000' /%3E%3C/svg%3E" x="0%" y="0%" width="100%" height="100%" result="thing1" id="thing1" />
+                <feImage
+                    xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%230001' /%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23FFF' style='filter:blur(5px)' /%3E%3C/svg%3E"
+                    x="0%" y="0%" width="100%" height="100%" result="thing9" id="thing9" />
+                <feImage
+                    xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23FFF1' style='filter:blur(15px)' /%3E%3C/svg%3E"
+                    x="0%" y="0%" width="100%" height="100%" result="thing0" id="thing0" />
+                <feImage
+                    xlink:href="data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='50' y='50' width='100' height='100' rx='25' fill='%23000' /%3E%3C/svg%3E"
+                    x="0%" y="0%" width="100%" height="100%" result="thing1" id="thing1" />
                 <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="1" result="turbulence" />
-                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="50" xChannelSelector="R" yChannelSelector="G" result="disp" />
-                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="50" xChannelSelector="R" yChannelSelector="G" result="disp1" />
-                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="25" xChannelSelector="R" yChannelSelector="G" result="disp2" />
-                <feColorMatrix in="disp" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0" result="disp3" />
-                <feBlend in2="disp2" mode="screen"/>
-                <feBlend in2="disp1" mode="screen"/>
+                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="50" xChannelSelector="R"
+                    yChannelSelector="G" result="disp" />
+                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="50" xChannelSelector="R"
+                    yChannelSelector="G" result="disp1" />
+                <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="25" xChannelSelector="R"
+                    yChannelSelector="G" result="disp2" />
+                <feColorMatrix in="disp" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"
+                    result="disp3" />
+                <feBlend in2="disp2" mode="screen" />
+                <feBlend in2="disp1" mode="screen" />
                 <feGaussianBlur stdDeviation="0.7" />
-                <feBlend in2="thing0" mode="screen"/>
-                <feBlend in2="thing9" mode="multiply"/>
-                <feComposite in2="thing1" operator="in"/>
-                <feOffset dx="43" dy="43"/>
+                <feBlend in2="thing0" mode="screen" />
+                <feBlend in2="thing9" mode="multiply" />
+                <feComposite in2="thing1" operator="in" />
+                <feOffset dx="43" dy="43" />
             </filter>
         </svg>
     </div>
@@ -58,7 +70,7 @@
 
         <!-- Main Content -->
         <main id="main-content" class="main-content">
-             <!-- V2 content will be loaded here by ui.js -->
+            <!-- V2 content will be loaded here by ui.js -->
         </main>
     </div>
 
@@ -75,7 +87,7 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            
+
             <div class="settings-modal-body">
                 <!-- Legacy Toggle Section -->
                 <div class="theme-section">
@@ -88,7 +100,7 @@
                         <span class="legacy-toggle-text">Enable Legacy UI</span>
                     </div>
                 </div>
-                
+
                 <!-- Theme Mode Toggle -->
                 <div class="theme-section">
                     <label class="theme-section-label">Theme Mode</label>
@@ -107,29 +119,34 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Accent Color Selection -->
                 <div class="theme-section">
                     <label class="theme-section-label">Accent Color</label>
                     <div class="theme-color-grid">
-                        <button class="theme-color-btn active" data-theme="blue" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);" title="Blue">
+                        <button class="theme-color-btn active" data-theme="blue"
+                            style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);" title="Blue">
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="theme-color-btn" data-theme="purple" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);" title="Purple">
+                        <button class="theme-color-btn" data-theme="purple"
+                            style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);" title="Purple">
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="theme-color-btn" data-theme="green" style="background: linear-gradient(135deg, #10b981, #059669);" title="Green">
+                        <button class="theme-color-btn" data-theme="green"
+                            style="background: linear-gradient(135deg, #10b981, #059669);" title="Green">
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="theme-color-btn" data-theme="orange" style="background: linear-gradient(135deg, #f59e0b, #d97706);" title="Orange">
+                        <button class="theme-color-btn" data-theme="orange"
+                            style="background: linear-gradient(135deg, #f59e0b, #d97706);" title="Orange">
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="theme-color-btn" data-theme="pink" style="background: linear-gradient(135deg, #ec4899, #db2777);" title="Pink">
+                        <button class="theme-color-btn" data-theme="pink"
+                            style="background: linear-gradient(135deg, #ec4899, #db2777);" title="Pink">
                             <i class="fas fa-check"></i>
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Accessibility Options -->
                 <div class="theme-section">
                     <label class="theme-section-label">Accessibility</label>
@@ -153,168 +170,168 @@
     <!-- JS -->
     <!-- Enhanced SocketIO Loading with Robust Fallback -->
     <script>
-    (function() {
-        'use strict';
-        
-        console.log('✅ [System] Starting enhanced SocketIO initialization...');
-        
-        // Global state management
-        window.SOCKETIO_DISABLED = false;
-        window.REST_API_MODE = false;
-        window.SOCKETIO_LOADING = true;
-        
-        function dispatchEvent(eventName, data = {}) {
-            const event = new CustomEvent(eventName, { detail: data });
-            document.dispatchEvent(event);
-        }
-        
-        function enableRestApiMode(reason) {
-            console.log(`ℹ️ [System] Switching to REST API mode: ${reason}`);
-            window.SOCKETIO_DISABLED = true;
-            window.REST_API_MODE = true;
-            window.SOCKETIO_LOADING = false;
-            dispatchEvent('socketio-failed', { error: reason });
-        }
-        
-        function enableSocketIOMode() {
-            console.log('✅ [System] SocketIO successfully loaded, enabling hybrid mode');
+        (function () {
+            'use strict';
+
+            console.log('✅ [System] Starting enhanced SocketIO initialization...');
+
+            // Global state management
             window.SOCKETIO_DISABLED = false;
             window.REST_API_MODE = false;
-            window.SOCKETIO_LOADING = false;
-            dispatchEvent('socketio-ready');
-        }
-        
-        // Timeout for SocketIO loading (5 seconds)
-        const socketIOTimeout = setTimeout(() => {
-            if (window.SOCKETIO_LOADING) {
-                enableRestApiMode('SocketIO loading timeout (5s)');
+            window.SOCKETIO_LOADING = true;
+
+            function dispatchEvent(eventName, data = {}) {
+                const event = new CustomEvent(eventName, { detail: data });
+                document.dispatchEvent(event);
             }
-        }, 5000);
-        
-        // Try to load SocketIO from reliable CDNs
-        const socketIOSources = [
-            'https://cdn.socket.io/4.7.2/socket.io.min.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js',
-            'https://unpkg.com/socket.io-client@4.7.2/dist/socket.io.min.js'
-        ];
-        
-        let currentSourceIndex = 0;
-        
-        function tryLoadSocketIO() {
-            if (currentSourceIndex >= socketIOSources.length) {
-                clearTimeout(socketIOTimeout);
-                enableRestApiMode('All SocketIO CDN sources failed');
-                return;
+
+            function enableRestApiMode(reason) {
+                console.log(`ℹ️ [System] Switching to REST API mode: ${reason}`);
+                window.SOCKETIO_DISABLED = true;
+                window.REST_API_MODE = true;
+                window.SOCKETIO_LOADING = false;
+                dispatchEvent('socketio-failed', { error: reason });
             }
-            
-            const script = document.createElement('script');
-            const source = socketIOSources[currentSourceIndex];
-            
-            console.log(`🔄 [System] Attempting to load SocketIO from: ${source}`);
-            
-            script.onload = function() {
-                clearTimeout(socketIOTimeout);
-                console.log(`✅ [System] SocketIO loaded successfully from: ${source}`);
-                
-                // Initialize SocketIO connection
-                try {
-                    // Determine the correct protocol and URL for SocketIO connection
-                    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-                    const host = window.location.hostname;
-                    const port = window.location.port || (protocol === 'https:' ? '443' : '80');
-                    
-                    // For development, use the same host and port as the current page
-                    const socketUrl = `${protocol}//${host}:${port}`;
-                    
-                    console.log(`🔗 [SocketIO] Connecting to: ${socketUrl}`);
-                    
-                    window.socket = io(socketUrl, {
-                        transports: ['websocket', 'polling'],
-                        timeout: 10000,
-                        reconnection: true,
-                        reconnectionAttempts: 3,
-                        reconnectionDelay: 1000,
-                        forceNew: true,
-                        // Handle HTTPS/WSS properly
-                        secure: protocol === 'https:',
-                        // Add additional connection options
-                        autoConnect: true,
-                        upgrade: true
-                    });
-                    
-                    window.socket.on('connect', () => {
-                        console.log('🔗 [SocketIO] Connected successfully');
-                        enableSocketIOMode();
-                        
-                        // Dispatch event for UIManager integration
-                        document.dispatchEvent(new CustomEvent('socketio_ready', {
-                            detail: { socket: window.socket }
-                        }));
-                    });
-                    
-                    window.socket.on('connect_error', (error) => {
-                        console.error('❌ [SocketIO] Connection error:', error);
-                        enableRestApiMode(`SocketIO connection failed: ${error.message}`);
-                    });
-                    
-                    window.socket.on('disconnect', (reason) => {
-                        console.warn('⚠️ [SocketIO] Disconnected:', reason);
-                        // Don't switch to REST API mode on disconnect, allow reconnection
-                    });
-                    
-                } catch (error) {
-                    console.error('❌ [System] Failed to initialize SocketIO:', error);
-                    enableRestApiMode(`SocketIO initialization failed: ${error.message}`);
+
+            function enableSocketIOMode() {
+                console.log('✅ [System] SocketIO successfully loaded, enabling hybrid mode');
+                window.SOCKETIO_DISABLED = false;
+                window.REST_API_MODE = false;
+                window.SOCKETIO_LOADING = false;
+                dispatchEvent('socketio-ready');
+            }
+
+            // Timeout for SocketIO loading (5 seconds)
+            const socketIOTimeout = setTimeout(() => {
+                if (window.SOCKETIO_LOADING) {
+                    enableRestApiMode('SocketIO loading timeout (5s)');
                 }
-            };
-            
-            script.onerror = function() {
-                console.warn(`❌ [System] Failed to load SocketIO from: ${source}`);
-                currentSourceIndex++;
-                tryLoadSocketIO();
-            };
-            
-            script.src = source;
-            document.head.appendChild(script);
-        }
-        
-        // Start loading SocketIO
-        tryLoadSocketIO();
-        
-    })();
+            }, 5000);
+
+            // Try to load SocketIO from reliable CDNs
+            const socketIOSources = [
+                'https://cdn.socket.io/4.7.2/socket.io.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js',
+                'https://unpkg.com/socket.io-client@4.7.2/dist/socket.io.min.js'
+            ];
+
+            let currentSourceIndex = 0;
+
+            function tryLoadSocketIO() {
+                if (currentSourceIndex >= socketIOSources.length) {
+                    clearTimeout(socketIOTimeout);
+                    enableRestApiMode('All SocketIO CDN sources failed');
+                    return;
+                }
+
+                const script = document.createElement('script');
+                const source = socketIOSources[currentSourceIndex];
+
+                console.log(`🔄 [System] Attempting to load SocketIO from: ${source}`);
+
+                script.onload = function () {
+                    clearTimeout(socketIOTimeout);
+                    console.log(`✅ [System] SocketIO loaded successfully from: ${source}`);
+
+                    // Initialize SocketIO connection
+                    try {
+                        // Determine the correct protocol and URL for SocketIO connection
+                        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                        const host = window.location.hostname;
+                        const port = window.location.port || (protocol === 'https:' ? '443' : '80');
+
+                        // For development, use the same host and port as the current page
+                        const socketUrl = `${protocol}//${host}:${port}`;
+
+                        console.log(`🔗 [SocketIO] Connecting to: ${socketUrl}`);
+
+                        window.socket = io(socketUrl, {
+                            transports: ['websocket', 'polling'],
+                            timeout: 10000,
+                            reconnection: true,
+                            reconnectionAttempts: 3,
+                            reconnectionDelay: 1000,
+                            forceNew: true,
+                            // Handle HTTPS/WSS properly
+                            secure: protocol === 'https:',
+                            // Add additional connection options
+                            autoConnect: true,
+                            upgrade: true
+                        });
+
+                        window.socket.on('connect', () => {
+                            console.log('🔗 [SocketIO] Connected successfully');
+                            enableSocketIOMode();
+
+                            // Dispatch event for UIManager integration
+                            document.dispatchEvent(new CustomEvent('socketio_ready', {
+                                detail: { socket: window.socket }
+                            }));
+                        });
+
+                        window.socket.on('connect_error', (error) => {
+                            console.error('❌ [SocketIO] Connection error:', error);
+                            enableRestApiMode(`SocketIO connection failed: ${error.message}`);
+                        });
+
+                        window.socket.on('disconnect', (reason) => {
+                            console.warn('⚠️ [SocketIO] Disconnected:', reason);
+                            // Don't switch to REST API mode on disconnect, allow reconnection
+                        });
+
+                    } catch (error) {
+                        console.error('❌ [System] Failed to initialize SocketIO:', error);
+                        enableRestApiMode(`SocketIO initialization failed: ${error.message}`);
+                    }
+                };
+
+                script.onerror = function () {
+                    console.warn(`❌ [System] Failed to load SocketIO from: ${source}`);
+                    currentSourceIndex++;
+                    tryLoadSocketIO();
+                };
+
+                script.src = source;
+                document.head.appendChild(script);
+            }
+
+            // Start loading SocketIO
+            tryLoadSocketIO();
+
+        })();
     </script>
-    
+
     <!-- Enhanced Architecture - Load core managers first -->
     <!-- Core Utility Services -->
     <script src="{{ url_for('static', filename='v2/js/durationFormatter.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/cleanupService.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/eventListenerService.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/enhancedAPIService.js', v='1.0') }}"></script>
-    
+
     <!-- Consolidated Architecture - Phase 3 -->
     <script src="{{ url_for('static', filename='v2/js/baseManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/coreUIManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/unifiedDisplayManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/unifiedConnectionManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/agentSystemManager.js', v='1.0') }}"></script>
-    
+
     <script src="{{ url_for('static', filename='v2/js/enhancedSocketIOManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/phaseProgressDisplayManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/simplifiedLogsManager.js', v='1.0') }}"></script>
-    
+
     <!-- Required dependencies for ui-fixed.js -->
     <script src="{{ url_for('static', filename='v2/js/eventDeduplicator.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/connectionManager.js', v='1.0') }}"></script>
-    
+
     <script src="{{ url_for('static', filename='v2/js/ui-fixed.js', v='1.0') }}"></script>
     <!-- Component Coordinator - Load first to ensure availability -->
     <script src="{{ url_for('static', filename='v2/js/componentCoordinator.js', v='1.0') }}"></script>
-    
+
     <!-- Enhanced Task State Management - Load early for state restoration -->
     <script src="{{ url_for('static', filename='v2/js/taskStateManager.js', v='1.0') }}"></script>
-    
 
-    
+
+
     <script src="{{ url_for('static', filename='v2/js/effects.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/staticPages.js') }}"></script>
@@ -327,7 +344,7 @@
     <script src="{{ url_for('static', filename='v2/js/progressDisplay.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/taskDisplay.js') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/historicalTasks.js') }}"></script>
-    
+
     <!-- Modern Page Managers - Clean implementations following consolidated architecture -->
     <script src="{{ url_for('static', filename='v2/js/modernChatManager.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/modernKnowledgeBaseManager.js', v='1.0') }}"></script>
@@ -346,4 +363,5 @@
     <!-- UI.js removed to prevent duplicate initialization with simplifiedUI.js -->
     {% block scripts %}{% endblock %}
 </body>
-</html> 
+
+</html>

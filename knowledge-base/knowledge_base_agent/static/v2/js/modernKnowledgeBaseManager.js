@@ -1,18 +1,13 @@
 /**
-
-Modern Knowledge Base Manager
-Features:
-Browse knowledge base items with modern UI
-Category-based filtering and search
-Integration with unified database structure
-Responsive grid layout with glass morphism design
-Quick preview and full content viewing
-Export and sharing capabilities
-Safer content rendering with optional sanitization
-Consistent ID handling and robust date parsing
-Preferences persisted in localStorage
+Modern Knowledge Base Manager (Redesigned)
+From first-principles: The core purpose is to provide an intuitive, efficient way to browse and search a nested knowledge base (categories > sub-categories > items), 
+inspired by Apple's Human Interface Guidelines emphasizing clarity (legible, understandable UI), deference (content-focused, minimal chrome), depth (layered hierarchy with glass effects for visual separation), 
+and consistency (familiar navigation patterns like sidebar tree views in Finder/Notes apps). 
+Usability: Sidebar for hierarchical navigation to reduce cognitive load, main area for focused content display, real-time search across all fields (global when active), hover previews for quick glances without disruption, 
+modal for immersive detailed views. Modern UI: Glassmorphism ("liquid glass" trend 2025) with blurred, translucent panels for depth and fluidity, subtle animations for delight. 
+Engineering: Efficient data structures (Maps for O(1) access), debounced search, lazy rendering, robust error handling via centralized API service.
 */
-console.log('🔍 Loading ModernKnowledgeBaseManager...');
+console.log('🔍 Loading ModernKnowledgeBaseManager (Redesigned)...');
 class ModernKnowledgeBaseManager extends BaseManager {
     constructor(options = {}) {
         super({
@@ -22,20 +17,22 @@ class ModernKnowledgeBaseManager extends BaseManager {
             ...options
         });
 
-        // External helpers (optional): markdownRenderer(text) -> HTML, htmlSanitizer(html) -> sanitizedHTML
+        // Optional external helpers for content rendering and sanitization
         this.markdownRenderer = options.markdownRenderer || null;
         this.htmlSanitizer = options.htmlSanitizer || null;
 
-        // API / media paths
-        this.apiBase = options.apiBase || ''; // EnhancedAPIService already adds /api prefix
-        this.mediaBase = options.mediaBase || '/data/media_cache'; // Flask route in web.py
+        // API and media paths
+        this.apiBase = options.apiBase || '';
+        this.mediaBase = options.mediaBase || '/data/media_cache';
 
-        // Knowledge base state
-        this.items = new Map(); // key: String(id), value: item
-        this.categories = new Map();
-        this.filteredItems = [];
+        // Data structures
+        this.items = new Map(); // id (string) -> item object
+        this.categoryTree = new Map(); // main_category -> Map(sub_category -> array of items)
+
+        // Current state for filtering and sorting
         this.currentFilter = {
             category: 'all',
+            sub: null,
             search: '',
             sortBy: 'updated-desc'
         };
@@ -53,21 +50,23 @@ class ModernKnowledgeBaseManager extends BaseManager {
 
         await this.createKnowledgeBaseInterface();
 
-        // Cache interactive elements
+        // Cache elements
         this.elements.searchInput = document.getElementById('kb-search');
-        this.elements.categoryFilter = document.getElementById('category-filter');
         this.elements.sortSelect = document.getElementById('sort-select');
         this.elements.viewToggle = document.getElementById('view-toggle');
-        this.elements.itemsGrid = document.getElementById('items-grid');
+        this.elements.categoryTree = document.getElementById('category-tree');
+        this.elements.currentViewTitle = document.getElementById('current-view-title');
+        this.elements.itemsList = document.getElementById('items-list');
         this.elements.itemsCount = document.getElementById('items-count');
+        this.elements.categoriesCount = document.getElementById('categories-count');
+        this.elements.showingCount = document.getElementById('showing-count');
         this.elements.loadingState = document.getElementById('loading-state');
         this.elements.emptyState = document.getElementById('empty-state');
         this.elements.refreshBtn = document.getElementById('refresh-btn');
         this.elements.exportBtn = document.getElementById('export-btn');
 
-        // Load persisted preferences
+        // Load preferences
         this.loadPreferences();
-        // Reflect initial view mode icon and class
         this.applyViewModeUI();
     }
 
@@ -81,17 +80,11 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     debounce: 300
                 },
                 {
-                    selector: this.elements.categoryFilter,
-                    events: ['change'],
-                    handler: this.handleCategoryFilter
-                },
-                {
                     selector: this.elements.sortSelect,
                     events: ['change'],
                     handler: this.handleSortChange
                 }
             ],
-
             buttons: [
                 {
                     selector: this.elements.viewToggle,
@@ -107,22 +100,44 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     handler: this.handleExportAll
                 }
             ],
-
             delegated: [
                 {
-                    container: this.elements.itemsGrid,
+                    container: this.elements.categoryTree,
+                    selector: '.category-header',
+                    event: 'click',
+                    handler: this.handleToggleExpand
+                },
+                {
+                    container: this.elements.categoryTree,
+                    selector: '.sub-category-item, .all-categories',
+                    event: 'click',
+                    handler: this.handleSelectCategory
+                },
+                {
+                    container: this.elements.itemsList,
                     selector: '.kb-item',
                     event: 'click',
                     handler: this.handleItemClick
                 },
                 {
-                    container: this.elements.itemsGrid,
+                    container: this.elements.itemsList,
                     selector: '.item-action-btn',
                     event: 'click',
                     handler: this.handleItemAction
+                },
+                {
+                    container: this.elements.itemsList,
+                    selector: '.kb-item',
+                    event: 'mouseenter',
+                    handler: this.handleItemHoverIn
+                },
+                {
+                    container: this.elements.itemsList,
+                    selector: '.kb-item',
+                    event: 'mouseleave',
+                    handler: this.handleItemHoverOut
                 }
             ],
-
             keyboard: [
                 {
                     key: 'Escape',
@@ -135,46 +150,158 @@ class ModernKnowledgeBaseManager extends BaseManager {
     async loadInitialData() {
         try {
             this.showLoadingState();
-            this.log('Starting to load initial data...');
+            this.log('Loading initial knowledge base data...');
 
-            // Load knowledge base items
             await this.loadKnowledgeBaseItems();
-            this.log(`Loaded ${this.items.size} items`);
+            this.buildCategoryTree();
+            this.renderSidebar();
 
-            // Load categories for filtering
-            this.extractCategories();
-            this.log(`Extracted ${this.categories.size} categories`);
-
-            // Apply initial filtering and display
             this.applyFilters();
-            this.updateCategoryFilter();
-            this.log('Applied filters and updated UI');
 
             this.setState({
                 initialized: true,
                 loading: false
             });
 
-            this.log('Knowledge Base Manager initialization completed');
+            this.log('Initialization completed successfully');
 
         } catch (error) {
-            this.setError(error, 'loading knowledge base data');
-            this.showEmptyState('Failed to load knowledge base items');
+            this.setError(error, 'loading knowledge base');
+            this.showEmptyState('Failed to load knowledge base');
         }
     }
 
     async createKnowledgeBaseInterface() {
         this.elements.container.innerHTML = `
-            <div class="modern-kb-container glass-panel-v3 animate-glass-fade-in">
+            <style>
+                .modern-kb-container {
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    padding: 1rem;
+                    box-sizing: border-box;
+                }
+                .kb-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                }
+                .kb-body {
+                    display: flex;
+                    flex: 1;
+                    overflow: hidden;
+                }
+                .kb-sidebar {
+                    width: 300px;
+                    min-width: 250px;
+                    height: 100%;
+                    overflow-y: auto;
+                    padding: 1rem;
+                    box-sizing: border-box;
+                    background: rgba(255,255,255,0.05);
+                    backdrop-filter: blur(10px);
+                    border-right: 1px solid rgba(255,255,255,0.1);
+                }
+                .category-tree-list {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                }
+                .category-item, .all-categories {
+                    margin-bottom: 0.5rem;
+                }
+                .category-header {
+                    display: flex;
+                    align-items: center;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                    border-radius: 8px;
+                    transition: background 0.2s;
+                }
+                .category-header:hover {
+                    background: rgba(255,255,255,0.05);
+                }
+                .category-header i {
+                    margin-right: 0.5rem;
+                }
+                .expand-icon {
+                    margin-left: auto;
+                }
+                .sub-categories {
+                    list-style: none;
+                    padding-left: 1.5rem;
+                    margin: 0;
+                }
+                .sub-category-item {
+                    display: flex;
+                    align-items: center;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                    border-radius: 8px;
+                    transition: background 0.2s;
+                }
+                .sub-category-item:hover {
+                    background: rgba(255,255,255,0.05);
+                }
+                .sub-category-item i {
+                    margin-right: 0.5rem;
+                }
+                .kb-main {
+                    flex: 1;
+                    padding: 1rem;
+                    overflow-y: auto;
+                    box-sizing: border-box;
+                }
+                .kb-controls {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                }
+                .search-container {
+                    flex: 1;
+                    margin-right: 1rem;
+                }
+                .kb-stats {
+                    display: flex;
+                    gap: 1rem;
+                    margin-bottom: 1rem;
+                }
+                .items-list {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 1rem;
+                }
+                .items-list.list-view {
+                    display: flex;
+                    flex-direction: column;
+                }
+                .items-list.list-view .kb-item {
+                    width: 100%;
+                }
+                .kb-item {
+                    cursor: pointer;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    background: rgba(255,255,255,0.05);
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    transition: transform 0.2s;
+                }
+                .kb-item:hover {
+                    transform: translateY(-2px);
+                }
+                .hidden {
+                    display: none;
+                }
+                /* Additional styles for modals, etc. can be added here */
+            </style>
+            <div class="modern-kb-container glass-panel-v3 animate-fade-in">
                 <header class="kb-header">
                     <div class="header-title">
-                        <h1>
-                            <i class="fas fa-book-open"></i>
-                            Knowledge Base
-                        </h1>
-                        <p class="header-subtitle">Explore your curated knowledge collection</p>
+                        <h1><i class="fas fa-book-open"></i> Knowledge Base</h1>
+                        <p class="header-subtitle">Discover and explore your curated insights</p>
                     </div>
-    
                     <div class="header-actions">
                         <button id="refresh-btn" class="glass-button glass-button--small" title="Refresh">
                             <i class="fas fa-sync-alt"></i>
@@ -184,240 +311,226 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         </button>
                     </div>
                 </header>
-    
-                <div class="kb-controls glass-panel-v3--secondary">
-                    <div class="controls-left">
-                        <div class="search-container">
-                            <i class="fas fa-search"></i>
-                            <input 
-                                type="text" 
-                                id="kb-search" 
-                                placeholder="Search knowledge base..."
-                                class="glass-input"
-                            >
-                        </div>
-    
-                        <select id="category-filter" class="glass-select">
-                            <option value="all">All Categories</option>
-                        </select>
-                    </div>
-    
-                    <div class="controls-right">
-                        <select id="sort-select" class="glass-select">
-                            <option value="updated-desc">Recently Updated</option>
-                            <option value="updated-asc">Oldest First</option>
-                            <option value="title-asc">Title A-Z</option>
-                            <option value="title-desc">Title Z-A</option>
-                            <option value="category-asc">Category A-Z</option>
-                        </select>
-    
-                        <div class="view-toggle-group">
+
+                <div class="kb-body">
+                    <aside id="kb-sidebar" class="kb-sidebar glass-panel-v3">
+                        <ul id="category-tree" class="category-tree-list"></ul>
+                    </aside>
+
+                    <section class="kb-main">
+                        <h2 id="current-view-title" class="view-title">All Knowledge Base</h2>
+
+                        <div class="kb-controls">
+                            <div class="search-container">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="kb-search" placeholder="Search by title, content, category..." class="glass-input">
+                            </div>
+
+                            <select id="sort-select" class="glass-select">
+                                <option value="updated-desc">Recently Updated</option>
+                                <option value="updated-asc">Oldest Updated</option>
+                                <option value="title-asc">Title A-Z</option>
+                                <option value="title-desc">Title Z-A</option>
+                                <option value="category-asc">Category A-Z</option>
+                            </select>
+
                             <button id="view-toggle" class="glass-button glass-button--small" title="Toggle View">
                                 <i class="fas fa-th"></i>
                             </button>
                         </div>
-                    </div>
-                </div>
-    
-                <div class="kb-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Total Items</span>
-                        <span id="items-count" class="stat-value">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Categories</span>
-                        <span id="categories-count" class="stat-value">--</span>
-                    </div>
-                </div>
-    
-                <div class="kb-content">
-                    <div id="loading-state" class="loading-state">
-                        <div class="loading-spinner"></div>
-                        <span>Loading knowledge base...</span>
-                    </div>
-    
-                    <div id="empty-state" class="empty-state hidden">
-                        <i class="fas fa-book-open"></i>
-                        <h3>No items found</h3>
-                        <p>Try adjusting your search or filter criteria</p>
-                    </div>
-    
-                    <div id="items-grid" class="items-grid">
-                    </div>
+
+                        <div class="kb-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Items</span>
+                                <span id="items-count" class="stat-value">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Categories</span>
+                                <span id="categories-count" class="stat-value">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Showing</span>
+                                <span id="showing-count" class="stat-value">--</span>
+                            </div>
+                        </div>
+
+                        <div id="kb-main-content">
+                            <div id="loading-state" class="loading-state">
+                                <div class="loading-spinner"></div>
+                                <span>Loading items...</span>
+                            </div>
+
+                            <div id="empty-state" class="empty-state hidden">
+                                <i class="fas fa-book-open"></i>
+                                <h3>No items found</h3>
+                                <p>Try adjusting your search or select a different category</p>
+                            </div>
+
+                            <div id="items-list" class="items-list grid-view"></div>
+                        </div>
+                    </section>
                 </div>
             </div>
         `;
     }
 
     async loadKnowledgeBaseItems() {
-        try {
-            this.items.clear();
+        this.items.clear();
 
-            const response = await this.apiCall(`${this.apiBase}/items`, {
-                errorMessage: 'Failed to load knowledge base items',
-                cache: false,
-                showLoading: false
-            });
-
-            if (Array.isArray(response)) {
-                response.forEach(item => {
-                    const idKey = String(item.id);
-
-                    // Normalize dates
-                    item._updatedAtMs = this.parseDateToMs(item.last_updated || item.created_at);
-                    item._createdAtMs = this.parseDateToMs(item.created_at);
-
-                    // Normalize media files from unified database
-                    // Handle kb_media_paths
-                    if (typeof item.kb_media_paths === 'string') {
-                        try {
-                            item.kb_media_paths = JSON.parse(item.kb_media_paths);
-                        } catch {
-                            item.kb_media_paths = [];
-                        }
-                    }
-                    if (!Array.isArray(item.kb_media_paths)) {
-                        item.kb_media_paths = [];
-                    }
-
-                    // Handle media_files from unified database
-                    if (typeof item.media_files === 'string') {
-                        try {
-                            item.media_files = JSON.parse(item.media_files);
-                        } catch {
-                            item.media_files = [];
-                        }
-                    }
-                    if (!Array.isArray(item.media_files)) {
-                        item.media_files = [];
-                    }
-
-                    // Combine all media files for display (kb_media_paths already parsed above)
-                    item.all_media_files = [...(item.kb_media_paths || []), ...(item.media_files || [])];
-
-                    // Ensure content field exists (fallbacks)
-                    if (!item.content) {
-                        item.content = item.markdown_content || item.kb_content || item.full_text || item.description || '';
-                    }
-
-                    this.items.set(idKey, item);
-                });
-                this.log(`Loaded ${response.length} knowledge base items`);
-            } else {
-                this.logWarn('API returned non-array response:', response);
-            }
-
-            this.log(`Total items loaded: ${this.items.size}`);
-
-        } catch (error) {
-            this.logError('Failed to load knowledge base items:', error);
-            throw error;
-        }
-    }
-
-    extractCategories() {
-        this.categories.clear();
-
-        this.items.forEach(item => {
-            const category = (item.main_category || 'Uncategorized');
-            const categoryKey = String(category);
-
-            if (!this.categories.has(categoryKey)) {
-                this.categories.set(categoryKey, {
-                    name: category,
-                    count: 0,
-                    items: []
-                });
-            }
-
-            const categoryData = this.categories.get(categoryKey);
-            categoryData.count++;
-            categoryData.items.push(item);
+        const response = await this.apiCall(`${this.apiBase}/items`, {
+            errorMessage: 'Failed to load items',
+            cache: false,
+            showLoading: false
         });
 
-        this.log(`Extracted ${this.categories.size} categories`);
+        if (Array.isArray(response)) {
+            response.forEach(item => {
+                const id = String(item.id);
+
+                // Normalize dates
+                item._updatedAtMs = this.parseDateToMs(item.last_updated || item.created_at);
+                item._createdAtMs = this.parseDateToMs(item.created_at);
+
+                // Normalize media
+                item.kb_media_paths = Array.isArray(item.kb_media_paths) ? item.kb_media_paths : typeof item.kb_media_paths === 'string' ? JSON.parse(item.kb_media_paths) || [] : [];
+                item.media_files = Array.isArray(item.media_files) ? item.media_files : typeof item.media_files === 'string' ? JSON.parse(item.media_files) || [] : [];
+                item.all_media_files = [...item.kb_media_paths, ...item.media_files];
+
+                // Fallback content
+                item.content = item.content || item.markdown_content || item.kb_content || item.full_text || item.description || '';
+
+                this.items.set(id, item);
+            });
+            this.log(`Loaded ${response.length} knowledge base items`);
+        } else {
+            this.logWarn('Non-array response from API');
+        }
     }
 
-    updateCategoryFilter() {
-        if (!this.elements.categoryFilter) return;
+    buildCategoryTree() {
+        this.categoryTree.clear();
 
-        const options = ['<option value="all">All Categories</option>'];
+        this.items.forEach(item => {
+            const main = item.main_category || 'Uncategorized';
+            const sub = item.sub_category || 'General';
 
-        Array.from(this.categories.entries())
-            .sort(([a], [b]) => a.localeCompare(b))
-            .forEach(([categoryName, categoryData]) => {
-                options.push(`
-                    <option value="${this.escapeAttr(categoryName)}">
-                        ${this.escapeHTML(categoryData.name)} (${categoryData.count})
-                    </option>
-                `);
+            if (!this.categoryTree.has(main)) {
+                this.categoryTree.set(main, new Map());
+            }
+
+            const subMap = this.categoryTree.get(main);
+            if (!subMap.has(sub)) {
+                subMap.set(sub, []);
+            }
+
+            subMap.get(sub).push(item);
+        });
+    }
+
+    renderSidebar() {
+        if (!this.elements.categoryTree) return;
+
+        let html = `
+            <li class="all-categories" data-category="all">
+                <div class="category-header all-header">
+                    <i class="fas fa-book-open"></i>
+                    <span>All Knowledge Base</span>
+                </div>
+            </li>
+        `;
+
+        Array.from(this.categoryTree.keys()).sort((a, b) => a.localeCompare(b)).forEach(main => {
+            html += `
+                <li class="category-item" data-category="${this.escapeAttr(main)}">
+                    <div class="category-header">
+                        <i class="fas fa-folder"></i>
+                        <span>${this.escapeHTML(main)}</span>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <ul class="sub-categories hidden">
+            `;
+
+            Array.from(this.categoryTree.get(main).keys()).sort((a, b) => a.localeCompare(b)).forEach(sub => {
+                html += `
+                    <li class="sub-category-item" data-category="${this.escapeAttr(main)}" data-sub="${this.escapeAttr(sub)}">
+                        <i class="fas fa-folder-open"></i>
+                        <span>${this.escapeHTML(sub)}</span>
+                    </li>
+                `;
             });
 
-        this.elements.categoryFilter.innerHTML = options.join('');
+            html += `</ul></li>`;
+        });
 
-        if (this.currentFilter.category !== 'all' && !this.categories.has(this.currentFilter.category)) {
-            this.currentFilter.category = 'all';
-        }
-        this.elements.categoryFilter.value = this.currentFilter.category;
+        this.elements.categoryTree.innerHTML = html;
     }
 
     applyFilters() {
-        let filtered = Array.from(this.items.values());
+        let viewItems = [];
 
-        // Category filter
-        if (this.currentFilter.category !== 'all') {
-            const selected = this.currentFilter.category;
-            filtered = filtered.filter(item =>
-                String(item.main_category || 'Uncategorized') === selected
-            );
-        }
-
-        // Search filter
         if (this.currentFilter.search) {
-            const searchTerm = this.currentFilter.search.toLowerCase();
-            filtered = filtered.filter(item =>
-                (item.title || '').toLowerCase().includes(searchTerm) ||
-                (item.content || '').toLowerCase().includes(searchTerm) ||
-                (item.main_category || '').toLowerCase().includes(searchTerm) ||
-                (item.sub_category || '').toLowerCase().includes(searchTerm)
+            // Global search
+            const term = this.currentFilter.search.toLowerCase();
+            viewItems = Array.from(this.items.values()).filter(item => 
+                (item.title || '').toLowerCase().includes(term) ||
+                (item.content || '').toLowerCase().includes(term) ||
+                (item.main_category || '').toLowerCase().includes(term) ||
+                (item.sub_category || '').toLowerCase().includes(term) ||
+                (item.tweet_id ? String(item.tweet_id).includes(term) : false)
             );
+        } else {
+            // Category/sub based
+            if (this.currentFilter.category === 'all') {
+                this.items.forEach(item => viewItems.push(item));
+            } else {
+                const subMap = this.categoryTree.get(this.currentFilter.category);
+                if (subMap) {
+                    if (this.currentFilter.sub) {
+                        viewItems = subMap.get(this.currentFilter.sub) || [];
+                    } else {
+                        subMap.forEach(items => viewItems.push(...items));
+                    }
+                }
+            }
         }
 
-        // Sort
-        const [sortBy, sortOrder] = this.currentFilter.sortBy.split('-');
-        filtered.sort((a, b) => {
-            let aVal, bVal;
-
+        // Apply sorting
+        const [sortBy, sortDir] = this.currentFilter.sortBy.split('-');
+        viewItems.sort((a, b) => {
+            let va, vb;
             switch (sortBy) {
                 case 'title':
-                    aVal = (a.title || '').toLowerCase();
-                    bVal = (b.title || '').toLowerCase();
+                    va = (a.title || '').toLowerCase();
+                    vb = (b.title || '').toLowerCase();
                     break;
                 case 'category':
-                    aVal = (a.main_category || 'Uncategorized').toLowerCase();
-                    bVal = (b.main_category || 'Uncategorized').toLowerCase();
+                    va = (a.main_category || '').toLowerCase();
+                    vb = (b.main_category || '').toLowerCase();
                     break;
                 case 'updated':
                 default:
-                    aVal = a._updatedAtMs || 0;
-                    bVal = b._updatedAtMs || 0;
+                    va = a._updatedAtMs || 0;
+                    vb = b._updatedAtMs || 0;
                     break;
             }
-
-            const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-            return sortOrder === 'desc' ? -comparison : comparison;
+            if (va < vb) return sortDir === 'asc' ? -1 : 1;
+            if (va > vb) return sortDir === 'asc' ? 1 : -1;
+            return 0;
         });
 
-        this.filteredItems = filtered;
-        this.renderItems();
-        this.updateStats();
+        // Render
+        this.renderItems(viewItems);
+
+        // Update UI
+        this.updateViewTitle();
+        this.updateStats(viewItems.length);
         this.persistPreferences();
     }
 
-    renderItems() {
-        if (!this.elements.itemsGrid) return;
+    renderItems(items) {
+        if (!this.elements.itemsList) return;
 
-        if (this.filteredItems.length === 0) {
+        if (items.length === 0) {
             this.showEmptyState();
             return;
         }
@@ -425,42 +538,48 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.hideLoadingState();
         this.hideEmptyState();
 
-        const itemsHTML = this.filteredItems.map(item => this.createItemHTML(item)).join('');
-        this.elements.itemsGrid.innerHTML = itemsHTML;
+        let html = '';
+        items.forEach(item => {
+            html += this.createItemHTML(item);
+        });
+        this.elements.itemsList.innerHTML = html;
+    }
 
-        // Preserve classes and only toggle view mode class
-        this.applyViewModeUI();
+    updateViewTitle() {
+        if (!this.elements.currentViewTitle) return;
+
+        let title = '';
+        if (this.currentFilter.search) {
+            title = `Search Results for "${this.escapeHTML(this.currentFilter.search)}"`;
+        } else if (this.currentFilter.sub) {
+            title = `${this.escapeHTML(this.currentFilter.category)} > ${this.escapeHTML(this.currentFilter.sub)}`;
+        } else if (this.currentFilter.category !== 'all') {
+            title = this.escapeHTML(this.currentFilter.category);
+        } else {
+            title = 'All Knowledge Base';
+        }
+        this.elements.currentViewTitle.textContent = title;
     }
 
     createItemHTML(item) {
-        // Smart title selection: prefer display_title, then content if title looks like a filename, then title
-        let title = item.display_title;
-        if (!title) {
-            // If title looks like a filename (contains hyphens and no spaces), use content instead
-            if (item.title && item.title.includes('-') && !item.title.includes(' ') && item.content) {
-                title = item.content.split('\n')[0].substring(0, 60); // First line, max 60 chars
-            } else {
-                title = item.title || item.item_name;
-            }
-        }
-        title = this.escapeHTML(title || 'Untitled');
+        const title = this.escapeHTML(this.getDisplayTitle(item));
         const category = this.escapeHTML(item.main_category || 'Uncategorized');
-        const subCategory = this.escapeHTML(item.sub_category || '');
+        const sub = this.escapeHTML(item.sub_category || '');
         const lastUpdated = this.formatRelativeDate(item.last_updated || item.created_at);
-        const preview = this.createPreview(item.content || '');
-
-        const idAttr = this.escapeAttr(String(item.id));
+        const shortPreview = this.createPreview(item.content || '', 200);
+        const hoverPreview = this.createPreview(item.content || '', 800);
+        const id = this.escapeAttr(String(item.id));
         const sourceLink = item.source_url ? `<span class="source-link"><i class="fas fa-external-link-alt"></i> Source</span>` : '';
 
         return `
-            <div class="kb-item glass-panel-v3--interactive" data-item-id="${idAttr}" data-item-type="kb_item">
+            <div class="kb-item glass-panel-v3--interactive" data-item-id="${id}" data-item-type="kb_item">
                 <div class="item-header">
                     <div class="item-type">
                         <i class="fas fa-file-alt"></i>
-                        <span class="item-type-label">Knowledge Base Item</span>
+                        <span>${title}</span>
                     </div>
                     <div class="item-actions">
-                        <button class="item-action-btn" data-action="view" title="View">
+                        <button class="item-action-btn" data-action="view" title="View Details">
                             <i class="fas fa-eye"></i>
                         </button>
                         <button class="item-action-btn" data-action="export" title="Export">
@@ -468,81 +587,36 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         </button>
                     </div>
                 </div>
-    
+
                 <div class="item-content">
-                    <h3 class="item-title">${title}</h3>
-    
                     <div class="item-categories">
                         <span class="category-badge main-category">${category}</span>
-                        ${subCategory ? `<span class="category-badge sub-category">${subCategory}</span>` : ''}
+                        ${sub ? `<span class="category-badge sub-category">${sub}</span>` : ''}
                     </div>
-    
-                    <div class="item-preview">${preview}</div>
+                    <div class="item-preview">${shortPreview}</div>
                 </div>
-    
+
                 <div class="item-footer">
-                    <div class="item-metadata">
-                        <span class="last-updated">Updated ${lastUpdated}</span>
-                        ${sourceLink}
-                    </div>
+                    <span class="last-updated">Updated ${lastUpdated}</span>
+                    ${sourceLink}
+                </div>
+
+                <div class="item-hover-preview glass-panel-v3 hidden">
+                    ${hoverPreview}
                 </div>
             </div>
         `;
     }
 
-    createPreview(content) {
-        if (!content) return 'No content available';
-        const plainText = this.toPlainText(content).trim();
-        return plainText.length > 200
-            ? this.escapeHTML(plainText.substring(0, 200)) + '...'
-            : this.escapeHTML(plainText);
-    }
-
-    toPlainText(content) {
-        const withoutMd = String(content).replace(/[#*_`~$$$\(\)]/g, ' ');
-        const withoutHtml = withoutMd.replace(/<[^>]*>/g, ' ');
-        return withoutHtml.replace(/\s+/g, ' ');
-    }
-
-    formatRelativeDate(dateString) {
-        if (!dateString) return 'Unknown';
-
-        const dateMs = this.parseDateToMs(dateString);
-        if (!dateMs) return 'Unknown';
-
-        const date = new Date(dateMs);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) {
-            return 'Today';
-        } else if (diffDays === 1) {
-            return 'Yesterday';
-        } else if (diffDays < 7) {
-            return `${diffDays} days ago`;
-        } else if (diffDays < 30) {
-            return `${Math.floor(diffDays / 7)} weeks ago`;
-        } else {
-            return date.toLocaleDateString();
-        }
-    }
-
-    parseDateToMs(input) {
-        if (!input) return 0;
-        if (typeof input === 'number') return input;
-        const ms = Date.parse(input);
-        return Number.isNaN(ms) ? 0 : ms;
-    }
-
-    updateStats() {
+    updateStats(showing) {
         if (this.elements.itemsCount) {
-            this.elements.itemsCount.textContent = String(this.filteredItems.length);
+            this.elements.itemsCount.textContent = this.items.size;
         }
-
-        const categoriesCountEl = document.getElementById('categories-count');
-        if (categoriesCountEl) {
-            categoriesCountEl.textContent = String(this.categories.size);
+        if (this.elements.categoriesCount) {
+            this.elements.categoriesCount.textContent = this.categoryTree.size;
+        }
+        if (this.elements.showingCount) {
+            this.elements.showingCount.textContent = showing;
         }
     }
 
@@ -550,8 +624,8 @@ class ModernKnowledgeBaseManager extends BaseManager {
         if (this.elements.loadingState) {
             this.elements.loadingState.classList.remove('hidden');
         }
-        if (this.elements.itemsGrid) {
-            this.elements.itemsGrid.classList.add('hidden');
+        if (this.elements.itemsList) {
+            this.elements.itemsList.classList.add('hidden');
         }
         if (this.elements.emptyState) {
             this.elements.emptyState.classList.add('hidden');
@@ -562,21 +636,21 @@ class ModernKnowledgeBaseManager extends BaseManager {
         if (this.elements.loadingState) {
             this.elements.loadingState.classList.add('hidden');
         }
-        if (this.elements.itemsGrid) {
-            this.elements.itemsGrid.classList.remove('hidden');
+        if (this.elements.itemsList) {
+            this.elements.itemsList.classList.remove('hidden');
         }
     }
 
-    showEmptyState(message = null) {
+    showEmptyState() {
         if (this.elements.emptyState) {
-            this.elements.emptyState.classList.remove('hidden');
-            if (message) {
-                const messageEl = this.elements.emptyState.querySelector('p');
-                if (messageEl) messageEl.textContent = message;
+            const p = this.elements.emptyState.querySelector('p');
+            if (p) {
+                p.textContent = this.currentFilter.search ? `No results for "${this.escapeHTML(this.currentFilter.search)}"` : 'No items in this category';
             }
+            this.elements.emptyState.classList.remove('hidden');
         }
-        if (this.elements.itemsGrid) {
-            this.elements.itemsGrid.classList.add('hidden');
+        if (this.elements.itemsList) {
+            this.elements.itemsList.classList.add('hidden');
         }
         if (this.elements.loadingState) {
             this.elements.loadingState.classList.add('hidden');
@@ -589,14 +663,34 @@ class ModernKnowledgeBaseManager extends BaseManager {
         }
     }
 
-    // Event Handlers
-    handleSearch = (e) => {
-        this.currentFilter.search = e.target.value.trim();
+    handleToggleExpand = (e) => {
+        const header = e.target.closest('.category-header');
+        if (!header || header.classList.contains('all-header')) return;
+
+        const subList = header.nextElementSibling;
+        if (subList) {
+            subList.classList.toggle('hidden');
+            const icon = header.querySelector('.expand-icon');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down');
+                icon.classList.toggle('fa-chevron-up');
+            }
+        }
+    }
+
+    handleSelectCategory = (e) => {
+        const li = e.target.closest('li');
+        if (!li) return;
+
+        this.currentFilter.category = li.dataset.category;
+        this.currentFilter.sub = li.dataset.sub || null;
+        this.currentFilter.search = ''; // Clear search when changing category
+        if (this.elements.searchInput) this.elements.searchInput.value = '';
         this.applyFilters();
     }
 
-    handleCategoryFilter = (e) => {
-        this.currentFilter.category = e.target.value;
+    handleSearch = (e) => {
+        this.currentFilter.search = e.target.value.trim();
         this.applyFilters();
     }
 
@@ -609,7 +703,6 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid';
         this.applyViewModeUI();
         this.persistPreferences();
-        this.log(`View mode changed to: ${this.viewMode}`);
     }
 
     applyViewModeUI() {
@@ -619,75 +712,72 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 icon.className = this.viewMode === 'grid' ? 'fas fa-th' : 'fas fa-list';
             }
         }
-
-        if (this.elements.itemsGrid) {
-            this.elements.itemsGrid.classList.remove('grid-view', 'list-view');
-            this.elements.itemsGrid.classList.add(`${this.viewMode}-view`);
-            if (!this.elements.itemsGrid.classList.contains('items-grid')) {
-                this.elements.itemsGrid.classList.add('items-grid');
-            }
+        if (this.elements.itemsList) {
+            this.elements.itemsList.classList.toggle('grid-view', this.viewMode === 'grid');
+            this.elements.itemsList.classList.toggle('list-view', this.viewMode === 'list');
         }
     }
 
     handleRefresh = async () => {
         try {
-            this.log('Refreshing knowledge base data...');
+            this.log('Refreshing knowledge base...');
             await this.loadInitialData();
         } catch (error) {
-            this.setError(error, 'refreshing knowledge base data');
+            this.setError(error, 'refreshing knowledge base');
         }
     }
 
     handleExportAll = () => {
         try {
             const allItems = Array.from(this.items.values());
-            const exportData = this.formatItemsForExport(allItems);
+            const content = this.formatItemsForExport(allItems);
             const filename = `knowledge_base_export_${new Date().toISOString().split('T')[0]}.md`;
-
-            this.downloadFile(exportData, filename, 'text/markdown');
-            this.log(`Exported ${allItems.length} items to ${filename}`);
-
+            this.downloadFile(content, filename, 'text/markdown');
+            this.log(`Exported ${allItems.length} items`);
         } catch (error) {
-            this.setError(error, 'exporting knowledge base items');
+            this.setError(error, 'exporting all items');
         }
     }
 
     handleItemClick = (e) => {
-        const itemElement = e.target.closest('.kb-item');
-        if (!itemElement) return;
-
-        // If click originated from an action button, ignore here
         if (e.target.closest('.item-action-btn')) return;
-
-        const itemId = itemElement.dataset.itemId;
-        const itemType = itemElement.dataset.itemType;
-
-        this.log(`Item clicked: ID=${itemId}, Type=${itemType}`);
-        this.viewItem(itemId, itemType);
+        const itemEl = e.target.closest('.kb-item');
+        if (!itemEl) return;
+        const id = itemEl.dataset.itemId;
+        this.viewItem(id);
     }
 
     handleItemAction = (e) => {
         e.stopPropagation();
+        const btn = e.target.closest('.item-action-btn');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const itemEl = btn.closest('.kb-item');
+        if (!itemEl) return;
+        const id = itemEl.dataset.itemId;
 
-        const actionBtn = e.target.closest('.item-action-btn');
-        if (!actionBtn) return;
+        if (action === 'view') {
+            this.viewItem(id);
+        } else if (action === 'export') {
+            this.exportItem(id);
+        }
+    }
 
-        const action = actionBtn.dataset.action;
-        const itemElement = e.target.closest('.kb-item');
-        if (!itemElement) return;
+    handleItemHoverIn = (e) => {
+        const item = e.target.closest('.kb-item');
+        if (!item) return;
+        const preview = item.querySelector('.item-hover-preview');
+        if (preview) {
+            preview.classList.remove('hidden');
+        }
+    }
 
-        const itemId = itemElement.dataset.itemId;
-        const itemType = itemElement.dataset.itemType;
-
-        this.log(`Item action: ${action} on ID=${itemId}, Type=${itemType}`);
-
-        switch (action) {
-            case 'view':
-                this.viewItem(itemId, itemType);
-                break;
-            case 'export':
-                this.exportItem(itemId, itemType);
-                break;
+    handleItemHoverOut = (e) => {
+        const item = e.target.closest('.kb-item');
+        if (!item) return;
+        const preview = item.querySelector('.item-hover-preview');
+        if (preview) {
+            preview.classList.add('hidden');
         }
     }
 
@@ -695,22 +785,14 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.closeModal();
     }
 
-    // Item Operations
-    viewItem(itemId, itemType) {
-        this.log(`Opening item: ID=${itemId}, Type=${itemType}`);
-        this.openItemModal(itemId, itemType);
-    }
-
-    openItemModal(itemId, itemType) {
-        const key = String(itemId);
-        const item = this.items.get(key);
-        if (!item) {
-            this.logError(`Item with ID ${itemId} not found`);
-            return;
+    viewItem(id) {
+        const item = this.items.get(String(id));
+        if (item) {
+            this.selectedItem = item;
+            this.createAndShowModal(item);
+        } else {
+            this.logError(`Item ${id} not found`);
         }
-
-        this.selectedItem = item;
-        this.createAndShowModal(item);
     }
 
     createAndShowModal(item) {
@@ -719,46 +801,31 @@ class ModernKnowledgeBaseManager extends BaseManager {
             existingModal.remove();
         }
 
-        // Smart title selection: prefer display_title, then content if title looks like a filename, then title
-        let title = item.display_title;
-        if (!title) {
-            // If title looks like a filename (contains hyphens and no spaces), use content instead
-            if (item.title && item.title.includes('-') && !item.title.includes(' ') && item.content) {
-                title = item.content.split('\n')[0].substring(0, 60); // First line, max 60 chars
-            } else {
-                title = item.title || item.item_name;
-            }
-        }
-        title = this.escapeHTML(title || 'Untitled');
+        const title = this.escapeHTML(this.getDisplayTitle(item));
         const category = this.escapeHTML(item.main_category || 'Uncategorized');
         const subCategory = this.escapeHTML(item.sub_category || '');
         const content = item.content || 'No content available';
         const lastUpdated = new Date(this.parseDateToMs(item.last_updated || item.created_at)).toLocaleString();
         const sourceUrl = item.source_url;
 
-        // Only use media_files since kb_media_paths often reference non-existent files
-        const mediaFiles = item.media_files || [];
+        const mediaFiles = item.all_media_files;
 
-        const mediaGridHTML = mediaFiles.length > 0
-            ? `
+        const mediaGridHTML = mediaFiles.length > 0 ? `
             <div class="modal-media-section">
                 <h3><i class="fas fa-images"></i> Media Files</h3>
                 <div class="media-grid">
-                    ${mediaFiles.map(mediaPath => `
+                    ${mediaFiles.map(path => `
                         <div class="media-item">
-                            <img src="${this.mediaUrl(mediaPath)}" alt="Knowledge base media"
-                                 onclick="this.classList.toggle('expanded')"
-                                 title="Click to expand" loading="lazy">
+                            <img src="${this.mediaUrl(path)}" alt="Media" onclick="this.classList.toggle('expanded')" title="Click to expand" loading="lazy">
                         </div>
                     `).join('')}
                 </div>
             </div>
-            `
-            : '';
+        ` : '';
 
         const modalHTML = `
             <div id="kb-item-modal" class="modal-overlay">
-                <div class="modal-container glass-panel-v3">
+                <div class="modal-container glass-panel-v3 liquid-glass">
                     <div class="modal-header">
                         <div class="modal-title-section">
                             <h2 class="modal-title">${title}</h2>
@@ -779,7 +846,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                             </button>
                         </div>
                     </div>
-    
+
                     <div class="modal-metadata">
                         <div class="metadata-item">
                             <i class="fas fa-clock"></i>
@@ -790,9 +857,9 @@ class ModernKnowledgeBaseManager extends BaseManager {
                             <span>Tweet ID: ${this.escapeHTML(String(item.tweet_id))}</span>
                         </div>` : ''}
                     </div>
-    
+
                     ${mediaGridHTML}
-    
+
                     <div class="modal-content-section">
                         <h3><i class="fas fa-file-text"></i> Content</h3>
                         <div class="modal-content">
@@ -826,7 +893,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 },
                 {
                     selector: '#modal-export-btn',
-                    handler: () => this.exportItem(String(item.id), 'kb_item')
+                    handler: () => this.exportItem(String(item.id))
                 },
                 {
                     selector: '#modal-source-btn',
@@ -889,21 +956,18 @@ class ModernKnowledgeBaseManager extends BaseManager {
         return html;
     }
 
-    exportItem(itemId, itemType) {
-        const key = String(itemId);
-        const item = this.items.get(key);
+    exportItem(id) {
+        const item = this.items.get(String(id));
         if (!item) {
-            this.logError(`Item with ID ${itemId} not found for export`);
+            this.logError(`Item ${id} not found for export`);
             return;
         }
 
         try {
             const content = this.formatItemForExport(item);
             const filename = `${this.sanitizeFilename(item.title || 'item')}.md`;
-
             this.downloadFile(content, filename, 'text/markdown');
             this.log(`Exported item: ${item.title}`);
-
         } catch (error) {
             this.setError(error, 'exporting item');
         }
@@ -927,14 +991,12 @@ ${content}
 `;
     }
 
-
     formatItemsForExport(items) {
         const header = `# Knowledge Base Export
-    Export Date: ${new Date().toLocaleString()}
-    Total Items: ${items.length}
+Export Date: ${new Date().toLocaleString()}
+Total Items: ${items.length}
 
 `;
-
 
         const itemsContent = items.map(item => this.formatItemForExport(item)).join('\n\n---\n\n');
 
@@ -962,28 +1024,75 @@ ${content}
             document.body.removeChild(a);
 
             URL.revokeObjectURL(url);
-
         } catch (error) {
-            this.logError('Failed to download file:', error);
+            this.logError('Failed to download file', error);
             throw error;
         }
     }
 
     mediaUrl(path) {
         const pathStr = String(path);
-
-        // Handle different media path formats
         if (pathStr.startsWith('data/media_cache/')) {
-            // Full path from media_files - use direct route
             return `/${pathStr}`;
         } else {
-            // Relative path from kb_media_paths - use API media route
             const safe = pathStr.split('/').map(encodeURIComponent).join('/');
             return `/api/media/${safe}`;
         }
     }
 
-    // Preferences persistence
+    getDisplayTitle(item) {
+        let candidate = item.display_title || item.title || item.item_name || 'Untitled';
+        if (candidate.includes('-') && !candidate.includes(' ') && item.content) {
+            candidate = item.content.split('\n')[0].substring(0, 60);
+        }
+        return candidate;
+    }
+
+    createPreview(content, maxLength) {
+        if (!content) return 'No content available';
+        const plainText = this.toPlainText(content).trim();
+        return plainText.length > maxLength
+            ? this.escapeHTML(plainText.substring(0, maxLength)) + '...'
+            : this.escapeHTML(plainText);
+    }
+
+    toPlainText(content) {
+        const withoutMd = String(content).replace(/[#*_`~$$$\(\)]/g, ' ');
+        const withoutHtml = withoutMd.replace(/<[^>]*>/g, ' ');
+        return withoutHtml.replace(/\s+/g, ' ');
+    }
+
+    formatRelativeDate(dateString) {
+        if (!dateString) return 'Unknown';
+
+        const dateMs = this.parseDateToMs(dateString);
+        if (!dateMs) return 'Unknown';
+
+        const date = new Date(dateMs);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+            return 'Today';
+        } else if (diffDays === 1) {
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            return `${diffDays} days ago`;
+        } else if (diffDays < 30) {
+            return `${Math.floor(diffDays / 7)} weeks ago`;
+        } else {
+            return date.toLocaleDateString();
+        }
+    }
+
+    parseDateToMs(input) {
+        if (!input) return 0;
+        if (typeof input === 'number') return input;
+        const ms = Date.parse(input);
+        return Number.isNaN(ms) ? 0 : ms;
+    }
+
     loadPreferences() {
         try {
             const raw = localStorage.getItem('kb_manager_prefs');
@@ -1001,6 +1110,9 @@ ${content}
             if (typeof prefs.category === 'string') {
                 this.currentFilter.category = prefs.category;
             }
+            if (typeof prefs.sub === 'string' || prefs.sub === null) {
+                this.currentFilter.sub = prefs.sub;
+            }
             if (typeof prefs.search === 'string') {
                 this.currentFilter.search = prefs.search;
                 if (this.elements.searchInput) {
@@ -1008,7 +1120,7 @@ ${content}
                 }
             }
         } catch {
-            // ignore corrupt prefs
+            // Ignore corrupt prefs
         }
     }
 
@@ -1018,15 +1130,15 @@ ${content}
                 viewMode: this.viewMode,
                 sortBy: this.currentFilter.sortBy,
                 category: this.currentFilter.category,
+                sub: this.currentFilter.sub,
                 search: this.currentFilter.search
             };
             localStorage.setItem('kb_manager_prefs', JSON.stringify(prefs));
         } catch {
-            // ignore storage errors
+            // Ignore storage errors
         }
     }
 
-    // Escaping helpers
     escapeHTML(str) {
         return String(str)
             .replace(/&/g, '&amp;')
@@ -1040,7 +1152,6 @@ ${content}
         return this.escapeHTML(str).replace(/"/g, '&quot;');
     }
 
-    // State change handler
     onStateChange(newState, previousState) {
         if (newState.loading !== previousState.loading) {
             if (newState.loading) {
@@ -1061,22 +1172,18 @@ ${content}
         this.closeModal();
         this.cleanupService.cleanup(this);
         this.items.clear();
-        this.categories.clear();
-        this.filteredItems = [];
+        this.categoryTree.clear();
         this.selectedItem = null;
         super.cleanup();
     }
 }
 
-console.log('✅ ModernKnowledgeBaseManager class defined successfully');
+console.log('✅ ModernKnowledgeBaseManager (Redesigned) defined');
 
-// Make available globally for browser usage
 if (typeof window !== 'undefined') {
     window.ModernKnowledgeBaseManager = ModernKnowledgeBaseManager;
-    console.log('✅ ModernKnowledgeBaseManager attached to window object');
 }
 
-// Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ModernKnowledgeBaseManager;
 }
