@@ -741,69 +741,66 @@ def get_recent_logs():
     state = get_or_create_agent_state()
     current_task_id = state.current_task_id if state else None
     
+    if not current_task_id:
+        return jsonify({
+            'logs': [],
+            'task_id': None,
+            'count': 0,
+            'success': True,
+            'message': 'No active agent task. Start an agent run to see live logs.'
+        })
+
     async def fetch_and_normalize_logs():
-        if current_task_id:
-            progress_manager = get_progress_manager()
-            try:
-                raw_logs = await progress_manager.get_logs(current_task_id, limit=100)
-                normalized_logs = []
-                
-                for log in raw_logs:
-                    try:
-                        # Handle both string and dict formats
-                        if isinstance(log, str):
-                            try:
-                                log = json.loads(log)
-                            except json.JSONDecodeError as e:
-                                logger.warning(f"Failed to parse log entry as JSON: {log[:100]}... Error: {e}")
-                                # Create a basic log entry from the string
-                                log = {
-                                    'message': log,
-                                    'level': 'INFO',
-                                    'timestamp': datetime.utcnow().isoformat(),
-                                    'task_id': current_task_id
-                                }
-                        
-                        # NORMALIZED FORMAT: Match SocketIO event structure
-                        normalized_log = {
-                            'message': log.get('message', ''),
-                            'level': log.get('level', 'INFO'),
-                            'timestamp': log.get('timestamp', datetime.utcnow().isoformat()),
-                            'component': log.get('component', 'system'),
-                            'task_id': log.get('task_id', current_task_id)
-                        }
-                        
-                        # Validate required fields
-                        if not normalized_log['message']:
-                            logger.warning(f"Log entry missing message field: {log}")
-                            continue
-                            
-                        normalized_logs.append(normalized_log)
-                        
-                    except Exception as e:
-                        logger.warning(f"Error processing log entry: {e}. Log: {log}")
-                        # Continue processing other logs
+        progress_manager = get_progress_manager()
+        try:
+            raw_logs = await progress_manager.get_logs(current_task_id, limit=100)
+            normalized_logs = []
+
+            for log in raw_logs:
+                try:
+                    # Handle both string and dict formats
+                    if isinstance(log, str):
+                        try:
+                            log = json.loads(log)
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to parse log entry as JSON: {log[:100]}... Error: {e}")
+                            # Create a basic log entry from the string
+                            log = {
+                                'message': log,
+                                'level': 'INFO',
+                                'timestamp': datetime.utcnow().isoformat(),
+                                'task_id': current_task_id
+                            }
+
+                    # NORMALIZED FORMAT: Match SocketIO event structure
+                    normalized_log = {
+                        'message': log.get('message', ''),
+                        'level': log.get('level', 'INFO'),
+                        'timestamp': log.get('timestamp', datetime.utcnow().isoformat()),
+                        'component': log.get('component', 'system'),
+                        'task_id': log.get('task_id', current_task_id)
+                    }
+
+                    # Validate required fields
+                    if not normalized_log['message']:
+                        logger.warning(f"Log entry missing message field: {log}")
                         continue
-                
-                return normalized_logs
-                
-            except Exception as e:
-                logger.error(f"Error fetching logs from TaskProgressManager: {e}", exc_info=True)
-                return []
-        return []
+
+                    normalized_logs.append(normalized_log)
+
+                except Exception as e:
+                    logger.warning(f"Error processing log entry: {e}. Log: {log}")
+                    # Continue processing other logs
+                    continue
+
+            return normalized_logs
+
+        except Exception as e:
+            logger.error(f"Error fetching logs from TaskProgressManager: {e}", exc_info=True)
+            return []
     
     try:
         logs_list = run_async_in_gevent_context(fetch_and_normalize_logs())
-        
-        # If no current task, return success with helpful message
-        if not current_task_id:
-            return jsonify({
-                'logs': [], 
-                'task_id': None,
-                'count': 0,
-                'success': True,
-                'message': 'No active agent task. Start an agent run to see live logs.'
-            })
         
         return jsonify({
             'logs': logs_list, 
@@ -1297,12 +1294,20 @@ def schedule_endpoint():
 @bp.route('/chat/models', methods=['GET'])
 def get_chat_models():
     """Returns the list of available chat models from the config."""
-    app_config = current_app.config.get('APP_CONFIG')
-    if not app_config or not hasattr(app_config, 'available_chat_models'):
-        return jsonify({"error": "Chat models configuration not available"}), 500
-    
-    models = [{"id": model, "name": model} for model in app_config.available_chat_models]
-    return jsonify(models)
+    try:
+        from ..web import get_chat_manager
+        chat_mgr = get_chat_manager()
+        if not chat_mgr:
+            return jsonify([]), 200
+
+        # Get available models asynchronously
+        models = run_async_in_gevent_context(chat_mgr.get_available_models())
+
+        return jsonify(models)
+
+    except Exception as e:
+        logging.error(f"Error getting chat models: {e}", exc_info=True)
+        return jsonify([{'id': 'default', 'name': 'Default Model'}]), 200
 
 @bp.route('/chat', methods=['POST'])
 def chat():
