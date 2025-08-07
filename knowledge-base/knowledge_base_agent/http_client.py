@@ -295,7 +295,7 @@ class HTTPClient:
                     elapsed = time.time() - start_time
                     
                     # Chat API returns a different format
-                    if "message" not in result:
+                    if "message" not in result or not isinstance(result.get("message"), dict):
                         logging.error(f"Ollama chat API returned unexpected response format: {result}")
                         raise AIError("Unexpected response format from Ollama chat API")
                     
