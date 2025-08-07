@@ -40,7 +40,7 @@ def run_async_in_gevent_context(coro):
             # If loop is running (gevent context), use run_in_executor with a thread pool
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, coro)
-                return future.result(timeout=30)
+                return future.result(timeout=150) # Increased timeout
         else:
             # If no loop is running, we can use run_until_complete
             return loop.run_until_complete(coro)
