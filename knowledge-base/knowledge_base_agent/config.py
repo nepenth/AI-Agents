@@ -336,6 +336,16 @@ class Config(BaseSettings):
         populate_by_name = True
         extra = "ignore"
 
+    @field_validator('available_chat_models', mode='before')
+    def parse_json_string(cls, v):
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError("AVAILABLE_CHAT_MODELS is not a valid JSON string")
+        return v
+
     # This method is still useful to ensure the top-level directories themselves exist,
     # not just their parents. Called after path resolution.
     def ensure_directories(self) -> None:
