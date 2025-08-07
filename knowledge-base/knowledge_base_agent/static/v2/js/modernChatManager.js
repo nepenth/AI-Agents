@@ -121,7 +121,7 @@ class ModernChatManager extends BaseManager {
         }
     }
     async setupEventListeners() {
-        this.eventService.setupStandardListeners(this, {
+        EventListenerService.setupStandardListeners(this, {
             buttons: [
                 {
                     selector: this.elements.newChatBtn,
@@ -908,7 +908,7 @@ class ModernChatManager extends BaseManager {
     setupResponsiveDesign() {
         this.updateLayout();
         // Handle window resize
-        this.handleWindowResize = this.eventService.throttle(() => {
+        this.handleWindowResize = EventListenerService.getInstance().throttle('window-resize', () => {
             this.updateLayout();
         }, 100);
     }
