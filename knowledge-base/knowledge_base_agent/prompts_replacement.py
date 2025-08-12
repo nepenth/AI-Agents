@@ -176,7 +176,8 @@ class LLMPrompts:
             return manager.get_short_name_generation_prompt()
         
         try:
-            result = manager.render_prompt("short_name_generation", {}, "standard")
+            # Provide required parameter placeholder to avoid validation errors
+            result = manager.render_prompt("short_name_generation", {"category_name": "unknown"}, "standard")
             return result.content
         except Exception as e:
             print(f"Warning: JSON prompt failed, falling back to original: {e}")
