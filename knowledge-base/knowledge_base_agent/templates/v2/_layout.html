@@ -349,6 +349,8 @@
     <!-- Enhanced Chat Components - Load before modern managers -->
     <script src="{{ url_for('static', filename='v2/js/markdownLoader.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='v2/js/enhancedMessageRenderer.js', v='1.0') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    <script src="{{ url_for('static', filename='v2/js/contentRenderer.js', v='1.0') }}"></script>
     
     <!-- Modern Page Managers - Clean implementations following consolidated architecture -->
     <script src="{{ url_for('static', filename='v2/js/modernChatManager.js', v='1.0') }}"></script>

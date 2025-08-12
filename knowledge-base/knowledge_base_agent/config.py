@@ -61,6 +61,39 @@ class Config(BaseSettings):
     synthesis_thinking_model_name: Optional[str] = Field(None, alias="SYNTHESIS_THINKING_MODEL_NAME", description="The name of the thinking model to use for synthesis if enable_synthesis_thinking is true")
     synthesis_min_sub_syntheses: int = Field(2, alias="SYNTHESIS_MIN_SUB_SYNTHESES", description="Minimum number of subcategory syntheses required before generating a main category synthesis")
     
+    # === Inference Backend Configuration ===
+    # Backend Selection
+    inference_backend: str = Field("ollama", alias="INFERENCE_BACKEND", 
+                                  description="Inference backend to use: 'ollama' or 'localai'")
+    
+    # LocalAI Configuration
+    localai_api_url: HttpUrl = Field("http://localhost:8080", alias="LOCALAI_API_URL",
+                                    description="LocalAI API endpoint URL")
+    localai_timeout: int = Field(180, alias="LOCALAI_TIMEOUT",
+                                description="LocalAI API request timeout in seconds")
+    localai_max_retries: int = Field(3, alias="LOCALAI_MAX_RETRIES",
+                                    description="Maximum retry attempts for LocalAI API calls")
+    localai_concurrent_requests: int = Field(1, alias="LOCALAI_CONCURRENT_REQUESTS",
+                                            description="Maximum concurrent requests to LocalAI API")
+    
+    # LocalAI Model Configuration (alternative models when using LocalAI backend)
+    localai_vision_model: Optional[str] = Field(None, alias="LOCALAI_VISION_MODEL", 
+                                               description="Vision model to use with LocalAI backend (defaults to VISION_MODEL if not set)")
+    localai_text_model: Optional[str] = Field(None, alias="LOCALAI_TEXT_MODEL",
+                                             description="Text model to use with LocalAI backend (defaults to TEXT_MODEL if not set)")
+    localai_embedding_model: Optional[str] = Field(None, alias="LOCALAI_EMBEDDING_MODEL",
+                                                   description="Embedding model to use with LocalAI backend (defaults to EMBEDDING_MODEL if not set)")
+    localai_chat_model: Optional[str] = Field(None, alias="LOCALAI_CHAT_MODEL",
+                                             description="Chat model to use with LocalAI backend (defaults to CHAT_MODEL if not set)")
+    localai_categorization_model: Optional[str] = Field(None, alias="LOCALAI_CATEGORIZATION_MODEL",
+                                                        description="Categorization model to use with LocalAI backend (defaults to CATEGORIZATION_MODEL if not set)")
+    localai_synthesis_model: Optional[str] = Field(None, alias="LOCALAI_SYNTHESIS_MODEL",
+                                                   description="Synthesis model to use with LocalAI backend (defaults to SYNTHESIS_MODEL if not set)")
+    localai_fallback_model: Optional[str] = Field(None, alias="LOCALAI_FALLBACK_MODEL",
+                                                  description="Fallback model to use with LocalAI backend (defaults to FALLBACK_MODEL if not set)")
+    localai_available_chat_models: List[str] = Field([], alias="LOCALAI_AVAILABLE_CHAT_MODELS",
+                                                     description="JSON array of chat models available for LocalAI backend")
+    
     # GitHub settings
     github_token: str = Field(..., alias="GITHUB_TOKEN", min_length=1)
     github_user_name: str = Field(..., alias="GITHUB_USER_NAME", min_length=1)
@@ -216,6 +249,16 @@ class Config(BaseSettings):
     # Redis Configuration for Progress/Logs
     redis_progress_url: str = Field("redis://localhost:6379/1", alias="REDIS_PROGRESS_URL", description="Redis URL for progress tracking")
     redis_logs_url: str = Field("redis://localhost:6379/2", alias="REDIS_LOGS_URL", description="Redis URL for log streaming")
+
+    # Backward-compatible alias used by older realtime emitters
+    @property
+    def redis_url(self) -> str:
+        """
+        Backward-compatible property used by older realtime components.
+        Defaults to the logs Redis URL, which is where the Socket.IO
+        message_queue should point for cross-process event delivery.
+        """
+        return self.redis_logs_url
     
     # Enhanced Task Configuration
     celery_task_track_started: bool = Field(True, alias="CELERY_TASK_TRACK_STARTED", description="Track when tasks are started")
@@ -320,7 +363,213 @@ class Config(BaseSettings):
             logging.error(error_msg)
             raise ConfigurationError(error_msg)
         
+        # Validate inference backend configuration
+        self._validate_inference_backend_config()
+        
         return self
+    
+    def _validate_inference_backend_config(self) -> None:
+        """Validate inference backend configuration based on selected backend."""
+        backend = self.inference_backend.lower()
+        
+        if backend == 'ollama':
+            # Validate Ollama configuration
+            if not self.ollama_url:
+                raise ConfigurationError("OLLAMA_URL is required when using Ollama backend")
+            logging.info(f"Using Ollama backend with URL: {self.ollama_url}")
+            
+        elif backend == 'localai':
+            # Validate LocalAI configuration
+            if not self.localai_api_url:
+                logging.warning("LOCALAI_API_URL not set, using default: http://localhost:8080")
+            
+            # Validate timeout settings
+            if self.localai_timeout < 30:
+                logging.warning(
+                    f"LocalAI timeout ({self.localai_timeout}s) is very low. "
+                    f"Consider increasing for better reliability."
+                )
+            elif self.localai_timeout > 600:
+                logging.warning(
+                    f"LocalAI timeout ({self.localai_timeout}s) is very high. "
+                    f"This may cause long waits on failures."
+                )
+            
+            # Validate retry settings
+            if self.localai_max_retries < 1:
+                logging.warning("LocalAI max_retries is less than 1. No retries will be attempted.")
+            elif self.localai_max_retries > 10:
+                logging.warning(
+                    f"LocalAI max_retries ({self.localai_max_retries}) is very high. "
+                    f"This may cause long delays on persistent failures."
+                )
+            
+            # Validate concurrency settings
+            if self.localai_concurrent_requests < 1:
+                raise ConfigurationError("LOCALAI_CONCURRENT_REQUESTS must be at least 1")
+            elif self.localai_concurrent_requests > 10:
+                logging.warning(
+                    f"LocalAI concurrent_requests ({self.localai_concurrent_requests}) is very high. "
+                    f"This may overwhelm the LocalAI server."
+                )
+            
+            logging.info(f"Using LocalAI backend with URL: {self.localai_api_url}")
+            logging.info(f"LocalAI settings: timeout={self.localai_timeout}s, "
+                        f"retries={self.localai_max_retries}, "
+                        f"concurrent={self.localai_concurrent_requests}")
+        
+        else:
+            # This should not happen due to field validator, but just in case
+            raise ConfigurationError(f"Unknown inference backend: {backend}")
+    
+    def get_backend_config(self) -> Dict[str, Any]:
+        """Get configuration dictionary for the selected backend."""
+        backend = self.inference_backend.lower()
+        
+        if backend == 'ollama':
+            return {
+                'backend_type': 'ollama',
+                'api_url': str(self.ollama_url),
+                'timeout': self.request_timeout,
+                'max_retries': self.max_retries,
+                'concurrent_requests': self.max_concurrent_requests
+            }
+        elif backend == 'localai':
+            return {
+                'backend_type': 'localai',
+                'api_url': str(self.localai_api_url),
+                'timeout': self.localai_timeout,
+                'max_retries': self.localai_max_retries,
+                'concurrent_requests': self.localai_concurrent_requests
+            }
+        else:
+            raise ConfigurationError(f"Unknown inference backend: {backend}")
+    
+    def validate_backend_connectivity(self) -> Dict[str, Any]:
+        """
+        Validate that the configured backend is accessible.
+        
+        Returns:
+            Dict with validation results including status and any errors.
+        """
+        import asyncio
+        import aiohttp
+        
+        async def check_connectivity():
+            backend = self.inference_backend.lower()
+            result = {
+                'backend': backend,
+                'accessible': False,
+                'error': None,
+                'response_time': None
+            }
+            
+            try:
+                if backend == 'ollama':
+                    url = f"{self.ollama_url}/api/tags"
+                    timeout = self.request_timeout
+                elif backend == 'localai':
+                    url = f"{self.localai_api_url}/v1/models"  # LocalAI models endpoint
+                    timeout = self.localai_timeout
+                else:
+                    result['error'] = f"Unknown backend: {backend}"
+                    return result
+                
+                import time
+                start_time = time.time()
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=min(timeout, 10))) as response:
+                        result['response_time'] = time.time() - start_time
+                        result['accessible'] = response.status < 500
+                        if not result['accessible']:
+                            result['error'] = f"HTTP {response.status}: {response.reason}"
+                            
+            except asyncio.TimeoutError:
+                result['error'] = f"Connection timeout after {timeout}s"
+            except aiohttp.ClientConnectionError as e:
+                result['error'] = f"Connection failed: {str(e)}"
+            except Exception as e:
+                result['error'] = f"Unexpected error: {str(e)}"
+            
+            return result
+        
+        try:
+            return asyncio.run(check_connectivity())
+        except Exception as e:
+            return {
+                'backend': self.inference_backend,
+                'accessible': False,
+                'error': f"Validation failed: {str(e)}",
+                'response_time': None
+            }
+    
+    def get_model_for_backend(self, model_type: str) -> str:
+        """
+        Get the appropriate model for the selected backend.
+        
+        Args:
+            model_type: Type of model ('vision', 'text', 'embedding', 'chat', 
+                       'categorization', 'synthesis', 'fallback')
+        
+        Returns:
+            str: Model name to use for the current backend
+        """
+        backend = self.inference_backend.lower()
+        
+        # Map model types to their config attributes
+        model_mapping = {
+            'vision': ('vision_model', 'localai_vision_model'),
+            'text': ('text_model', 'localai_text_model'),
+            'embedding': ('embedding_model', 'localai_embedding_model'),
+            'chat': ('chat_model', 'localai_chat_model'),
+            'categorization': ('categorization_model', 'localai_categorization_model'),
+            'synthesis': ('synthesis_model', 'localai_synthesis_model'),
+            'fallback': ('fallback_model', 'localai_fallback_model')
+        }
+        
+        if model_type not in model_mapping:
+            raise ValueError(f"Unknown model type: {model_type}")
+        
+        base_attr, localai_attr = model_mapping[model_type]
+        
+        if backend == 'localai':
+            # For LocalAI backend, use LocalAI-specific model if set, otherwise fall back to base model
+            localai_model = getattr(self, localai_attr, None)
+            if localai_model:
+                logging.debug(f"Using LocalAI-specific {model_type} model: {localai_model}")
+                return localai_model
+            else:
+                base_model = getattr(self, base_attr)
+                logging.debug(f"Using base {model_type} model for LocalAI: {base_model}")
+                return base_model
+        else:
+            # For Ollama backend, always use base model
+            base_model = getattr(self, base_attr)
+            logging.debug(f"Using base {model_type} model for Ollama: {base_model}")
+            return base_model
+    
+    def get_available_chat_models_for_backend(self) -> List[str]:
+        """
+        Get available chat models for the selected backend.
+        
+        Returns:
+            List[str]: Available chat models for the current backend
+        """
+        backend = self.inference_backend.lower()
+        
+        if backend == 'localai':
+            # For LocalAI, use LocalAI-specific models if set, otherwise fall back to base models
+            if self.localai_available_chat_models:
+                logging.debug(f"Using LocalAI-specific chat models: {self.localai_available_chat_models}")
+                return self.localai_available_chat_models
+            else:
+                logging.debug(f"Using base chat models for LocalAI: {self.available_chat_models}")
+                return self.available_chat_models
+        else:
+            # For Ollama, always use base models
+            logging.debug(f"Using base chat models for Ollama: {self.available_chat_models}")
+            return self.available_chat_models
     
     @field_validator('rate_limit_period', mode='before')
     def validate_rate_limit_period(cls, v):
@@ -332,6 +581,26 @@ class Config(BaseSettings):
         except (ValueError, TypeError) as e:
             logging.error(f"Failed to parse rate_limit_period: {e}")
             raise ValueError(f"Invalid rate_limit_period value: {v}")
+
+    @field_validator('inference_backend', mode='before')
+    def validate_inference_backend(cls, v):
+        """Validate and normalize inference backend selection."""
+        if not v:
+            logging.warning("INFERENCE_BACKEND not set, defaulting to 'ollama'")
+            return 'ollama'
+        
+        v_lower = str(v).lower().strip()
+        valid_backends = ['ollama', 'localai']
+        
+        if v_lower not in valid_backends:
+            logging.warning(
+                f"Invalid inference backend '{v}'. Valid options: {valid_backends}. "
+                f"Defaulting to 'ollama'"
+            )
+            return 'ollama'
+        
+        logging.info(f"Using inference backend: {v_lower}")
+        return v_lower
 
     class Config:
         env_file = ".env"
@@ -347,6 +616,16 @@ class Config(BaseSettings):
                 return json.loads(v)
             except json.JSONDecodeError:
                 raise ValueError("AVAILABLE_CHAT_MODELS is not a valid JSON string")
+        return v
+
+    @field_validator('localai_available_chat_models', mode='before')
+    def parse_localai_json_string(cls, v):
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError("LOCALAI_AVAILABLE_CHAT_MODELS is not a valid JSON string")
         return v
 
     # This method is still useful to ensure the top-level directories themselves exist,

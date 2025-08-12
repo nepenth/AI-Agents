@@ -21,8 +21,16 @@ load_dotenv()
 
 # Constants and selectors
 LOGIN_URL = "https://x.com/login"
-USERNAME_SELECTOR = 'input[name="text"]'
-PASSWORD_SELECTOR = 'input[name="password"]'
+USERNAME_SELECTORS = [
+    'input[name="text"]',
+    'input[autocomplete="username"]',
+    'input[type="text"]',
+]
+PASSWORD_SELECTORS = [
+    'input[name="password"]',
+    'input[type="password"]',
+    'input[autocomplete="current-password"]',
+]
 TWEET_SELECTOR = 'article[data-testid="tweet"], article[role="article"], article'
 SCROLL_PIXELS = 1000
 SCROLL_PAUSE = 5 
@@ -73,18 +81,108 @@ class BookmarksFetcher:
             self.context = await self.browser.new_context()
             self.page = await self.context.new_page()
             
-            # Navigate to login page
+            # Navigate to login page (use updated X URL)
             logging.info("Navigating to login page...")
-            await self.page.goto('https://twitter.com/login', wait_until="networkidle", timeout=self.login_timeout)
+            await self.page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=self.login_timeout)
             
             # Login
-            await self.page.wait_for_selector(USERNAME_SELECTOR, timeout=self.login_timeout)
-            await self.page.type(USERNAME_SELECTOR, self.config.x_username, delay=100)
+            # Handle possible multi-step username prompts with multiple selector fallbacks
+            username_selector = None
+            for sel in USERNAME_SELECTORS:
+                try:
+                    await self.page.wait_for_selector(sel, timeout=2000)
+                    username_selector = sel
+                    break
+                except Exception:
+                    continue
+            if not username_selector:
+                # Last attempt: try role-based lookup
+                try:
+                    input_el = await self.page.get_by_role('textbox').first
+                    if input_el:
+                        username_selector = USERNAME_SELECTORS[0]
+                        await input_el.fill(self.config.x_username)
+                except Exception:
+                    pass
+            if not username_selector:
+                raise BookmarksFetchError("Login page did not present a username field")
+            else:
+                try:
+                    await self.page.fill(username_selector, self.config.x_username)
+                except Exception:
+                    # Some flows use role-based input only
+                    try:
+                        await self.page.get_by_role('textbox').first.fill(self.config.x_username)
+                    except Exception as e:
+                        raise BookmarksFetchError("Could not enter username on login page") from e
             await self.page.keyboard.press('Enter')
-            await self.page.wait_for_timeout(3000)
+            await self.page.wait_for_timeout(1500)
 
-            await self.page.wait_for_selector(PASSWORD_SELECTOR, timeout=self.login_timeout)
-            await self.page.type(PASSWORD_SELECTOR, self.config.x_password, delay=100)
+            # Try to accept cookies if present
+            try:
+                btn = await self.page.get_by_role('button', name='Accept all').first
+                if btn:
+                    await btn.click()
+                    await self.page.wait_for_timeout(500)
+            except Exception:
+                pass
+
+            # Some flows ask again for phone/email/username before password appears
+            # Try multiple password selectors and a short retry loop
+            def _password_selector_js(selectors: list[str]) -> str:
+                return " || ".join([f"document.querySelector('{s}') !== null" for s in selectors])
+            
+            found_password = False
+            for attempt in range(3):
+                try:
+                    for sel in PASSWORD_SELECTORS:
+                        try:
+                            await self.page.wait_for_selector(sel, timeout=2000)
+                            found_password = True
+                            password_selector = sel
+                            break
+                        except Exception:
+                            continue
+                    if found_password:
+                        break
+                    # Try identity re-prompt flow if still not found
+                    logging.info("Password field not visible yet; attempting secondary identity prompt flow")
+                    if await self.page.is_visible(USERNAME_SELECTORS[0]) or await self.page.evaluate(f"() => {_password_selector_js(USERNAME_SELECTORS)}"):
+                        try:
+                            await self.page.fill(USERNAME_SELECTORS[0], self.config.x_username)
+                        except Exception:
+                            try:
+                                await self.page.get_by_role('textbox').first.fill(self.config.x_username)
+                            except Exception:
+                                pass
+                        clicked = False
+                        for btn_name in ['Next', 'Continue', 'Log in', 'Sign in']:
+                            try:
+                                await self.page.get_by_role('button', name=btn_name).click(timeout=1500)
+                                clicked = True
+                                break
+                            except Exception:
+                                continue
+                        if not clicked:
+                            await self.page.keyboard.press('Enter')
+                        await self.page.wait_for_timeout(1500)
+                except Exception:
+                    pass
+            if not found_password:
+                logging.info("Password field not visible yet; attempting secondary identity prompt flow")
+                raise BookmarksFetchError(
+                    "Login flow did not present password field (possible challenge/2FA)."
+                )
+
+            # Enter password
+            try:
+                await self.page.type(password_selector, self.config.x_password, delay=100)  # type: ignore[name-defined]
+            except Exception as e:
+                # Try a broad fallback for any visible password input
+                try:
+                    await self.page.fill('input[type="password"]', self.config.x_password)
+                except Exception as e2:
+                    raise BookmarksFetchError("Could not enter password on login page") from e2
             await self.page.keyboard.press('Enter')
             
             logging.info("Login submitted")

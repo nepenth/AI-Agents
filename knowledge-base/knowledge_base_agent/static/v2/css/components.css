@@ -1,3 +1,20 @@
+/* Modern markdown content styling for modals */
+.modal-content {
+  color: #e5e7eb;
+  line-height: 1.65;
+}
+.modal-content h1, .modal-content h2, .modal-content h3, .modal-content h4 {
+  color: #f3f4f6;
+  margin: 1rem 0 0.5rem;
+}
+.modal-content h1 { font-size: 1.8rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.3rem; }
+.modal-content h2 { font-size: 1.4rem; }
+.modal-content h3 { font-size: 1.2rem; }
+.modal-content p { margin: 0.5rem 0; }
+.modal-content ul, .modal-content ol { padding-left: 1.4rem; }
+.modal-content code { background: rgba(255,255,255,0.08); padding: 0.1rem 0.3rem; border-radius: 4px; }
+.modal-content pre { background: rgba(255,255,255,0.06); padding: 0.8rem; border-radius: 8px; overflow: auto; }
+.item-snippet { margin-top: 0.4rem; color: #93c5fd; }
 /* ===== SCOPED COMPONENTS CSS ===== */
 /* This file contains styles that are scoped to specific pages to avoid conflicts with the Agent Dashboard */
 

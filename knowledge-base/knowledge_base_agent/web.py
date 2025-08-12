@@ -260,7 +260,8 @@ def create_app():
         logger=False, 
         engineio_logger=False, 
         cors_allowed_origins="*",
-        message_queue=config_instance.celery_broker_url  # Enable cross-process emits from Celery workers
+        # Use the logs Redis URL for SocketIO message queue so workers can emit to web
+        message_queue=config_instance.redis_logs_url
     )
     migrate = Migrate()
     realtime_manager = EnhancedRealtimeManager(socketio, config_instance)

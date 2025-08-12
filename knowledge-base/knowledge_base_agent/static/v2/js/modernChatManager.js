@@ -1054,6 +1054,13 @@ class ModernChatManager extends BaseManager {
             this.isTyping = true;
             const startTime = Date.now();
             // Send message to API with knowledge base integration
+            // Retrieve top search hits to assist retrieval alongside embeddings
+            let searchHits = [];
+            try {
+                const sres = await this.apiCall(`/search?q=${encodeURIComponent(message)}&type=all&limit=8`, { showLoading: false, cache: false });
+                if (sres && Array.isArray(sres.results)) searchHits = sres.results.slice(0, 8);
+            } catch (_) {}
+
             const response = await this.apiCall('/chat/enhanced', {
                 method: 'POST',
                 body: {
@@ -1061,7 +1068,8 @@ class ModernChatManager extends BaseManager {
                     session_id: this.currentSessionId,
                     model: this.selectedModel,
                     use_knowledge_base: true,
-                    include_embeddings: true
+                    include_embeddings: true,
+                    search_context: searchHits
                 },
                 errorMessage: 'Failed to send message',
                 timeout: 120000 // 2 minute timeout for knowledge base queries

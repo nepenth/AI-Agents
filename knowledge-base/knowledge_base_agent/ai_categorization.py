@@ -100,10 +100,13 @@ async def categorize_and_name_content(
 ) -> Tuple[str, str, str]:
     """Categorize content using text and image descriptions, with robust retries, expecting JSON output."""
     
-    # Use categorization_model if available, otherwise fall back to text_model
-    model_to_use = getattr(http_client.config, 'categorization_model', text_model)
-    if model_to_use != text_model:
-        logging.info(f"Using dedicated categorization model: {model_to_use} for tweet {tweet_id}")
+    # Use backend-aware categorization model selection
+    model_to_use = http_client.config.get_model_for_backend('categorization')
+    text_model_for_backend = http_client.config.get_model_for_backend('text')
+    if model_to_use != text_model_for_backend:
+        logging.info(f"Using dedicated categorization model for {http_client.config.inference_backend}: {model_to_use} for tweet {tweet_id}")
+    else:
+        logging.info(f"Using text model for categorization on {http_client.config.inference_backend}: {model_to_use} for tweet {tweet_id}")
     
     raw_tweet_text = ""
     thread_segments = tweet_data.get("thread_tweets", [])
@@ -212,7 +215,7 @@ async def categorize_and_name_content(
         for attempt in range(max_retries):
             try:
                 # Use the chat endpoint for reasoning models
-                response = await http_client.ollama_chat(
+                response = await http_client.chat(
                     model=model_to_use,
                     messages=messages,
                     temperature=0.7,
@@ -239,11 +242,13 @@ async def categorize_and_name_content(
             except AIError as e:
                 logging.warning(f"Attempt {attempt+1}/{max_retries}: AI error during categorization for tweet {tweet_id}: {e}")
                 # If we've reached max retries, try fallback model if available
-                if attempt == max_retries - 1 and fallback_model:
-                    logging.info(f"Trying fallback model {fallback_model} for tweet {tweet_id}")
+                # Try backend-aware fallback model
+                backend_fallback_model = http_client.config.get_model_for_backend('fallback')
+                if attempt == max_retries - 1 and backend_fallback_model:
+                    logging.info(f"Trying fallback model for {http_client.config.inference_backend}: {backend_fallback_model} for tweet {tweet_id}")
                     try:
-                        response = await http_client.ollama_chat(
-                            model=fallback_model,
+                        response = await http_client.chat(
+                            model=backend_fallback_model,
                             messages=messages,
                             temperature=0.7,
                             top_p=0.9,
@@ -278,7 +283,7 @@ async def categorize_and_name_content(
         for attempt in range(max_retries):
             try:
                 use_json_mode = hasattr(http_client.config, 'ollama_supports_json_mode') and http_client.config.ollama_supports_json_mode
-                response = await http_client.ollama_generate(
+                response = await http_client.generate(
                     model=model_to_use,
                     prompt=prompt_text,
                     temperature=0.7,
@@ -299,11 +304,13 @@ async def categorize_and_name_content(
             except AIError as e:
                 logging.warning(f"Attempt {attempt+1}/{max_retries}: AI error during categorization for tweet {tweet_id}: {e}")
                 # If we've reached max retries, try fallback model if available
-                if attempt == max_retries - 1 and fallback_model:
-                    logging.info(f"Trying fallback model {fallback_model} for tweet {tweet_id}")
+                # Try backend-aware fallback model
+                backend_fallback_model = http_client.config.get_model_for_backend('fallback')
+                if attempt == max_retries - 1 and backend_fallback_model:
+                    logging.info(f"Trying fallback model for {http_client.config.inference_backend}: {backend_fallback_model} for tweet {tweet_id}")
                     try:
-                        response = await http_client.ollama_generate(
-                            model=fallback_model,
+                        response = await http_client.generate(
+                            model=backend_fallback_model,
                             prompt=prompt_text,
                             temperature=0.7,
                             top_p=0.9,

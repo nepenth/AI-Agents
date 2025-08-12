@@ -261,8 +261,8 @@ async def generate_root_readme(
                     ReasoningPrompts.get_system_message(),
                     ReasoningPrompts.get_readme_generation_prompt(kb_stats, category_list_str),
                 ]
-                intro_content = await http_client.ollama_chat(
-                    model=config.text_model,
+                intro_content = await http_client.chat(
+                    model=config.get_model_for_backend('text'),
                     messages=messages,
                     temperature=0.7,
                     timeout=config.content_generation_timeout,
@@ -270,8 +270,8 @@ async def generate_root_readme(
             else:
                 # Use the centralized standard prompt with synthesis awareness  
                 intro_prompt = LLMPrompts.get_readme_introduction_prompt_standard(kb_stats, category_list_str)
-                intro_content = await http_client.ollama_generate(
-                    model=config.text_model,
+                intro_content = await http_client.generate(
+                    model=config.get_model_for_backend('text'),
                     prompt=intro_prompt,
                     temperature=0.7,
                     max_tokens=500,
@@ -327,8 +327,8 @@ async def generate_root_readme(
                         ReasoningPrompts.get_readme_category_description_prompt(main_display, total_cat_items, active_subcats)
                     ]
 
-                    cat_desc = await http_client.ollama_chat(
-                        model=config.text_model,
+                    cat_desc = await http_client.chat(
+                        model=config.get_model_for_backend('text'),
                         messages=cat_messages,
                         temperature=0.7,
                         timeout=config.content_generation_timeout,
@@ -336,8 +336,8 @@ async def generate_root_readme(
                 else:
                     logging.info(f"Using standard mode for category description: {main_display}")
                     cat_prompt = LLMPrompts.get_readme_category_description_prompt_standard(main_display, total_cat_items, active_subcats)
-                    cat_desc = await http_client.ollama_generate(
-                        model=config.text_model,
+                    cat_desc = await http_client.generate(
+                        model=config.get_model_for_backend('text'),
                         prompt=cat_prompt,
                         temperature=0.7,
                         max_tokens=200,

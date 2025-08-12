@@ -457,8 +457,8 @@ class SynthesisGenerator:
             estimated_items = len(kb_items_content.split('\n\n')) if kb_items_content else 0
             self.logger.info(f"Starting synthesis JSON generation for '{target_name}' with ~{estimated_items} content sections (timeout: {synthesis_timeout}s)")
             
-            response_content = await self.http_client.ollama_generate(
-                model=getattr(self.config, 'synthesis_model', None) or self.config.text_model,
+            response_content = await self.http_client.generate(
+                model=self.config.get_model_for_backend('synthesis'),
                 prompt=full_prompt,
                 temperature=0.7,
                 max_tokens=getattr(self.config, 'max_synthesis_tokens', 4000),
@@ -507,8 +507,8 @@ class SynthesisGenerator:
             
             self.logger.info(f"Starting synthesis markdown generation for '{target_name}'")
             
-            response_content = await self.http_client.ollama_generate(
-                model=getattr(self.config, 'synthesis_model', None) or self.config.text_model,
+            response_content = await self.http_client.generate(
+                model=self.config.get_model_for_backend('synthesis'),
                 prompt=prompt,
                 temperature=0.7,
                 max_tokens=getattr(self.config, 'max_synthesis_tokens', 4000),

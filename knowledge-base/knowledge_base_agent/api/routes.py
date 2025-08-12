@@ -20,6 +20,7 @@ import asyncio
 import platform
 import psutil
 from dataclasses import asdict
+from sqlalchemy import text
 import markdown
 import concurrent.futures
 import tempfile
@@ -80,17 +81,22 @@ logger = logging.getLogger(__name__)
 def start_agent_v2():
     """Enhanced agent start with comprehensive task state management."""
 
-    async def _start_async():
+    # Capture request data in request context and pass to async worker
+    try:
+        incoming = request.get_json(silent=True) or {}
+        preferences_data = incoming.get('preferences', {})
+    except Exception:
+        incoming = {}
+        preferences_data = {}
+
+    async def _start_async(pref_data):
         from ..tasks import run_agent_task, generate_task_id
         from ..task_state_manager import TaskStateManager
         from ..preferences import UserPreferences, save_user_preferences
 
-        data = request.json or {}
-        preferences_data = data.get('preferences', {})
-
         # Validate preferences
         try:
-            user_preferences = UserPreferences(**preferences_data)
+            user_preferences = UserPreferences(**pref_data)
             preferences_dict = asdict(user_preferences)
         except Exception as e:
             logger.error("Invalid preferences data: %s", e)
@@ -124,7 +130,18 @@ def start_agent_v2():
             return jsonify({'success': False, 'error': f'Failed to create task: {e}'}), 500
 
         # Queue the Celery task
-        celery_task = run_agent_task.delay(task_id, preferences_dict)
+        try:
+            celery_task = run_agent_task.delay(task_id, preferences_dict)
+        except Exception as e:
+            logger.error(f"Failed to enqueue Celery task: {e}", exc_info=True)
+            # Mark task as failed to avoid dangling active state
+            try:
+                task_state.status = 'FAILURE'
+                task_state.updated_at = datetime.utcnow()
+                db.session.commit()
+            except Exception:
+                pass
+            return jsonify({'success': False, 'error': 'Celery broker/unavailable. Ensure workers and broker are running.'}), 503
         
         # Update with Celery task ID
         task_state.celery_task_id = celery_task.id
@@ -133,7 +150,7 @@ def start_agent_v2():
         progress_manager = get_progress_manager()
         await progress_manager.update_progress(task_id, 0, "queued", "Agent execution queued")
 
-        save_user_preferences(preferences_data)
+        save_user_preferences(pref_data)
 
         return jsonify({
             'success': True, 
@@ -143,7 +160,7 @@ def start_agent_v2():
             'message': 'Agent execution queued with comprehensive tracking'
         })
 
-    return run_async_in_gevent_context(_start_async())
+    return run_async_in_gevent_context(_start_async(preferences_data))
 
 
 @bp.route('/v2/agent/status/<task_id>', methods=['GET'])
@@ -1449,8 +1466,52 @@ def api_chat_enhanced():
         if not chat_mgr:
             return jsonify({'error': 'Chat functionality not available'}), 503
 
+        # If provided, use search_context from client. Otherwise, consult FTS for top hits
+        search_context = data.get('search_context')
+        if not search_context and use_knowledge_base:
+            try:
+                kb_rows = db.session.execute(text("SELECT id, title FROM kb_item_fts WHERE kb_item_fts MATCH :q LIMIT 5"), {"q": message}).all()
+                syn_rows = db.session.execute(text("SELECT id, title FROM synthesis_fts WHERE synthesis_fts MATCH :q LIMIT 5"), {"q": message}).all()
+                search_context = (
+                    [{'type': 'kb', 'id': r.id, 'title': r.title} for r in kb_rows] +
+                    [{'type': 'synthesis', 'id': r.id, 'title': r.title} for r in syn_rows]
+                )
+            except Exception:
+                search_context = []
+
+        # Resolve search_context into concrete source metadata (fetch titles and short content)
+        resolved_sources = []
+        try:
+            for src in (search_context or []):
+                stype = src.get('type')
+                sid = src.get('id')
+                if stype == 'kb' and sid is not None:
+                    ut = db.session.execute(text("SELECT id, kb_display_title, main_category, sub_category, markdown_content FROM unified_tweet WHERE id=:id"), {"id": sid}).first()
+                    if ut:
+                        resolved_sources.append({
+                            'type': 'kb_item',
+                            'id': ut.id,
+                            'title': ut.kb_display_title,
+                            'main_category': ut.main_category,
+                            'sub_category': ut.sub_category,
+                            'content': (ut.markdown_content or '')[:500]
+                        })
+                elif stype == 'synthesis' and sid is not None:
+                    syn = db.session.execute(text("SELECT id, synthesis_title, main_category, sub_category, synthesis_content FROM subcategory_synthesis WHERE id=:id"), {"id": sid}).first()
+                    if syn:
+                        resolved_sources.append({
+                            'type': 'synthesis',
+                            'id': syn.id,
+                            'title': syn.synthesis_title,
+                            'main_category': syn.main_category,
+                            'sub_category': syn.sub_category,
+                            'content': (syn.synthesis_content or '')[:500]
+                        })
+        except Exception as _e:
+            pass
+
         result = run_async_in_gevent_context(
-            chat_mgr.handle_chat_query(message, model, use_knowledge_base=use_knowledge_base)
+            chat_mgr.handle_chat_query(message, model, use_knowledge_base=use_knowledge_base, search_context=resolved_sources)
         )
         
         if 'error' in result:
@@ -3088,10 +3149,10 @@ def get_kb_all():
     """Returns a JSON object with all KB items and syntheses for the TOC from unified database."""
     try:
         from ..models import UnifiedTweet
-        # Get KB items from unified database
+        # Get KB items from unified database using only modern markdown_content
         items = db.session.query(UnifiedTweet).filter(
             UnifiedTweet.kb_item_created == True,
-            UnifiedTweet.kb_content.isnot(None)
+            UnifiedTweet.markdown_content.isnot(None)
         ).order_by(UnifiedTweet.main_category, UnifiedTweet.sub_category, UnifiedTweet.kb_display_title).all()
         syntheses = db.session.query(SubcategorySynthesis).order_by(SubcategorySynthesis.main_category, SubcategorySynthesis.sub_category).all()  # type: ignore
         
@@ -3189,62 +3250,84 @@ def validate_kb_items():
         return jsonify({'error': f'Failed to validate KB items: {str(e)}'}), 500
 
 @bp.route('/items/<int:item_id>')
-def get_kb_item(item_id):
-    """API endpoint for getting KB item data in JSON format."""
+def get_kb_item(item_id: int):
+    """API endpoint for getting KB item data in JSON format.
+
+    Unified source only: use UnifiedTweet as the single source of truth.
+    """
     try:
         from flask import url_for
-        item = KnowledgeBaseItem.query.get_or_404(item_id)
-        
-        # Parse raw JSON content if it exists
-        raw_json_content_parsed = None
-        if item.raw_json_content:
-            try:
-                import json
-                raw_json_content_parsed = json.loads(item.raw_json_content)
-            except (json.JSONDecodeError, TypeError):
-                raw_json_content_parsed = None
-        
-        # Parse media paths
-        media_files_for_template = []
-        if item.kb_media_paths:
-            try:
-                import json
-                media_paths = json.loads(item.kb_media_paths)
-                if isinstance(media_paths, list):
-                    for media_path in media_paths:
-                        filename = media_path.split('/')[-1] if media_path else 'unknown'
-                        media_type = 'image' if any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']) else 'video' if any(filename.lower().endswith(ext) for ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']) else 'other'
-                        media_files_for_template.append({
-                            'name': filename,
-                            'url': url_for('api.serve_kb_media_generic', path=media_path),
-                            'type': media_type
-                        })
-            except (json.JSONDecodeError, TypeError):
-                pass
-        
-        item_data = {
-            'id': item.id,
-            'tweet_id': item.tweet_id,
-            'title': item.kb_display_title or item.kb_item_name or f'Tweet {item.tweet_id}',
-            'display_title': item.kb_display_title,
-            'description': item.full_text[:200] + '...' if item.full_text and len(item.full_text) > 200 else item.full_text,
-            'content': item.kb_content,
-            'markdown_content': item.kb_content,  # Backward compatibility
-            'main_category': item.main_category,
-            'sub_category': item.sub_category,
-            'item_name': item.kb_item_name,
-            'source_url': item.source_url,
-            'created_at': item.created_at.isoformat() if item.created_at else None,
-            'last_updated': item.last_updated.isoformat() if item.last_updated else None,
-            'file_path': item.file_path,
-            'kb_media_paths': item.kb_media_paths,
-            'raw_json_content': item.raw_json_content,
-            'raw_json_content_parsed': raw_json_content_parsed,
-            'media_files_for_template': media_files_for_template
-            , 'content_html': markdown.markdown(item.content or "", extensions=['extra','codehilite']) if item.content and item.content.strip() else ""
-        }
-        return jsonify(item_data)
+        from ..models import UnifiedTweet, RenderCache
+        import json, hashlib
+
+        def _normalize_list(value):
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return value
+            if isinstance(value, str):
+                try:
+                    v = json.loads(value)
+                    return v if isinstance(v, list) else []
+                except Exception:
+                    return []
+            return []
+
+        ut = UnifiedTweet.query.get(item_id)
+        if ut is None:
+            return jsonify({'error': 'KB item not found'}), 404
+
+        raw_content = None
+        if ut.raw_tweet_data:
+            if isinstance(ut.raw_tweet_data, dict):
+                raw_content = ut.raw_tweet_data
+            elif isinstance(ut.raw_tweet_data, str):
+                try:
+                    raw_content = json.loads(ut.raw_tweet_data)
+                except json.JSONDecodeError:
+                    raw_content = None
+
+        kb_media_paths = _normalize_list(ut.kb_media_paths)
+        media_files = _normalize_list(ut.media_files)
+
+        # Use only modern markdown_content and serve HTML from render cache
+        content_md = ut.markdown_content or ""
+        content_html = ""
+        if content_md.strip():
+            h = hashlib.sha256(content_md.encode('utf-8')).hexdigest()
+            rc = db.session.query(RenderCache).filter_by(document_type='kb_item', document_id=ut.id, content_hash=h).first()
+            if rc:
+                content_html = rc.html
+            else:
+                content_html = markdown.markdown(content_md, extensions=['extra','codehilite'])
+                try:
+                    db.session.add(RenderCache(document_type='kb_item', document_id=ut.id, content_hash=h, html=content_html))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+
+        return jsonify({
+            'id': ut.id,
+            'tweet_id': ut.tweet_id,
+            'title': ut.kb_display_title or ut.kb_item_name or f'Tweet {ut.tweet_id}',
+            'display_title': ut.kb_display_title,
+            'description': (ut.full_text[:200] + '...') if ut.full_text and len(ut.full_text) > 200 else (ut.full_text or None),
+            'content': content_md,
+            'content_html': content_html,
+            'markdown_content': content_md,
+            'main_category': ut.main_category,
+            'sub_category': ut.sub_category,
+            'item_name': ut.kb_item_name,
+            'source_url': ut.source_url,
+            'created_at': ut.created_at.isoformat() if ut.created_at else None,
+            'last_updated': ut.updated_at.isoformat() if ut.updated_at else None,
+            'file_path': ut.kb_file_path,
+            'kb_media_paths': kb_media_paths,
+            'media_files': media_files,
+            'raw_json_content': raw_content
+        })
     except Exception as e:
+        current_app.logger.error(f"Failed to fetch KB item {item_id}: {e}", exc_info=True)
         return jsonify({'error': f'Failed to fetch KB item: {str(e)}'}), 500
 
 @bp.route('/synthesis/<int:synthesis_id>')
@@ -3474,6 +3557,79 @@ def restart_realtime_manager():
             'error': str(e)
         }), 500
 
+
+# ===== ADMIN: NORMALIZATION =====
+@bp.route('/admin/normalize-unified-tweets', methods=['POST'])
+def normalize_unified_tweets():
+    """Normalize existing UnifiedTweet rows to modern format without data loss.
+
+    Body JSON:
+      - dry_run: bool (default True) Only report changes without writing
+      - limit: int (optional) limit number of rows processed
+    """
+    try:
+        from ..models import UnifiedTweet
+        import json
+        payload = request.get_json(silent=True) or {}
+        dry_run = payload.get('dry_run', True)
+        limit = payload.get('limit')
+
+        q = db.session.query(UnifiedTweet)
+        if isinstance(limit, int) and limit > 0:
+            q = q.limit(limit)
+        rows = q.all()
+
+        changes = []
+        updated = 0
+
+        for ut in rows:
+            row_changes = {'id': ut.id, 'tweet_id': ut.tweet_id, 'actions': []}
+
+            # 1) Promote kb_content -> markdown_content if markdown_content is empty
+            if (not getattr(ut, 'markdown_content', None)) and getattr(ut, 'kb_content', None):
+                row_changes['actions'].append('promote_kb_content_to_markdown_content')
+                if not dry_run:
+                    ut.markdown_content = ut.kb_content
+
+            # 2) Ensure kb_media_paths is a list
+            if isinstance(ut.kb_media_paths, str):
+                row_changes['actions'].append('parse_kb_media_paths_string_to_list')
+                if not dry_run:
+                    try:
+                        parsed = json.loads(ut.kb_media_paths)
+                        ut.kb_media_paths = parsed if isinstance(parsed, list) else []
+                    except Exception:
+                        ut.kb_media_paths = []
+
+            # 3) Ensure media_files is a list
+            if isinstance(ut.media_files, str):
+                row_changes['actions'].append('parse_media_files_string_to_list')
+                if not dry_run:
+                    try:
+                        parsed = json.loads(ut.media_files)
+                        ut.media_files = parsed if isinstance(parsed, list) else []
+                    except Exception:
+                        ut.media_files = []
+
+            # 4) Prefer kb_display_title, else display_title
+            if not ut.kb_display_title and ut.display_title:
+                row_changes['actions'].append('copy_display_title_to_kb_display_title')
+                if not dry_run:
+                    ut.kb_display_title = ut.display_title
+
+            if row_changes['actions']:
+                changes.append(row_changes)
+                if not dry_run:
+                    updated += 1
+
+        if not dry_run and updated:
+            db.session.commit()
+
+        return jsonify({'success': True, 'dry_run': dry_run, 'updated': updated, 'changes': changes[:1000]})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Normalization failed: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ===== TWEET MANAGEMENT API ENDPOINTS =====
 # These endpoints provide comprehensive tweet exploration, management, and control functionality
@@ -4570,4 +4726,54 @@ def get_all_tweets():
         current_app.logger.error(f"Error retrieving tweets: {e}", exc_info=True)
         return jsonify({'error': 'Failed to retrieve tweets'}), 500
 
+
+
+@bp.route('/search', methods=['GET'])
+def search_documents():
+    """Unified search across KB items and Synthesis using SQLite FTS5.
+
+    Query params:
+      - q: search query
+      - type: 'kb' | 'synthesis' | 'all' (default 'all')
+      - limit: max results (default 50)
+    """
+    try:
+        q = request.args.get('q', '').strip()
+        doc_type = request.args.get('type', 'all').lower()
+        try:
+            limit = min(200, max(1, int(request.args.get('limit', 50))))
+        except ValueError:
+            limit = 50
+
+        if not q:
+            return jsonify({'success': True, 'results': []})
+
+        results = []
+        # Use raw SQL for FTS5 queries
+        if doc_type in ('all', 'kb'):
+            sql_kb = "SELECT id, title, snippet(kb_item_fts, 1, '<b>', '</b>', '…', 10) AS snippet FROM kb_item_fts WHERE kb_item_fts MATCH :query LIMIT :limit"
+            rows = db.session.execute(text(sql_kb), {"query": q, "limit": limit}).all()
+            for r in rows:
+                results.append({
+                    'type': 'kb',
+                    'id': r.id,
+                    'title': r.title,
+                    'snippet': r.snippet
+                })
+
+        if doc_type in ('all', 'synthesis'):
+            sql_syn = "SELECT id, title, snippet(synthesis_fts, 1, '<b>', '</b>', '…', 10) AS snippet FROM synthesis_fts WHERE synthesis_fts MATCH :query LIMIT :limit"
+            rows = db.session.execute(text(sql_syn), {"query": q, "limit": limit}).all()
+            for r in rows:
+                results.append({
+                    'type': 'synthesis',
+                    'id': r.id,
+                    'title': r.title,
+                    'snippet': r.snippet
+                })
+
+        return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        current_app.logger.error(f"Search failed: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 

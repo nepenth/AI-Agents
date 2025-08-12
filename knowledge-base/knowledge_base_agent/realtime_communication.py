@@ -107,8 +107,9 @@ class ModernRealtimeEmitter:
         
         try:
             # Create SocketIO instance with same message_queue as web server
+            # Use the logs Redis URL for SocketIO cross-process message queue
             self._socketio = SocketIO(
-                message_queue=self.config.redis_url,
+                message_queue=self.config.redis_logs_url,
                 logger=False,
                 engineio_logger=False
             )

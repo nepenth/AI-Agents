@@ -769,11 +769,11 @@ class StreamlinedContentProcessor:
                 tweet_data['markdown_content'] = kb_item_obj.markdown_content
                 tweet_data['raw_json_content'] = kb_item_obj.raw_json_content
                 
-                # Store media paths in the unified database (no filesystem paths needed)
+                # Store media paths as JSON list (not JSON string)
                 if hasattr(kb_item_obj, 'media_files') and kb_item_obj.media_files:
-                    tweet_data['kb_media_paths'] = json.dumps(kb_item_obj.media_files)
+                    tweet_data['kb_media_paths'] = list(kb_item_obj.media_files)
                 else:
-                    tweet_data['kb_media_paths'] = json.dumps([])
+                    tweet_data['kb_media_paths'] = []
                 
                 # Mark processing as complete
                 tweet_data['processing_complete'] = True

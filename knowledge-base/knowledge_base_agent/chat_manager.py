@@ -455,8 +455,8 @@ Provide expert technical assistance based on the knowledge base context below.""
 
 Please provide your comprehensive technical response."""
 
-            # 6. Generate response with optimized parameters
-            target_model = model or self.chat_model or self.text_model
+            # 6. Generate response with optimized parameters (using backend-aware model selection)
+            target_model = model or self.config.get_model_for_backend('chat') or self.config.get_model_for_backend('text')
             
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -466,7 +466,7 @@ Please provide your comprehensive technical response."""
             # Track performance metrics
             start_time = time.time()
             
-            response_text = await self.http_client.ollama_chat(
+            response_text = await self.http_client.chat(
                 model=target_model,
                 messages=messages,
                 temperature=0.1,  # Lower temperature for more consistent, technical responses
@@ -567,39 +567,38 @@ Please provide your comprehensive technical response."""
         """Get list of available chat models from config and Ollama API."""
         models = []
         
-        # First, add models from the AVAILABLE_CHAT_MODELS config
-        if hasattr(self.config, 'available_chat_models') and self.config.available_chat_models:
-            for model_id in self.config.available_chat_models:
+        # First, add models from the backend-specific AVAILABLE_CHAT_MODELS config
+        available_models = self.config.get_available_chat_models_for_backend()
+        if available_models:
+            for model_id in available_models:
                 models.append({"id": model_id, "name": f"Chat Model ({model_id})"})
-            self.logger.info(f"Added {len(self.config.available_chat_models)} models from config")
+            self.logger.info(f"Added {len(available_models)} models from {self.config.inference_backend} backend config")
         
-        # Add currently configured models if not already present
+        # Add currently configured models if not already present (using backend-aware selection)
         configured_models = []
-        if self.chat_model:
-            configured_models.append({"id": self.chat_model, "name": f"Default Chat Model ({self.chat_model})"})
-        if self.text_model and self.text_model != self.chat_model:
-            configured_models.append({"id": self.text_model, "name": f"Text Model ({self.text_model})"})
+        chat_model = self.config.get_model_for_backend('chat')
+        text_model = self.config.get_model_for_backend('text')
+        
+        if chat_model:
+            configured_models.append({"id": chat_model, "name": f"Default Chat Model ({chat_model})"})
+        if text_model and text_model != chat_model:
+            configured_models.append({"id": text_model, "name": f"Text Model ({text_model})"})
 
         for model in configured_models:
             if model['id'] not in [m['id'] for m in models]:
                 models.insert(0, model)
         
-        # Try to get additional models from Ollama API (optional)
+        # Try to get additional models from the configured backend (optional)
         try:
-            response = await self.http_client.get(f"{self.config.ollama_url}/api/tags")
-            response.raise_for_status()
-            models_data = response.json()
-
-            # Add any additional models from Ollama that aren't already in our list
-            ollama_models = [{"id": model['name'], "name": f"Ollama Model ({model['name']})"} 
-                           for model in models_data.get('models', [])]
+            backend_models = await self.http_client.get_available_models()
             
-            for model in ollama_models:
+            # Add any additional models from the backend that aren't already in our list
+            for model in backend_models:
                 if model['id'] not in [m['id'] for m in models]:
                     models.append(model)
                     
         except Exception as e:
-            self.logger.warning(f"Could not fetch models from Ollama API: {e}")
+            self.logger.warning(f"Could not fetch models from {self.config.inference_backend} backend: {e}")
         
         # Ensure we have at least one model
         if not models:
