@@ -720,16 +720,20 @@ class TaskDisplayManager {
     switchToTask(taskId) {
         if (!taskId || !this.tasks.has(taskId)) {
             this.activeTaskId = null;
-            this.showNoTasksMessage();
+            if (this.taskContainer) {
+                this.showNoTasksMessage();
+            }
             return;
         }
         
         this.activeTaskId = taskId;
         
-        // Hide all task displays
-        this.taskContainer.querySelectorAll('.task-display').forEach(element => {
-            element.style.display = 'none';
-        });
+        // Hide all task displays if a dedicated container exists
+        if (this.taskContainer) {
+            this.taskContainer.querySelectorAll('.task-display').forEach(element => {
+                element.style.display = 'none';
+            });
+        }
         
         // Show selected task
         const taskElement = document.getElementById(`task-${taskId}`);
@@ -737,10 +741,12 @@ class TaskDisplayManager {
             taskElement.style.display = 'block';
         }
         
-        // Hide no-tasks message
-        const noTasksMessage = this.taskContainer.querySelector('.no-tasks-message');
-        if (noTasksMessage) {
-            noTasksMessage.style.display = 'none';
+        // Hide no-tasks message if container exists
+        if (this.taskContainer) {
+            const noTasksMessage = this.taskContainer.querySelector('.no-tasks-message');
+            if (noTasksMessage) {
+                noTasksMessage.style.display = 'none';
+            }
         }
         
         // Update task selector
@@ -834,6 +840,7 @@ class TaskDisplayManager {
     }
     
     showNoTasksMessage() {
+        if (!this.taskContainer) return;
         // Hide all task displays
         this.taskContainer.querySelectorAll('.task-display').forEach(element => {
             element.style.display = 'none';

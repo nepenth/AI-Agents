@@ -155,6 +155,19 @@ if (typeof window.ExecutionPlanManager === 'undefined') {
         mapMessageToPhaseId(message) {
             if (!message) return null;
 
+            // Normalize to string when possible
+            if (typeof message !== 'string') {
+                try {
+                    if (typeof message?.phase_id === 'string') {
+                        message = message.phase_id;
+                    } else {
+                        message = String(message);
+                    }
+                } catch (_) {
+                    return null;
+                }
+            }
+
             console.log(`🔍 Mapping message to phase ID: "${message}"`);
 
             // Map phase messages/names to phase IDs
@@ -180,6 +193,13 @@ if (typeof window.ExecutionPlanManager === 'undefined') {
 
             // Try to extract phase ID from message text
             const lowerMessage = message.toLowerCase();
+
+            // Ignore non-phase markers that the backend may send early
+            const nonPhaseStates = new Set(['queued', 'unknown', 'starting', 'idle']);
+            if (nonPhaseStates.has(lowerMessage)) {
+                console.log(`ℹ️ Ignoring non-phase state: ${lowerMessage}`);
+                return null;
+            }
             console.log(`🔍 Trying fuzzy matching for: "${lowerMessage}"`);
 
             // Enhanced fuzzy matching with priority order (most specific first)
@@ -242,7 +262,7 @@ if (typeof window.ExecutionPlanManager === 'undefined') {
             }
 
             console.log(`⚠️ No mapping found for: "${message}"`);
-            return message; // Return as-is if no mapping found
+            return null; // Do not attempt to update phases for unknown labels
         }
 
         resetAllPhases() {
