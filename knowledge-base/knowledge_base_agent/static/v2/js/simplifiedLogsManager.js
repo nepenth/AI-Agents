@@ -24,6 +24,11 @@ class SimplifiedLogsManager {
         this.maxLogs = 500; // Limit logs in memory
         this.autoScroll = true;
         this.isInitialized = false;
+        // Prefer a single source of truth when possible
+        this.usePostgreSQL = false;
+        // Dedupe recent logs by sequence or message hash
+        this.recentLogKeys = new Set();
+        this.maxRecentKeys = 1000;
         
         // PostgreSQL logging state
         this.currentTaskId = null;
@@ -212,11 +217,15 @@ class SimplifiedLogsManager {
 
         // Log event listeners - SINGLE SOURCE OF TRUTH
         window.socket.on('log', (logData) => {
-            this.handleNewLog(logData, 'socketio');
+            if (!this.usePostgreSQL) {
+                this.handleNewLog(logData, 'socketio');
+            }
         });
 
         window.socket.on('live_log', (logData) => {
-            this.handleNewLog(logData, 'socketio');
+            if (!this.usePostgreSQL) {
+                this.handleNewLog(logData, 'socketio');
+            }
         });
 
         // CRITICAL FIX: Add phase update listeners
@@ -267,7 +276,7 @@ class SimplifiedLogsManager {
             } else {
                 // Agent is idle - try to load recent historical logs
                 console.log('📝 Agent is idle, loading recent historical logs');
-                
+                this.usePostgreSQL = true; // prefer PG for consistency
                 try {
                     const recentLogsResponse = await this.api.getRecentLogs();
                     console.log('📝 Recent logs API response:', recentLogsResponse);
@@ -420,6 +429,17 @@ class SimplifiedLogsManager {
     addLogToDisplay(logData, shouldScroll = true) {
         // Normalize log data format
         const normalizedLog = this.normalizeLogData(logData);
+        
+        // Dedupe: build a key from sequence or message+timestamp
+        const key = normalizedLog.sequence_number ?? `${normalizedLog.timestamp}|${normalizedLog.level}|${normalizedLog.message}`;
+        if (this.recentLogKeys.has(key)) {
+            return; // skip duplicate
+        }
+        this.recentLogKeys.add(key);
+        if (this.recentLogKeys.size > this.maxRecentKeys) {
+            // Trim set by deleting oldest entry (approximate by slicing last N)
+            this.recentLogKeys = new Set(Array.from(this.recentLogKeys).slice(-Math.floor(this.maxRecentKeys * 0.8)));
+        }
         
         // Filter out noisy logs and track statistics
         if (this.shouldFilterLog(normalizedLog)) {
