@@ -12,13 +12,25 @@ import base64
 import time
 import os
 
+# Import backend infrastructure
+from .inference_backends import BackendFactory, InferenceBackend, BackendError
+
+
 class HTTPClient:
-    """HTTP client for making requests to external services."""
+    """
+    Enhanced HTTP client with backend routing support.
+    
+    This client provides a unified interface for making inference requests
+    while routing them to the appropriate backend (Ollama, ExLlamaV2, etc.)
+    based on configuration.
+    """
     
     def __init__(self, config: Config):
         self.config = config
         self.session = None
         self.initialized = False
+        
+        # Legacy configuration for backward compatibility
         self.base_url = str(self.config.ollama_url).rstrip('/')
         self.timeout = self.config.request_timeout
         self.max_retries = self.config.max_retries
@@ -28,9 +40,31 @@ class HTTPClient:
         # Create semaphore for controlling concurrency
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
         
-        logging.info(f"Initializing HTTPClient with Ollama URL: {self.base_url}")
+        # Initialize the inference backend
+        self.backend: Optional[InferenceBackend] = None
+        self._backend_initialized = False
+        
+        logging.info(f"Initializing HTTPClient with backend: {config.inference_backend}")
         logging.info(f"Settings: timeout={self.timeout}s, max_retries={self.max_retries}, "
                     f"batch_size={self.batch_size}, max_concurrent={self.max_concurrent}")
+    
+    async def _initialize_backend(self):
+        """Initialize the inference backend."""
+        if not self._backend_initialized:
+            try:
+                self.backend = BackendFactory.create_backend(self.config, self)
+                self._backend_initialized = True
+                logging.info(f"Successfully initialized backend: {self.backend}")
+            except Exception as e:
+                logging.error(f"Failed to initialize backend: {e}", exc_info=True)
+                self.backend = None
+                self._backend_initialized = False
+                raise AIError(f"Failed to initialize inference backend: {e}")
+    
+    async def _ensure_backend(self):
+        """Ensure backend is initialized."""
+        if not self._backend_initialized:
+            await self._initialize_backend()
         
     async def initialize(self):
         """Initialize the HTTP client session."""
@@ -70,6 +104,255 @@ class HTTPClient:
         """Ensure a session exists."""
         if not self.initialized:
             await self.initialize()
+    
+    # ===== UNIFIED INTERFACE METHODS =====
+    # These methods provide a consistent interface regardless of backend
+    
+    async def generate(
+        self,
+        model: str,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 50000,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Unified text generation interface.
+        
+        This method routes to the appropriate backend based on configuration
+        while providing a consistent interface for all consumers.
+        """
+        await self._ensure_backend()
+        
+        try:
+            logging.debug(f"Routing generate request to {self.backend.backend_name} backend")
+            return await self.backend.generate(
+                model=model,
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                timeout=timeout,
+                options=options
+            )
+        except BackendError as e:
+            # Convert backend errors to AIError for consistency
+            logging.error(f"Backend generate error: {e}")
+            raise AIError(str(e)) from e
+        except Exception as e:
+            logging.error(f"Unexpected error in unified generate: {e}", exc_info=True)
+            raise AIError(f"Failed to generate text: {str(e)}") from e
+    
+    async def chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Unified chat completion interface.
+        
+        This method routes to the appropriate backend based on configuration
+        while providing a consistent interface for all consumers.
+        """
+        await self._ensure_backend()
+        
+        try:
+            logging.debug(f"Routing chat request to {self.backend.backend_name} backend")
+            return await self.backend.chat(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                top_p=top_p,
+                timeout=timeout,
+                options=options
+            )
+        except BackendError as e:
+            # Convert backend errors to AIError for consistency
+            logging.error(f"Backend chat error: {e}")
+            raise AIError(str(e)) from e
+        except Exception as e:
+            logging.error(f"Unexpected error in unified chat: {e}", exc_info=True)
+            raise AIError(f"Failed to generate chat response: {str(e)}") from e
+    
+    async def embed(
+        self,
+        model: str,
+        text: str,
+        timeout: Optional[int] = None
+    ) -> List[float]:
+        """
+        Unified embedding generation interface.
+        
+        This method routes to the appropriate backend based on configuration
+        while providing a consistent interface for all consumers.
+        """
+        await self._ensure_backend()
+        
+        try:
+            logging.debug(f"Routing embed request to {self.backend.backend_name} backend")
+            return await self.backend.embed(
+                model=model,
+                text=text,
+                timeout=timeout
+            )
+        except BackendError as e:
+            # Convert backend errors to AIError for consistency
+            logging.error(f"Backend embed error: {e}")
+            raise AIError(str(e)) from e
+        except Exception as e:
+            logging.error(f"Unexpected error in unified embed: {e}", exc_info=True)
+            raise AIError(f"Failed to generate embedding: {str(e)}") from e
+    
+    async def get_available_models(self) -> List[Dict[str, str]]:
+        """
+        Get available models from the configured backend.
+        
+        Returns:
+            List of model dictionaries with 'id' and 'name' keys
+        """
+        await self._ensure_backend()
+        
+        try:
+            logging.debug(f"Getting available models from {self.backend.backend_name} backend")
+            return await self.backend.get_available_models()
+        except BackendError as e:
+            logging.error(f"Backend get_available_models error: {e}")
+            raise AIError(str(e)) from e
+        except Exception as e:
+            logging.error(f"Unexpected error getting available models: {e}", exc_info=True)
+            raise AIError(f"Failed to get available models: {str(e)}") from e
+    
+    async def backend_health_check(self) -> Dict[str, Any]:
+        """
+        Check the health of the configured backend.
+        
+        Returns:
+            Dict containing health status information
+        """
+        await self._ensure_backend()
+        
+        try:
+            return await self.backend.health_check()
+        except Exception as e:
+            logging.error(f"Backend health check failed: {e}", exc_info=True)
+            return {
+                "status": "unhealthy",
+                "backend": self.backend.backend_name if self.backend else "unknown",
+                "error": str(e)
+            }
+    
+    # ===== BACKWARD COMPATIBILITY LAYER =====
+    # These methods maintain compatibility with existing code that calls ollama_* methods
+    
+    async def _get_ollama_compatible_backend(self):
+        """Get a backend that can handle Ollama-style requests."""
+        await self._ensure_backend()
+        
+        # If using Ollama backend, return it directly
+        if self.backend.backend_name == "ollama":
+            return self.backend
+        
+        # For other backends, we'll route through the unified interface
+        # This ensures that ExLlamaV2 and other backends work with existing ollama_* calls
+        return self.backend
+    
+    async def ollama_generate_unified(
+        self,
+        model: str,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 50000,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Unified ollama_generate that works with any backend.
+        
+        This method provides backward compatibility by routing to the unified interface.
+        """
+        logging.debug(f"ollama_generate called, routing to {self.config.inference_backend} backend")
+        
+        # Add deprecation warning for direct ollama method usage
+        if self.config.inference_backend != "ollama":
+            logging.warning(
+                f"ollama_generate called with {self.config.inference_backend} backend. "
+                f"Consider using the unified generate() method instead."
+            )
+        
+        return await self.generate(
+            model=model,
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            timeout=timeout,
+            options=options
+        )
+    
+    async def ollama_chat_unified(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        timeout: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Unified ollama_chat that works with any backend.
+        
+        This method provides backward compatibility by routing to the unified interface.
+        """
+        logging.debug(f"ollama_chat called, routing to {self.config.inference_backend} backend")
+        
+        # Add deprecation warning for direct ollama method usage
+        if self.config.inference_backend != "ollama":
+            logging.warning(
+                f"ollama_chat called with {self.config.inference_backend} backend. "
+                f"Consider using the unified chat() method instead."
+            )
+        
+        return await self.chat(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            top_p=top_p,
+            timeout=timeout,
+            options=options
+        )
+    
+    async def ollama_embed_unified(
+        self,
+        model: str,
+        prompt: str,
+        timeout: Optional[int] = None
+    ) -> List[float]:
+        """
+        Unified ollama_embed that works with any backend.
+        
+        This method provides backward compatibility by routing to the unified interface.
+        """
+        logging.debug(f"ollama_embed called, routing to {self.config.inference_backend} backend")
+        
+        # Add deprecation warning for direct ollama method usage
+        if self.config.inference_backend != "ollama":
+            logging.warning(
+                f"ollama_embed called with {self.config.inference_backend} backend. "
+                f"Consider using the unified embed() method instead."
+            )
+        
+        return await self.embed(
+            model=model,
+            text=prompt,  # Note: ollama_embed uses 'prompt' parameter, unified uses 'text'
+            timeout=timeout
+        )
             
     @retry(
         stop=stop_after_attempt(lambda self: self.max_retries),

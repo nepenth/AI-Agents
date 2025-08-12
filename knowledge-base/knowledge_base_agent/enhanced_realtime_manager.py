@@ -456,9 +456,16 @@ class EnhancedRealtimeManager:
         self.socketio = socketio
         self.config = config or Config()
         
-        # Redis connection
-        self.redis_client = redis.Redis.from_url(
+        # Redis connections: separate clients for progress and logs DBs
+        self.redis_progress_client = redis.Redis.from_url(
             self.config.redis_progress_url,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            retry_on_timeout=True
+        )
+        self.redis_logs_client = redis.Redis.from_url(
+            self.config.redis_logs_url,
             decode_responses=True,
             socket_connect_timeout=5,
             socket_timeout=5,
@@ -469,13 +476,18 @@ class EnhancedRealtimeManager:
         self.validator = EventValidator()
         self.router = EventRouter()
         self.rate_limiter = RateLimiter(RateLimitConfig())
-        self.health_monitor = ConnectionHealthMonitor(
-            self.redis_client,
-            self._handle_reconnection
+        self.health_monitor_progress = ConnectionHealthMonitor(
+            self.redis_progress_client,
+            self._handle_reconnection_progress
+        )
+        self.health_monitor_logs = ConnectionHealthMonitor(
+            self.redis_logs_client,
+            self._handle_reconnection_logs
         )
         
         # Threading and control
-        self.pubsub_thread = None
+        self.pubsub_thread_progress = None
+        self.pubsub_thread_logs = None
         self.batch_thread = None
         self._stop_event = threading.Event()
         
@@ -499,20 +511,27 @@ class EnhancedRealtimeManager:
     
     def start_listener(self):
         """Start the Redis pub/sub listener and batch processor."""
-        if self.pubsub_thread and self.pubsub_thread.is_alive():
+        if self.pubsub_thread_progress and self.pubsub_thread_progress.is_alive():
             logging.warning("EnhancedRealtimeManager listener is already running.")
             return
         
         logging.info("Starting EnhancedRealtimeManager...")
         self._stop_event.clear()
         
-        # Start pub/sub listener thread
-        self.pubsub_thread = threading.Thread(
-            target=self._listen_for_updates,
+        # Start pub/sub listener threads for progress and logs
+        self.pubsub_thread_progress = threading.Thread(
+            target=self._listen_for_updates_progress,
             daemon=True,
-            name="RealtimeManager-PubSub"
+            name="RealtimeManager-PubSub-Progress"
         )
-        self.pubsub_thread.start()
+        self.pubsub_thread_progress.start()
+
+        self.pubsub_thread_logs = threading.Thread(
+            target=self._listen_for_updates_logs,
+            daemon=True,
+            name="RealtimeManager-PubSub-Logs"
+        )
+        self.pubsub_thread_logs.start()
         
         # Start batch processor thread
         self.batch_thread = threading.Thread(
@@ -526,7 +545,7 @@ class EnhancedRealtimeManager:
     
     def stop_listener(self):
         """Stop the Redis pub/sub listener and batch processor."""
-        if not self.pubsub_thread or not self.pubsub_thread.is_alive():
+        if not self.pubsub_thread_progress or not self.pubsub_thread_progress.is_alive():
             logging.warning("EnhancedRealtimeManager listener is not running.")
             return
         
@@ -534,35 +553,36 @@ class EnhancedRealtimeManager:
         self._stop_event.set()
         
         # Wait for threads to finish
-        if self.pubsub_thread:
-            self.pubsub_thread.join(timeout=5)
+        if self.pubsub_thread_progress:
+            self.pubsub_thread_progress.join(timeout=5)
+        if self.pubsub_thread_logs:
+            self.pubsub_thread_logs.join(timeout=5)
         if self.batch_thread:
             self.batch_thread.join(timeout=5)
         
         logging.info("EnhancedRealtimeManager stopped.")
     
-    def _listen_for_updates(self):
-        """The target function for the pub/sub listener thread."""
+    def _listen_for_updates_progress(self):
+        """Listener for progress/status channels on the progress Redis DB."""
         pubsub = None
         
         try:
-            pubsub = self.redis_client.pubsub(ignore_subscribe_messages=True)
+            pubsub = self.redis_progress_client.pubsub(ignore_subscribe_messages=True)
             
             # STANDARDIZED: Subscribe to exact channels used by TaskProgressManager
             from .task_progress import TaskProgressManager
-            pubsub.subscribe(TaskProgressManager.LOG_CHANNEL)
             pubsub.subscribe(TaskProgressManager.PHASE_CHANNEL)
             pubsub.subscribe(TaskProgressManager.STATUS_CHANNEL)
             
             # Also subscribe to legacy realtime_events channel for backward compatibility
             pubsub.subscribe("realtime_events")
             
-            logging.info(f"✅ EnhancedRealtimeManager subscribed to Redis channels: {TaskProgressManager.LOG_CHANNEL}, {TaskProgressManager.PHASE_CHANNEL}, {TaskProgressManager.STATUS_CHANNEL}, realtime_events")
+            logging.info(f"✅ EnhancedRealtimeManager subscribed (progress DB) to: {TaskProgressManager.PHASE_CHANNEL}, {TaskProgressManager.STATUS_CHANNEL}, realtime_events")
             
             while not self._stop_event.is_set():
                 try:
                     # Check connection health periodically
-                    if not self.health_monitor.check_health():
+                    if not self.health_monitor_progress.check_health():
                         logging.warning("Redis connection unhealthy, enabling event buffering")
                         self.buffer_enabled = True
                         time.sleep(5)
@@ -594,6 +614,47 @@ class EnhancedRealtimeManager:
             if pubsub:
                 pubsub.close()
             logging.info("Redis pub/sub connection closed.")
+
+    def _listen_for_updates_logs(self):
+        """Listener for log channels on the logs Redis DB."""
+        pubsub = None
+        try:
+            pubsub = self.redis_logs_client.pubsub(ignore_subscribe_messages=True)
+            from .task_progress import TaskProgressManager
+            pubsub.subscribe(TaskProgressManager.LOG_CHANNEL)
+
+            logging.info(f"✅ EnhancedRealtimeManager subscribed (logs DB) to: {TaskProgressManager.LOG_CHANNEL}")
+
+            while not self._stop_event.is_set():
+                try:
+                    if not self.health_monitor_logs.check_health():
+                        logging.warning("Logs Redis connection unhealthy, buffering logs")
+                        self.buffer_enabled = True
+                        time.sleep(5)
+                        continue
+                    else:
+                        if self.buffer_enabled:
+                            logging.info("Logs Redis connection restored, processing buffered events")
+                            self._process_buffered_events()
+                            self.buffer_enabled = False
+
+                    message = pubsub.get_message(timeout=1.0)
+                    if message is None:
+                        continue
+                    self._handle_redis_message(message)
+                except redis.exceptions.ConnectionError as e:
+                    logging.error(f"Logs Redis connection error: {e}")
+                    self.buffer_enabled = True
+                    time.sleep(5)
+                except Exception as e:
+                    logging.error(f"Error in logs listener: {e}", exc_info=True)
+                    time.sleep(1)
+        except Exception as e:
+            logging.error(f"Fatal error in logs listener setup: {e}", exc_info=True)
+        finally:
+            if pubsub:
+                pubsub.close()
+            logging.info("Logs Redis pub/sub connection closed.")
     
     def _handle_redis_message(self, message: Dict[str, Any]):
         """Handle a message from Redis pub/sub."""
@@ -773,38 +834,50 @@ class EnhancedRealtimeManager:
         # Force process any remaining batches
         self._check_aged_batches()
     
-    def _handle_reconnection(self):
-        """Handle Redis reconnection."""
-        logging.info("Attempting Redis reconnection...")
+    def _handle_reconnection_progress(self):
+        """Handle Redis reconnection for progress DB."""
+        logging.info("Attempting Redis reconnection (progress DB)...")
         self.stats['reconnections'] += 1
-        
         try:
-            # Create new Redis client
-            self.redis_client = redis.Redis.from_url(
+            self.redis_progress_client = redis.Redis.from_url(
                 self.config.redis_progress_url,
                 decode_responses=True,
                 socket_connect_timeout=5,
                 socket_timeout=5,
                 retry_on_timeout=True
             )
-            
-            # Test connection
-            self.redis_client.ping()
-            
-            # Reset health monitor
-            self.health_monitor.redis_client = self.redis_client
-            self.health_monitor.reset_health()
-            
-            logging.info("Redis reconnection successful")
-            
+            self.redis_progress_client.ping()
+            self.health_monitor_progress.redis_client = self.redis_progress_client
+            self.health_monitor_progress.reset_health()
+            logging.info("Redis reconnection successful (progress DB)")
         except Exception as e:
-            logging.error(f"Redis reconnection failed: {e}")
+            logging.error(f"Redis reconnection failed (progress DB): {e}")
+
+    def _handle_reconnection_logs(self):
+        """Handle Redis reconnection for logs DB."""
+        logging.info("Attempting Redis reconnection (logs DB)...")
+        self.stats['reconnections'] += 1
+        try:
+            self.redis_logs_client = redis.Redis.from_url(
+                self.config.redis_logs_url,
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True
+            )
+            self.redis_logs_client.ping()
+            self.health_monitor_logs.redis_client = self.redis_logs_client
+            self.health_monitor_logs.reset_health()
+            logging.info("Redis reconnection successful (logs DB)")
+        except Exception as e:
+            logging.error(f"Redis reconnection failed (logs DB): {e}")
     
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the RealtimeManager."""
         return {
             **self.stats,
-            'is_healthy': self.health_monitor.is_healthy,
+            'is_healthy_progress': self.health_monitor_progress.is_healthy,
+            'is_healthy_logs': self.health_monitor_logs.is_healthy,
             'buffer_size': len(self.event_buffer),
             'buffer_enabled': self.buffer_enabled,
             'active_batches': len(self.event_batches),

@@ -1,10 +1,39 @@
 import subprocess
 import logging
 import json
+import time
+
+# Cache to avoid repeated warnings when nvidia-smi is not available
+_nvidia_smi_available = None
+_last_check_time = 0
+_check_interval = 300  # Check every 5 minutes
 
 def celsius_to_fahrenheit(celsius):
     """Convert Celsius to Fahrenheit."""
     return (celsius * 9/5) + 32
+
+def _check_nvidia_smi_available():
+    """Check if nvidia-smi is available, with caching to avoid repeated warnings."""
+    global _nvidia_smi_available, _last_check_time
+    
+    current_time = time.time()
+    
+    # If we've checked recently, return cached result
+    if _nvidia_smi_available is not None and (current_time - _last_check_time) < _check_interval:
+        return _nvidia_smi_available
+    
+    # Check if nvidia-smi is available
+    try:
+        subprocess.check_output(['nvidia-smi', '-L'], stderr=subprocess.STDOUT)
+        _nvidia_smi_available = True
+        _last_check_time = current_time
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        if _nvidia_smi_available is None:  # Only log warning on first check
+            logging.warning("nvidia-smi command not found. GPU stats will not be available.")
+        _nvidia_smi_available = False
+        _last_check_time = current_time
+        return False
 
 def get_gpu_stats():
     """
@@ -16,11 +45,8 @@ def get_gpu_stats():
         Stats include: utilization.gpu, memory.used, memory.total,
         temperature.gpu (in both C and F), power.draw, clocks.current.graphics, clocks.current.memory.
     """
-    try:
-        # Check if nvidia-smi is available
-        subprocess.check_output(['nvidia-smi', '-L'], stderr=subprocess.STDOUT)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        logging.warning("nvidia-smi command not found. GPU stats will not be available.")
+    # Check if nvidia-smi is available (with caching to avoid repeated warnings)
+    if not _check_nvidia_smi_available():
         return None
 
     try:

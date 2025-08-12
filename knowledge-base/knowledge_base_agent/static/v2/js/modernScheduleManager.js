@@ -254,7 +254,7 @@ class ModernScheduleManager extends BaseManager {
     
     async loadSchedules() {
         try {
-            const response = await this.apiCall('/api/schedules', {
+            const response = await this.apiCall('/schedules', {
                 errorMessage: 'Failed to load schedules',
                 cache: false
             });
@@ -277,7 +277,7 @@ class ModernScheduleManager extends BaseManager {
     
     async loadScheduleHistory() {
         try {
-            const response = await this.apiCall('/api/schedule-history', {
+            const response = await this.apiCall('/schedule-history', {
                 errorMessage: 'Failed to load schedule history',
                 cache: false
             });
@@ -554,7 +554,7 @@ class ModernScheduleManager extends BaseManager {
     
     async toggleSchedule(scheduleId) {
         try {
-            await this.apiCall(`/api/schedules/${scheduleId}/toggle`, {
+            await this.apiCall(`/schedules/${scheduleId}/toggle`, {
                 method: 'POST',
                 errorMessage: 'Failed to toggle schedule'
             });
@@ -572,7 +572,7 @@ class ModernScheduleManager extends BaseManager {
     
     async runSchedule(scheduleId) {
         try {
-            await this.apiCall(`/api/schedules/${scheduleId}/run`, {
+            await this.apiCall(`/schedules/${scheduleId}/run`, {
                 method: 'POST',
                 errorMessage: 'Failed to run schedule'
             });
@@ -607,7 +607,7 @@ class ModernScheduleManager extends BaseManager {
         }
         
         try {
-            await this.apiCall(`/api/schedules/${scheduleId}`, {
+            await this.apiCall(`/schedules/${scheduleId}`, {
                 method: 'DELETE',
                 errorMessage: 'Failed to delete schedule'
             });

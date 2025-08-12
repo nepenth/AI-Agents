@@ -59,6 +59,7 @@ class SubcategorySynthesis(db.Model):
     is_stale = db.Column(db.Boolean, nullable=False, default=False)  # Whether synthesis is out of date
     last_item_update = db.Column(db.DateTime, nullable=True)  # Latest update time from source KB items
     needs_regeneration = db.Column(db.Boolean, nullable=False, default=False)  # Explicitly marked for regen
+    content_hash = db.Column(db.String(64), nullable=True, index=True)
     dependency_item_ids = db.Column(db.Text, nullable=True)  # JSON array of KB item IDs this synthesis depends on
     
     __table_args__ = (
@@ -266,6 +267,26 @@ class Embedding(db.Model):
 
     def __repr__(self):
         return f'<Embedding for {self.document_type} {self.document_id}>'
+
+
+# ===== RENDER CACHE (server-side HTML cache keyed by content hash) =====
+class RenderCache(db.Model):
+    __tablename__ = 'render_cache'
+
+    id = db.Column(db.Integer, primary_key=True)
+    document_type = db.Column(db.String(32), nullable=False)  # 'kb_item' | 'synthesis'
+    document_id = db.Column(db.Integer, nullable=False)
+    content_hash = db.Column(db.String(64), nullable=False)  # sha256
+    html = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('document_type', 'document_id', 'content_hash', name='uq_render_cache_key'),
+        db.Index('idx_render_cache_lookup', 'document_type', 'document_id', 'content_hash'),
+    )
+
+    def __repr__(self):
+        return f'<RenderCache {self.document_type}#{self.document_id} {self.content_hash[:8]}>'
 
 class ChatSession(db.Model):
     __tablename__ = 'chat_session'
@@ -502,6 +523,8 @@ class UnifiedTweet(db.Model):
     cached_at = db.Column(db.DateTime(timezone=True), nullable=True)
     processed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     kb_generated_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # Modernization: store content hash for markdown_content to drive caches/invalidation
+    content_hash = db.Column(db.String(64), nullable=True, index=True)
     
     # === COMPUTED PROPERTIES ===
     @hybrid_property

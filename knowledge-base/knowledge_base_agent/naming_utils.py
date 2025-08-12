@@ -225,8 +225,8 @@ async def generate_short_name(
             # Combine system and user prompts for ollama_generate
             full_prompt = f"{system_prompt}\n\n{user_message}"
 
-            response_content = await http_client.ollama_generate(
-                model=http_client.config.text_model, 
+            response_content = await http_client.generate(
+                model=http_client.config.get_model_for_backend('text'), 
                 prompt=full_prompt,
                 temperature=0.7,
                 max_tokens=30,  # Increased token limit

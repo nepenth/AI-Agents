@@ -850,8 +850,8 @@ Return as a JSON object:
 }}"""
 
             # Get classification from model
-            response = await self.http_client.ollama_generate(
-                model=self.config.text_model,
+            response = await self.http_client.generate(
+                model=self.config.get_model_for_backend('text'),
                 prompt=prompt,
                 temperature=0.1
             )
@@ -908,8 +908,8 @@ The name should be:
 
 Respond with just the name, no explanation."""
 
-            name = await self.http_client.ollama_generate(
-                model=self.config.text_model,
+            name = await self.http_client.generate(
+                model=self.config.get_model_for_backend('text'),
                 prompt=prompt
             )
             

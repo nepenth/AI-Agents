@@ -40,8 +40,9 @@ class WorkerSocketIOEmitter:
         
         try:
             # Create minimal SocketIO instance with same message_queue as web server
+            # Use the dedicated logs Redis for SocketIO message queue
             self._socketio = SocketIO(
-                message_queue=self.config.redis_url,
+                message_queue=self.config.redis_logs_url,
                 logger=False,
                 engineio_logger=False
             )

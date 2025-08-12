@@ -109,26 +109,28 @@ async def _generate_kb_content_json(
             ReasoningPrompts.get_kb_item_generation_prompt(tweet_text, categories, media_descriptions)
         ]
         
-        current_model = config.text_model
+        current_model = config.get_model_for_backend('text')
         last_exception = None
         total_attempts = config.content_retries * 2
         
         for attempt in range(total_attempts):
             model_to_use = current_model
-            is_primary_model_attempt = (model_to_use == config.text_model)
+            primary_text_model = config.get_model_for_backend('text')
+            is_primary_model_attempt = (model_to_use == primary_text_model)
             attempt_num_for_model = (attempt % config.content_retries) + 1
 
             # Logic for switching to fallback model if needed
-            if is_primary_model_attempt and attempt >= config.content_retries and config.fallback_model and config.fallback_model != config.text_model:
-                logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
-                current_model = config.fallback_model
+            fallback_model = config.get_model_for_backend('fallback')
+            if is_primary_model_attempt and attempt >= config.content_retries and fallback_model and fallback_model != primary_text_model:
+                logging.info(f"Tweet {tweet_id}: Switching to fallback model {fallback_model} for KB content JSON generation after {config.content_retries} attempts with {primary_text_model}.")
+                current_model = fallback_model
                 model_to_use = current_model
                 attempt_num_for_model = (attempt - config.content_retries) + 1
 
             logging.info(f"Tweet {tweet_id}: Attempt {attempt_num_for_model}/{config.content_retries} to generate KB content JSON using reasoning mode with model {model_to_use}.")
             
             try:
-                raw_response_text = await http_client.ollama_chat(
+                raw_response_text = await http_client.chat(
                     model=model_to_use,
                     messages=messages,
                     temperature=0.2,
@@ -190,7 +192,7 @@ async def _generate_kb_content_json(
             is_last_primary_no_effective_fallback = (
                 is_primary_model_attempt and
                 (attempt_num_for_model == config.content_retries) and
-                (not config.fallback_model or config.fallback_model == config.text_model)
+                (not fallback_model or fallback_model == primary_text_model)
             )
             
             if is_last_overall_attempt or is_last_primary_no_effective_fallback:
@@ -208,7 +210,7 @@ async def _generate_kb_content_json(
             
     else:
         # Standard non-reasoning mode (existing implementation)
-            current_model = config.text_model
+            current_model = config.get_model_for_backend('text')
             last_exception = None
 
             # Total attempts for primary model + fallback model
@@ -216,21 +218,23 @@ async def _generate_kb_content_json(
 
             for attempt in range(total_attempts):
                 model_to_use = current_model
-                is_primary_model_attempt = (model_to_use == config.text_model)
+                primary_text_model = config.get_model_for_backend('text')
+                fallback_model = config.get_model_for_backend('fallback')
+                is_primary_model_attempt = (model_to_use == primary_text_model)
                 attempt_num_for_model = (attempt % config.content_retries) + 1
 
                 if not is_primary_model_attempt and attempt < config.content_retries: 
                     pass # Should be on primary, logic error in original, corrected below
-                elif is_primary_model_attempt and attempt >= config.content_retries and config.fallback_model and config.fallback_model != config.text_model:
-                    logging.info(f"Tweet {tweet_id}: Switching to fallback model {config.fallback_model} for KB content JSON generation after {config.content_retries} attempts with {config.text_model}.")
-                    current_model = config.fallback_model
+                elif is_primary_model_attempt and attempt >= config.content_retries and fallback_model and fallback_model != primary_text_model:
+                    logging.info(f"Tweet {tweet_id}: Switching to fallback model {fallback_model} for KB content JSON generation after {config.content_retries} attempts with {primary_text_model}.")
+                    current_model = fallback_model
                     model_to_use = current_model # Ensure model_to_use is updated
                     attempt_num_for_model = (attempt - config.content_retries) + 1
 
                 logging.info(f"Tweet {tweet_id}: Attempt {attempt_num_for_model}/{config.content_retries} to generate KB content JSON using model {model_to_use}.")
                 
                 try:
-                    raw_response_text = await http_client.ollama_generate(
+                    raw_response_text = await http_client.generate(
                         model=model_to_use,
                         prompt=prompt,
                         temperature=0.2, 
@@ -270,7 +274,7 @@ async def _generate_kb_content_json(
                 is_last_primary_no_effective_fallback = (
                     is_primary_model_attempt and
                     (attempt_num_for_model == config.content_retries) and
-                    (not config.fallback_model or config.fallback_model == config.text_model)
+                    (not fallback_model or fallback_model == primary_text_model)
                 )
                 
                 if is_last_overall_attempt or is_last_primary_no_effective_fallback:

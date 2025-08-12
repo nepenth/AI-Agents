@@ -64,6 +64,8 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.elements.emptyState = document.getElementById('empty-state');
         this.elements.refreshBtn = document.getElementById('refresh-btn');
         this.elements.exportBtn = document.getElementById('export-btn');
+        // Suggestion dropdown
+        this.elements.suggest = document.getElementById('kb-suggest');
 
         // Load preferences
         this.loadPreferences();
@@ -78,6 +80,11 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     events: ['input'],
                     handler: this.handleSearch,
                     debounce: 300
+                },
+                {
+                    selector: this.elements.searchInput,
+                    events: ['keydown'],
+                    handler: this.handleSearchKeydown
                 },
                 {
                     selector: this.elements.sortSelect,
@@ -149,7 +156,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
 
     async loadInitialData() {
         try {
-            this.showLoadingState();
+            this.showLoadingOverlay('Loading knowledge base items...');
             this.log('Loading initial knowledge base data...');
 
             await this.loadKnowledgeBaseItems();
@@ -168,6 +175,8 @@ class ModernKnowledgeBaseManager extends BaseManager {
         } catch (error) {
             this.setError(error, 'loading knowledge base');
             this.showEmptyState('Failed to load knowledge base');
+        } finally {
+            this.hideLoadingOverlay();
         }
     }
 
@@ -175,7 +184,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.elements.container.innerHTML = `
             <style>
                 .modern-kb-container {
-                    height: 100%;
+                    min-height: 100vh;
                     display: flex;
                     flex-direction: column;
                     padding: 1rem;
@@ -190,6 +199,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 .kb-body {
                     display: flex;
                     flex: 1;
+                    min-height: 0; /* allow children to size */
                     overflow: hidden;
                 }
                 .kb-sidebar {
@@ -250,7 +260,9 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 .kb-main {
                     flex: 1;
                     padding: 1rem;
-                    overflow-y: auto;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 0;
                     box-sizing: border-box;
                 }
                 .kb-controls {
@@ -261,7 +273,13 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 .search-container {
                     flex: 1;
                     margin-right: 1rem;
+                    position: relative;
                 }
+                /* suggestions */
+                .suggest-panel { position:absolute; top: 110%; left:0; right:0; background: rgba(20,25,40,0.98); border:1px solid rgba(255,255,255,0.12); border-radius:10px; box-shadow: 0 12px 30px rgba(0,0,0,0.35); z-index: 50; max-height: 50vh; overflow:auto; }
+                .suggest-item { padding:10px 12px; cursor:pointer; display:flex; align-items:center; gap:10px; }
+                .suggest-item i { color:#60a5fa; }
+                .suggest-item.active, .suggest-item:hover { background: rgba(255,255,255,0.06); }
                 .kb-stats {
                     display: flex;
                     gap: 1rem;
@@ -271,6 +289,8 @@ class ModernKnowledgeBaseManager extends BaseManager {
                     display: grid;
                     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
                     gap: 1rem;
+                    flex: 1;
+                    overflow: auto;
                 }
                 .items-list.list-view {
                     display: flex;
@@ -291,10 +311,48 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 .kb-item:hover {
                     transform: translateY(-2px);
                 }
-                .hidden {
-                    display: none;
+                .hidden { display: none; }
+                /* Modal: scrolling and fullscreen support */
+                .modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    overflow: auto;
                 }
-                /* Additional styles for modals, etc. can be added here */
+                .modal-container {
+                    width: 70vw;
+                    max-width: 1600px;
+                    max-height: 90vh;
+                    overflow: auto;
+                    display: flex;
+                    flex-direction: column;
+                    border-radius: 12px;
+                }
+                .modal-container.fullscreen {
+                    width: 98vw;
+                    height: 96vh;
+                    max-height: 96vh;
+                }
+                .modal-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 1rem;
+                    border-bottom: 1px solid rgba(255,255,255,0.1);
+                    position: sticky;
+                    top: 0;
+                    background: inherit;
+                    z-index: 2;
+                }
+                .modal-metadata { display: flex; gap: 1rem; flex-wrap: wrap; padding: 0 1rem 1rem 1rem; }
+                .modal-content-section { padding: 0 1rem 1rem 1rem; display: flex; flex-direction: column; min-height: 0; }
+                .modal-content-section .modal-content { overflow-y: auto; max-height: calc(90vh - 160px); width: 100%; max-width: none; }
+                .modal-content-section .modal-content pre { white-space: pre-wrap; word-wrap: break-word; }
+                .modal-container.fullscreen .modal-content-section .modal-content { max-height: calc(96vh - 160px); }
             </style>
             <div class="modern-kb-container glass-panel-v3 animate-fade-in">
                 <header class="kb-header">
@@ -324,6 +382,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
                             <div class="search-container">
                                 <i class="fas fa-search"></i>
                                 <input type="text" id="kb-search" placeholder="Search by title, content, category..." class="glass-input">
+                                <div id="kb-suggest" class="suggest-panel hidden"></div>
                             </div>
 
                             <select id="sort-select" class="glass-select">
@@ -377,7 +436,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
     async loadKnowledgeBaseItems() {
         this.items.clear();
 
-        const response = await this.apiCall(`${this.apiBase}/items`, {
+        const response = await this.apiCall(`/items`, {
             errorMessage: 'Failed to load items',
             cache: false,
             showLoading: false
@@ -391,9 +450,17 @@ class ModernKnowledgeBaseManager extends BaseManager {
                 item._updatedAtMs = this.parseDateToMs(item.last_updated || item.created_at);
                 item._createdAtMs = this.parseDateToMs(item.created_at);
 
-                // Normalize media
-                item.kb_media_paths = Array.isArray(item.kb_media_paths) ? item.kb_media_paths : typeof item.kb_media_paths === 'string' ? JSON.parse(item.kb_media_paths) || [] : [];
-                item.media_files = Array.isArray(item.media_files) ? item.media_files : typeof item.media_files === 'string' ? JSON.parse(item.media_files) || [] : [];
+                // Normalize media (safe JSON parse)
+                try {
+                    if (!Array.isArray(item.kb_media_paths)) {
+                        item.kb_media_paths = typeof item.kb_media_paths === 'string' ? JSON.parse(item.kb_media_paths) : (item.kb_media_paths || []);
+                    }
+                } catch { item.kb_media_paths = []; }
+                try {
+                    if (!Array.isArray(item.media_files)) {
+                        item.media_files = typeof item.media_files === 'string' ? JSON.parse(item.media_files) : (item.media_files || []);
+                    }
+                } catch { item.media_files = []; }
                 item.all_media_files = [...item.kb_media_paths, ...item.media_files];
 
                 // Fallback content
@@ -689,9 +756,129 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.applyFilters();
     }
 
-    handleSearch = (e) => {
-        this.currentFilter.search = e.target.value.trim();
-        this.applyFilters();
+    async handleSearch(e) {
+        const term = (e.target.value || '').trim();
+        this.currentFilter.search = term;
+        if (!term) {
+            this.applyFilters();
+            this.hideSuggestions();
+            return;
+        }
+        // Remote FTS-backed search
+        try {
+            this.showLoadingState();
+            const res = await this.apiCall(`/search?q=${encodeURIComponent(term)}&type=kb&limit=50`, {
+                errorMessage: 'Search failed',
+                cache: false,
+                showLoading: false
+            });
+            const results = (res && res.results) ? res.results : [];
+            const top = results.slice(0, 10);
+            this.showSuggestions(top);
+            // Ensure we have items for these IDs
+            const items = [];
+            for (const r of top) {
+                const id = String(r.id);
+                let item = this.items.get(id);
+                if (!item) {
+                    try {
+                        const full = await this.apiCall(`/items/${id}`, { errorMessage: `Failed to fetch item ${id}`, cache: false, showLoading: false });
+                        if (full) {
+                            this.items.set(id, full);
+                            item = full;
+                        }
+                    } catch (_) { /* ignore individual fetch errors */ }
+                }
+                if (item) {
+                    items.push({ ...item, _snippet: r.snippet || '' });
+                }
+            }
+            // Render search results with snippets
+            this.renderItemsWithSnippets(items);
+            this.updateViewTitle();
+            this.updateStats(items.length);
+        } catch (err) {
+            this.logWarn('Remote search failed, falling back to client filter', err);
+            this.applyFilters();
+        }
+    }
+
+    handleSearchKeydown = (e) => {
+        if (!this.elements.suggest || this.elements.suggest.classList.contains('hidden')) return;
+        const items = Array.from(this.elements.suggest.querySelectorAll('.suggest-item'));
+        if (items.length === 0) return;
+        const activeIdx = items.findIndex(el => el.classList.contains('active'));
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = activeIdx < 0 ? 0 : Math.min(items.length - 1, activeIdx + 1);
+            items.forEach(el => el.classList.remove('active'));
+            items[next].classList.add('active');
+            items[next].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = activeIdx <= 0 ? 0 : activeIdx - 1;
+            items.forEach(el => el.classList.remove('active'));
+            items[prev].classList.add('active');
+            items[prev].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            if (activeIdx >= 0) {
+                e.preventDefault();
+                items[activeIdx].click();
+            }
+        } else if (e.key === 'Escape') {
+            this.hideSuggestions();
+        }
+    }
+
+    showSuggestions(results) {
+        if (!this.elements.suggest) return;
+        if (!results || results.length === 0) { this.hideSuggestions(); return; }
+        const html = results.map((r, i) => `
+            <div class="suggest-item ${i===0?'active':''}" data-id="${this.escapeAttr(String(r.id))}">
+                <i class="fas fa-file-alt"></i>
+                <div class="suggest-text">
+                    <div class="suggest-title">${this.escapeHTML(r.title || 'Untitled')}</div>
+                </div>
+            </div>
+        `).join('');
+        this.elements.suggest.innerHTML = html;
+        this.elements.suggest.classList.remove('hidden');
+        // Click handlers
+        this.elements.suggest.querySelectorAll('.suggest-item').forEach(el => {
+            el.addEventListener('mousedown', (ev) => {
+                ev.preventDefault();
+                const id = el.getAttribute('data-id');
+                if (id) this.viewItem(id);
+                this.hideSuggestions();
+            });
+        });
+    }
+
+    hideSuggestions() {
+        if (this.elements.suggest) {
+            this.elements.suggest.classList.add('hidden');
+            this.elements.suggest.innerHTML = '';
+        }
+    }
+
+    renderItemsWithSnippets(items) {
+        if (!this.elements.itemsList) return;
+        if (!Array.isArray(items) || items.length === 0) {
+            this.showEmptyState();
+            return;
+        }
+        this.hideLoadingState();
+        this.hideEmptyState();
+        const html = items.map(item => {
+            const base = this.createItemHTML(item);
+            if (!item._snippet) return base;
+            // Inject snippet below preview
+            return base.replace(
+                /<div class=\"item-preview\">[\s\S]*?<\/div>/,
+                match => `${match}\n<div class=\"item-snippet\">${item._snippet}</div>`
+            );
+        }).join('');
+        this.elements.itemsList.innerHTML = html;
     }
 
     handleSortChange = (e) => {
@@ -785,14 +972,61 @@ class ModernKnowledgeBaseManager extends BaseManager {
         this.closeModal();
     }
 
-    viewItem(id) {
-        const item = this.items.get(String(id));
+    async viewItem(id) {
+        // Show a lightweight loading overlay while fetching full item
+        this.showLoadingOverlay();
+        let item = this.items.get(String(id));
+        try {
+            // Always fetch the full item to ensure complete content/media
+            const full = await this.apiCall(`/items/${id}`, {
+                errorMessage: `Failed to load knowledge base item ${id}`,
+                cache: false,
+                showLoading: false
+            });
+            if (full) {
+                // Merge and normalize
+                item = { ...(item || {}), ...full };
+                // Ensure media arrays
+                try { if (!Array.isArray(item.kb_media_paths)) item.kb_media_paths = item.kb_media_paths ? JSON.parse(item.kb_media_paths) : []; } catch { item.kb_media_paths = []; }
+                try { if (!Array.isArray(item.media_files)) item.media_files = item.media_files ? JSON.parse(item.media_files) : []; } catch { item.media_files = []; }
+                item.all_media_files = [...(item.kb_media_paths || []), ...(item.media_files || [])];
+                // Content fallback
+                item.content = item.content || item.markdown_content || item.kb_content || item.full_text || item.description || '';
+                this.items.set(String(id), item);
+            }
+        } catch (error) {
+            this.logWarn(`Falling back to cached item ${id} due to fetch error`, error);
+        } finally { this.hideLoadingOverlay(); }
         if (item) {
             this.selectedItem = item;
             this.createAndShowModal(item);
         } else {
             this.logError(`Item ${id} not found`);
         }
+    }
+
+    showLoadingOverlay(message = 'Loading...') {
+        if (document.getElementById('kb-loading-overlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'kb-loading-overlay';
+        overlay.style.cssText = `position:fixed;inset:0;z-index:1500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35)`;
+        overlay.innerHTML = `
+            <div style="width:420px;max-width:90vw;background:rgba(20,25,40,0.9);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:16px 18px;box-shadow:0 12px 30px rgba(0,0,0,0.4)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;color:#cbd5e1;font-weight:600">
+                    <span>${this.escapeHTML(message)}</span>
+                    <span id="kb-loading-progress" style="font-size:12px;color:#94a3b8">preparing…</span>
+                </div>
+                <div style="position:relative;height:8px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
+                    <div id="kb-loading-bar" style="position:absolute;left:0;top:0;height:100%;width:20%;background:linear-gradient(90deg,#3b82f6,#06b6d4);animation:kbbar 1.4s ease-in-out infinite"></div>
+                </div>
+            </div>
+            <style>@keyframes kbbar{0%{left:-20%}50%{left:50%}100%{left:100%}}</style>
+        `;
+        document.body.appendChild(overlay);
+    }
+    hideLoadingOverlay() {
+        const el = document.getElementById('kb-loading-overlay');
+        if (el) el.remove();
     }
 
     createAndShowModal(item) {
@@ -804,7 +1038,7 @@ class ModernKnowledgeBaseManager extends BaseManager {
         const title = this.escapeHTML(this.getDisplayTitle(item));
         const category = this.escapeHTML(item.main_category || 'Uncategorized');
         const subCategory = this.escapeHTML(item.sub_category || '');
-        const content = item.content || 'No content available';
+        const content = item.content_html || item.content || item.markdown_content || 'No content available';
         const lastUpdated = new Date(this.parseDateToMs(item.last_updated || item.created_at)).toLocaleString();
         const sourceUrl = item.source_url;
 
@@ -835,6 +1069,12 @@ class ModernKnowledgeBaseManager extends BaseManager {
                             </div>
                         </div>
                         <div class="modal-actions">
+                            <button id="kb-modal-scrolltop-btn" class="glass-button glass-button--small" title="Scroll to top">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                            <button id="kb-modal-fullscreen-btn" class="glass-button glass-button--small" title="Toggle Fullscreen">
+                                <i class="fas fa-expand"></i>
+                            </button>
                             <button id="modal-export-btn" class="glass-button glass-button--small" title="Export">
                                 <i class="fas fa-download"></i>
                             </button>
@@ -903,6 +1143,27 @@ class ModernKnowledgeBaseManager extends BaseManager {
                         }
                     },
                     condition: () => !!item.source_url
+                },
+                {
+                    selector: '#kb-modal-fullscreen-btn',
+                    handler: () => {
+                        const container = document.querySelector('#kb-item-modal .modal-container');
+                        if (container) {
+                            container.classList.toggle('fullscreen');
+                            const icon = document.querySelector('#kb-modal-fullscreen-btn i');
+                            if (icon) {
+                                icon.classList.toggle('fa-expand');
+                                icon.classList.toggle('fa-compress');
+                            }
+                        }
+                    }
+                },
+                {
+                    selector: '#kb-modal-scrolltop-btn',
+                    handler: () => {
+                        const content = document.querySelector('#kb-item-modal .modal-content');
+                        if (content) content.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                 }
             ],
             customEvents: [
@@ -934,23 +1195,14 @@ class ModernKnowledgeBaseManager extends BaseManager {
         let html = '';
         const text = String(content || '');
 
-        if (this.markdownRenderer) {
-            try {
-                html = this.markdownRenderer(text);
-            } catch {
-                html = this.escapeHTML(text).replace(/\n/g, '<br>');
-            }
+        // Use shared content renderer if available
+        if (window.ContentRenderer) {
+            html = window.ContentRenderer.renderAndSanitize(text);
+        } else if (this.markdownRenderer) {
+            try { html = this.markdownRenderer(text); } catch { html = this.escapeHTML(text).replace(/\n/g, '<br>'); }
         } else {
             const escaped = this.escapeHTML(text);
             html = `<p>${escaped.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
-        }
-
-        if (this.htmlSanitizer) {
-            try {
-                html = this.htmlSanitizer(html);
-            } catch {
-                html = `<pre>${this.escapeHTML(text)}</pre>`;
-            }
         }
 
         return html;

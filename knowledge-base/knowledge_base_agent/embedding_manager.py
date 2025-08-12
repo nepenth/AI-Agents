@@ -37,7 +37,8 @@ class EmbeddingManager:
         self.config = config
         self.http_client = http_client
         self.logger = logging.getLogger(__name__)
-        self.embedding_model = config.embedding_model
+        self.config = config
+        self.embedding_model = config.get_model_for_backend('embedding')
         
         # Vector store configuration
         self.use_vector_store = CHROMA_AVAILABLE and hasattr(config, 'vector_store_path') and bool(getattr(config, 'vector_store_path', None))
@@ -312,9 +313,9 @@ class EmbeddingManager:
                 content_preview = content[:100] + "..." if len(content) > 100 else content
                 self.logger.debug(f"Generating embedding for content (length={content_length}, attempt={attempt+1}): {content_preview}")
                 
-                embedding = await self.http_client.ollama_embed(
+                embedding = await self.http_client.embed(
                     model=self.embedding_model,
-                    prompt=content
+                    text=content  # Note: unified interface uses 'text' parameter instead of 'prompt'
                 )
                 
                 if not embedding or len(embedding) == 0:
