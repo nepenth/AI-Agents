@@ -3460,7 +3460,10 @@ def get_realtime_manager_health():
         health_stats = realtime_manager.get_stats()
         
         # Determine overall health status
-        is_healthy = health_stats.get('is_healthy', False)
+        # Support new split health keys from EnhancedRealtimeManager
+        is_healthy_progress = health_stats.get('is_healthy_progress', health_stats.get('is_healthy', False))
+        is_healthy_logs = health_stats.get('is_healthy_logs', health_stats.get('is_healthy', False))
+        is_healthy = bool(is_healthy_progress) and bool(is_healthy_logs)
         buffer_enabled = health_stats.get('buffer_enabled', False)
         
         # Calculate health score based on various factors
@@ -3494,8 +3497,10 @@ def _get_health_recommendations(stats):
     """Generate health recommendations based on statistics."""
     recommendations = []
     
-    if not stats.get('is_healthy', False):
-        recommendations.append("Redis connection is unhealthy - check Redis server status")
+    if not stats.get('is_healthy_progress', True):
+        recommendations.append("Progress Redis connection unhealthy - check Redis DB for phase/status updates")
+    if not stats.get('is_healthy_logs', True):
+        recommendations.append("Logs Redis connection unhealthy - check Redis DB for log streaming and Socket.IO queue")
     
     if stats.get('buffer_enabled', False):
         recommendations.append("Event buffering is active - indicates Redis connectivity issues")
