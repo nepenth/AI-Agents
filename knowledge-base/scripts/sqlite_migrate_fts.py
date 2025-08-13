@@ -26,6 +26,11 @@ def main():
         cur.execute("PRAGMA foreign_keys=OFF")
         cur.execute("BEGIN")
 
+        # Recreate FTS tables from scratch to avoid issues with contentless FTS5 bulk delete
+        # (Contentless FTS5 tables cannot be cleared using DELETE statements.)
+        cur.execute("DROP TABLE IF EXISTS kb_item_fts")
+        cur.execute("DROP TABLE IF EXISTS synthesis_fts")
+
         # Create FTS tables
         cur.execute(
             """
@@ -113,8 +118,7 @@ def main():
             """
         )
 
-        # Initial population: clear and refill
-        cur.execute("DELETE FROM kb_item_fts")
+        # Initial population
         cur.execute(
             """
             INSERT INTO kb_item_fts(id,title,content,main_category,sub_category,combined)
@@ -129,7 +133,6 @@ def main():
             """
         )
 
-        cur.execute("DELETE FROM synthesis_fts")
         cur.execute(
             """
             INSERT INTO synthesis_fts(id,title,content,main_category,sub_category,combined)
@@ -156,5 +159,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
 
 

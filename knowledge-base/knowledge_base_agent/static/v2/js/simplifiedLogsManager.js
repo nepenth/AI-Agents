@@ -172,6 +172,13 @@ class SimplifiedLogsManager {
             console.log('🔌 SocketIO connected');
             this.updateConnectionStatus('connected');
             this.stopEmergencyPolling();
+
+            // Switch to SocketIO as live source after initial PostgreSQL bootstrap
+            if (this.currentTaskId && this.usePostgreSQL && !this.isHistoricalMode) {
+                console.log('🧭 Switching from PostgreSQL polling to SocketIO live updates');
+                this.stopPostgreSQLPolling();
+                this.usePostgreSQL = false;
+            }
         });
 
         window.socket.on('disconnect', () => {
@@ -180,6 +187,12 @@ class SimplifiedLogsManager {
             console.log('🔌 SocketIO disconnected');
             this.updateConnectionStatus('disconnected');
             this.startEmergencyPolling();
+            // Fall back to PostgreSQL polling if a task is active
+            if (this.currentTaskId && !this.isHistoricalMode) {
+                console.log('🔄 Falling back to PostgreSQL polling due to SocketIO disconnect');
+                this.usePostgreSQL = true;
+                this.startPostgreSQLPolling();
+            }
         });
 
         window.socket.on('connect_error', (error) => {
@@ -265,11 +278,17 @@ class SimplifiedLogsManager {
                 // Agent is running - load recent logs for this task only
                 console.log(`📝 Agent is running with task: ${currentTaskId}, loading task-specific logs`);
                 this.currentTaskId = currentTaskId;
-                
+                this.usePostgreSQL = true; // bootstrap via PostgreSQL
+
                 const success = await this.loadPostgreSQLLogs(currentTaskId, false);
                 if (success) {
-                    // Start PostgreSQL polling for new logs (no SocketIO duplication)
-                    this.startPostgreSQLPolling();
+                    if (this.socketConnected) {
+                        console.log('🧭 SocketIO connected; using it for live updates');
+                        this.usePostgreSQL = false;
+                    } else {
+                        // Start PostgreSQL polling for new logs until SocketIO connects
+                        this.startPostgreSQLPolling();
+                    }
                 } else {
                     this.showEmptyState('No logs available for current task. Logs will appear as the agent runs.');
                 }
