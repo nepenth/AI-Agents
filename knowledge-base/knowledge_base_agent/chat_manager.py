@@ -405,7 +405,13 @@ Provide expert technical assistance based on the knowledge base context below.""
         
         return sorted(list(technical_terms))[:15]  # Return top 15 terms
 
-    async def handle_chat_query(self, query: str, model: Optional[str] = None, use_knowledge_base: bool = True) -> Dict[str, Any]:
+    async def handle_chat_query(
+        self,
+        query: str,
+        model: Optional[str] = None,
+        use_knowledge_base: bool = True,
+        search_context: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
         """
         Enhanced chat query handler with modern AI agent design patterns.
         
@@ -428,6 +434,39 @@ Provide expert technical assistance based on the knowledge base context below.""
                     top_k=12,  # Increased from 8 to 12 for better coverage
                     include_scores=True
                 )
+            
+            # 2b. Merge any client-provided search_context (from UI pre-search) into similar_docs
+            #     so the assistant can leverage those hints alongside embeddings.
+            if search_context:
+                formatted_context: List[Dict[str, Any]] = []
+                for src in search_context:
+                    src_type = src.get('type')
+                    # Normalize type names
+                    if src_type in ('kb', 'kb_item'):
+                        norm_type = 'kb_item'
+                    elif src_type == 'synthesis':
+                        norm_type = 'synthesis'
+                    else:
+                        norm_type = src_type or 'unknown'
+                    formatted_context.append({
+                        'title': src.get('title', 'Untitled'),
+                        'score': float(src.get('score', 0.78)),  # reasonable default score
+                        'content': src.get('content', ''),
+                        'type': norm_type,
+                        'id': src.get('id'),
+                        'category': src.get('main_category') or src.get('category', ''),
+                        'subcategory': src.get('sub_category') or src.get('subcategory', ''),
+                    })
+                # Deduplicate by (type, id), preferring earlier (UI-provided) items
+                combined: List[Dict[str, Any]] = []
+                seen: set = set()
+                for doc in (formatted_context + (similar_docs or [])):
+                    key = f"{doc.get('type')}:{doc.get('id')}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    combined.append(doc)
+                similar_docs = combined
             
             self.logger.info(f"Retrieved {len(similar_docs)} similar documents")
 
@@ -540,7 +579,7 @@ Please provide your comprehensive technical response."""
                 "context_stats": {
                     "total_sources": len(enhanced_sources),
                     "synthesis_docs": sum(1 for s in enhanced_sources if s['type'] == 'synthesis'),
-                    "kb_items": sum(1 for s in enhanced_sources if s['type'] == 'item'),
+                    "kb_items": sum(1 for s in enhanced_sources if s['type'] == 'kb_item'),
                     "categories_covered": len(set(s['category'] for s in enhanced_sources if s.get('category')))
                 },
                 "sources": enhanced_sources[:5],  # Limit displayed sources but keep full metadata

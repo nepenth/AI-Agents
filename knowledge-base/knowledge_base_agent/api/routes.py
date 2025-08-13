@@ -3660,9 +3660,9 @@ def explore_tweets():
         - created_before: Filter by creation date (ISO format)
     """
     try:
-        from ..models import UnifiedTweet, dbngQueueRepository
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
         
-        # Using UnifiedTweet model directly
+        tweet_repo = TweetCacheRepository()
         queue_repo = TweetProcessingQueueRepository()
         
         # Parse query parameters
@@ -3824,9 +3824,9 @@ def get_tweet_detail(tweet_id: str):
         tweet_id: The tweet ID to retrieve details for
     """
     try:
-        from ..models import UnifiedTweet, dbngQueueRepository
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
         
-        # Using UnifiedTweet model directly
+        tweet_repo = TweetCacheRepository()
         queue_repo = TweetProcessingQueueRepository()
         
         # Get tweet data
@@ -3976,7 +3976,9 @@ def update_tweet_flags(tweet_id: str):
         }
     """
     try:
-        from ..models import UnifiedTweet, db
+        from ..repositories import TweetCacheRepository
+        
+        tweet_repo = TweetCacheRepository()
         
         data = request.get_json()
         if not data or 'flags' not in data:
@@ -4064,7 +4066,9 @@ def update_tweet_field(tweet_id):
         - value: New value for the field
     """
     try:
-        from ..models import UnifiedTweet, db
+        from ..repositories import TweetCacheRepository
+        
+        tweet_repo = TweetCacheRepository()
         
         data = request.get_json()
         field_name = data.get('field')
@@ -4137,8 +4141,9 @@ def trigger_tweet_reprocess(tweet_id: str):
         }
     """
     try:
-        from ..models import UnifiedTweet, dbngQueueRepository
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
         
+        tweet_repo = TweetCacheRepository()
         data = request.get_json()
         if not data:
             data = {}
@@ -4153,7 +4158,6 @@ def trigger_tweet_reprocess(tweet_id: str):
                 'error': 'reprocess_type must be "pipeline" or "full"'
             }), 400
         
-        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         
         # Get current tweet data
@@ -4254,8 +4258,9 @@ def bulk_tweet_operations():
         }
     """
     try:
-        from ..models import UnifiedTweet, dbngQueueRepository
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository
         
+        tweet_repo = TweetCacheRepository()
         data = request.get_json()
         if not data:
             return jsonify({
@@ -4285,7 +4290,6 @@ def bulk_tweet_operations():
                 'error': 'Maximum 1000 tweets per bulk operation'
             }), 400
         
-        # Using UnifiedTweet model directly
         queue_repo = TweetProcessingQueueRepository()
         
         # Validate operation type
@@ -4461,9 +4465,9 @@ def get_tweet_statistics():
     Get comprehensive statistics about tweets and processing status.
     """
     try:
-        from ..models import UnifiedTweet, dbngQueueRepository, CategoryRepository
+        from ..repositories import TweetCacheRepository, TweetProcessingQueueRepository, CategoryRepository
         
-        # Using UnifiedTweet model directly
+        tweet_repo = TweetCacheRepository()
         queue_repo = TweetProcessingQueueRepository()
         category_repo = CategoryRepository()
         
@@ -4754,28 +4758,36 @@ def search_documents():
             return jsonify({'success': True, 'results': []})
 
         results = []
-        # Use raw SQL for FTS5 queries
+        # Use raw SQL for FTS5 queries, but tolerate missing tables gracefully
         if doc_type in ('all', 'kb'):
-            sql_kb = "SELECT id, title, snippet(kb_item_fts, 1, '<b>', '</b>', '…', 10) AS snippet FROM kb_item_fts WHERE kb_item_fts MATCH :query LIMIT :limit"
-            rows = db.session.execute(text(sql_kb), {"query": q, "limit": limit}).all()
-            for r in rows:
-                results.append({
-                    'type': 'kb',
-                    'id': r.id,
-                    'title': r.title,
-                    'snippet': r.snippet
-                })
+            try:
+                sql_kb = "SELECT id, title, snippet(kb_item_fts, 1, '<b>', '</b>', '…', 10) AS snippet FROM kb_item_fts WHERE kb_item_fts MATCH :query LIMIT :limit"
+                rows = db.session.execute(text(sql_kb), {"query": q, "limit": limit}).all()
+                for r in rows:
+                    results.append({
+                        'type': 'kb',
+                        'id': r.id,
+                        'title': r.title,
+                        'snippet': r.snippet
+                    })
+            except Exception:
+                # FTS table not available; skip silently
+                pass
 
         if doc_type in ('all', 'synthesis'):
-            sql_syn = "SELECT id, title, snippet(synthesis_fts, 1, '<b>', '</b>', '…', 10) AS snippet FROM synthesis_fts WHERE synthesis_fts MATCH :query LIMIT :limit"
-            rows = db.session.execute(text(sql_syn), {"query": q, "limit": limit}).all()
-            for r in rows:
-                results.append({
-                    'type': 'synthesis',
-                    'id': r.id,
-                    'title': r.title,
-                    'snippet': r.snippet
-                })
+            try:
+                sql_syn = "SELECT id, title, snippet(synthesis_fts, 1, '<b>', '</b>', '…', 10) AS snippet FROM synthesis_fts WHERE synthesis_fts MATCH :query LIMIT :limit"
+                rows = db.session.execute(text(sql_syn), {"query": q, "limit": limit}).all()
+                for r in rows:
+                    results.append({
+                        'type': 'synthesis',
+                        'id': r.id,
+                        'title': r.title,
+                        'snippet': r.snippet
+                    })
+            except Exception:
+                # FTS table not available; skip silently
+                pass
 
         return jsonify({'success': True, 'results': results})
     except Exception as e:
