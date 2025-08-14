@@ -21,6 +21,7 @@ pydantic-settings==2.1.0
 # HTTP client for external APIs
 httpx==0.25.2
 aiohttp==3.9.1
+requests==2.31.0
 aiofiles==23.2.1
 
 # System monitoring
