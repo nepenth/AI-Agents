@@ -108,6 +108,26 @@ class Settings(BaseSettings):
             return [item.strip() for item in text.split(',') if item.strip()]
         return value
 
+    # Normalize X_MEDIA_ALLOWED_TYPES from JSON or comma-separated strings
+    @field_validator("X_MEDIA_ALLOWED_TYPES", mode="before")
+    @classmethod
+    def _coerce_media_types(cls, value):  # type: ignore[override]
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return []
+            # Try JSON first
+            try:
+                import json
+                parsed = json.loads(text)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            # Fallback: comma-separated list
+            return [item.strip() for item in text.split(',') if item.strip()]
+        return value
+
     def get_ai_backends_config(self) -> Dict[str, Any]:
         """Get AI backends configuration dictionary."""
         config = {
