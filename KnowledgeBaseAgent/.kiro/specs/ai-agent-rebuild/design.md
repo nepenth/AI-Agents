@@ -182,39 +182,104 @@ POST   /api/v1/chat/sessions/{id}/messages
 GET    /api/v1/system/health
 GET    /api/v1/system/metrics
 GET    /api/v1/system/logs
+
+# AI Models and Settings
+GET    /api/v1/system/models/available          # List models by backend and capability
+GET    /api/v1/system/models/config             # Get phase->model configuration
+PUT    /api/v1/system/models/config             # Update phase->model configuration
+```
+
+"Agent start" accepts optional per-phase model overrides:
+```json
+{
+  "config": { /* existing agent config */ },
+  "models": {
+    "vision": { "backend": "ollama", "model": "llava:13b", "params": {"temperature": 0.1} },
+    "kb_generation": { "backend": "localai", "model": "mixtral:8x7b" },
+    "synthesis": { "backend": "ollama", "model": "qwen2.5:7b" },
+    "chat": { "backend": "ollama", "model": "llama3.1:8b-instruct" },
+    "embeddings": { "backend": "openai", "model": "text-embedding-3-small" }
+  }
+}
 ```
 
 #### 2. Task Processing Layer
 
-**Celery Task Organization:**
+**Seven-Phase Pipeline with Sub-Phases Task Organization:**
 ```python
-# tasks/content_processing.py
+# tasks/pipeline_phases.py
 @celery_app.task(bind=True)
-def fetch_content_task(self, source_config: dict) -> dict:
-    """Fetch content from various sources."""
+def phase_1_initialization(self, config: dict) -> dict:
+    """Phase 1: Initialize all components and validate configuration."""
     pass
 
 @celery_app.task(bind=True)
-def process_content_task(self, content_id: str) -> dict:
-    """Process individual content item through AI pipeline."""
+def phase_2_fetch_bookmarks(self, config: dict) -> dict:
+    """Phase 2: Fetch bookmarks from Twitter/X API."""
     pass
 
 @celery_app.task(bind=True)
-def generate_synthesis_task(self, category: str) -> dict:
-    """Generate synthesis document for category."""
+def phase_2_1_bookmark_caching(self, bookmark_ids: list[str]) -> dict:
+    """Phase 2.1: Cache bookmark content, detect threads, and store media."""
     pass
 
-# Task workflow orchestration
 @celery_app.task(bind=True)
-def run_agent_pipeline(self, config: dict) -> dict:
-    """Orchestrate the complete processing pipeline."""
+def phase_3_content_processing(self, content_ids: list[str], models_override: dict = None) -> dict:
+    """Phase 3: Orchestrate content processing sub-phases."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_3_1_media_analysis(self, content_ids: list[str], models_override: dict = None) -> dict:
+    """Phase 3.1: Analyze media content using vision models."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_3_2_ai_content_understanding(self, content_ids: list[str], models_override: dict = None) -> dict:
+    """Phase 3.2: Generate collective understanding of bookmark content."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_3_3_ai_categorization(self, content_ids: list[str], models_override: dict = None) -> dict:
+    """Phase 3.3: Generate categories and sub-categories with existing category intelligence."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_4_synthesis_generation(self, categories: list[str], models_override: dict = None) -> dict:
+    """Phase 4: Generate synthesis documents for categories with 3+ bookmarks."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_5_embedding_generation(self, content_ids: list[str], models_override: dict = None) -> dict:
+    """Phase 5: Generate embeddings for knowledge base items and synthesis documents."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_6_readme_generation(self, config: dict, models_override: dict = None) -> dict:
+    """Phase 6: Generate Root README.md with navigation tree view."""
+    pass
+
+@celery_app.task(bind=True)
+def phase_7_git_sync(self, config: dict) -> dict:
+    """Phase 7: Export markdown files and push to GitHub repository."""
+    pass
+
+# Complete pipeline orchestration with sub-phases
+@celery_app.task(bind=True)
+def run_seven_phase_pipeline(self, config: dict, models_override: dict = None) -> dict:
+    """Orchestrate the complete seven-phase processing pipeline with sub-phases."""
     workflow = chain(
-        fetch_content_task.s(config['sources']),
+        phase_1_initialization.s(config),
+        phase_2_fetch_bookmarks.s(config),
+        phase_2_1_bookmark_caching.s(),
         group([
-            process_content_task.s(item_id) 
-            for item_id in content_ids
+            phase_3_1_media_analysis.s(models_override=models_override),
+            phase_3_2_ai_content_understanding.s(models_override=models_override),
+            phase_3_3_ai_categorization.s(models_override=models_override)
         ]),
-        generate_synthesis_task.s(config['categories'])
+        phase_4_synthesis_generation.s(models_override=models_override),
+        phase_5_embedding_generation.s(models_override=models_override),
+        phase_6_readme_generation.s(config, models_override=models_override),
+        phase_7_git_sync.s(config)
     )
     return workflow.apply_async()
 ```
@@ -266,6 +331,263 @@ class OpenAIBackend(AIBackend):
     pass
 ```
 
+#### 5. XML-Based Prompting System
+
+**Structured Prompt Architecture:**
+```python
+# prompts/base.py
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional
+from xml.etree.ElementTree import Element, SubElement, tostring
+
+class BasePromptTemplate(ABC):
+    """Base class for XML-structured prompts."""
+    
+    def __init__(self, task: str, model_type: str = "text"):
+        self.task = task
+        self.model_type = model_type
+    
+    @abstractmethod
+    def build_prompt(self, **kwargs) -> str:
+        """Build the XML prompt structure."""
+        pass
+    
+    def create_xml_element(self, tag: str, text: str = None, **attrs) -> Element:
+        """Helper to create XML elements."""
+        element = Element(tag, **attrs)
+        if text:
+            element.text = text
+        return element
+
+# prompts/media_analysis.py
+class MediaAnalysisPrompt(BasePromptTemplate):
+    """XML prompt for vision model media analysis."""
+    
+    def build_prompt(self, media_items: list, tweet_context: str = "") -> str:
+        prompt = Element("prompt")
+        
+        # Task definition
+        task_elem = SubElement(prompt, "task")
+        task_elem.text = "Analyze media content and generate detailed understanding"
+        
+        # Input specification
+        input_elem = SubElement(prompt, "input")
+        for i, media in enumerate(media_items):
+            media_elem = SubElement(input_elem, "media", id=str(i), type=media.get("type", "image"))
+            media_elem.text = media.get("url", "")
+        
+        if tweet_context:
+            context_elem = SubElement(input_elem, "context")
+            context_elem.text = tweet_context
+        
+        # Instructions
+        instructions = SubElement(prompt, "instructions")
+        instructions.text = """
+        For each media item, provide:
+        1. Visual description of what is shown
+        2. Technical analysis of content/concepts
+        3. Relationship to accompanying text
+        4. Key insights or knowledge conveyed
+        """
+        
+        # Output schema
+        schema = SubElement(prompt, "output_schema")
+        SubElement(schema, "field", name="media_id", type="string", required="true")
+        SubElement(schema, "field", name="description", type="string", required="true")
+        SubElement(schema, "field", name="technical_analysis", type="string", required="true")
+        SubElement(schema, "field", name="key_insights", type="array", required="true")
+        SubElement(schema, "field", name="confidence_score", type="float", required="true")
+        
+        return tostring(prompt, encoding='unicode')
+
+# prompts/content_understanding.py
+class ContentUnderstandingPrompt(BasePromptTemplate):
+    """XML prompt for AI content understanding."""
+    
+    def build_prompt(self, tweet_text: str, media_analysis: list, thread_context: str = "") -> str:
+        prompt = Element("prompt")
+        
+        task_elem = SubElement(prompt, "task")
+        task_elem.text = "Generate collective understanding of bookmark content"
+        
+        input_elem = SubElement(prompt, "input")
+        
+        # Tweet content
+        text_elem = SubElement(input_elem, "tweet_text")
+        text_elem.text = tweet_text
+        
+        # Media analysis results
+        media_elem = SubElement(input_elem, "media_analysis")
+        for analysis in media_analysis:
+            item_elem = SubElement(media_elem, "analysis_item")
+            item_elem.text = str(analysis)
+        
+        # Thread context if applicable
+        if thread_context:
+            thread_elem = SubElement(input_elem, "thread_context")
+            thread_elem.text = thread_context
+        
+        # Instructions
+        instructions = SubElement(prompt, "instructions")
+        instructions.text = """
+        Synthesize the tweet text and media analysis to create a comprehensive understanding.
+        Focus on:
+        1. Core knowledge or insights being shared
+        2. Technical concepts and their applications
+        3. Broader implications and context
+        4. Actionable information or learnings
+        """
+        
+        # Constraints
+        constraints = SubElement(prompt, "constraints")
+        constraints.text = "Output should be 200-500 words, technical but accessible"
+        
+        # Output schema
+        schema = SubElement(prompt, "output_schema")
+        SubElement(schema, "field", name="collective_understanding", type="string", required="true")
+        SubElement(schema, "field", name="key_concepts", type="array", required="true")
+        SubElement(schema, "field", name="technical_domain", type="string", required="true")
+        SubElement(schema, "field", name="actionable_insights", type="array", required="true")
+        
+        return tostring(prompt, encoding='unicode')
+
+# prompts/categorization.py
+class CategorizationPrompt(BasePromptTemplate):
+    """XML prompt for AI categorization with existing category intelligence."""
+    
+    def build_prompt(self, content_understanding: str, existing_categories: list) -> str:
+        prompt = Element("prompt")
+        
+        task_elem = SubElement(prompt, "task")
+        task_elem.text = "Categorize content using existing category intelligence"
+        
+        input_elem = SubElement(prompt, "input")
+        
+        # Content to categorize
+        content_elem = SubElement(input_elem, "content_understanding")
+        content_elem.text = content_understanding
+        
+        # Existing categories for reference
+        categories_elem = SubElement(input_elem, "existing_categories")
+        for category in existing_categories:
+            cat_elem = SubElement(categories_elem, "category", 
+                                name=category.get("name", ""), 
+                                count=str(category.get("count", 0)))
+            if category.get("subcategories"):
+                for subcat in category["subcategories"]:
+                    SubElement(cat_elem, "subcategory", 
+                             name=subcat.get("name", ""), 
+                             count=str(subcat.get("count", 0)))
+        
+        # Instructions
+        instructions = SubElement(prompt, "instructions")
+        instructions.text = """
+        Analyze the content and assign appropriate category and subcategory.
+        Rules:
+        1. Use existing categories when content fits (prefer consistency)
+        2. Create new categories only when content doesn't fit existing ones
+        3. Keep names short (max 3 words), technical domain focused
+        4. Use kebab-case formatting (e.g., "machine-learning", "web-development")
+        """
+        
+        # Examples
+        examples = SubElement(prompt, "examples")
+        
+        example1 = SubElement(examples, "example")
+        ex1_input = SubElement(example1, "input")
+        ex1_input.text = "Content about neural network architectures and training techniques"
+        ex1_output = SubElement(example1, "output")
+        SubElement(ex1_output, "category").text = "machine-learning"
+        SubElement(ex1_output, "subcategory").text = "neural-networks"
+        
+        # Output schema
+        schema = SubElement(prompt, "output_schema")
+        SubElement(schema, "field", name="category", type="string", required="true")
+        SubElement(schema, "field", name="subcategory", type="string", required="true")
+        SubElement(schema, "field", name="reasoning", type="string", required="true")
+        SubElement(schema, "field", name="is_new_category", type="boolean", required="true")
+        SubElement(schema, "field", name="confidence_score", type="float", required="true")
+        
+        return tostring(prompt, encoding='unicode')
+```
+
+#### 6. Phase-Specific Model Routing and Configuration
+
+Different phases benefit from different models (size, modality, context length). We introduce a routing layer and settings to choose optimal models per phase, with backend capability detection and safe fallbacks.
+
+Phases: `vision`, `kb_generation`, `synthesis`, `chat`, `embeddings`.
+
+Settings and router:
+```python
+from enum import Enum
+from pydantic import BaseModel, BaseSettings, Field
+from typing import Dict, Optional, Tuple
+
+class ModelPhase(str, Enum):
+    vision = "vision"
+    kb_generation = "kb_generation"
+    synthesis = "synthesis"
+    chat = "chat"
+    embeddings = "embeddings"
+
+class ModelParams(BaseModel):
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    max_tokens: Optional[int] = None
+
+class PhaseModelSelector(BaseModel):
+    backend: str  # "ollama" | "localai" | "openai"
+    model: str
+    params: ModelParams = Field(default_factory=ModelParams)
+
+class ModelSelectionSettings(BaseSettings):
+    default_backend: str = "ollama"
+    per_phase: Dict[ModelPhase, PhaseModelSelector] = Field(default_factory=dict)
+
+class ModelRouter:
+    def __init__(self, settings: ModelSelectionSettings, backends: Dict[str, AIBackend]):
+        self.settings = settings
+        self.backends = backends
+
+    async def resolve(self, phase: ModelPhase, override: Optional[PhaseModelSelector] = None) -> Tuple[AIBackend, str, dict]:
+        selection = override or self.settings.per_phase.get(phase)
+        if not selection:
+            selection = await self._fallback_selection_for_phase(phase)
+        backend = self.backends[selection.backend]
+        self._validate_capability(backend, phase, selection.model)
+        return backend, selection.model, selection.params.dict(exclude_none=True)
+
+    def _validate_capability(self, backend: AIBackend, phase: ModelPhase, model: str) -> None:
+        # Each backend exposes advertised capabilities for models
+        # Raise AIAgentException if model cannot serve the phase (e.g., no vision)
+        pass
+
+    async def _fallback_selection_for_phase(self, phase: ModelPhase) -> PhaseModelSelector:
+        # Inspect backends for available models with required capability
+        # Return sensible defaults (e.g., embeddings -> text-embedding model)
+        pass
+```
+
+Backend capability discovery:
+- Ollama: query `GET /api/tags` or `GET /api/models` to determine modalities, context length, and family; derive capabilities: text_generation, vision, embeddings.
+- LocalAI: inspect model registry and metadata endpoints; fallback to configured capabilities if metadata is limited.
+- OpenAI-compatible: static map by model prefix.
+
+Task integration: Each Celery task requests a model via `ModelRouter.resolve(phase, override)` and passes `(backend, model, params)` into the unified AI interface call.
+
+```python
+# tasks/content_processing.py
+@celery_app.task(bind=True)
+def process_content_task(self, content_id: str, models_override: dict | None = None):
+    # vision example
+    backend, model, params = await model_router.resolve(ModelPhase.vision, models_override and models_override.get("vision"))
+    vision_text = await backend.generate_text(prompt=prompt_from_image(...), model=model, **params)
+
+    # kb generation example
+    backend, model, params = await model_router.resolve(ModelPhase.kb_generation, models_override and models_override.get("kb_generation"))
+    enhanced = await backend.generate_text(prompt=kb_prompt, model=model, **params)
+```
+
 #### 4. Data Models
 
 **Unified Database Schema:**
@@ -290,13 +612,15 @@ class ContentItem(Base):
     sub_category: Mapped[str] = mapped_column(String, nullable=True)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     
-    # Media and files
-    media_files: Mapped[list[dict]] = mapped_column(JSON, default=list)
-    generated_files: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Media content (stored in database)
+    media_content: Mapped[list[dict]] = mapped_column(JSON, default=list)  # Contains media data, descriptions, metadata
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Provenance
+    vision_model_used: Mapped[str] = mapped_column(String, nullable=True)
 
 # Knowledge base item (processed content)
 class KnowledgeItem(Base):
@@ -305,14 +629,17 @@ class KnowledgeItem(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     content_item_id: Mapped[str] = mapped_column(String, ForeignKey("content_items.id"))
     
-    # Generated content
+    # Generated content (all stored in database)
     display_title: Mapped[str] = mapped_column(String, nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=True)
     enhanced_content: Mapped[str] = mapped_column(Text, nullable=False)
     
-    # File paths
-    markdown_path: Mapped[str] = mapped_column(String, nullable=True)
-    media_paths: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Generated markdown content (for Git export)
+    markdown_content: Mapped[str] = mapped_column(Text, nullable=True)
+    readme_section: Mapped[str] = mapped_column(Text, nullable=True)  # Content for README generation
+
+    # Provenance
+    generation_model_used: Mapped[str] = mapped_column(String, nullable=True)
     
     # Relationships
     content_item: Mapped["ContentItem"] = relationship("ContentItem", back_populates="knowledge_item")
@@ -332,6 +659,156 @@ class Embedding(Base):
     
     # Relationships
     knowledge_item: Mapped["KnowledgeItem"] = relationship("KnowledgeItem", back_populates="embeddings")
+```
+
+```python
+# Synthesis documents
+class SynthesisDocument(Base):
+    __tablename__ = "synthesis_documents"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    main_category: Mapped[str] = mapped_column(String, nullable=False)
+    sub_category: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    item_count: Mapped[int] = mapped_column(Integer, default=0)
+    source_item_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    content_hash: Mapped[str] = mapped_column(String, nullable=True)
+    is_stale: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Provenance
+    synthesis_model_used: Mapped[str] = mapped_column(String, nullable=True)
+
+## Dynamic Content Rendering
+
+### Frontend Knowledge Base Item Generation
+
+The frontend dynamically generates beautiful, well-structured knowledge base items by combining:
+
+1. **Ground-truth bookmark data** (original tweet text, metadata, timestamps)
+2. **Media analysis results** (vision model descriptions and insights)
+3. **AI content understanding** (collective understanding and key concepts)
+4. **Categorization data** (category, subcategory, technical domain)
+
+**Rendering Pipeline:**
+```typescript
+interface KnowledgeBaseItem {
+  id: string;
+  title: string;
+  content: {
+    originalTweet: TweetData;
+    mediaAnalysis: MediaAnalysisResult[];
+    collectiveUnderstanding: string;
+    keyInsights: string[];
+    technicalDomain: string;
+  };
+  category: string;
+  subcategory: string;
+  formattedContent: string; // Generated markdown with proper structure
+  displayHtml: string; // Rendered HTML with embedded media
+}
+
+// Dynamic generation service
+class KnowledgeItemRenderer {
+  generateFormattedContent(item: KnowledgeBaseItem): string {
+    // Creates beautiful markdown with:
+    // - Professional headings and structure
+    // - Embedded media with captions
+    // - Technical analysis sections
+    // - Source attribution and metadata
+    // - Cross-references to related items
+  }
+  
+  generateDisplayHtml(item: KnowledgeBaseItem): string {
+    // Renders to HTML with:
+    // - Responsive media embedding
+    // - Syntax highlighting for code
+    // - Interactive elements
+    // - Professional typography
+  }
+}
+```
+
+### Git Export Formatting
+
+When exporting to Git repository, the system generates markdown files with:
+
+- **Professional structure** with clear headings and sections
+- **Embedded media** with proper alt text and captions
+- **Technical analysis** formatted with appropriate emphasis
+- **Source references** with links back to original tweets
+- **Category navigation** with breadcrumbs and related items
+- **Metadata sections** with timestamps and provenance information
+
+# README and index content
+class ReadmeContent(Base):
+    __tablename__ = "readme_content"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    content_type: Mapped[str] = mapped_column(String, nullable=False)  # 'main_readme', 'category_index', 'subcategory_index'
+    category: Mapped[str] = mapped_column(String, nullable=True)
+    subcategory: Mapped[str] = mapped_column(String, nullable=True)
+    
+    # Generated content
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    item_count: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Git sync metadata
+    file_path: Mapped[str] = mapped_column(String, nullable=False)  # Target path for Git export
+    content_hash: Mapped[str] = mapped_column(String, nullable=True)
+    is_stale: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# Git sync operations tracking
+class GitSyncOperation(Base):
+    __tablename__ = "git_sync_operations"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    operation_type: Mapped[str] = mapped_column(String, nullable=False)  # 'commit', 'push', 'pull'
+    
+    # Operation details
+    commit_message: Mapped[str] = mapped_column(String, nullable=True)
+    commit_hash: Mapped[str] = mapped_column(String, nullable=True)
+    files_changed: Mapped[list[str]] = mapped_column(JSON, default=list)
+    
+    # Status
+    status: Mapped[str] = mapped_column(String, default="pending")  # 'pending', 'success', 'failed'
+    error_message: Mapped[str] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+# Pipeline execution tracking
+class PipelineExecution(Base):
+    __tablename__ = "pipeline_executions"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    
+    # Configuration
+    config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    models_override: Mapped[dict] = mapped_column(JSON, nullable=True)
+    
+    # Phase tracking
+    current_phase: Mapped[int] = mapped_column(Integer, default=1)
+    phase_status: Mapped[dict] = mapped_column(JSON, default=dict)  # {phase_num: {status, start_time, end_time, error}}
+    
+    # Overall status
+    status: Mapped[str] = mapped_column(String, default="running")  # 'running', 'completed', 'failed', 'paused'
+    progress_percentage: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Results
+    items_processed: Mapped[int] = mapped_column(Integer, default=0)
+    synthesis_generated: Mapped[int] = mapped_column(Integer, default=0)
+    embeddings_created: Mapped[int] = mapped_column(Integer, default=0)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 ```
 
 ### Frontend Components
@@ -477,6 +954,10 @@ class WebSocketService {
 }
 ```
 
+New events:
+- `settings.updated`: emitted when model configuration changes
+- `agent.models_applied`: emitted when an agent run starts with explicit model overrides
+
 ## Data Models
 
 ### Unified Database Schema
@@ -508,7 +989,9 @@ CREATE TABLE content_items (
     
     -- Timestamps
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    -- Provenance
+    vision_model_used VARCHAR
 );
 
 -- Processed knowledge base items
@@ -527,7 +1010,9 @@ CREATE TABLE knowledge_items (
     
     -- Timestamps
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    -- Provenance
+    generation_model_used VARCHAR
 );
 
 -- Vector embeddings using pgvector
@@ -561,6 +1046,8 @@ CREATE TABLE synthesis_documents (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     
+    -- Provenance
+    synthesis_model_used VARCHAR,
     UNIQUE(main_category, sub_category)
 );
 
@@ -1005,3 +1492,42 @@ server {
 ```
 
 This comprehensive design provides a solid foundation for building a modern, scalable AI Agent system with clean separation between backend and frontend concerns.
+
+## Frontend Visual Design System
+
+### Liquid Glass Design Language
+
+Adopt a “liquid glass” aesthetic inspired by Apple’s guidance, emphasizing translucency, depth, motion, and tactility while preserving accessibility.
+
+- Visual principles:
+  - Translucent layers with frosted blur backdrops and subtle gradients
+  - Depth via shadows, parallax, and layered panels; restrained motion for focus
+  - High contrast and legibility controls when content appears beneath glass
+  - Reduced motion and increased contrast modes for accessibility
+
+- Tailwind setup:
+  - Extend theme tokens for colors, blur, opacity, shadows, radii, and transitions
+  - Use CSS variables to enable live theming and light/dark modes
+  - Utilities: `backdrop-blur-*`, `bg-opacity`, `bg-gradient-to-*`, `shadow-*`, `ring-*`
+
+- Component patterns (glass-ready variants):
+  - Page layout surfaces (primary/secondary panels) with layered translucency
+  - Cards and sheets with `backdrop-blur`, gradient overlays, and soft shadows
+  - Toolbars, modals, drawers using glass surfaces and focus rings
+  - Buttons, inputs, dropdowns with clear focus, hover and pressed states
+  - Charts/metrics over glass with legibility layers (scrims) and dynamic contrast
+
+- Responsiveness and motion:
+  - Mobile-first; ensure glass layers degrade gracefully on low-power devices
+  - Respect `prefers-reduced-motion`; avoid parallax when reduced motion is enabled
+  - Use GPU-friendly transitions; limit heavy blurs on constrained devices
+
+- Accessibility:
+  - Maintain WCAG contrast ratios for foreground text on translucent backgrounds
+  - Provide a “Reduce transparency” setting that switches to solid surfaces
+  - Keyboard focus rings and logical tab order across glass layers
+
+- Implementation notes:
+  - Centralize tokens in `tailwind.config.ts` and a `styles/tokens.css` file
+  - Provide a `GlassPanel` wrapper component to standardize surface behavior
+  - Add a `useTheme` hook for toggling transparency, motion, and color theme

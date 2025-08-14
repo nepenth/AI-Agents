@@ -1,0 +1,124 @@
+services:
+  # PostgreSQL database with pgvector extension
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: aiagent_db
+    environment:
+      POSTGRES_DB: aiagent
+      POSTGRES_USER: aiagent_user
+      POSTGRES_PASSWORD: aiagent_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5433:5432"  # Use port 5433 to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiagent_user -d aiagent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery broker and caching
+  redis:
+    image: redis:7-alpine
+    container_name: aiagent_redis
+    ports:
+      - "6380:6379"  # Use port 6380 to avoid conflicts
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI backend application
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aiagent_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aiagent_user:aiagent_password@db:5432/aiagent
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - DEFAULT_AI_BACKEND=ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - LOCALAI_BASE_URL=http://localai:8080
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery worker for background tasks
+  worker:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aiagent_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aiagent_user:aiagent_password@db:5432/aiagent
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - DEFAULT_AI_BACKEND=ollama
+      - OLLAMA_BASE_URL=http://localhost:11434
+      - LOCALAI_BASE_URL=http://localhost:8080
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    restart: unless-stopped
+
+  # Celery beat scheduler for periodic tasks
+  scheduler:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aiagent_scheduler
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aiagent_user:aiagent_password@db:5432/aiagent
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

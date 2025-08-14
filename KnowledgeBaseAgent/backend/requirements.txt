@@ -1,0 +1,46 @@
+# FastAPI and web framework dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database dependencies
+sqlalchemy[asyncio]==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# Redis and Celery dependencies
+redis==5.0.1
+celery==5.3.4
+
+# Pydantic for data validation
+pydantic==2.5.0
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP client for external APIs
+httpx==0.25.2
+aiohttp==3.9.1
+aiofiles==23.2.1
+
+# System monitoring
+psutil==5.9.6
+
+# Logging and utilities
+structlog==23.2.0
+python-json-logger==2.0.7
+
+# Development and testing dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+httpx==0.25.2
+factory-boy==3.3.0
+
+# Vector database support
+pgvector==0.2.4
+
+# Environment management
+python-dotenv==1.0.0
+PyJWT==2.8.0
+bcrypt==4.2.0

@@ -37,36 +37,52 @@ The system processes content from various sources (primarily Twitter/X bookmarks
 6. WHEN the frontend displays content THEN it SHALL support rich markdown rendering and syntax highlighting
 7. WHEN the frontend handles user interactions THEN it SHALL provide immediate feedback and loading states
 8. WHEN the frontend is deployed THEN it SHALL be a static build that can be served from any web server or CDN
+9. WHEN the frontend renders UI THEN it SHALL adhere to a “Liquid Glass” design system (translucency, depth, motion) with accessibility and reduced-transparency modes
 
-### Requirement 3: Content Processing Pipeline
+### Requirement 3: Seven-Phase AI Processing Pipeline with Sub-Phases
 
-**User Story:** As a content manager, I want an automated pipeline that fetches, processes, categorizes, and enhances content from various sources, so that I can build a comprehensive knowledge base without manual intervention.
-
-#### Acceptance Criteria
-
-1. WHEN content is fetched THEN the system SHALL support multiple content sources (Twitter/X bookmarks, URLs, files)
-2. WHEN content is processed THEN the system SHALL extract text, media, and metadata from each source
-3. WHEN content is analyzed THEN the system SHALL use AI to categorize content into hierarchical categories
-4. WHEN media is encountered THEN the system SHALL process images and videos with AI-powered descriptions
-5. WHEN content is enhanced THEN the system SHALL generate structured knowledge base items with titles, summaries, and tags
-6. WHEN processing is complete THEN the system SHALL generate synthesis documents that summarize related content
-7. WHEN the pipeline runs THEN it SHALL provide real-time progress updates and detailed logging
-8. WHEN errors occur THEN the system SHALL handle failures gracefully and allow for retry mechanisms
-
-### Requirement 4: Knowledge Base Management
-
-**User Story:** As a knowledge worker, I want a comprehensive system for storing, organizing, and retrieving processed content, so that I can easily find and reference information when needed.
+**User Story:** As a content manager, I want a controllable, seven-phase AI processing pipeline with intelligent sub-phases that systematically transforms Twitter/X bookmarks into a comprehensive knowledge base, so that I can monitor and control each stage of the automated workflow with intelligent processing logic.
 
 #### Acceptance Criteria
 
-1. WHEN content is stored THEN the system SHALL use a unified database schema for all content types
-2. WHEN content is organized THEN the system SHALL support hierarchical categorization with main and sub-categories
-3. WHEN content is searched THEN the system SHALL provide full-text search capabilities
-4. WHEN content is retrieved THEN the system SHALL support vector similarity search using embeddings
-5. WHEN content is displayed THEN the system SHALL render markdown with proper formatting and media embedding
-6. WHEN content is managed THEN the system SHALL support CRUD operations (create, read, update, delete)
-7. WHEN content is exported THEN the system SHALL generate markdown files and maintain file-based backups
-8. WHEN content is versioned THEN the system SHALL track changes and maintain content history
+1. WHEN the pipeline is designed THEN it SHALL implement seven distinct, controllable phases: Initialization, Fetch Bookmarks, Content Processing, Synthesis Generation, Embedding Generation, README Generation, and Git Sync
+2. WHEN Phase 1 (Initialization) runs THEN the system SHALL set up all components, validate configurations, and prepare the processing environment
+3. WHEN Phase 2 (Fetch Bookmarks) runs THEN the system SHALL retrieve bookmarks from Twitter/X API and execute the Bookmark Caching sub-phase
+4. WHEN Phase 2.1 (Bookmark Caching) runs THEN the system SHALL detect tweet threads, cache all media content, save text content, and store ground-truth bookmark data in the database
+5. WHEN Phase 3 (Content Processing) runs THEN the system SHALL execute three sub-phases: Media Analysis, AI Content Understanding, and AI Categorization
+6. WHEN Phase 3.1 (Media Analysis) runs THEN the system SHALL analyze all media using vision models and generate understanding descriptions stored in the database
+7. WHEN Phase 3.2 (AI Content Understanding) runs THEN the system SHALL combine media analysis and text content to generate collective understanding of bookmark content
+8. WHEN Phase 3.3 (AI Categorization) runs THEN the system SHALL generate categories and sub-categories using existing category intelligence and store them with short, technical domain names
+9. WHEN Phase 4 (Synthesis Generation) runs THEN the system SHALL create synthesis documents for categories with 3+ bookmarks using AI aggregation
+10. WHEN Phase 5 (Embedding Generation) runs THEN the system SHALL populate the vector database with semantic embeddings for knowledge base items and synthesis documents
+11. WHEN knowledge base items are displayed THEN the system SHALL dynamically generate them from ground-truth bookmark data, media analysis, and AI content understanding without requiring separate AI processing
+12. WHEN knowledge base items are rendered THEN the system SHALL create beautiful, well-structured content with appropriate headings, embedded media, formatted text, and professional presentation
+13. WHEN synthesis documents are displayed THEN the system SHALL format them with clear sections, technical analysis, source references, and visual hierarchy
+14. WHEN Phase 6 (README Generation) runs THEN the system SHALL generate a Root README.md with navigation tree view for all categories, sub-categories, and items
+15. WHEN Phase 7 (Git Sync) runs THEN the system SHALL export markdown files for all items and push to GitHub repository with proper directory structure
+16. WHEN Git sync occurs THEN the system SHALL generate markdown files temporarily for repository operations, then clean up temporary files
+17. WHEN README generation occurs THEN the system SHALL create index content in the database and generate README files only for Git operations
+18. WHEN any phase runs THEN the system SHALL implement intelligent processing logic to avoid unnecessary reprocessing of unchanged content
+19. WHEN the pipeline executes THEN each phase and sub-phase SHALL be independently controllable with validation and dependency checking
+20. WHEN phases complete THEN the system SHALL provide detailed progress tracking for phases and sub-phases with specific status updates
+21. WHEN errors occur in any phase THEN the system SHALL handle failures gracefully with phase-specific retry mechanisms and rollback capabilities
+
+### Requirement 4: Unified Database Knowledge Base Management
+
+**User Story:** As a knowledge worker, I want a comprehensive database-driven system for storing, organizing, and retrieving processed content without any flat file dependencies, so that I can easily find and reference information through a unified interface.
+
+#### Acceptance Criteria
+
+1. WHEN content is stored THEN the system SHALL use a unified database schema for all content types without creating flat files on disk
+2. WHEN content is organized THEN the system SHALL support hierarchical categorization with main and sub-categories stored in database tables
+3. WHEN content is searched THEN the system SHALL provide full-text search capabilities using database indexes
+4. WHEN content is retrieved THEN the system SHALL support vector similarity search using embeddings stored in the database
+5. WHEN content is displayed THEN the system SHALL render markdown and media from database-stored content
+6. WHEN content is managed THEN the system SHALL support CRUD operations (create, read, update, delete) through database transactions
+7. WHEN content is exported THEN the system SHALL generate files dynamically from database content for Git sync operations
+8. WHEN content is versioned THEN the system SHALL track changes and maintain content history in database audit tables
+9. WHEN Git sync occurs THEN the system SHALL generate markdown files temporarily for repository operations, then clean up temporary files
+10. WHEN README generation occurs THEN the system SHALL create index content in the database and generate README files only for Git operations
 
 ### Requirement 5: AI Chat Interface
 
@@ -112,6 +128,11 @@ The system processes content from various sources (primarily Twitter/X bookmarks
 6. WHEN backends fail THEN the system SHALL provide fallback mechanisms and error handling
 7. WHEN I monitor AI usage THEN the system SHALL track token usage, response times, and costs
 8. WHEN I configure models THEN the system SHALL support model-specific settings and fine-tuning
+9. WHEN I configure the agent THEN I SHALL be able to select models per processing phase (vision, kb_generation, synthesis, chat, embeddings)
+10. WHEN an agent run starts THEN I SHALL be able to override phase models for that run without changing saved defaults
+11. WHEN the system processes items THEN it SHALL record provenance fields on which model was used per phase
+12. WHEN I query available models THEN I SHALL see a list grouped by backend and capability (e.g., vision-capable)
+13. WHEN I update model settings THEN the change SHALL be reflected in real-time to connected clients via WebSocket
 
 ### Requirement 8: Data Migration and Compatibility
 
@@ -143,7 +164,41 @@ The system processes content from various sources (primarily Twitter/X bookmarks
 7. WHEN I secure communications THEN the system SHALL use HTTPS for all web traffic
 8. WHEN I deploy the system THEN it SHALL follow security best practices and vulnerability scanning
 
-### Requirement 10: Performance and Scalability
+### Requirement 10: Twitter/X API Integration and Bookmark Processing
+
+**User Story:** As a content curator, I want seamless integration with Twitter/X API to automatically fetch and process bookmarked tweets including thread detection and media caching, so that I can build a knowledge base from my curated Twitter content.
+
+#### Acceptance Criteria
+
+1. WHEN I configure Twitter/X integration THEN the system SHALL support Twitter/X API v2 with proper authentication using API keys and bearer tokens
+2. WHEN I specify bookmark sources THEN the system SHALL support fetching bookmarks from specific Twitter/X bookmark collections or user bookmarks
+3. WHEN the system fetches bookmarks THEN it SHALL detect tweet threads by analyzing reply chains and author sequences
+4. WHEN processing tweet threads THEN the system SHALL combine multiple tweets from the same author into a single logical content unit
+5. WHEN processing media content THEN the system SHALL download and cache images, videos, and other media files in the database
+6. WHEN storing bookmark data THEN the system SHALL preserve the original tweet metadata, timestamps, author information, and engagement metrics
+7. WHEN processing tweets THEN the system SHALL handle various tweet types including text-only, media-only, and mixed content tweets
+8. WHEN API rate limits are encountered THEN the system SHALL implement proper backoff strategies and queue management
+9. WHEN bookmark data changes THEN the system SHALL detect updates and modifications to previously cached content
+10. WHEN configuring the system THEN it SHALL require environment variables for X_API_KEY, X_API_SECRET, X_BEARER_TOKEN, and X_BOOKMARK_URL
+
+### Requirement 11: XML-Based Prompting System
+
+**User Story:** As an AI engineer, I want a sophisticated XML-based prompting system that provides structured, phase-specific prompts for different AI models, so that I can achieve optimal results from each processing phase.
+
+#### Acceptance Criteria
+
+1. WHEN designing prompts THEN the system SHALL use XML-structured prompts with clear task definitions, input specifications, and output schemas
+2. WHEN processing media THEN the system SHALL use vision-specific XML prompts with detailed instructions for media analysis and description generation
+3. WHEN generating content understanding THEN the system SHALL use structured prompts that combine media analysis with text content for comprehensive understanding
+4. WHEN categorizing content THEN the system SHALL use prompts that reference existing categories and enforce technical domain naming conventions
+5. WHEN generating synthesis documents THEN the system SHALL use prompts that aggregate multiple sources and create technical analysis documents
+6. WHEN creating embeddings THEN the system SHALL use prompts optimized for semantic representation and search relevance
+7. WHEN generating README content THEN the system SHALL use prompts that create navigation structures and technical documentation
+8. WHEN prompts are executed THEN the system SHALL validate outputs against defined schemas and retry with refined prompts if needed
+9. WHEN managing prompts THEN the system SHALL support prompt versioning, A/B testing, and performance tracking
+10. WHEN configuring prompts THEN the system SHALL allow per-phase prompt customization and model-specific optimizations
+
+### Requirement 12: Performance and Scalability
 
 **User Story:** As a power user with large datasets, I want the system to handle substantial amounts of content efficiently and scale to meet growing demands.
 
