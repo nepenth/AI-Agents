@@ -60,6 +60,8 @@ class ContentItemUpdate(BaseModel):
 
 class ContentItemResponse(ContentItemBase):
     """Schema for content item responses."""
+    model_config = {"protected_namespaces": (), "from_attributes": True}
+    
     id: str = Field(description="Unique content item ID")
     processing_state: str = Field(description="Current processing state")
     processed_at: Optional[datetime] = Field(default=None, description="Processing completion time")
@@ -92,9 +94,6 @@ class ContentItemResponse(ContentItemBase):
     sub_phase_completion_percentage: float = Field(description="Percentage of sub-phases completed")
     is_fully_processed: bool = Field(description="Whether all sub-phases are completed")
     total_engagement: int = Field(description="Total engagement count")
-    
-    class Config:
-        from_attributes = True
 
 
 class ContentItemList(BaseModel):
@@ -156,6 +155,8 @@ class SubPhaseStatus(BaseModel):
 
 class SubPhaseUpdate(BaseModel):
     """Schema for updating sub-phase status."""
+    model_config = {"protected_namespaces": ()}
+    
     phase: str = Field(description="Sub-phase name (bookmark_cached, media_analyzed, content_understood, categorized)")
     status: bool = Field(description="New status for the sub-phase")
     model_used: Optional[str] = Field(default=None, description="Model used for this phase")

@@ -29,6 +29,36 @@ async def system_health():
     }
 
 
+@router.get("/info")
+async def system_info():
+    """Get system information and configuration."""
+    try:
+        ai_service = get_ai_service()
+        ai_status = await ai_service.get_backend_status()
+        
+        return {
+            "service": "ai-agent-backend",
+            "version": "1.0.0",
+            "status": "running",
+            "timestamp": datetime.utcnow().isoformat(),
+            "ai_backends": ai_status.get("backends", {}),
+            "default_backend": ai_status.get("default_backend", "unknown"),
+            "system_resources": {
+                "cpu_count": psutil.cpu_count(),
+                "memory_total": psutil.virtual_memory().total,
+                "disk_total": psutil.disk_usage('/').total
+            }
+        }
+    except Exception as e:
+        return {
+            "service": "ai-agent-backend",
+            "version": "1.0.0",
+            "status": "running",
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": f"Failed to get full system info: {str(e)}"
+        }
+
+
 @router.get("/metrics")
 async def get_system_metrics():
     """Get system resource usage metrics."""

@@ -70,3 +70,34 @@ class SuccessResponse(BaseModel):
     data: Optional[Dict[str, Any]] = Field(default=None, description="Additional response data")
     timestamp: str = Field(description="Response timestamp (ISO format)")
     request_id: Optional[str] = Field(default=None, description="Request ID for tracking")
+
+
+class ResponseModel(BaseModel, Generic[T]):
+    """Generic response wrapper for API endpoints."""
+    success: bool = Field(description="Whether the request was successful")
+    data: Optional[T] = Field(default=None, description="Response data")
+    message: Optional[str] = Field(default=None, description="Response message")
+    error: Optional[str] = Field(default=None, description="Error message if unsuccessful")
+    timestamp: str = Field(description="Response timestamp (ISO format)")
+    
+    @classmethod
+    def success_response(cls, data: T, message: Optional[str] = None) -> "ResponseModel[T]":
+        """Create a successful response."""
+        from datetime import datetime
+        return cls(
+            success=True,
+            data=data,
+            message=message,
+            timestamp=datetime.utcnow().isoformat()
+        )
+    
+    @classmethod
+    def error_response(cls, error: str, message: Optional[str] = None) -> "ResponseModel[None]":
+        """Create an error response."""
+        from datetime import datetime
+        return cls(
+            success=False,
+            error=error,
+            message=message,
+            timestamp=datetime.utcnow().isoformat()
+        )
