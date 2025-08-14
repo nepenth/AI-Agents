@@ -10,6 +10,8 @@ from .common import FilterParams
 
 class ChatSessionBase(BaseModel):
     """Base schema for chat sessions."""
+    model_config = {"protected_namespaces": (), "from_attributes": True}
+    
     title: Optional[str] = Field(default=None, description="Session title")
     description: Optional[str] = Field(default=None, description="Session description")
     model_name: Optional[str] = Field(default=None, description="AI model name")
@@ -27,6 +29,8 @@ class ChatSessionCreate(ChatSessionBase):
 
 class ChatSessionUpdate(BaseModel):
     """Schema for updating a chat session."""
+    model_config = {"protected_namespaces": ()}
+    
     title: Optional[str] = Field(default=None, description="Updated title")
     description: Optional[str] = Field(default=None, description="Updated description")
     is_archived: Optional[bool] = Field(default=None, description="Archive status")
@@ -49,9 +53,6 @@ class ChatSessionResponse(ChatSessionBase):
     
     # Computed properties
     is_empty: bool = Field(description="Whether session has no messages")
-    
-    class Config:
-        from_attributes = True
 
 
 class ChatMessageBase(BaseModel):
@@ -67,6 +68,8 @@ class ChatMessageCreate(ChatMessageBase):
 
 class ChatMessageResponse(ChatMessageBase):
     """Schema for chat message responses."""
+    model_config = {"protected_namespaces": (), "from_attributes": True}
+    
     id: str = Field(description="Unique message ID")
     session_id: str = Field(description="Session ID")
     token_count: Optional[int] = Field(default=None, description="Token count")
@@ -89,9 +92,6 @@ class ChatMessageResponse(ChatMessageBase):
     is_assistant_message: bool = Field(description="Whether this is an assistant message")
     has_sources: bool = Field(description="Whether message has sources")
     source_count: int = Field(description="Number of sources")
-    
-    class Config:
-        from_attributes = True
 
 
 class ChatSessionList(BaseModel):

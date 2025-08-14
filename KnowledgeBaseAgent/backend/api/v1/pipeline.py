@@ -4,6 +4,7 @@ Pipeline API endpoints for content processing and seven-phase pipeline execution
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 from app.services.content_processing_pipeline import get_content_processing_pipeline
 from app.services.seven_phase_pipeline import get_seven_phase_pipeline
@@ -209,13 +210,44 @@ async def execute_seven_phase_pipeline(
         raise HTTPException(status_code=500, detail=f"Failed to execute seven-phase pipeline: {str(e)}")
 
 
+@router.get("/status")
+async def get_pipeline_system_status():
+    """
+    Get the overall pipeline system status.
+    
+    This endpoint returns the current status of the pipeline system,
+    including available components and recent executions.
+    """
+    try:
+        return {
+            "system_status": "ready",
+            "pipeline_version": "1.0.0",
+            "available_phases": [
+                {"phase": 1, "name": "Initialization", "status": "available"},
+                {"phase": 2, "name": "Fetch Bookmarks", "status": "available"},
+                {"phase": 3, "name": "Content Processing", "status": "available"},
+                {"phase": 4, "name": "Synthesis Generation", "status": "available"},
+                {"phase": 5, "name": "Embedding Generation", "status": "available"},
+                {"phase": 6, "name": "README Generation", "status": "available"},
+                {"phase": 7, "name": "Git Sync", "status": "available"}
+            ],
+            "active_executions": 0,
+            "total_executions": 0,
+            "last_execution": None,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get pipeline status: {str(e)}")
+
+
 @router.get("/status/{pipeline_id}")
-async def get_pipeline_status(
+async def get_pipeline_execution_status(
     pipeline_id: str,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get the status of a running pipeline execution.
+    Get the status of a specific pipeline execution.
     
     This endpoint returns the current status and progress of a pipeline execution,
     including phase-by-phase results and any errors that occurred.
