@@ -1,127 +1,145 @@
-import { useEffect } from 'react';
-import { ChartBarIcon, CpuChipIcon } from '@heroicons/react/24/outline';
+import * as React from 'react';
+import { PlayIcon, StopIcon, PauseIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon, XCircleIcon, ArrowPathIcon as OutlineArrowPathIcon } from '@heroicons/react/24/outline';
 import { useAgentStore } from '@/stores';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { Button } from '@/components/ui/Button';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { cn } from '@/utils/cn';
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-  change?: string;
-  changeType?: 'positive' | 'negative' | 'neutral';
+const SEVEN_PHASES = [
+  'Initialization',
+  'Fetch Bookmarks',
+  'Content Processing',
+  'Synthesis Generation',
+  'Embedding Generation',
+  'README Generation',
+  'Git Sync',
+];
+
+type PhaseStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+function getPhaseStatus(phaseName: string, currentPhase: string, isRunning: boolean, progress: number): PhaseStatus {
+  const currentIndex = SEVEN_PHASES.indexOf(currentPhase);
+  const phaseIndex = SEVEN_PHASES.indexOf(phaseName);
+
+  if (currentIndex === -1 && !isRunning && progress === 100) return 'completed';
+  if (currentIndex === -1 && !isRunning && progress === 0) return 'pending';
+
+  if (phaseIndex < currentIndex) return 'completed';
+  if (phaseIndex === currentIndex && isRunning) return 'running';
+  if (phaseIndex === currentIndex && !isRunning) return 'failed'; // Assuming if it's not running on the current phase, it failed or was stopped.
+  return 'pending';
 }
 
-function StatCard({ title, value, icon: Icon, change, changeType = 'neutral' }: StatCardProps) {
-  const changeColors = {
-    positive: 'text-green-600',
-    negative: 'text-red-600',
-    neutral: 'text-gray-600',
+function PhaseDisplay({ phaseName, status }: { phaseName: string; status: PhaseStatus }) {
+  const statusConfig = {
+    pending: { Icon: null, color: 'text-muted-foreground', label: 'Pending' },
+    running: { Icon: OutlineArrowPathIcon, color: 'text-primary animate-spin', label: 'Running' },
+    completed: { Icon: CheckCircleIcon, color: 'text-green-500', label: 'Completed' },
+    failed: { Icon: XCircleIcon, color: 'text-destructive', label: 'Failed' },
   };
 
+  const { Icon, color, label } = statusConfig[status];
+
   return (
-    <div className="card p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-          {change && (
-            <p className={`text-sm ${changeColors[changeType]}`}>
-              {change}
-            </p>
-          )}
-        </div>
-        <div className="p-3 bg-primary-50 rounded-full">
-          <Icon className="w-6 h-6 text-primary-600" />
-        </div>
+    <div className="flex items-center gap-4 p-3 rounded-lg transition-all bg-white/5 hover:bg-white/10">
+      <div className={cn("flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-full",
+        status === 'running' && 'bg-primary/10',
+        status === 'completed' && 'bg-green-500/10',
+        status === 'failed' && 'bg-destructive/10',
+        status === 'pending' && 'bg-gray-500/10'
+      )}>
+        {Icon ? <Icon className={cn('h-5 w-5', color)} /> : <div className="h-5 w-5" />}
+      </div>
+      <div className="flex-1">
+        <p className="font-medium text-foreground">{phaseName}</p>
+        <p className={cn("text-sm", color)}>{label}</p>
       </div>
     </div>
   );
 }
 
-export function Dashboard() {
-  const { systemMetrics: metrics, loadSystemMetrics } = useAgentStore();
+function PipelineControls() {
+  const { startAgent, stopAgent, pauseAgent, resumeAgent, isRunning, currentPhase } = useAgentStore();
 
-  useEffect(() => {
-    loadSystemMetrics();
-  }, []);
+  const handleStart = () => {
+    // TODO: Open modal to get config
+    startAgent({ config: {} });
+  };
 
-  if (!metrics) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+  return (
+    <div className="flex items-center gap-2">
+      <Button onClick={handleStart} disabled={isRunning}>
+        <PlayIcon className="h-5 w-5 mr-2" />
+        Start New Run
+      </Button>
+      <Button onClick={() => stopAgent()} variant="destructive" disabled={!isRunning}>
+        <StopIcon className="h-5 w-5 mr-2" />
+        Stop
+      </Button>
+      <Button onClick={() => pauseAgent()} variant="secondary" disabled={!isRunning || currentPhase === 'Paused'}>
+        <PauseIcon className="h-5 w-5 mr-2" />
+        Pause
+      </Button>
+      <Button onClick={() => resumeAgent()} variant="secondary" disabled={!isRunning || currentPhase !== 'Paused'}>
+        <ArrowPathIcon className="h-5 w-5 mr-2" />
+        Resume
+      </Button>
+    </div>
+  );
+}
+
+function PipelineStatus() {
+  const { isRunning, currentPhase, progress } = useAgentStore();
+
+  return (
+    <GlassCard>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-foreground">Pipeline Status</h3>
+        <span className={cn(
+          "text-sm font-medium px-2 py-1 rounded-full",
+          isRunning ? "bg-green-500/20 text-green-500" : "bg-gray-500/20 text-muted-foreground"
+        )}>
+          {isRunning ? 'RUNNING' : 'IDLE'}
+        </span>
       </div>
-    );
-  }
+      <div className="space-y-2">
+        {SEVEN_PHASES.map((phase) => (
+          <PhaseDisplay
+            key={phase}
+            phaseName={phase}
+            status={getPhaseStatus(phase, currentPhase, isRunning, progress)}
+          />
+        ))}
+      </div>
+      <div className="mt-6">
+        <div className="flex justify-between text-sm text-muted-foreground mb-1">
+          <span>Overall Progress</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <ProgressBar value={progress} />
+      </div>
+    </GlassCard>
+  );
+}
 
+export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium text-gray-900">System Overview</h2>
-        <p className="text-sm text-gray-600">
-          Monitor your AI agent's performance and activity
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
+        <p className="text-muted-foreground">
+          Control the AI agent and monitor its progress.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard
-          title="Active Tasks"
-          value={metrics?.active_tasks || 0}
-          icon={CpuChipIcon}
-        />
-        <StatCard
-          title="Queue Size"
-          value={metrics?.queue_size || 0}
-          icon={ChartBarIcon}
-        />
-      </div>
+      <GlassCard>
+        <h3 className="text-lg font-semibold text-foreground mb-4">Agent Controls</h3>
+        <PipelineControls />
+      </GlassCard>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">System Resources</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm">
-                <span>CPU Usage</span>
-                <span>{Math.round((metrics?.cpu_usage || 0) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div 
-                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(metrics?.cpu_usage || 0) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm">
-                <span>Memory Usage</span>
-                <span>{Math.round((metrics?.memory_usage || 0) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(metrics?.memory_usage || 0) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm">
-                <span>Disk Usage</span>
-                <span>{Math.round((metrics?.disk_usage || 0) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(metrics?.disk_usage || 0) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-          <div className="text-sm text-gray-600">No recent activity yet.</div>
-        </div>
-      </div>
+      <PipelineStatus />
     </div>
   );
 }
