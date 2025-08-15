@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { KnowledgeItem, ContentItem, SearchResult, FilterState, PaginatedResponse } from '@/types';
+import { KnowledgeItem, ContentItem, SearchResult, FilterState, PaginatedResponse, BasicSearchResult } from '@/types';
 import { knowledgeService, Category, SynthesisDocument } from '@/services/knowledgeService';
 
 interface KnowledgeState {
@@ -284,8 +284,29 @@ export const useKnowledgeStore = create<KnowledgeState>()(
             query,
             ...options,
           });
+          // Convert BasicSearchResult to SearchResult format
+          const searchResults: SearchResult[] = response.results.map(result => ({
+            item: {
+              ...result,
+              content_item_id: result.id,
+              display_title: result.title,
+              enhanced_content: result.content,
+              markdown_path: undefined,
+              media_paths: [],
+              author_username: 'unknown',
+              total_engagement: 0,
+              thread_id: undefined,
+              thread_length: undefined,
+              has_media: false,
+              categories: result.category ? [result.category] : [],
+              updated_at: result.created_at
+            } as SearchResult['item'],
+            score: result.score,
+            highlights: undefined
+          }));
+          
           set({
-            searchResults: response.results,
+            searchResults,
             searchTotal: response.total,
             searchLoading: false,
           });

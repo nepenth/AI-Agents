@@ -158,9 +158,23 @@ class TwitterClient:
                     
                     # Handle other errors
                     if response.status >= 400:
-                        error_data = await response.json() if response.content_type == 'application/json' else {}
-                        error_message = error_data.get('detail', f'HTTP {response.status}')
-                        error_code = error_data.get('error', str(response.status))
+                        try:
+                            error_data = await response.json() if response.content_type == 'application/json' else {}
+                        except:
+                            error_data = {}
+                        
+                        # Try to get detailed error information
+                        if 'errors' in error_data:
+                            error_details = error_data['errors'][0] if error_data['errors'] else {}
+                            error_message = error_details.get('message', f'HTTP {response.status}')
+                            error_code = error_details.get('code', str(response.status))
+                        else:
+                            error_message = error_data.get('detail', error_data.get('message', f'HTTP {response.status}'))
+                            error_code = error_data.get('error', error_data.get('code', str(response.status)))
+                        
+                        # Log the full error response for debugging
+                        logger.error(f"Twitter API error response: {error_data}")
+                        
                         raise TwitterAPIError(error_message, response.status, error_code)
                     
                     return await response.json()
@@ -378,10 +392,15 @@ class TwitterClient:
             bool: True if API is available and credentials are valid
         """
         try:
-            # Test with a simple API call
-            url = "https://api.twitter.com/2/users/me"
-            await self._make_request(url)
+            # Test with a simple tweet lookup (public endpoint)
+            # Using a well-known tweet ID that should always exist
+            url = "https://api.twitter.com/2/tweets/20"  # Jack Dorsey's first tweet
+            params = {'tweet.fields': 'created_at'}
+            await self._make_request(url, params)
             return True
+        except TwitterAPIError as e:
+            logger.error(f"Twitter API not available: {e} (Status: {e.status_code}, Code: {e.error_code})")
+            raise  # Re-raise TwitterAPIError so caller can handle it
         except Exception as e:
             logger.error(f"Twitter API not available: {e}")
             return False

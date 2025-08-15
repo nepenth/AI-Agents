@@ -11,6 +11,10 @@ export class WebSocketService {
   private eventHandlers = new Map<string, WebSocketEventHandler[]>();
   private isConnecting = false;
   private shouldReconnect = true;
+  private lastConnected: Date | null = null;
+  private messageQueue: WebSocketMessage[] = [];
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatIntervalMs = 30000; // 30 seconds
 
   constructor(url = '/ws') {
     this.url = url.startsWith('ws') ? url : `ws://${window.location.host}${url}`;
@@ -32,7 +36,15 @@ export class WebSocketService {
           console.log('WebSocket connected');
           this.isConnecting = false;
           this.reconnectAttempts = 0;
-          this.emit('connection', { status: 'connected' });
+          this.lastConnected = new Date();
+          
+          // Process queued messages
+          this.processMessageQueue();
+          
+          // Start heartbeat
+          this.startHeartbeat();
+          
+          this.emit('connection', { status: 'connected', timestamp: this.lastConnected });
           resolve();
         };
 
@@ -48,7 +60,14 @@ export class WebSocketService {
         this.ws.onclose = (event) => {
           console.log('WebSocket disconnected:', event.code, event.reason);
           this.isConnecting = false;
-          this.emit('connection', { status: 'disconnected', code: event.code, reason: event.reason });
+          this.stopHeartbeat();
+          this.emit('connection', { 
+            status: 'disconnected', 
+            code: event.code, 
+            reason: event.reason,
+            lastConnected: this.lastConnected,
+            reconnectAttempts: this.reconnectAttempts
+          });
           
           if (this.shouldReconnect && !event.wasClean) {
             this.handleReconnect();
@@ -76,17 +95,8 @@ export class WebSocketService {
     }
   }
 
-  send(type: string, payload: any): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const message: WebSocketMessage = {
-        type,
-        payload,
-        timestamp: new Date().toISOString(),
-      };
-      this.ws.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket not connected, cannot send message');
-    }
+  send(type: string, payload: any): boolean {
+    return this.sendWithQueue(type, payload);
   }
 
   subscribe(event: string, handler: WebSocketEventHandler): () => void {
@@ -169,6 +179,80 @@ export class WebSocketService {
       default:
         return 'unknown';
     }
+  }
+
+  get lastConnectedTime(): Date | null {
+    return this.lastConnected;
+  }
+
+  get currentReconnectAttempts(): number {
+    return this.reconnectAttempts;
+  }
+
+  private processMessageQueue(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.messageQueue.length > 0) {
+      const messages = [...this.messageQueue];
+      this.messageQueue = [];
+      
+      messages.forEach(message => {
+        this.ws!.send(JSON.stringify(message));
+      });
+      
+      console.log(`Processed ${messages.length} queued messages`);
+    }
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.send('ping', { timestamp: new Date().toISOString() });
+      }
+    }, this.heartbeatIntervalMs);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  // Enhanced send method with queuing
+  sendWithQueue(type: string, payload: any): boolean {
+    const message: WebSocketMessage = {
+      type,
+      payload,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify(message));
+        return true;
+      } catch (error) {
+        console.error('Failed to send WebSocket message:', error);
+        this.messageQueue.push(message);
+        return false;
+      }
+    } else {
+      // Queue message for when connection is restored
+      this.messageQueue.push(message);
+      console.warn('WebSocket not connected, message queued');
+      return false;
+    }
+  }
+
+  // Force reconnect method
+  forceReconnect(): void {
+    this.reconnectAttempts = 0;
+    if (this.ws) {
+      this.ws.close();
+    }
+    this.connect().catch(error => {
+      console.error('Force reconnect failed:', error);
+    });
   }
 }
 
