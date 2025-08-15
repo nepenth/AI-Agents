@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ResponsiveGrid, ResponsiveStack } from '@/components/ui/ResponsiveGrid';
 import { useResponsive } from '@/hooks/useResponsive';
+import { WebSocketDebug } from '@/components/debug/WebSocketDebug';
 import { cn } from '@/utils/cn';
 
 const SEVEN_PHASES = [
@@ -257,6 +258,9 @@ export function Dashboard() {
 
       {/* Status */}
       <PipelineStatus />
+
+      {/* Debug - Remove this in production */}
+      <WebSocketDebug />
     </div>
   );
 }

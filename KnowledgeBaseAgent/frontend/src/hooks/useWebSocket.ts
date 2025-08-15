@@ -8,22 +8,11 @@ export function useWebSocket() {
   const [lastConnected, setLastConnected] = useState<Date | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
-  // Map websocket service state to component status
-  const mapConnectionState = useCallback((state: string): ConnectionStatus => {
-    switch (state) {
-      case 'connecting':
-        return 'connecting';
-      case 'connected':
-        return 'connected';
-      case 'closing':
-      case 'disconnected':
-        return 'disconnected';
-      default:
-        return 'error';
-    }
-  }, []);
+
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const connect = async () => {
       if (!isConnectedRef.current) {
         try {
@@ -35,7 +24,8 @@ export function useWebSocket() {
           setReconnectAttempts(0);
         } catch (error) {
           console.error('Failed to connect to WebSocket:', error);
-          setConnectionStatus('error');
+          setConnectionStatus('disconnected');
+          isConnectedRef.current = false;
         }
       }
     };
@@ -46,20 +36,30 @@ export function useWebSocket() {
         setConnectionStatus('connected');
         setLastConnected(data.timestamp || new Date());
         setReconnectAttempts(0);
+        isConnectedRef.current = true;
       } else if (data.status === 'disconnected') {
         setConnectionStatus('disconnected');
         setReconnectAttempts(data.reconnectAttempts || 0);
+        isConnectedRef.current = false;
         if (data.lastConnected) {
           setLastConnected(new Date(data.lastConnected));
         }
       } else if (data.status === 'error') {
         setConnectionStatus('error');
+        isConnectedRef.current = false;
+      } else if (data.status === 'failed') {
+        setConnectionStatus('error');
+        isConnectedRef.current = false;
       }
     });
 
-    connect();
+    // Delay initial connection attempt to allow app to fully load
+    timeoutId = setTimeout(() => {
+      connect();
+    }, 1000);
 
     return () => {
+      clearTimeout(timeoutId);
       unsubscribeConnection();
       websocketService.disconnect();
       isConnectedRef.current = false;
