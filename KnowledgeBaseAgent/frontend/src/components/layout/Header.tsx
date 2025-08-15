@@ -4,6 +4,7 @@ import { Menu, Bell, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { WebSocketIndicator } from '@/components/ui/WebSocketIndicator';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { cn } from '@/utils/cn';
 
 const pageNames: Record<string, string> = {
@@ -22,6 +23,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const location = useLocation();
   const pageName = pageNames[location.pathname] || 'AI Agent';
   const [searchOpen, setSearchOpen] = useState(false);
+  const { connectionStatus, lastConnected, reconnectAttempts, reconnect } = useWebSocket();
 
   return (
     <header className="bg-background border-b border-border">
@@ -51,7 +53,12 @@ export function Header({ onMenuClick }: HeaderProps) {
               
               {/* Connection Status - Desktop */}
               <div className="hidden sm:block">
-                <WebSocketIndicator />
+                <WebSocketIndicator 
+                  status={connectionStatus}
+                  lastConnected={lastConnected}
+                  reconnectAttempts={reconnectAttempts}
+                  onReconnect={reconnect}
+                />
               </div>
             </div>
           </div>
@@ -113,7 +120,14 @@ export function Header({ onMenuClick }: HeaderProps) {
 
             {/* Connection Status - Mobile */}
             <div className="sm:hidden">
-              <WebSocketIndicator size="sm" />
+              <WebSocketIndicator 
+                size="sm" 
+                status={connectionStatus}
+                lastConnected={lastConnected}
+                reconnectAttempts={reconnectAttempts}
+                onReconnect={reconnect}
+                showLabel={false}
+              />
             </div>
           </div>
         </div>

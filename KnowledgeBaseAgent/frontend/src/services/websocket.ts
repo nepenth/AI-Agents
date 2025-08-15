@@ -1,4 +1,5 @@
 import { WebSocketMessage } from '@/types';
+import { config } from '@/config';
 
 export type WebSocketEventHandler = (data: any) => void;
 
@@ -16,8 +17,8 @@ export class WebSocketService {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private heartbeatIntervalMs = 30000; // 30 seconds
 
-  constructor(url = '/ws') {
-    this.url = url.startsWith('ws') ? url : `ws://${window.location.host}${url}`;
+  constructor(url?: string) {
+    this.url = url || config.wsUrl;
   }
 
   async connect(): Promise<void> {
