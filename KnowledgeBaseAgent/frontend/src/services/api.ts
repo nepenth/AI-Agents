@@ -1,11 +1,12 @@
 import { APIError, PaginatedResponse } from '@/types';
+import { config } from '@/config';
 
 export class APIService {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
 
-  constructor(baseURL = '/api/v1') {
-    this.baseURL = baseURL;
+  constructor(baseURL?: string) {
+    this.baseURL = baseURL || `${config.apiUrl}/api/v1`;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
     };
