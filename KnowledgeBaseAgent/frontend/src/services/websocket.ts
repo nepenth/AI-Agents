@@ -19,6 +19,11 @@ export class WebSocketService {
 
   constructor(url?: string) {
     this.url = url || config.wsUrl;
+    
+    // Log configuration for debugging
+    console.log('WebSocket service initialized with URL:', this.url);
+    console.log('Current location:', window.location.href);
+    console.log('Config:', config);
   }
 
   async connect(): Promise<void> {
@@ -263,6 +268,67 @@ export class WebSocketService {
     this.connect().catch(error => {
       console.error('Force reconnect failed:', error);
     });
+  }
+
+  // Test connection with different URLs
+  async testConnection(): Promise<{ url: string; success: boolean; error?: string }[]> {
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const currentHost = `${window.location.hostname}:${window.location.port}`;
+    
+    const testUrls = [
+      this.url,
+      `${wsProtocol}//${currentHost}/ws`, // Vite proxy
+      'ws://localhost:8000/api/v1/ws', // Direct backend
+      `ws://${window.location.hostname}:8000/api/v1/ws`, // Backend with current host
+      'ws://127.0.0.1:8000/api/v1/ws' // Backend with 127.0.0.1
+    ];
+
+    const results = [];
+    
+    for (const testUrl of testUrls) {
+      try {
+        console.log(`Testing WebSocket connection to: ${testUrl}`);
+        
+        const testResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+          const testWs = new WebSocket(testUrl);
+          
+          const timeout = setTimeout(() => {
+            testWs.close();
+            resolve({ success: false, error: 'Connection timeout' });
+          }, 5000);
+          
+          testWs.onopen = () => {
+            clearTimeout(timeout);
+            testWs.close();
+            resolve({ success: true });
+          };
+          
+          testWs.onerror = (error) => {
+            clearTimeout(timeout);
+            resolve({ success: false, error: 'Connection failed' });
+          };
+        });
+        
+        results.push({ url: testUrl, ...testResult });
+        
+        if (testResult.success) {
+          console.log(`✅ WebSocket connection successful to: ${testUrl}`);
+          // Update the URL if this one works and it's different
+          if (testUrl !== this.url) {
+            console.log(`Updating WebSocket URL from ${this.url} to ${testUrl}`);
+            this.url = testUrl;
+          }
+          break;
+        } else {
+          console.log(`❌ WebSocket connection failed to: ${testUrl} - ${testResult.error}`);
+        }
+      } catch (error) {
+        console.log(`❌ WebSocket test error for ${testUrl}:`, error);
+        results.push({ url: testUrl, success: false, error: String(error) });
+      }
+    }
+    
+    return results;
   }
 }
 

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { websocketService } from '@/services/websocket';
 import { config } from '@/config';
 
 export function WebSocketDebug() {
   const { connectionStatus, lastConnected, reconnectAttempts, reconnect, isConnected } = useWebSocket();
   const [testMessage, setTestMessage] = useState('');
+  const [testResults, setTestResults] = useState<any[]>([]);
+  const [testing, setTesting] = useState(false);
 
   const handleTestConnection = () => {
     console.log('Testing WebSocket connection...');
@@ -14,6 +17,21 @@ export function WebSocketDebug() {
     console.log('Is Connected:', isConnected);
     console.log('Last Connected:', lastConnected);
     console.log('Reconnect Attempts:', reconnectAttempts);
+  };
+
+  const handleTestMultipleUrls = async () => {
+    setTesting(true);
+    setTestResults([]);
+    
+    try {
+      const results = await websocketService.testConnection();
+      setTestResults(results);
+      console.log('WebSocket test results:', results);
+    } catch (error) {
+      console.error('Error testing WebSocket connections:', error);
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleSendTestMessage = () => {
@@ -48,7 +66,24 @@ export function WebSocketDebug() {
         <Button onClick={reconnect} variant="outline" size="sm">
           Force Reconnect
         </Button>
+        <Button onClick={handleTestMultipleUrls} variant="outline" size="sm" disabled={testing}>
+          {testing ? 'Testing...' : 'Test URLs'}
+        </Button>
       </div>
+
+      {testResults.length > 0 && (
+        <div className="mb-4">
+          <h4 className="font-medium mb-2">Connection Test Results:</h4>
+          <div className="space-y-1 text-sm">
+            {testResults.map((result, index) => (
+              <div key={index} className={`p-2 rounded ${result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                <div><strong>URL:</strong> {result.url}</div>
+                <div><strong>Status:</strong> {result.success ? '✅ Success' : `❌ Failed: ${result.error}`}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <input

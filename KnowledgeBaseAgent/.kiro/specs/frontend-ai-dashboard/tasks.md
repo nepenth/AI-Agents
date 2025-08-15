@@ -225,13 +225,16 @@ This implementation plan converts the Frontend AI Dashboard design into a series
 
 ### Phase 11: Bug Fixes and Maintenance
 
-- [x] 23. Fix WebSocketIndicator component error
+- [x] 23. Fix WebSocketIndicator component error and connection issues
   - Fixed undefined status prop causing "Cannot read properties of undefined (reading 'bgColor')" error
   - Made status prop optional with default value of 'disconnected'
   - Updated useWebSocket hook to properly map connection states to component status
-  - Added proper WebSocket URL configuration pointing to backend at localhost:8000
   - Created frontend configuration system for API and WebSocket URLs
   - Updated Header component to pass WebSocket status and connection data
+  - Fixed WebSocket connection issues by configuring Vite proxy for WebSocket connections
+  - Added WebSocket connection testing utility with multiple URL fallbacks
+  - Created debug component for troubleshooting WebSocket connections
+  - Updated Vite configuration to properly proxy WebSocket connections to backend
   - _Requirements: 6.1, 6.2, 7.1_
 
 ### Phase 12: Documentation and Deployment
