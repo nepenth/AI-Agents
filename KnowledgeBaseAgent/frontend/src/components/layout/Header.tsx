@@ -1,5 +1,10 @@
+import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { BellIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { Menu, Bell, Search, X } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { WebSocketIndicator } from '@/components/ui/WebSocketIndicator';
+import { cn } from '@/utils/cn';
 
 const pageNames: Record<string, string> = {
   '/': 'Dashboard',
@@ -9,33 +14,108 @@ const pageNames: Record<string, string> = {
   '/settings': 'Settings',
 };
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const location = useLocation();
   const pageName = pageNames[location.pathname] || 'AI Agent';
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{pageName}</h1>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          {/* Search */}
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+    <header className="bg-background border-b border-border">
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16">
+          {/* Left Section */}
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={onMenuClick}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            {/* Page Title */}
+            <div className="flex items-center gap-3">
+              <h1 className={cn(
+                "font-semibold text-foreground",
+                "text-lg sm:text-xl lg:text-2xl",
+                searchOpen && "hidden sm:block"
+              )}>
+                {pageName}
+              </h1>
+              
+              {/* Connection Status - Desktop */}
+              <div className="hidden sm:block">
+                <WebSocketIndicator />
+              </div>
+            </div>
           </div>
           
-          {/* Notifications */}
-          <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
-            <BellIcon className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          {/* Right Section */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Search - Mobile Expandable */}
+            <div className="flex items-center">
+              {searchOpen ? (
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search..."
+                      className="pl-10 pr-4 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="sm:hidden"
+                    onClick={() => setSearchOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Search */}
+                  <div className="hidden sm:block relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search..."
+                      className="pl-10 pr-4 w-64 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Mobile Search Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="sm:hidden"
+                    onClick={() => setSearchOpen(true)}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+            
+            {/* Notifications */}
+            <Button variant="ghost" size="sm" className="relative">
+              <Bell className="h-4 w-4" />
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
+            </Button>
+
+            {/* Connection Status - Mobile */}
+            <div className="sm:hidden">
+              <WebSocketIndicator size="sm" />
+            </div>
+          </div>
         </div>
       </div>
     </header>
