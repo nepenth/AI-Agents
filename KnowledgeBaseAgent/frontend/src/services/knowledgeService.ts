@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import { KnowledgeItem, ContentItem, SearchResult, PaginatedResponse, FilterState } from '@/types';
+import { KnowledgeItem, ContentItem, BasicSearchResult, PaginatedResponse, FilterState } from '@/types';
 
 export interface CreateKnowledgeItemRequest {
   title: string;
@@ -83,11 +83,51 @@ export class KnowledgeService {
   }
 
   async searchKnowledge(request: SearchRequest): Promise<{
-    results: SearchResult[];
+    results: BasicSearchResult[];
     total: number;
     query_time: number;
   }> {
     return apiService.post('/knowledge/search', request);
+  }
+
+  async searchAdvanced(
+    filters: import('@/types').SearchFilters,
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<PaginatedResponse<import('@/types').SearchResult>> {
+    const params = {
+      query: filters.query,
+      search_type: filters.searchType,
+      page,
+      page_size: pageSize,
+      sort_by: filters.sortBy,
+      sort_order: filters.sortOrder,
+      
+      // Date filters
+      start_date: filters.dateRange.start,
+      end_date: filters.dateRange.end,
+      
+      // Engagement filters
+      min_engagement: filters.engagementRange.min,
+      max_engagement: filters.engagementRange.max,
+      
+      // Array filters
+      categories: filters.categories.length > 0 ? filters.categories.join(',') : undefined,
+      authors: filters.authors.length > 0 ? filters.authors.join(',') : undefined,
+      tags: filters.tags.length > 0 ? filters.tags.join(',') : undefined,
+      
+      // Boolean filters
+      has_media: filters.hasMedia,
+      is_thread: filters.isThread,
+      min_thread_length: filters.minThreadLength,
+    };
+    
+    // Remove undefined values
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([_, value]) => value !== undefined)
+    );
+    
+    return apiService.get<PaginatedResponse<import('@/types').SearchResult>>('/knowledge/search/advanced', cleanParams);
   }
 
   async getCategories(): Promise<Category[]> {
@@ -141,7 +181,16 @@ export class KnowledgeService {
     category?: string;
     include_media?: boolean;
   }): Promise<Blob> {
-    const response = await fetch(`/api/v1/knowledge/export?${new URLSearchParams(params || {})}`);
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    
+    const response = await fetch(`/api/v1/knowledge/export?${searchParams}`);
     if (!response.ok) {
       throw new Error('Export failed');
     }

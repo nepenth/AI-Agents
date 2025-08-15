@@ -81,7 +81,7 @@ export interface ChatMessage {
   created_at: string;
 }
 
-export interface SearchResult {
+export interface BasicSearchResult {
   id: string;
   title: string;
   content: string;
@@ -167,4 +167,57 @@ export interface FilterState {
   };
   source_type?: string;
   processing_state?: string;
+  // Advanced search filters
+  searchType?: 'text' | 'vector' | 'hybrid' | 'semantic';
+  sortBy?: 'relevance' | 'created_at_desc' | 'created_at_asc' | 'title_asc' | 'title_desc' | 'engagement_desc' | 'engagement_asc';
+  dateRange?: string;
+  contentType?: string;
+  minEngagement?: number;
+  author?: string;
+  similarityThreshold?: number;
+  startDate?: string;
+  endDate?: string;
+  hasMedia?: boolean;
+  isThread?: boolean;
+  hasAIAnalysis?: boolean;
+  isBookmarked?: boolean;
+  highEngagement?: boolean;
+  recentlyProcessed?: boolean;
+}
+
+export interface SearchFilters {
+  query: string;
+  searchType: 'text' | 'vector' | 'hybrid';
+  dateRange: {
+    start?: string;
+    end?: string;
+  };
+  engagementRange: {
+    min?: number;
+    max?: number;
+  };
+  categories: string[];
+  authors: string[];
+  hasMedia: boolean | null;
+  isThread: boolean | null;
+  minThreadLength?: number;
+  tags: string[];
+  sortBy: 'relevance' | 'date' | 'engagement' | 'thread_length';
+  sortOrder: 'asc' | 'desc';
+}
+
+export interface SearchResult {
+  item: KnowledgeItem & {
+    author_username: string;
+    total_engagement: number;
+    thread_id?: string;
+    thread_length?: number;
+    has_media: boolean;
+    categories: string[];
+  };
+  score?: number;
+  highlights?: {
+    title?: string;
+    content?: string;
+  };
 }

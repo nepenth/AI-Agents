@@ -33,6 +33,21 @@ This directory contains steering documents that provide guidance and standards f
 
 **Updated for**: Seven-phase pipeline with Twitter/X thread processing and XML prompting
 
+#### [frontend-architecture.md](./frontend-architecture.md)
+**Purpose**: Defines the frontend architecture patterns and implementation guidelines.
+
+**Key Topics**:
+- React 18 with TypeScript and Vite build system
+- Liquid Glass design system with theme-aware components
+- Seven-phase pipeline visualization and real-time monitoring
+- Twitter/X-specific UI components and processing interfaces
+- AI model configuration and testing interfaces
+- WebSocket integration for real-time updates
+- Zustand state management with domain-specific stores
+- Comprehensive accessibility and mobile responsiveness
+
+**New Document**: Created for frontend architecture patterns and design system
+
 #### [seven-phase-pipeline.md](./seven-phase-pipeline.md)
 **Purpose**: Comprehensive guide to the seven-phase Twitter/X bookmark processing pipeline.
 
@@ -167,6 +182,12 @@ This directory contains steering documents that provide guidance and standards f
 - Start with [backend-architecture.md](./backend-architecture.md) for overall patterns
 - Use [seven-phase-pipeline.md](./seven-phase-pipeline.md) for pipeline implementation
 - Reference [twitter-x-integration.md](./twitter-x-integration.md) for Twitter/X-specific features
+
+### For Frontend Development
+- Follow [frontend-architecture.md](./frontend-architecture.md) for React architecture patterns
+- Use Liquid Glass design system for consistent UI components
+- Implement real-time WebSocket integration for pipeline monitoring
+- Follow accessibility and mobile responsiveness guidelines
 
 ### For AI Integration
 - Follow [ai-integration-patterns.md](./ai-integration-patterns.md) for AI service integration
