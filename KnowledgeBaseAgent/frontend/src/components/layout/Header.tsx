@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { WebSocketIndicator } from '@/components/ui/WebSocketIndicator';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/utils/cn';
 
 const pageNames: Record<string, string> = {
@@ -112,6 +113,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               )}
             </div>
             
+            <ThemeToggle />
             {/* Notifications */}
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="h-4 w-4" />
