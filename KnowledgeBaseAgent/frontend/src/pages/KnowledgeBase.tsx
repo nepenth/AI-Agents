@@ -52,7 +52,7 @@ function KBBrowserHeader() {
 
 function ItemCard({ item }: { item: any }) {
   return (
-    <GlassCard className="h-full">
+    <GlassCard className="h-full p-4">
       <Link to={`/knowledge/${item.id}`} className="block">
         <h3 className="font-semibold text-foreground truncate">{item.display_title || item.title}</h3>
         <p className="text-sm text-muted-foreground line-clamp-3 mt-2">

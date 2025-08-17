@@ -25,7 +25,7 @@ function ResourceMonitor() {
   ];
 
   return (
-    <GlassCard>
+    <GlassCard className="p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">System Resources</h3>
       <div className="space-y-4">
         {resources.map((res) => (
@@ -59,7 +59,7 @@ function LogViewer() {
   }
 
   return (
-    <GlassCard>
+    <GlassCard className="p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">System Logs</h3>
       <div className="h-96 overflow-y-auto bg-black/20 rounded-md p-4 font-mono text-xs">
         {systemLogsLoading && <LoadingSpinner />}
