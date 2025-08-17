@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { Play, Square, Pause, RotateCcw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useAgentStore } from '@/stores';
-import { GlassCard } from '@/components/ui/Card';
+import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ResponsiveGrid, ResponsiveStack } from '@/components/ui/ResponsiveGrid';
 import { useResponsive } from '@/hooks/useResponsive';
+import { WebSocketDebug } from '@/components/debug/WebSocketDebug';
 import { cn } from '@/utils/cn';
 
 const SEVEN_PHASES = [
@@ -173,7 +174,7 @@ function PipelineStatus() {
   const { isMobile } = useResponsive();
 
   return (
-    <GlassCard className={cn(isMobile && "p-4")}>
+    <GlassCard className={cn("p-6", isMobile && "p-4")}>
       <div className="flex justify-between items-center mb-4">
         <h3 className={cn(
           "font-semibold text-foreground",
@@ -245,7 +246,7 @@ export function Dashboard() {
       </div>
 
       {/* Controls */}
-      <GlassCard className={cn(isMobile && "p-4")}>
+      <GlassCard className={cn("p-6", isMobile && "p-4")}>
         <h3 className={cn(
           "font-semibold text-foreground mb-4",
           isMobile ? "text-base" : "text-lg"
@@ -257,6 +258,9 @@ export function Dashboard() {
 
       {/* Status */}
       <PipelineStatus />
+
+      {/* Debug - Remove this in production */}
+      <WebSocketDebug />
     </div>
   );
 }

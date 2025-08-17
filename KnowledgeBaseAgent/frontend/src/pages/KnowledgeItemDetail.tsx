@@ -60,7 +60,7 @@ export function KnowledgeItemDetail() {
         </div>
       </div>
 
-      <GlassCard>
+      <GlassCard className="p-6">
         {item.summary && (
           <Section title="AI Summary">
             <p>{item.summary}</p>
