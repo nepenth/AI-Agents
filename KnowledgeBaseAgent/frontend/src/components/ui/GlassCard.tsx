@@ -10,7 +10,12 @@ export function GlassCard({ className, children }: GlassCardProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border bg-glass-bg border-glass-border shadow-glass backdrop-blur-glass transition-colors duration-300',
+        // Glass morphism effect
+        'rounded-lg border border-glass-border bg-glass-bg shadow-glass backdrop-blur-glass',
+        // Transitions and interactions
+        'transition-all duration-300 hover:shadow-lg',
+        // Ensure proper text contrast
+        'text-foreground',
         className
       )}
     >
