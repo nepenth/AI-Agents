@@ -3,6 +3,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import type { ModelPhase, PhaseModelSelector } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 
 const PHASES: ModelPhase[] = ['vision', 'kb_generation', 'synthesis', 'chat', 'embeddings'];
 
@@ -40,8 +43,8 @@ function ModelSettings() {
             <div key={phase} className="space-y-2">
               <div className="text-sm font-medium text-foreground capitalize">{phase.replace(/_/g, ' ')}</div>
               <div className="flex gap-2">
-                <select
-                  className="input flex-1"
+                <Select
+                  className="flex-1"
                   value={selectedBackend || ''}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     const backend = e.target.value as PhaseModelSelector['backend'];
@@ -55,12 +58,13 @@ function ModelSettings() {
                     });
                   }}
                 >
+                  <option value="">Select Backend</option>
                   {backends.map((b) => (
                     <option key={b} value={b}>{b}</option>
                   ))}
-                </select>
-                <select
-                  className="input flex-1"
+                </Select>
+                <Select
+                  className="flex-1"
                   value={selector?.model || ''}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     const model = e.target.value;
@@ -75,19 +79,20 @@ function ModelSettings() {
                     });
                   }}
                 >
+                  <option value="">Select Model</option>
                   {models.map((m: string) => (
                     <option key={m} value={m}>{m}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
           );
         })}
       </div>
       <div className="mt-6 flex justify-end">
-        <button className="btn-primary px-4 py-2" onClick={onSave} disabled={isLoading}>
+        <Button onClick={onSave} disabled={isLoading}>
           {isLoading ? 'Saving...' : 'Save Configuration'}
-        </button>
+        </Button>
       </div>
     </GlassCard>
   );
@@ -104,18 +109,36 @@ function AppearanceSettings() {
     <GlassCard>
       <h3 className="text-lg font-semibold text-foreground mb-4">Appearance</h3>
       <div className="space-y-3">
-        <label className="flex items-center gap-3 text-sm text-foreground">
-          <input type="checkbox" className="rounded" checked={reduceMotion} onChange={toggleReduceMotion} />
-          Reduce motion
-        </label>
-        <label className="flex items-center gap-3 text-sm text-foreground">
-          <input type="checkbox" className="rounded" checked={increaseContrast} onChange={toggleIncreaseContrast} />
-          Increase contrast
-        </label>
-        <label className="flex items-center gap-3 text-sm text-foreground">
-          <input type="checkbox" className="rounded" checked={reduceTransparency} onChange={toggleReduceTransparency} />
-          Reduce transparency
-        </label>
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="reduce-motion"
+            checked={reduceMotion}
+            onCheckedChange={toggleReduceMotion}
+          />
+          <label htmlFor="reduce-motion" className="text-sm text-foreground cursor-pointer">
+            Reduce motion
+          </label>
+        </div>
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="increase-contrast"
+            checked={increaseContrast}
+            onCheckedChange={toggleIncreaseContrast}
+          />
+          <label htmlFor="increase-contrast" className="text-sm text-foreground cursor-pointer">
+            Increase contrast
+          </label>
+        </div>
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="reduce-transparency"
+            checked={reduceTransparency}
+            onCheckedChange={toggleReduceTransparency}
+          />
+          <label htmlFor="reduce-transparency" className="text-sm text-foreground cursor-pointer">
+            Reduce transparency
+          </label>
+        </div>
       </div>
     </GlassCard>
   );

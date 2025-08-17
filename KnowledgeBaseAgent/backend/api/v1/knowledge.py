@@ -12,6 +12,21 @@ async def knowledge_health():
     return {"status": "healthy", "service": "knowledge"}
 
 
+@router.get("/items")
+async def get_knowledge_items():
+    """Get all knowledge base items."""
+    # TODO: Implement knowledge items retrieval
+    # For now, return empty list to prevent 404 errors
+    return {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "page_size": 20,
+        "has_next": False,
+        "has_previous": False
+    }
+
+
 @router.get("/categories")
 async def get_categories():
     """Get all knowledge base categories."""

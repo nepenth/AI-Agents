@@ -19,11 +19,6 @@ export class WebSocketService {
 
   constructor(url?: string) {
     this.url = url || config.wsUrl;
-    
-    // Log configuration for debugging
-    console.log('WebSocket service initialized with URL:', this.url);
-    console.log('Current location:', window.location.href);
-    console.log('Config:', config);
   }
 
   async connect(): Promise<void> {
@@ -34,14 +29,12 @@ export class WebSocketService {
     this.isConnecting = true;
     this.shouldReconnect = true;
 
-    console.log(`Attempting WebSocket connection to: ${this.url}`);
-
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.url);
 
         this.ws.onopen = () => {
-          console.log('WebSocket connected successfully');
+          console.log('WebSocket connected');
           this.isConnecting = false;
           this.reconnectAttempts = 0;
           this.lastConnected = new Date();
@@ -59,7 +52,6 @@ export class WebSocketService {
         this.ws.onmessage = (event) => {
           try {
             const message: WebSocketMessage = JSON.parse(event.data);
-            console.log('WebSocket message received:', message.type);
             this.handleMessage(message);
           } catch (error) {
             console.error('Failed to parse WebSocket message:', error);
@@ -67,7 +59,7 @@ export class WebSocketService {
         };
 
         this.ws.onclose = (event) => {
-          console.log(`WebSocket disconnected: code=${event.code}, reason=${event.reason}, wasClean=${event.wasClean}`);
+          console.log('WebSocket disconnected:', event.code, event.reason);
           this.isConnecting = false;
           this.stopHeartbeat();
           this.emit('connection', { 
@@ -90,7 +82,6 @@ export class WebSocketService {
           reject(error);
         };
       } catch (error) {
-        console.error('Failed to create WebSocket:', error);
         this.isConnecting = false;
         reject(error);
       }
@@ -270,66 +261,7 @@ export class WebSocketService {
     });
   }
 
-  // Test connection with different URLs
-  async testConnection(): Promise<{ url: string; success: boolean; error?: string }[]> {
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const currentHost = `${window.location.hostname}:${window.location.port}`;
-    
-    const testUrls = [
-      this.url,
-      `${wsProtocol}//${currentHost}/ws`, // Vite proxy
-      'ws://localhost:8000/api/v1/ws', // Direct backend
-      `ws://${window.location.hostname}:8000/api/v1/ws`, // Backend with current host
-      'ws://127.0.0.1:8000/api/v1/ws' // Backend with 127.0.0.1
-    ];
 
-    const results = [];
-    
-    for (const testUrl of testUrls) {
-      try {
-        console.log(`Testing WebSocket connection to: ${testUrl}`);
-        
-        const testResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-          const testWs = new WebSocket(testUrl);
-          
-          const timeout = setTimeout(() => {
-            testWs.close();
-            resolve({ success: false, error: 'Connection timeout' });
-          }, 5000);
-          
-          testWs.onopen = () => {
-            clearTimeout(timeout);
-            testWs.close();
-            resolve({ success: true });
-          };
-          
-          testWs.onerror = (error) => {
-            clearTimeout(timeout);
-            resolve({ success: false, error: 'Connection failed' });
-          };
-        });
-        
-        results.push({ url: testUrl, ...testResult });
-        
-        if (testResult.success) {
-          console.log(`✅ WebSocket connection successful to: ${testUrl}`);
-          // Update the URL if this one works and it's different
-          if (testUrl !== this.url) {
-            console.log(`Updating WebSocket URL from ${this.url} to ${testUrl}`);
-            this.url = testUrl;
-          }
-          break;
-        } else {
-          console.log(`❌ WebSocket connection failed to: ${testUrl} - ${testResult.error}`);
-        }
-      } catch (error) {
-        console.log(`❌ WebSocket test error for ${testUrl}:`, error);
-        results.push({ url: testUrl, success: false, error: String(error) });
-      }
-    }
-    
-    return results;
-  }
 }
 
 // Create singleton instance
