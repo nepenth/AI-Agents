@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class', // Enable dark mode using a class
+  darkMode: ['attr', 'data-theme'], // Enable dark mode using a data attribute
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -53,9 +53,6 @@ export default {
       },
       backdropBlur: {
         'glass': 'var(--glass-blur)',
-      },
-      backdropFilter: {
-        'glass': 'blur(var(--glass-blur))',
       },
       boxShadow: {
         'glass': '0 4px 30px hsla(var(--glass-shadow-color), var(--glass-shadow-alpha))',

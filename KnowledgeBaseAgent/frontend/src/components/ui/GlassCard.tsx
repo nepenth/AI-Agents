@@ -1,27 +1,33 @@
+import React from 'react';
 import { cn } from '@/utils/cn';
-import { ReactNode } from 'react';
 
-interface GlassCardProps {
-  className?: string;
-  children: ReactNode;
+export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+  variant?: 'default' | 'subtle' | 'strong';
 }
 
-export function GlassCard({ className, children }: GlassCardProps) {
-  return (
-    <div
-      className={cn(
-        // Glass morphism effect
-        'rounded-lg border border-glass-border bg-glass-bg shadow-glass backdrop-blur-glass',
-        // Transitions and interactions
-        'transition-all duration-300 hover:shadow-lg',
-        // Ensure proper text contrast
-        'text-foreground',
-        className
-      )}
-    >
-      <div className="p-6">{children}</div>
-    </div>
-  );
-}
+export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
+  ({ className, children, variant = 'default', ...props }, ref) => {
+    const variantClasses = {
+      default: 'bg-glass-bg backdrop-blur-glass border-glass-border shadow-glass',
+      subtle: 'bg-background/80 backdrop-blur-sm border-border/50 shadow-sm',
+      strong: 'bg-background/95 backdrop-blur-md border-border shadow-lg'
+    };
 
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          'rounded-lg border transition-colors duration-300',
+          variantClasses[variant],
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
 
+GlassCard.displayName = 'GlassCard';

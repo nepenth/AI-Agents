@@ -13,9 +13,6 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 celery==5.3.4
 
-# WebSocket dependencies
-websockets==12.0
-
 # Pydantic for data validation
 pydantic==2.5.0
 pydantic[email]==2.5.0
