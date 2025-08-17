@@ -77,9 +77,9 @@
 
     /* Glassmorphism variables */
     --glass-bg-color: 220 15% 15%;
-    --glass-bg-alpha: 0.1;
+    --glass-bg-alpha: 0.25;
     --glass-border-color: 210 15% 80%;
-    --glass-border-alpha: 0.1;
+    --glass-border-alpha: 0.2;
     --glass-shadow-color: 0 0% 0%;
     --glass-shadow-alpha: 0.1;
   }
@@ -222,7 +222,6 @@
       scroll-behavior: auto !important;
     }
   }
-
 
   /* Large text mode */
   .large-text {
