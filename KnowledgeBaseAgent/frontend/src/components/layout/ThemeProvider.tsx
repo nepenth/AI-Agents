@@ -1,40 +1,46 @@
-import { useEffect } from "react";
-import { useThemeStore } from "@/stores/themeStore";
+import { useEffect } from 'react';
+import { useThemeStore } from '@/stores/themeStore';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, reduceTransparency, reduceMotion, increaseContrast } =
     useThemeStore();
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    const root = document.documentElement;
 
-    // Set data attributes for accessibility options
-    root.setAttribute("data-theme-transparency", String(!!reduceTransparency));
-    root.setAttribute("data-theme-motion", String(!!reduceMotion));
-    root.setAttribute("data-theme-contrast", String(!!increaseContrast));
-  }, [reduceTransparency, reduceMotion, increaseContrast]);
+    // Set accessibility attributes according to the architecture specification
+    root.setAttribute('data-reduce-transparency', String(reduceTransparency));
+    root.setAttribute('data-reduce-motion', String(reduceMotion));
+    root.setAttribute('data-increase-contrast', String(increaseContrast));
 
-  useEffect(() => {
-    const root = window.document.documentElement;
+    // This function sets the data-theme attribute on the root element
+    const applyTheme = (themeValue: 'light' | 'dark') => {
+      root.setAttribute('data-theme', themeValue);
+    };
 
-    if (theme === "system") {
-      const darkModeMediaQuery = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      );
-      const handleThemeChange = (e: MediaQueryListEvent) => {
-        root.classList.toggle("dark", e.matches);
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+      // Handler to set theme based on system preference
+      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+        applyTheme(e.matches ? 'dark' : 'light');
       };
 
-      root.classList.toggle("dark", darkModeMediaQuery.matches);
-      darkModeMediaQuery.addEventListener("change", handleThemeChange);
+      // Set the initial theme based on the current system preference
+      handleSystemThemeChange(mediaQuery);
 
+      // Listen for changes in system theme preference
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+
+      // Cleanup listener on component unmount
       return () => {
-        darkModeMediaQuery.removeEventListener("change", handleThemeChange);
+        mediaQuery.removeEventListener('change', handleSystemThemeChange);
       };
     } else {
-      root.classList.toggle("dark", theme === "dark");
+      // Apply the theme directly if it's 'light' or 'dark'
+      applyTheme(theme);
     }
-  }, [theme]);
+  }, [theme, reduceTransparency, reduceMotion, increaseContrast]);
 
   return <>{children}</>;
 }
