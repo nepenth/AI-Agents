@@ -46,12 +46,12 @@
 
     /* Glassmorphism variables */
     --glass-bg-color: 210 20% 98%;
-    --glass-bg-alpha: 0.5;
+    --glass-bg-alpha: 0.8;
     --glass-border-color: 210 20% 90%;
     --glass-border-alpha: 0.3;
-    --glass-blur: 8px;
+    --glass-blur: 12px;
     --glass-shadow-color: 0 0% 0%;
-    --glass-shadow-alpha: 0.05;
+    --glass-shadow-alpha: 0.1;
   }
 
   .dark {
@@ -75,13 +75,13 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
 
-    /* Glassmorphism variables */
+    /* Glassmorphism variables for dark mode */
     --glass-bg-color: 220 15% 15%;
-    --glass-bg-alpha: 0.1;
+    --glass-bg-alpha: 0.3;
     --glass-border-color: 210 15% 80%;
-    --glass-border-alpha: 0.1;
+    --glass-border-alpha: 0.2;
     --glass-shadow-color: 0 0% 0%;
-    --glass-shadow-alpha: 0.1;
+    --glass-shadow-alpha: 0.3;
   }
 
   [data-theme-contrast="true"] {
