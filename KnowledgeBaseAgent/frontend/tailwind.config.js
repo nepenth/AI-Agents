@@ -54,9 +54,6 @@ export default {
       backdropBlur: {
         'glass': 'var(--glass-blur)',
       },
-      backdropFilter: {
-        'glass': 'blur(var(--glass-blur))',
-      },
       boxShadow: {
         'glass': '0 4px 30px hsla(var(--glass-shadow-color), var(--glass-shadow-alpha))',
       },
