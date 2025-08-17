@@ -54,7 +54,7 @@
     --glass-shadow-alpha: 0.1;
   }
 
-  .dark {
+  [data-theme="dark"] {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -84,20 +84,20 @@
     --glass-shadow-alpha: 0.3;
   }
 
-  [data-theme-contrast="true"] {
+  [data-increase-contrast="true"] {
      /* Increase contrast */
     --glass-bg-alpha: 0.85;
     --glass-border-alpha: 0.5;
   }
 
-  [data-theme-transparency="false"] {
+  [data-reduce-transparency="true"] {
     /* Reduce transparency */
     --glass-bg-alpha: 1;
     --glass-blur: 0px;
     --glass-border-color: 210 20% 85%;
     --glass-border-alpha: 0.5;
   }
-  .dark[data-theme-transparency="false"] {
+  [data-theme="dark"][data-reduce-transparency="true"] {
     --glass-bg-color: 220 15% 20%;
     --glass-border-color: 210 15% 50%;
     --glass-border-alpha: 0.3;
@@ -223,49 +223,6 @@
     }
   }
 
-  /* High contrast mode */
-  .increase-contrast {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
-    --primary: 220 100% 25%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 90%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 20%;
-    --accent: 220 100% 90%;
-    --accent-foreground: 220 100% 10%;
-    --destructive: 0 100% 40%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 70%;
-    --input: 0 0% 70%;
-    --ring: 220 100% 50%;
-  }
-
-  .dark.increase-contrast {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --primary: 220 100% 75%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 5%;
-    --muted-foreground: 0 0% 80%;
-    --accent: 220 100% 10%;
-    --accent-foreground: 220 100% 90%;
-    --destructive: 0 100% 60%;
-    --destructive-foreground: 0 0% 0%;
-    --border: 0 0% 30%;
-    --input: 0 0% 30%;
-    --ring: 220 100% 50%;
-  }
-
-  /* Reduced transparency */
-  .reduce-transparency {
-    --glass-bg-alpha: 1;
-    --glass-blur: 0px;
-    --glass-border-alpha: 1;
-  }
 
   /* Large text mode */
   .large-text {
@@ -292,7 +249,7 @@
     --muted-foreground: 215.4 16.3% 35%;
   }
 
-  .dark.screen-reader-optimized {
+  [data-theme="dark"].screen-reader-optimized {
     --muted-foreground: 215 20.2% 75%;
   }
 
@@ -327,15 +284,15 @@
   }
 
   /* High contrast borders for better definition */
-  .increase-contrast button,
-  .increase-contrast input,
-  .increase-contrast select,
-  .increase-contrast textarea {
+  [data-increase-contrast="true"] button,
+  [data-increase-contrast="true"] input,
+  [data-increase-contrast="true"] select,
+  [data-increase-contrast="true"] textarea {
     border: 2px solid hsl(var(--border));
   }
 
   /* Ensure text has sufficient contrast */
-  .increase-contrast .text-muted-foreground {
+  [data-increase-contrast="true"] .text-muted-foreground {
     color: hsl(var(--foreground));
     opacity: 0.8;
   }
