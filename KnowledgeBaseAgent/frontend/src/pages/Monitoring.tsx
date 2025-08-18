@@ -79,7 +79,56 @@ function LogViewer() {
   );
 }
 
-import { GPUStats } from '@/components/monitoring/GPUStats.tsx';
+// MOCK DATA - Replace with real data from the backend when available
+const mockGpuStats = {
+  usage: 75,
+  frequency: 1800,
+  memoryUsage: 60,
+  memoryFrequency: 7000,
+  temperature: 65,
+};
+
+function getTemperatureColor(temp: number) {
+  if (temp > 80) return 'bg-red-500';
+  if (temp > 60) return 'bg-yellow-500';
+  return 'bg-green-500';
+}
+
+function GPUStats() {
+  // TODO: Replace with real data from the agentStore
+  const stats = mockGpuStats;
+
+  const gpuResources = [
+    { name: 'GPU Usage', value: stats.usage, unit: '%' },
+    { name: 'GPU Frequency', value: stats.frequency, unit: 'MHz' },
+    { name: 'Memory Usage', value: stats.memoryUsage, unit: '%' },
+    { name: 'Memory Frequency', value: stats.memoryFrequency, unit: 'MHz' },
+  ];
+
+  return (
+    <GlassPanel variant="primary" className="p-6">
+      <h3 className="text-lg font-semibold text-foreground mb-4">NVIDIA GPU Stats</h3>
+      <div className="space-y-4">
+        {gpuResources.map((res) => (
+          <div key={res.name}>
+            <div className="flex justify-between text-sm text-muted-foreground mb-1">
+              <span>{res.name}</span>
+              <span>{res.value}{res.unit}</span>
+            </div>
+            <ProgressBar value={res.value} />
+          </div>
+        ))}
+        <div>
+          <div className="flex justify-between text-sm text-muted-foreground mb-1">
+            <span>Temperature</span>
+            <span>{stats.temperature}°C</span>
+          </div>
+          <ProgressBar value={stats.temperature} className={cn(getTemperatureColor(stats.temperature))} />
+        </div>
+      </div>
+    </GlassPanel>
+  );
+}
 
 export function Monitoring() {
   return (
