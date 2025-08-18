@@ -16,42 +16,60 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
-
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
-
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-
     --radius: 0.5rem;
+    --radius-xl: calc(var(--radius) + 4px);
 
-    /* Glassmorphism variables */
-    --glass-bg-color: 210 20% 98%;
-    --glass-bg-alpha: 0.5;
-    --glass-border-color: 210 20% 90%;
-    --glass-border-alpha: 0.3;
-    --glass-blur: 8px;
-    --glass-shadow-color: 0 0% 0%;
-    --glass-shadow-alpha: 0.05;
+    /* Glassmorphism Base */
+    --glass-saturate: saturate(180%);
+
+    /* Glass Backgrounds */
+    --glass-bg-primary: rgba(255, 255, 255, 0.8);
+    --glass-bg-secondary: rgba(255, 255, 255, 0.6);
+    --glass-bg-tertiary: rgba(255, 255, 255, 0.4);
+
+    /* Glass Borders */
+    --glass-border-primary: rgba(255, 255, 255, 0.3);
+    --glass-border-secondary: rgba(255, 255, 255, 0.2);
+    --glass-border-tertiary: rgba(255, 255, 255, 0.1);
+
+    /* Glass Blurs */
+    --glass-blur-subtle: blur(8px);
+    --glass-blur-light: blur(12px);
+    --glass-blur-medium: blur(16px);
+    --glass-blur-strong: blur(20px);
+
+    /* Glass Shadows */
+    --glass-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --glass-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --glass-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+    /* Animation System */
+    --duration-fast: 0.15s;
+    --duration-normal: 0.3s;
+    --duration-slow: 0.5s;
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transform-lift-sm: translateY(-2px) scale(1.02);
+    --transform-lift-md: translateY(-4px) scale(1.05);
+    --transform-lift-lg: translateY(-8px) scale(1.08);
   }
 
   [data-theme="dark"] {
@@ -75,13 +93,50 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
 
-    /* Glassmorphism variables */
-    --glass-bg-color: 220 15% 15%;
-    --glass-bg-alpha: 0.25;
-    --glass-border-color: 210 15% 80%;
-    --glass-border-alpha: 0.2;
-    --glass-shadow-color: 0 0% 0%;
-    --glass-shadow-alpha: 0.1;
+    /* Glassmorphism Overrides */
+    --glass-bg-primary: rgba(30, 30, 30, 0.7);
+    --glass-bg-secondary: rgba(40, 40, 40, 0.5);
+    --glass-bg-tertiary: rgba(50, 50, 50, 0.3);
+    --glass-border-primary: rgba(255, 255, 255, 0.2);
+    --glass-border-secondary: rgba(255, 255, 255, 0.1);
+    --glass-border-tertiary: rgba(255, 255, 255, 0.05);
+    --glass-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+    --glass-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    --glass-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  }
+
+  .theme-blue {
+    --color-primary: #3b82f6;
+    --color-primary-dark: #2563eb;
+    --gradient-primary: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+  .theme-purple {
+    --color-primary: #8b5cf6;
+    --color-primary-dark: #7c3aed;
+    --gradient-primary: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  }
+  .theme-green {
+    --color-primary: #10b981;
+    --color-primary-dark: #059669;
+    --gradient-primary: linear-gradient(135deg, #10b981, #059669);
+  }
+  .theme-orange {
+    --color-primary: #f59e0b;
+    --color-primary-dark: #d97706;
+    --gradient-primary: linear-gradient(135deg, #f59e0b, #d97706);
+  }
+  .theme-pink {
+    --color-primary: #ec4899;
+    --color-primary-dark: #db2777;
+    --gradient-primary: linear-gradient(135deg, #ec4899, #db2777);
+  }
+
+  .animate-lift-hover {
+    transition: transform var(--duration-normal) var(--ease-smooth);
+  }
+
+  .animate-lift-hover:hover {
+    transform: var(--transform-lift-sm);
   }
 
   [data-increase-contrast="true"] {

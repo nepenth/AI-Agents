@@ -4,6 +4,7 @@ import { Menu, Bell, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { WebSocketIndicator } from '@/components/ui/WebSocketIndicator';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { cn } from '@/utils/cn';
 
@@ -112,6 +113,9 @@ export function Header({ onMenuClick }: HeaderProps) {
               )}
             </div>
             
+            {/* Theme Switcher */}
+            <ThemeSwitcher />
+
             {/* Notifications */}
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="h-4 w-4" />
