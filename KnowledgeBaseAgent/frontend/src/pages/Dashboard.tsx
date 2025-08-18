@@ -83,7 +83,7 @@ function PhaseDisplay({ phaseName, status }: { phaseName: string; status: PhaseS
           {label}
         </p>
       </div>
-    </div>
+    </GlassPanel>
   );
 }
 
@@ -254,7 +254,7 @@ export function Dashboard() {
           Agent Controls
         </h3>
         <PipelineControls />
-      </GlassCard>
+      </GlassPanel>
 
       {/* Status */}
       <PipelineStatus />
