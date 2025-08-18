@@ -42,7 +42,7 @@ function ResourceMonitor() {
           </div>
         ))}
       </div>
-    </GlassCard>
+    </GlassPanel>
   );
 }
 
@@ -75,7 +75,7 @@ function LogViewer() {
           </div>
         ))}
       </div>
-    </GlassCard>
+    </GlassPanel>
   );
 }
 
@@ -83,7 +83,8 @@ import { GPUStats } from '@/components/monitoring/GPUStats';
 
 export function Monitoring() {
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+      <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-foreground">System Monitoring</h2>
         <p className="text-muted-foreground">
@@ -95,6 +96,7 @@ export function Monitoring() {
         <GPUStats />
       </div>
       <LogViewer />
+      </div>
     </div>
   );
 }

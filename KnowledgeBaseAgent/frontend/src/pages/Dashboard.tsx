@@ -223,11 +223,12 @@ export function Dashboard() {
   const { isMobile } = useResponsive();
 
   return (
-    <div className={cn(
-      "space-y-4",
-      "sm:space-y-6",
-      "pb-20 lg:pb-0" // Extra padding for mobile bottom nav
-    )}>
+    <div className="container mx-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+      <div className={cn(
+        "space-y-4",
+        "sm:space-y-6",
+        "pb-20 lg:pb-0" // Extra padding for mobile bottom nav
+      )}>
       {/* Header */}
       <div className={cn(isMobile && "text-center")}>
         <h2 className={cn(
@@ -257,6 +258,7 @@ export function Dashboard() {
 
       {/* Status */}
       <PipelineStatus />
+      </div>
     </div>
   );
 }
