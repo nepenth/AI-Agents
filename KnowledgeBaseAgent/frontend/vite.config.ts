@@ -13,10 +13,20 @@ export default defineConfig({
   server: {
     // Bind to all interfaces so the dev server is reachable on your LAN/DNS
     host: true,
-    port: 3000,
+    port: parseInt(process.env.VITE_FRONTEND_PORT || '3000'),
     // If accessing via a hostname and you see HMR issues, set VITE_HOST env var
     // and uncomment the hmr.host below, or pass --host on the CLI.
-    // hmr: { host: process.env.VITE_HOST },
+    // Allow access from the hostname (configurable via environment)
+    allowedHosts: [
+      process.env.VITE_HOSTNAME || 'whyland-ai',
+      'localhost', 
+      '127.0.0.1'
+    ],
+    // Enable HMR for hostname access
+    hmr: { 
+      host: process.env.VITE_HOSTNAME || 'whyland-ai',
+      port: parseInt(process.env.VITE_FRONTEND_PORT || '3000')
+    },
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',
@@ -43,10 +53,5 @@ export default defineConfig({
         },
       },
     },
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
   },
 })
