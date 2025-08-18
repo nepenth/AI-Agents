@@ -4,6 +4,7 @@ import { GlassPanel } from '@/components/ui/GlassPanel';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { cn } from '@/utils/cn';
+import { Gauge, Zap, MemoryStick, Thermometer } from 'lucide-react';
 
 function ResourceMonitor() {
   const { systemMetrics, loadSystemMetrics } = useAgentStore();
@@ -99,33 +100,38 @@ function GPUStats() {
   const stats = mockGpuStats;
 
   const gpuResources = [
-    { name: 'GPU Usage', value: stats.usage, unit: '%' },
-    { name: 'GPU Frequency', value: stats.frequency, unit: 'MHz' },
-    { name: 'Memory Usage', value: stats.memoryUsage, unit: '%' },
-    { name: 'Memory Frequency', value: stats.memoryFrequency, unit: 'MHz' },
+    { name: 'GPU Usage', value: stats.usage, unit: '%', icon: Gauge },
+    { name: 'GPU Frequency', value: stats.frequency, unit: 'MHz', icon: Zap },
+    { name: 'Memory Usage', value: stats.memoryUsage, unit: '%', icon: MemoryStick },
+    { name: 'Memory Frequency', value: stats.memoryFrequency, unit: 'MHz', icon: Zap },
   ];
 
   return (
     <GlassPanel variant="primary" className="p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">NVIDIA GPU Stats</h3>
-      <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
         {gpuResources.map((res) => (
-          <div key={res.name}>
-            <div className="flex justify-between text-sm text-muted-foreground mb-1">
-              <span>{res.name}</span>
-              <span>{res.value}{res.unit}</span>
+          <div key={res.name} className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded-lg">
+              <res.icon className="h-5 w-5 text-primary" />
             </div>
-            <ProgressBar value={res.value} />
+            <div>
+              <div className="text-sm text-muted-foreground">{res.name}</div>
+              <div className="text-lg font-semibold text-foreground">{res.value}{res.unit}</div>
+            </div>
           </div>
         ))}
-        <div>
+      </div>
+      <div className="mt-4">
           <div className="flex justify-between text-sm text-muted-foreground mb-1">
-            <span>Temperature</span>
+            <div className="flex items-center gap-2">
+              <Thermometer className="h-4 w-4" />
+              <span>Temperature</span>
+            </div>
             <span>{stats.temperature}°C</span>
           </div>
           <ProgressBar value={stats.temperature} className={cn(getTemperatureColor(stats.temperature))} />
         </div>
-      </div>
     </GlassPanel>
   );
 }

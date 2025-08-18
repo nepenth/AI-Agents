@@ -17,7 +17,7 @@ interface SidebarProps {
 
 export function Sidebar({ onClose }: SidebarProps) {
   return (
-    <div className="flex flex-col w-64 h-full bg-background border-r border-border">
+    <div className="flex flex-col w-64 h-full bg-glass-bg-secondary border-r border-glass-border-secondary backdrop-blur-glass-strong">
       {/* Header */}
       <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 border-b border-border">
         <h1 className="text-lg sm:text-xl font-semibold text-foreground">AI Agent</h1>
