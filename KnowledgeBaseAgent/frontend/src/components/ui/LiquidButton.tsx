@@ -11,12 +11,13 @@ const liquidButtonVariants = cva(
         primary: 'bg-glass-bg-primary text-[var(--liquid-button-text-color)] hover:bg-glass-bg-secondary border border-glass-border-primary shadow-glass-md',
         secondary: 'bg-glass-bg-secondary text-[var(--liquid-button-text-color)] hover:bg-glass-bg-tertiary border border-glass-border-secondary shadow-glass-sm',
         ghost: 'text-[var(--liquid-button-text-color)] hover:bg-white/10',
+        glass: 'bg-glass-button-bg border border-glass-button-border shadow-glass-button backdrop-blur-glass-button text-white hover:scale-105 hover:shadow-glass-button-hover hover:backdrop-blur-glass-button-hover rounded-[20px]',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded-md px-3',
-        lg: 'h-11 rounded-lg px-8',
-        icon: 'h-10 w-10',
+        default: 'h-10 px-6 py-3',
+        sm: 'h-9 px-4 py-2',
+        lg: 'h-11 px-8 py-4',
+        icon: 'h-12 w-12',
       },
     },
     defaultVariants: {
