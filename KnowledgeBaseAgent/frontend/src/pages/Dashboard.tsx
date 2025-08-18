@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { Play, Square, Pause, RotateCcw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useAgentStore } from '@/stores';
-import { GlassCard } from '@/components/ui/GlassCard';
-import { Button } from '@/components/ui/Button';
+import { GlassPanel } from '@/components/ui/GlassPanel';
+import { LiquidButton } from '@/components/ui/LiquidButton';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ResponsiveGrid, ResponsiveStack } from '@/components/ui/ResponsiveGrid';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -47,8 +47,8 @@ function PhaseDisplay({ phaseName, status }: { phaseName: string; status: PhaseS
   const { Icon, color, label } = statusConfig[status];
 
   return (
-    <div className={cn(
-      "flex items-center gap-3 p-3 rounded-lg transition-all bg-accent/50 hover:bg-accent",
+    <GlassPanel variant="tertiary" className={cn(
+      "flex items-center gap-3 p-3",
       "touch-manipulation", // Better touch targets on mobile
       isMobile && "p-4" // Larger padding on mobile
     )}>
@@ -131,17 +131,17 @@ function PipelineControls() {
     return (
       <ResponsiveGrid cols={{ xs: 2, sm: 4 }} gap={{ xs: 2, sm: 3 }}>
         {controls.map((control) => (
-          <Button
+          <LiquidButton
             key={control.label}
             onClick={control.onClick}
             disabled={control.disabled}
-            variant={control.variant}
+            variant={control.variant === 'destructive' ? 'secondary' : 'primary'}
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             <control.icon className="h-4 w-4" />
             <span className="text-xs">{control.label}</span>
-          </Button>
+          </LiquidButton>
         ))}
       </ResponsiveGrid>
     );
@@ -154,16 +154,16 @@ function PipelineControls() {
       className="flex-wrap"
     >
       {controls.map((control) => (
-        <Button
+        <LiquidButton
           key={control.label}
           onClick={control.onClick}
           disabled={control.disabled}
-          variant={control.variant}
+          variant={control.variant === 'destructive' ? 'secondary' : 'primary'}
           size={isMobile ? 'sm' : 'default'}
         >
           <control.icon className="h-4 w-4 mr-2" />
           {control.label}
-        </Button>
+        </LiquidButton>
       ))}
     </ResponsiveStack>
   );
@@ -174,7 +174,7 @@ function PipelineStatus() {
   const { isMobile } = useResponsive();
 
   return (
-    <GlassCard className={cn("p-6", isMobile && "p-4")}>
+    <GlassPanel variant="primary" className={cn("p-6", isMobile && "p-4")}>
       <div className="flex justify-between items-center mb-4">
         <h3 className={cn(
           "font-semibold text-foreground",
@@ -216,7 +216,7 @@ function PipelineStatus() {
           className={cn(isMobile && "h-3")}
         />
       </div>
-    </GlassCard>
+    </GlassPanel>
   );
 }
 
@@ -246,7 +246,7 @@ export function Dashboard() {
       </div>
 
       {/* Controls */}
-      <GlassCard className={cn("p-6", isMobile && "p-4")}>
+      <GlassPanel variant="secondary" className={cn("p-6", isMobile && "p-4")}>
         <h3 className={cn(
           "font-semibold text-foreground mb-4",
           isMobile ? "text-base" : "text-lg"
