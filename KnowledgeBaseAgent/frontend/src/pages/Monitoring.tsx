@@ -79,7 +79,7 @@ function LogViewer() {
   );
 }
 
-import { GPUStats } from '@/components/monitoring/GPUStats';
+import { GPUStats } from '@/components/monitoring/GPUStats.tsx';
 
 export function Monitoring() {
   return (
