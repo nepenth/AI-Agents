@@ -41,10 +41,12 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        glass: {
-          bg: 'hsla(var(--glass-bg-color), var(--glass-bg-alpha))',
-          border: 'hsla(var(--glass-border-color), var(--glass-border-alpha))',
-        }
+        'glass-bg-primary': 'var(--glass-bg-primary)',
+        'glass-bg-secondary': 'var(--glass-bg-secondary)',
+        'glass-bg-tertiary': 'var(--glass-bg-tertiary)',
+        'glass-border-primary': 'var(--glass-border-primary)',
+        'glass-border-secondary': 'var(--glass-border-secondary)',
+        'glass-border-tertiary': 'var(--glass-border-tertiary)',
       },
       borderRadius: {
         lg: 'var(--radius)',
