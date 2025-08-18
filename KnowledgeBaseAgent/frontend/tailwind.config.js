@@ -50,22 +50,31 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: 'var(--radius-xl)',
       },
       backdropBlur: {
-        'glass': 'var(--glass-blur)',
+        'glass-subtle': 'var(--glass-blur-subtle)',
+        'glass-light': 'var(--glass-blur-light)',
+        'glass-medium': 'var(--glass-blur-medium)',
+        'glass-strong': 'var(--glass-blur-strong)',
       },
       boxShadow: {
-        'glass': '0 4px 30px hsla(var(--glass-shadow-color), var(--glass-shadow-alpha))',
+        'glass-sm': 'var(--glass-shadow-sm)',
+        'glass-md': 'var(--glass-shadow-md)',
+        'glass-lg': 'var(--glass-shadow-lg)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Consolas', 'monospace'],
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'slide-in-bottom': 'slideInBottom 0.3s ease-out',
+        'fade-in': 'fadeIn 0.5s var(--ease-smooth)',
+        'slide-up': 'slideUp 0.5s var(--ease-smooth)',
+        'slide-in-bottom': 'slideInBottom 0.5s var(--ease-smooth)',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'bounce-in': 'bounceIn 0.5s var(--ease-spring)',
+        'spring-in': 'springIn 0.5s var(--ease-spring)',
+        'lift': 'lift var(--duration-normal) var(--ease-smooth)',
       },
       keyframes: {
         fadeIn: {
@@ -80,6 +89,18 @@ export default {
           '0%': { transform: 'translateY(100%)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        bounceIn: {
+            '0%': { transform: 'scale(0.5)', opacity: '0' },
+            '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        springIn: {
+            '0%': { transform: 'scale(0.9)', opacity: '0' },
+            '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        lift: {
+            '0%': { transform: 'translateY(0) scale(1)' },
+            '100%': { transform: 'var(--transform-lift-md)' },
+        }
       },
       spacing: {
         'safe-top': 'env(safe-area-inset-top)',

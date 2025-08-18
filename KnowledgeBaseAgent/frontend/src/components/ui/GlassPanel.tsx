@@ -1,23 +1,41 @@
+import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/utils/cn';
-import { ReactNode } from 'react';
 
-interface GlassPanelProps {
-  className?: string;
-  children: ReactNode;
-}
+const glassPanelVariants = cva(
+  'rounded-xl border transition-colors duration-300',
+  {
+    variants: {
+      variant: {
+        primary:
+          'bg-glass-bg-primary backdrop-blur-glass-medium shadow-glass-md border-glass-border-primary',
+        secondary:
+          'bg-glass-bg-secondary backdrop-blur-glass-light shadow-glass-sm border-glass-border-secondary',
+        tertiary:
+          'bg-glass-bg-tertiary backdrop-blur-glass-subtle border-glass-border-tertiary',
+      },
+    },
+    defaultVariants: {
+      variant: 'primary',
+    },
+  }
+);
 
-export function GlassPanel({ className, children }: GlassPanelProps) {
-  return (
-    <div
-      className={cn(
-        'rounded-xl border border-white/10 bg-white/10 backdrop-blur-md shadow-lg',
-        'ring-1 ring-black/5',
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
+export interface GlassPanelProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof glassPanelVariants> {}
 
+const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(
+  ({ className, variant, ...props }, ref) => {
+    return (
+      <div
+        className={cn(glassPanelVariants({ variant }), className)}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+GlassPanel.displayName = 'GlassPanel';
 
+export { GlassPanel, glassPanelVariants };

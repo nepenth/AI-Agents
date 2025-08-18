@@ -2,13 +2,21 @@ import { useEffect } from 'react';
 import { useThemeStore } from '@/stores/themeStore';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, reduceTransparency, reduceMotion, increaseContrast } =
-    useThemeStore();
+  const { theme, accentColor, reduceTransparency, reduceMotion, increaseContrast } = useThemeStore();
 
   useEffect(() => {
     const root = document.documentElement;
 
-    // Set accessibility attributes according to the architecture specification
+    // Apply accent color
+    const accentColorClass = `theme-${accentColor}`;
+    root.classList.forEach(className => {
+      if (className.startsWith('theme-')) {
+        root.classList.remove(className);
+      }
+    });
+    root.classList.add(accentColorClass);
+
+    // Set accessibility attributes
     root.setAttribute('data-reduce-transparency', String(reduceTransparency));
     root.setAttribute('data-reduce-motion', String(reduceMotion));
     root.setAttribute('data-increase-contrast', String(increaseContrast));
@@ -22,7 +30,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
       // Handler to set theme based on system preference
-      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+      const handleSystemThemeChange = (e: MediaQueryList) => {
         applyTheme(e.matches ? 'dark' : 'light');
       };
 
@@ -30,17 +38,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       handleSystemThemeChange(mediaQuery);
 
       // Listen for changes in system theme preference
-      mediaQuery.addEventListener('change', handleSystemThemeChange);
+      const changeHandler = (e: MediaQueryListEvent) => handleSystemThemeChange(e.currentTarget);
+      mediaQuery.addEventListener('change', changeHandler);
 
       // Cleanup listener on component unmount
       return () => {
-        mediaQuery.removeEventListener('change', handleSystemThemeChange);
+        mediaQuery.removeEventListener('change', changeHandler);
       };
     } else {
       // Apply the theme directly if it's 'light' or 'dark'
       applyTheme(theme);
     }
-  }, [theme, reduceTransparency, reduceMotion, increaseContrast]);
+  }, [theme, accentColor, reduceTransparency, reduceMotion, increaseContrast]);
 
   return <>{children}</>;
 }
