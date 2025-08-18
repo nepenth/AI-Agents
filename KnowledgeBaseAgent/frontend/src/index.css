@@ -43,6 +43,7 @@
     --glass-bg-primary: rgba(255, 255, 255, 0.8);
     --glass-bg-secondary: rgba(255, 255, 255, 0.6);
     --glass-bg-tertiary: rgba(255, 255, 255, 0.4);
+    --glass-bg-navbar: rgba(255, 255, 255, 0.5);
 
     /* Glass Borders */
     --glass-border-primary: rgba(255, 255, 255, 0.3);
@@ -54,6 +55,7 @@
     --glass-blur-light: blur(12px);
     --glass-blur-medium: blur(16px);
     --glass-blur-strong: blur(20px);
+    --glass-blur-xl: blur(50px);
 
     /* Glass Shadows */
     --glass-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -61,6 +63,18 @@
     --glass-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 
     /* Animation System */
+    --glass-button-bg: rgba(255, 255, 255, 0.2);
+    --glass-button-border: rgba(255, 255, 255, 0.18);
+    --glass-button-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.18);
+    --glass-button-hover-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.25);
+    --glass-button-blur: blur(10px);
+    --glass-button-hover-blur: blur(15px);
+
+    --glass-card-bg: rgba(255, 255, 255, 0.3);
+    --glass-card-border: rgba(255, 255, 255, 0.18);
+    --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.18);
+    --glass-card-blur: blur(7.5px);
+
     --duration-fast: 0.15s;
     --duration-normal: 0.3s;
     --duration-slow: 0.5s;
@@ -95,9 +109,17 @@
     --ring: 212.7 26.8% 83.9%;
 
     /* Glassmorphism Overrides */
+    --glass-card-bg: rgba(40, 40, 40, 0.3);
+
+    --glass-button-bg: rgba(40, 40, 40, 0.2);
+    --glass-button-border: rgba(255, 255, 255, 0.1);
+    --glass-button-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --glass-button-hover-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.5);
+
     --glass-bg-primary: rgba(30, 30, 30, 0.7);
     --glass-bg-secondary: rgba(40, 40, 40, 0.5);
     --glass-bg-tertiary: rgba(50, 50, 50, 0.3);
+    --glass-bg-navbar: rgba(30, 30, 30, 0.5);
     --glass-border-primary: rgba(255, 255, 255, 0.2);
     --glass-border-secondary: rgba(255, 255, 255, 0.1);
     --glass-border-tertiary: rgba(255, 255, 255, 0.05);
@@ -167,6 +189,20 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+
+    /*
+      To use a background image, uncomment the following lines
+      and place your image at /public/vibrant-bg.jpg
+    */
+    /*
+    background-image: url('/vibrant-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    */
+
+    /* Comment out the following line to remove the gradient background */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   code {

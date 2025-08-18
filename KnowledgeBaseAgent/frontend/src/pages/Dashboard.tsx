@@ -134,7 +134,7 @@ function PipelineControls() {
             key={control.label}
             onClick={control.onClick}
             disabled={control.disabled}
-            variant={control.variant === 'destructive' ? 'secondary' : 'primary'}
+            variant="glass"
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
@@ -157,7 +157,7 @@ function PipelineControls() {
           key={control.label}
           onClick={control.onClick}
           disabled={control.disabled}
-          variant={control.variant === 'destructive' ? 'secondary' : 'primary'}
+          variant="glass"
           size={isMobile ? 'sm' : 'default'}
         >
           <control.icon className="h-4 w-4 mr-2" />
