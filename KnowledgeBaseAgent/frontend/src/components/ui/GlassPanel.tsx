@@ -3,16 +3,16 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/utils/cn';
 
 const glassPanelVariants = cva(
-  'rounded-xl border transition-colors duration-300',
+  'rounded-xl border transition-all duration-300 ease-in-out',
   {
     variants: {
       variant: {
         primary:
-          'bg-glass-bg-primary backdrop-blur-glass-medium shadow-glass-md border-glass-border-primary',
+          'bg-glass-bg-primary backdrop-blur-glass-medium shadow-glass-md border-glass-border-primary hover:shadow-glass-lg hover:backdrop-blur-glass-strong',
         secondary:
-          'bg-glass-bg-secondary backdrop-blur-glass-light shadow-glass-sm border-glass-border-secondary',
+          'bg-glass-bg-secondary backdrop-blur-glass-light shadow-glass-sm border-glass-border-secondary hover:shadow-glass-md hover:backdrop-blur-glass-medium',
         tertiary:
-          'bg-glass-bg-tertiary backdrop-blur-glass-subtle border-glass-border-tertiary',
+          'bg-glass-bg-tertiary backdrop-blur-glass-subtle border-glass-border-tertiary hover:shadow-glass-sm hover:backdrop-blur-glass-light',
       },
     },
     defaultVariants: {

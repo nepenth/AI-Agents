@@ -4,13 +4,13 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/utils/cn';
 
 const liquidButtonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 animate-lift-hover',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 animate-lift-hover backdrop-blur-glass-subtle',
   {
     variants: {
       variant: {
-        primary: 'bg-glass-bg-primary text-white hover:bg-glass-bg-secondary border border-glass-border-primary shadow-glass-md',
-        secondary: 'bg-glass-bg-secondary text-white hover:bg-glass-bg-tertiary border border-glass-border-secondary shadow-glass-sm',
-        ghost: 'text-white hover:bg-white/10',
+        primary: 'bg-glass-bg-primary text-[var(--liquid-button-text-color)] hover:bg-glass-bg-secondary border border-glass-border-primary shadow-glass-md',
+        secondary: 'bg-glass-bg-secondary text-[var(--liquid-button-text-color)] hover:bg-glass-bg-tertiary border border-glass-border-secondary shadow-glass-sm',
+        ghost: 'text-[var(--liquid-button-text-color)] hover:bg-white/10',
       },
       size: {
         default: 'h-10 px-4 py-2',
