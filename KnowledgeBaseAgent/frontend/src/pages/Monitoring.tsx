@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useAgentStore } from '@/stores';
-import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassPanel } from '@/components/ui/GlassPanel';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { cn } from '@/utils/cn';
@@ -9,9 +9,13 @@ function ResourceMonitor() {
   const { systemMetrics, loadSystemMetrics } = useAgentStore();
 
   React.useEffect(() => {
-    // Initial load
-    loadSystemMetrics();
-    // Real-time updates are handled by the store's WebSocket listener
+    const interval = setInterval(() => {
+      loadSystemMetrics();
+    }, 5000); // Refresh every 5 seconds
+
+    loadSystemMetrics(); // Initial load
+
+    return () => clearInterval(interval);
   }, [loadSystemMetrics]);
 
   if (!systemMetrics) {
@@ -25,7 +29,7 @@ function ResourceMonitor() {
   ];
 
   return (
-    <GlassCard className="p-6">
+    <GlassPanel variant="primary" className="p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">System Resources</h3>
       <div className="space-y-4">
         {resources.map((res) => (
@@ -59,7 +63,7 @@ function LogViewer() {
   }
 
   return (
-    <GlassCard className="p-6">
+    <GlassPanel variant="secondary" className="p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">System Logs</h3>
       <div className="h-96 overflow-y-auto bg-black/20 rounded-md p-4 font-mono text-xs">
         {systemLogsLoading && <LoadingSpinner />}
@@ -75,6 +79,8 @@ function LogViewer() {
   );
 }
 
+import { GPUStats } from '@/components/monitoring/GPUStats';
+
 export function Monitoring() {
   return (
     <div className="space-y-6">
@@ -84,7 +90,10 @@ export function Monitoring() {
           Live metrics and logs for the AI agent system.
         </p>
       </div>
-      <ResourceMonitor />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ResourceMonitor />
+        <GPUStats />
+      </div>
       <LogViewer />
     </div>
   );

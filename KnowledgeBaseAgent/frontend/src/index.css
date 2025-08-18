@@ -70,6 +70,7 @@
     --transform-lift-sm: translateY(-2px) scale(1.02);
     --transform-lift-md: translateY(-4px) scale(1.05);
     --transform-lift-lg: translateY(-8px) scale(1.08);
+    --liquid-button-text-color: var(--foreground);
   }
 
   [data-theme="dark"] {
@@ -103,6 +104,7 @@
     --glass-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
     --glass-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     --glass-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    --liquid-button-text-color: var(--primary-foreground);
   }
 
   .theme-blue {
