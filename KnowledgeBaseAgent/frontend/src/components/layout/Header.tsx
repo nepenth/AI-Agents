@@ -27,7 +27,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { connectionStatus, lastConnected, reconnectAttempts, reconnect } = useWebSocket();
 
   return (
-    <header className="bg-background border-b border-border">
+    <header className="bg-glass-bg-tertiary border-glass-border-tertiary border-b backdrop-blur-glass-subtle shadow-glass-sm sticky top-0 z-40">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Left Section */}

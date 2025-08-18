@@ -1,28 +1,29 @@
 import * as React from 'react';
 import { useChatStore } from '@/stores';
 import { cn } from '@/utils/cn';
-import { GlassCard } from '@/components/ui/GlassCard';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { GlassPanel } from '@/components/ui/GlassPanel';
+import { LiquidButton } from '@/components/ui/LiquidButton';
+import { GlassInput } from '@/components/ui/GlassInput';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { PlusIcon, MessageSquareIcon, SendIcon } from 'lucide-react';
+import { PlusIcon, MessageSquareIcon, SendIcon, User, Bot } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
-import { User, Bot } from 'lucide-react';
 
 function SessionPanel() {
   const { sessions, currentSession, switchSession, createSession, sessionsLoading } = useChatStore();
 
   React.useEffect(() => {
-    createSession('New Chat');
-  }, []);
+    if (sessions.length === 0) {
+      createSession('New Chat');
+    }
+  }, [sessions.length, createSession]);
 
   return (
-    <GlassCard className="h-full flex flex-col">
-      <div className="flex justify-between items-center p-4 border-b border-glass-border">
+    <GlassPanel variant="secondary" className="h-full flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-glass-border-tertiary">
         <h3 className="font-semibold text-foreground">Chat Sessions</h3>
-        <Button variant="ghost" size="icon" onClick={() => createSession('New Chat')}>
+        <LiquidButton variant="ghost" size="icon" onClick={() => createSession('New Chat')}>
           <PlusIcon className="h-5 w-5" />
-        </Button>
+        </LiquidButton>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {sessionsLoading && <LoadingSpinner />}
@@ -33,29 +34,41 @@ function SessionPanel() {
             className={cn(
               'w-full text-left flex items-center gap-3 p-2 rounded-md text-sm transition-colors',
               currentSession?.id === session.id
-                ? 'bg-primary/20 text-primary-foreground'
-                : 'hover:bg-white/10 text-muted-foreground'
+                ? 'bg-glass-bg-tertiary text-foreground font-semibold'
+                : 'hover:bg-glass-bg-tertiary text-muted-foreground'
             )}
           >
-            <MessageSquareIcon className="h-4 w-4" />
+            <MessageSquareIcon className="h-4 w-4 flex-shrink-0" />
             <span className="truncate flex-1">{session.title}</span>
           </button>
         ))}
       </div>
-    </GlassCard>
+    </GlassPanel>
   );
 }
 
 function Message({ role, content }: { role: 'user' | 'assistant', content: string }) {
   const Icon = role === 'user' ? User : Bot;
   return (
-    <div className={cn("flex items-start gap-4 p-4 rounded-lg", role === 'user' ? '' : 'bg-white/5')}>
-      <div className="p-2 rounded-full bg-black/10">
-        <Icon className="h-5 w-5 text-foreground" />
+    <div className={cn("flex items-start gap-4", role === 'user' ? 'justify-end' : '')}>
+      {role === 'assistant' && (
+        <div className="p-2 rounded-full bg-glass-bg-secondary">
+          <Icon className="h-5 w-5 text-foreground" />
+        </div>
+      )}
+      <div className={cn(
+        "max-w-2xl p-4 rounded-xl",
+        role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-glass-bg-secondary'
+      )}>
+        <div className="prose prose-invert max-w-none text-foreground whitespace-pre-wrap">
+          {content}
+        </div>
       </div>
-      <div className="prose prose-invert max-w-none text-foreground pt-1 whitespace-pre-wrap">
-        {content}
-      </div>
+      {role === 'user' && (
+        <div className="p-2 rounded-full bg-glass-bg-secondary">
+          <Icon className="h-5 w-5 text-foreground" />
+        </div>
+      )}
     </div>
   )
 }
@@ -72,18 +85,18 @@ function ChatInput() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 border-t border-glass-border">
+    <form onSubmit={handleSubmit} className="p-4">
       <div className="relative">
-        <Input
+        <GlassInput
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your knowledge base..."
-          className="pr-12"
+          placeholder="Ask anything..."
+          className="pr-12 h-12 text-base"
           disabled={isTyping}
         />
-        <Button type="submit" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isTyping}>
+        <LiquidButton type="submit" size="icon" className="absolute top-1/2 right-2 -translate-y-1/2" disabled={isTyping}>
           <SendIcon className="h-5 w-5" />
-        </Button>
+        </LiquidButton>
       </div>
     </form>
   )
@@ -106,14 +119,14 @@ function ChatPanel() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <GlassPanel variant="primary" className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messagesLoading && <LoadingSpinner />}
         {messages.map((msg) => (
           <Message key={msg.id} role={msg.role} content={msg.content} />
         ))}
         {isTyping && (
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-3 text-muted-foreground">
             <Bot className="h-5 w-5 animate-pulse" />
             <span>Assistant is typing...</span>
           </div>
@@ -128,17 +141,19 @@ function ChatPanel() {
         </div>
       )}
       <ChatInput />
-    </div>
+    </GlassPanel>
   );
 }
 
 export function Chat() {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 h-[calc(100vh-4rem)]">
-      <SessionPanel />
-      <GlassCard className="h-full p-0">
+    <div className="flex gap-6 h-full">
+      <div className="w-[300px] hidden lg:block">
+        <SessionPanel />
+      </div>
+      <div className="flex-1 h-full">
         <ChatPanel />
-      </GlassCard>
+      </div>
     </div>
   );
 }
