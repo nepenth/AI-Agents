@@ -36,13 +36,7 @@ export function Layout({ children }: LayoutProps) {
         <Header onMenuClick={() => setSidebarOpen(true)} />
         
         <main className="flex-1 overflow-auto">
-          <div className={cn(
-            "container mx-auto px-4 py-4",
-            "sm:px-6 sm:py-6",
-            "lg:px-8 lg:py-8"
-          )}>
-            {children}
-          </div>
+          {children}
         </main>
       </div>
 
