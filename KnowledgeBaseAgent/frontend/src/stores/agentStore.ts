@@ -26,6 +26,8 @@ interface AgentState {
     level: string;
     message: string;
     module: string;
+    task_id?: string;
+    pipeline_phase?: string;
     details?: Record<string, any>;
   }>;
   systemLogsLoading: boolean;
@@ -201,15 +203,21 @@ export const useAgentStore = create<AgentState>()(
       loadSystemLogs: async (params = {}) => {
         set({ systemLogsLoading: true });
         try {
-          const response = await agentService.getSystemLogs(params);
+          const response = await agentService.getSystemLogs({
+            limit: 100,
+            offset: 0,
+            ...params
+          });
           set({
-            systemLogs: response.logs,
+            systemLogs: response.logs || [],
             systemLogsLoading: false,
           });
         } catch (error) {
+          console.error('Failed to load system logs:', error);
           set({
             error: error instanceof Error ? error.message : 'Failed to load system logs',
             systemLogsLoading: false,
+            systemLogs: [], // Set empty array on error
           });
         }
       },

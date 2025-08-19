@@ -23,6 +23,7 @@ from app.repositories.readme import get_readme_repository
 from app.database.connection import get_db_session
 from app.models.pipeline import PipelineExecution, PipelinePhase
 from app.tasks.celery_app import celery_app
+from app.services.log_service import log_pipeline_progress, log_with_context
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +119,23 @@ class SevenPhasePipeline:
         
         try:
             # Phase 1: Initialization
+            log_pipeline_progress(
+                task_id=pipeline_id,
+                phase="Initialization", 
+                message="Starting pipeline initialization",
+                progress=0.0,
+                total_phases=7
+            )
             logger.info(f"Pipeline {pipeline_id}: Starting Phase 1 - Initialization")
             phase_1_result = await self._phase_1_initialization(config)
             phase_results['phase_1_initialization'] = phase_1_result
+            log_pipeline_progress(
+                task_id=pipeline_id,
+                phase="Initialization", 
+                message="Initialization completed successfully",
+                progress=14.3,
+                status="completed"
+            )
             
             if phase_1_result['status'] != 'completed':
                 return self._build_pipeline_result(pipeline_id, 'failed', phase_results, overall_start_time, 'phase_1_initialization')

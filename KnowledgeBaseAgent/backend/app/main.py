@@ -11,6 +11,7 @@ from app.middleware import setup_middleware
 from app.database import init_db
 from app.logging_config import setup_logging
 from app.services.ai_service import initialize_ai_service, cleanup_ai_service
+from app.services.log_service import get_log_service
 from app.websocket.pubsub import get_pubsub_manager
 from api.v1 import agent, content, chat, knowledge, system, search, websocket, auth, migration, readme, pipeline
 
@@ -20,6 +21,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     setup_logging()
+    
+    # Initialize log service for collecting application logs
+    log_service = get_log_service()
+    logging.info("Log service initialized and collecting logs")
+    
     settings = get_settings()
     logging.info("Starting AI Agent Backend API")
     
@@ -45,6 +51,7 @@ async def lifespan(app: FastAPI):
         await pubsub_manager.subscribe_to_channel("task_updates")
         await pubsub_manager.subscribe_to_channel("system_status")
         await pubsub_manager.subscribe_to_channel("notifications")
+        await pubsub_manager.subscribe_to_channel("system_logs")
         
         logging.info("WebSocket PubSub initialized")
     except Exception as e:

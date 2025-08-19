@@ -351,6 +351,20 @@ class WebSocketNotificationService:
         else:
             # Broadcast to all
             await self.pubsub_manager.publish_notification(notification_data)
+    
+    async def broadcast_system_log(self, log_data: Dict[str, Any]):
+        """Broadcast a system log entry to all connected clients."""
+        message = WebSocketMessage(
+            type=MessageType.NOTIFICATION,  # Using NOTIFICATION for now, can add SYSTEM_LOG later
+            data={
+                "type": "system_log",
+                "log": log_data
+            },
+            timestamp=asyncio.get_event_loop().time(),
+            message_id=f"system_log_{asyncio.get_event_loop().time()}"
+        )
+        
+        await self.pubsub_manager.publish_message("system_logs", message)
 
 
 # Global instances
