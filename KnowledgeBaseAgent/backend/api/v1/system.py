@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Dict, Any
 import psutil
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.services.ai_service import get_ai_service
 from app.ai.base import ModelType
@@ -14,6 +14,7 @@ from app.services.model_settings import (
     ModelPhase,
     PhaseModelSelector,
 )
+from app.services.log_service import get_log_service
 
 router = APIRouter()
 
@@ -94,10 +95,67 @@ async def get_system_metrics():
 
 
 @router.get("/logs")
-async def get_system_logs():
+async def get_system_logs(
+    level: Optional[str] = Query(None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
+    module: Optional[str] = Query(None, description="Filter by module name"),
+    task_id: Optional[str] = Query(None, description="Filter by task ID"),
+    limit: int = Query(100, description="Maximum number of logs to return", ge=1, le=1000),
+    offset: int = Query(0, description="Number of logs to skip", ge=0),
+    since: Optional[str] = Query(None, description="Get logs since this timestamp (ISO format)")
+):
     """Get system logs with optional filtering."""
-    # TODO: Implement log retrieval with filtering
-    return {"logs": [], "message": "Log retrieval endpoint - to be implemented"}
+    try:
+        log_service = get_log_service()
+        
+        # Parse since timestamp if provided
+        since_datetime = None
+        if since:
+            try:
+                since_datetime = datetime.fromisoformat(since.replace('Z', '+00:00'))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid since timestamp format")
+        
+        # Get filtered logs
+        logs = log_service.get_logs(
+            level=level,
+            module=module,
+            task_id=task_id,
+            limit=limit,
+            offset=offset,
+            since=since_datetime
+        )
+        
+        # Get total count
+        total = log_service.get_log_count(
+            level=level,
+            module=module,
+            task_id=task_id,
+            since=since_datetime
+        )
+        
+        # Convert to response format
+        log_entries = []
+        for log in logs:
+            log_entries.append({
+                "timestamp": log.timestamp.isoformat(),
+                "level": log.level,
+                "message": log.message,
+                "module": log.module,
+                "task_id": log.task_id,
+                "pipeline_phase": log.pipeline_phase,
+                "details": log.details or {}
+            })
+        
+        return {
+            "logs": log_entries,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve logs: {str(e)}")
 
 
 @router.get("/ai/status")

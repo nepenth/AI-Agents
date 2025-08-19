@@ -18,13 +18,13 @@ export default defineConfig({
     // and uncomment the hmr.host below, or pass --host on the CLI.
     // Allow access from the hostname (configurable via environment)
     allowedHosts: [
-      process.env.VITE_HOSTNAME || 'whyland-ai',
+      process.env.VITE_HOSTNAME || 'whyland-ai.nakedsun.xyz',
       'localhost', 
       '127.0.0.1'
     ],
     // Enable HMR for hostname access
     hmr: { 
-      host: process.env.VITE_HOSTNAME || 'whyland-ai',
+      host: process.env.VITE_HOSTNAME || 'whyland-ai.nakedsun.xyz',
       port: parseInt(process.env.VITE_FRONTEND_PORT || '3000')
     },
     proxy: {

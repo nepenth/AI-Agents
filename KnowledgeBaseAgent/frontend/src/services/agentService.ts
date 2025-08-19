@@ -56,6 +56,8 @@ export class AgentService {
 
   async getSystemLogs(params?: {
     level?: string;
+    module?: string;
+    task_id?: string;
     limit?: number;
     offset?: number;
     since?: string;
@@ -65,9 +67,13 @@ export class AgentService {
       level: string;
       message: string;
       module: string;
+      task_id?: string;
+      pipeline_phase?: string;
       details?: Record<string, any>;
     }>;
     total: number;
+    limit: number;
+    offset: number;
   }> {
     return apiService.get('/system/logs', params);
   }

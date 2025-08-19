@@ -47,8 +47,8 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
       - DEFAULT_AI_BACKEND=ollama
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - LOCALAI_BASE_URL=http://localai:8080
+      - OLLAMA_BASE_URL=http://whyland-ai.nakedsun.xyz:11434
+      - LOCALAI_BASE_URL=http://whyland-ai.nakedsun.xyz:8080
       - DEBUG=true
       - LOG_LEVEL=INFO
     depends_on:
@@ -79,8 +79,8 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
       - DEFAULT_AI_BACKEND=ollama
-      - OLLAMA_BASE_URL=http://localhost:11434
-      - LOCALAI_BASE_URL=http://localhost:8080
+      - OLLAMA_BASE_URL=http://whyland-ai.nakedsun.xyz:11434
+      - LOCALAI_BASE_URL=http://whyland-ai.nakedsun.xyz:8080
       - DEBUG=true
       - LOG_LEVEL=INFO
     depends_on:

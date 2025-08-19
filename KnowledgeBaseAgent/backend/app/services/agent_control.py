@@ -18,6 +18,7 @@ from app.tasks.monitoring import system_health_check
 from app.websocket.pubsub import get_notification_service
 from app.repositories.tasks import get_task_repository
 from app.database.connection import get_db_session
+from app.services.log_service import log_with_context, log_task_status, log_pipeline_progress
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,15 @@ class AgentControlService:
                 level="info"
             )
             
+            # Log task start with context
+            log_task_status(
+                task_id=task_id,
+                status="STARTED",
+                message=f"Started {config.task_type.value} task",
+                task_type=config.task_type.value,
+                parameters=config.parameters
+            )
+            
             logger.info(f"Started agent task {task_id} of type {config.task_type}")
             
             return task_id
@@ -159,6 +169,14 @@ class AgentControlService:
             await self.notification_service.send_notification(
                 f"Stopped {task_info.task_type.value} task",
                 level="warning"
+            )
+            
+            # Log task stop
+            log_task_status(
+                task_id=task_id,
+                status="STOPPED",
+                message=f"Stopped {task_info.task_type.value} task",
+                task_type=task_info.task_type.value
             )
             
             logger.info(f"Stopped agent task {task_id}")

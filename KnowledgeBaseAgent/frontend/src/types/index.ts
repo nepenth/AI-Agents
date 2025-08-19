@@ -93,13 +93,33 @@ export interface BasicSearchResult {
 }
 
 export interface SystemMetrics {
-  cpu_usage: number;
-  memory_usage: number;
-  disk_usage: number;
+  // Legacy format (deprecated)
+  cpu_usage?: number;
+  memory_usage?: number;
+  disk_usage?: number;
   gpu_usage?: number;
-  active_tasks: number;
-  queue_size: number;
-  uptime: number;
+  active_tasks?: number;
+  queue_size?: number;
+  uptime?: number;
+  
+  // New format from backend
+  cpu?: {
+    usage_percent: number;
+    count: number;
+  };
+  memory?: {
+    total: number;
+    available: number;
+    used: number;
+    usage_percent: number;
+  };
+  disk?: {
+    total: number;
+    used: number;
+    free: number;
+    usage_percent: number;
+  };
+  timestamp?: string;
 }
 
 export interface ProgressUpdate {
