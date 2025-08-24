@@ -1,7 +1,9 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { GlassCard } from '../ui/GlassCard';
 import { ProgressBar } from '../ui/ProgressBar';
 import { StatusBadge } from '../ui/StatusBadge';
+import { LiquidButton } from '../ui/LiquidButton';
+import { RotateCcw, Eye, Clock, Zap } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 export interface PhaseCardProps {
@@ -61,43 +63,51 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
   };
 
   return (
-    <Card className={cn(
-      'border-2 transition-all duration-300',
-      getCardBorderClass()
-    )}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+    <GlassCard 
+      variant={
+        phase.status === 'running' ? 'interactive' : 
+        phase.status === 'completed' ? 'primary' : 
+        phase.status === 'failed' ? 'secondary' : 'tertiary'
+      }
+      elevated={phase.status === 'running'}
+      className={cn(
+        'transition-all duration-300',
+        phase.status === 'running' && 'scale-[1.02] shadow-glass-interactive-hover'
+      )}
+    >
+      <div className="p-6 relative z-10">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className={cn(
-              'text-2xl transition-transform duration-300',
-              phase.status === 'running' && 'animate-pulse'
+              'text-3xl transition-transform duration-300',
+              phase.status === 'running' && 'animate-pulse scale-110'
             )}>
               {getPhaseIcon(phase.status, phase.isRealAI)}
             </span>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <CardTitle className="text-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-lg font-semibold text-foreground">
                   Phase {index + 1}: {phase.name}
-                </CardTitle>
+                </h3>
                 <StatusBadge 
                   status={phase.status} 
                   size="sm"
                   animated={phase.status === 'running'}
                 />
               </div>
-              <p className="text-sm text-gray-600">{phase.description}</p>
+              <p className="text-sm text-muted-foreground mb-3">{phase.description}</p>
               
               {/* AI Model Information */}
               {phase.aiModelUsed && (
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="text-xs text-gray-500">
-                    Model: <span className="font-medium">{phase.aiModelUsed}</span>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-muted-foreground">
+                    Model: <span className="font-medium text-foreground">{phase.aiModelUsed}</span>
                   </div>
                   <div className={cn(
-                    'text-xs px-2 py-1 rounded-full',
+                    'text-xs px-2 py-1 rounded-full backdrop-blur-sm border',
                     phase.isRealAI 
-                      ? 'bg-green-100 text-green-700 border border-green-200'
-                      : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                      ? 'bg-green-500/20 text-green-600 border-green-500/30'
+                      : 'bg-yellow-500/20 text-yellow-600 border-yellow-500/30'
                   )}>
                     {phase.isRealAI ? 'Real AI' : 'Simulated'}
                   </div>
@@ -107,41 +117,46 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
           </div>
           
           {/* Duration and Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {phase.duration && (
               <div className="text-right">
-                <div className="text-sm font-medium">{formatDuration(phase.duration)}</div>
-                <div className="text-xs text-gray-500">duration</div>
+                <div className="flex items-center gap-1 text-sm font-medium text-foreground">
+                  <Clock className="h-3 w-3" />
+                  {formatDuration(phase.duration)}
+                </div>
+                <div className="text-xs text-muted-foreground">duration</div>
               </div>
             )}
             
             {/* Action Buttons */}
-            <div className="flex flex-col gap-1">
+            <div className="flex gap-2">
               {phase.status === 'failed' && onRetry && (
-                <button
+                <LiquidButton
+                  variant="outline"
+                  size="sm"
                   onClick={() => onRetry(phase.id)}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline"
                 >
+                  <RotateCcw className="h-3 w-3 mr-1" />
                   Retry
-                </button>
+                </LiquidButton>
               )}
               {onViewDetails && (
-                <button
+                <LiquidButton
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onViewDetails(phase.id)}
-                  className="text-xs text-gray-600 hover:text-gray-800 underline"
                 >
+                  <Eye className="h-3 w-3 mr-1" />
                   Details
-                </button>
+                </LiquidButton>
               )}
             </div>
           </div>
         </div>
-      </CardHeader>
       
-      <CardContent className="pt-0">
         {/* Progress Bar for Running Phase */}
         {phase.status === 'running' && phase.progress !== undefined && (
-          <div className="mb-3">
+          <div className="mb-4">
             <ProgressBar
               value={phase.progress}
               variant="default"
@@ -149,19 +164,25 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
               showLabel
               animated
               label={`Processing ${phase.name}`}
+              className="mb-2"
             />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Zap className="h-3 w-3" />
+              <span>Processing in real-time</span>
+            </div>
           </div>
         )}
         
         {/* Error Display */}
         {phase.error && (
-          <div className="text-red-600 text-sm bg-red-50 p-3 rounded border border-red-200 mb-3">
+          <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl backdrop-blur-sm">
             <div className="flex items-start gap-2">
               <span className="text-red-500 mt-0.5">⚠️</span>
               <div>
-                <strong>Error:</strong> {phase.error}
+                <div className="text-red-600 text-sm font-medium">Error:</div>
+                <div className="text-red-600 text-sm">{phase.error}</div>
                 {phase.status === 'failed' && (
-                  <div className="text-xs text-red-500 mt-1">
+                  <div className="text-xs text-red-500 mt-2">
                     This phase failed and may need to be retried or investigated.
                   </div>
                 )}
@@ -172,14 +193,14 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
         
         {/* Success Message */}
         {phase.status === 'completed' && (
-          <div className="text-green-600 text-sm bg-green-50 p-2 rounded border border-green-200 mb-3">
+          <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <span>✅</span>
-              <span>
+              <span className="text-green-500">✅</span>
+              <div className="text-green-600 text-sm">
                 Phase completed successfully
                 {phase.isRealAI && ' with real AI processing'}
                 {!phase.isRealAI && ' with simulated processing'}
-              </span>
+              </div>
             </div>
           </div>
         )}
@@ -187,20 +208,20 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
         {/* Sub-phases */}
         {phase.subPhases && phase.subPhases.length > 0 && (
           <div className="space-y-3">
-            <div className="text-sm font-medium text-gray-700 border-b border-gray-200 pb-1">
+            <div className="text-sm font-medium text-foreground border-b border-glass-border-tertiary pb-2">
               Sub-phases:
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {phase.subPhases.map((subPhase) => (
                 <div 
                   key={subPhase.id} 
                   className={cn(
-                    'flex items-center gap-3 p-2 rounded border transition-colors',
+                    'flex items-center gap-3 p-3 rounded-xl border backdrop-blur-sm transition-all duration-200',
                     {
-                      'bg-gray-50 border-gray-200': subPhase.status === 'pending',
-                      'bg-blue-50 border-blue-200': subPhase.status === 'running',
-                      'bg-green-50 border-green-200': subPhase.status === 'completed',
-                      'bg-red-50 border-red-200': subPhase.status === 'failed'
+                      'bg-glass-tertiary border-glass-border-tertiary': subPhase.status === 'pending',
+                      'bg-blue-500/10 border-blue-500/20 shadow-glass-tertiary': subPhase.status === 'running',
+                      'bg-green-500/10 border-green-500/20 shadow-glass-tertiary': subPhase.status === 'completed',
+                      'bg-red-500/10 border-red-500/20 shadow-glass-tertiary': subPhase.status === 'failed'
                     }
                   )}
                 >
@@ -210,8 +231,8 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
                     animated={subPhase.status === 'running'}
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium">{subPhase.name}</div>
-                    <div className="text-xs text-gray-600">{subPhase.description}</div>
+                    <div className="text-sm font-medium text-foreground">{subPhase.name}</div>
+                    <div className="text-xs text-muted-foreground">{subPhase.description}</div>
                     {subPhase.error && (
                       <div className="text-xs text-red-600 mt-1">
                         Error: {subPhase.error}
@@ -219,16 +240,18 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
                     )}
                   </div>
                   {subPhase.duration && (
-                    <div className="text-xs text-gray-500 text-right">
+                    <div className="text-xs text-muted-foreground text-right flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
                       {formatDuration(subPhase.duration)}
                     </div>
                   )}
                   {subPhase.status === 'running' && subPhase.progress !== undefined && (
-                    <div className="w-16">
+                    <div className="w-20">
                       <ProgressBar
                         value={subPhase.progress}
                         size="sm"
                         variant="default"
+                        animated
                       />
                     </div>
                   )}
@@ -240,24 +263,26 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
 
         {/* Phase Insights */}
         {phase.status === 'completed' && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <div className="text-xs text-gray-600">
-              <div className="flex justify-between">
+          <div className="mt-4 pt-4 border-t border-glass-border-tertiary">
+            <div className="text-xs text-muted-foreground space-y-2">
+              <div className="flex justify-between items-center">
                 <span>Processing Quality:</span>
                 <span className={cn(
-                  'font-medium',
-                  phase.isRealAI ? 'text-green-600' : 'text-yellow-600'
+                  'font-medium px-2 py-1 rounded-full text-xs',
+                  phase.isRealAI 
+                    ? 'text-green-600 bg-green-500/20' 
+                    : 'text-yellow-600 bg-yellow-500/20'
                 )}>
                   {phase.isRealAI ? 'Real AI Analysis' : 'Rule-based Fallback'}
                 </span>
               </div>
               {phase.duration && (
-                <div className="flex justify-between mt-1">
+                <div className="flex justify-between items-center">
                   <span>Performance:</span>
                   <span className={cn(
-                    'font-medium',
-                    phase.duration < 5000 ? 'text-green-600' : 
-                    phase.duration < 15000 ? 'text-yellow-600' : 'text-red-600'
+                    'font-medium px-2 py-1 rounded-full text-xs',
+                    phase.duration < 5000 ? 'text-green-600 bg-green-500/20' : 
+                    phase.duration < 15000 ? 'text-yellow-600 bg-yellow-500/20' : 'text-red-600 bg-red-500/20'
                   )}>
                     {phase.duration < 5000 ? 'Fast' : 
                      phase.duration < 15000 ? 'Normal' : 'Slow'}
@@ -267,7 +292,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </GlassCard>
   );
 };

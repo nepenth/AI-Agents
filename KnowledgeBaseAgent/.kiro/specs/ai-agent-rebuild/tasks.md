@@ -240,7 +240,7 @@ Convert the AI Agent rebuild design into a series of prompts for a code-generati
   - Tests for stores, services, and settings UI interactions
   - _Requirements: 2.3, 2.5, 2.6, 7.12, 7.13_
 
-- [ ] 15. Core UI Components and Design System
+- [x] 15. Core UI Components and Design System
   - Create reusable UI components using Headless UI and Tailwind CSS
   - Implement responsive layout components with mobile-first design
   - Add form components with validation and error handling
@@ -249,7 +249,7 @@ Convert the AI Agent rebuild design into a series of prompts for a code-generati
   - Write component tests with accessibility and responsive design validation
   - _Requirements: 2.4, 2.6, 2.7_
 
-- [ ] 16. Seven-Phase Pipeline Dashboard and Control Interface
+- [x] 16. Seven-Phase Pipeline Dashboard and Control Interface
   - Create pipeline dashboard with real-time seven-phase status display and progress indicators
   - Implement pipeline control panel with start, stop, pause, resume, and abort functionality
   - Add phase-by-phase progress tracking with visual indicators for each stage
@@ -260,7 +260,7 @@ Convert the AI Agent rebuild design into a series of prompts for a code-generati
   - Write comprehensive integration tests for pipeline control workflows and phase transitions
   - _Requirements: 3.10, 3.11, 3.12, 6.1, 6.2, 6.3, 6.5, 6.7_
 
-- [ ] 17. Knowledge Base Browser and Management
+- [x] 17. Knowledge Base Browser and Management
   - Create knowledge base browser with grid and list view options
   - Implement advanced search with filters, categories, and full-text search
   - Add content item detail view with markdown rendering and media display
@@ -280,7 +280,7 @@ Convert the AI Agent rebuild design into a series of prompts for a code-generati
   - Write comprehensive tests for content rendering, formatting, and media embedding
   - _Requirements: 3.11, 3.12, 3.13, 3.16, 3.17_
 
-- [ ] 18. AI Chat Interface Implementation
+- [x] 18. AI Chat Interface Implementation
   - Create chat interface with session management and message history
   - Implement real-time messaging with typing indicators and streaming responses
   - Add source attribution display with links to knowledge base items
@@ -289,7 +289,7 @@ Convert the AI Agent rebuild design into a series of prompts for a code-generati
   - Write chat interface tests with WebSocket mocking and user interaction simulation
   - _Requirements: 5.1, 5.2, 5.3, 5.6, 5.7, 5.8_
 
-- [ ] 19. System Monitoring and Seven-Phase Settings Interface
+- [x] 19. System Monitoring and Seven-Phase Settings Interface
   - Create system monitoring dashboard with resource usage charts and phase-specific metrics
   - Implement comprehensive settings panel for AI backend configuration and seven-phase preferences
   - Add model settings subpage to select models per phase (vision, kb_generation, synthesis, chat, embeddings, readme_generation)
