@@ -41,6 +41,23 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        /* Apple-style Glass System Colors */
+        'glass-primary': 'var(--glass-bg-primary)',
+        'glass-secondary': 'var(--glass-bg-secondary)',
+        'glass-tertiary': 'var(--glass-bg-tertiary)',
+        'glass-navbar': 'var(--glass-bg-navbar)',
+        'glass-interactive': 'var(--glass-bg-interactive)',
+        'glass-overlay': 'var(--glass-bg-overlay)',
+        
+        /* Glass Border Colors */
+        'glass-border-primary': 'var(--glass-border-primary)',
+        'glass-border-secondary': 'var(--glass-border-secondary)',
+        'glass-border-tertiary': 'var(--glass-border-tertiary)',
+        'glass-border-navbar': 'var(--glass-border-navbar)',
+        'glass-border-interactive': 'var(--glass-border-interactive)',
+        'glass-border-overlay': 'var(--glass-border-overlay)',
+        
+        /* Legacy glass colors for backward compatibility */
         'glass-bg-primary': 'var(--glass-bg-primary)',
         'glass-bg-secondary': 'var(--glass-bg-secondary)',
         'glass-bg-tertiary': 'var(--glass-bg-tertiary)',
@@ -60,6 +77,15 @@ export default {
         xl: 'var(--radius-xl)',
       },
       backdropBlur: {
+        /* Apple-style Glass Blur System */
+        'glass-primary': 'var(--glass-blur-primary)',
+        'glass-secondary': 'var(--glass-blur-secondary)',
+        'glass-tertiary': 'var(--glass-blur-tertiary)',
+        'glass-navbar': 'var(--glass-blur-navbar)',
+        'glass-interactive': 'var(--glass-blur-interactive)',
+        'glass-overlay': 'var(--glass-blur-overlay)',
+        
+        /* Legacy blur utilities for backward compatibility */
         'glass-subtle': 'var(--glass-blur-subtle)',
         'glass-light': 'var(--glass-blur-light)',
         'glass-medium': 'var(--glass-blur-medium)',
@@ -70,6 +96,16 @@ export default {
         'glass-card': 'var(--glass-card-blur)',
       },
       boxShadow: {
+        /* Apple-style Glass Shadow System */
+        'glass-primary': 'var(--glass-shadow-primary)',
+        'glass-secondary': 'var(--glass-shadow-secondary)',
+        'glass-tertiary': 'var(--glass-shadow-tertiary)',
+        'glass-navbar': 'var(--glass-shadow-navbar)',
+        'glass-interactive': 'var(--glass-shadow-interactive)',
+        'glass-interactive-hover': 'var(--glass-shadow-interactive-hover)',
+        'glass-overlay': 'var(--glass-shadow-overlay)',
+        
+        /* Legacy shadow utilities for backward compatibility */
         'glass-sm': 'var(--glass-shadow-sm)',
         'glass-md': 'var(--glass-shadow-md)',
         'glass-lg': 'var(--glass-shadow-lg)',

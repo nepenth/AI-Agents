@@ -1,1 +1,433 @@
-import React, { useState } from 'react';\nimport { \n  SparklesIcon, \n  EyeIcon, \n  TagIcon, \n  DocumentTextIcon,\n  ChartBarIcon,\n  ClipboardDocumentIcon,\n  ArrowPathIcon,\n  CheckCircleIcon,\n  XCircleIcon,\n  ClockIcon\n} from '@heroicons/react/24/outline';\nimport { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';\nimport { Button } from '../ui/Button';\nimport { StatusBadge } from '../ui/StatusBadge';\nimport { ProgressBar } from '../ui/ProgressBar';\nimport { LoadingSpinner } from '../ui/LoadingSpinner';\nimport { MediaAnalysisVisualization } from './MediaAnalysisVisualization';\nimport { ContentUnderstandingDisplay } from './ContentUnderstandingDisplay';\nimport { cn } from '../../utils/cn';\n\nexport interface ProcessingResult {\n  phase: string;\n  phaseName: string;\n  status: 'pending' | 'running' | 'completed' | 'failed';\n  progress?: number;\n  startTime?: string;\n  endTime?: string;\n  duration?: number;\n  aiModelUsed?: string;\n  isRealAI?: boolean;\n  results?: {\n    mediaAnalysis?: {\n      items: Array<{\n        mediaId: string;\n        mediaType: string;\n        analysis: string;\n        confidence: number;\n        detectedObjects?: string[];\n        extractedText?: string;\n        visualDescription: string;\n        technicalDetails?: string;\n        emotionalTone?: string;\n      }>;\n      model: string;\n      processingTime: number;\n    };\n    contentUnderstanding?: {\n      summary: string;\n      keyInsights: string[];\n      mainTopics: string[];\n      technicalConcepts?: string[];\n      sentiment: {\n        overall: 'positive' | 'negative' | 'neutral';\n        confidence: number;\n        aspects: Array<{\n          aspect: string;\n          sentiment: string;\n          confidence: number;\n        }>;\n      };\n      complexity: {\n        level: 'low' | 'medium' | 'high';\n        score: number;\n        factors: string[];\n      };\n      model: string;\n      processingTime: number;\n    };\n    categorization?: {\n      mainCategory: string;\n      subCategory?: string;\n      confidence: number;\n      alternativeCategories: Array<{\n        category: string;\n        confidence: number;\n      }>;\n      tags: string[];\n      model: string;\n      processingTime: number;\n    };\n    synthesis?: {\n      document: string;\n      relatedContent: Array<{\n        id: string;\n        title: string;\n        relevanceScore: number;\n      }>;\n      keyConnections: string[];\n      model: string;\n      processingTime: number;\n    };\n    embeddings?: {\n      vector: number[];\n      dimensions: number;\n      model: string;\n      processingTime: number;\n    };\n  };\n  error?: string;\n}\n\nexport interface ProcessingResultsProps {\n  results: ProcessingResult[];\n  overallStatus: 'pending' | 'running' | 'completed' | 'failed';\n  overallProgress: number;\n  tweetId: string;\n  onReprocess?: (phases?: string[]) => void;\n  onExportResults?: () => void;\n  className?: string;\n}\n\nconst getPhaseIcon = (phase: string) => {\n  switch (phase) {\n    case 'phase_3_1': return EyeIcon;\n    case 'phase_3_2': return SparklesIcon;\n    case 'phase_3_3': return TagIcon;\n    case 'phase_4': return DocumentTextIcon;\n    case 'phase_5': return ChartBarIcon;\n    default: return DocumentTextIcon;\n  }\n};\n\nconst getStatusIcon = (status: string) => {\n  switch (status) {\n    case 'completed': return CheckCircleIcon;\n    case 'failed': return XCircleIcon;\n    case 'running': return ArrowPathIcon;\n    default: return ClockIcon;\n  }\n};\n\nconst formatDuration = (ms: number): string => {\n  if (ms < 1000) return `${ms}ms`;\n  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;\n  return `${(ms / 60000).toFixed(1)}m`;\n};\n\nconst copyToClipboard = async (text: string) => {\n  try {\n    await navigator.clipboard.writeText(text);\n    return true;\n  } catch (err) {\n    console.error('Failed to copy text: ', err);\n    return false;\n  }\n};\n\nexport const ProcessingResults: React.FC<ProcessingResultsProps> = ({\n  results,\n  overallStatus,\n  overallProgress,\n  tweetId,\n  onReprocess,\n  onExportResults,\n  className\n}) => {\n  const [activeTab, setActiveTab] = useState<string>('overview');\n  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());\n  const [copiedText, setCopiedText] = useState<string | null>(null);\n\n  const handleCopy = async (text: string, label: string) => {\n    const success = await copyToClipboard(text);\n    if (success) {\n      setCopiedText(label);\n      setTimeout(() => setCopiedText(null), 2000);\n    }\n  };\n\n  const togglePhaseExpansion = (phase: string) => {\n    const newExpanded = new Set(expandedPhases);\n    if (newExpanded.has(phase)) {\n      newExpanded.delete(phase);\n    } else {\n      newExpanded.add(phase);\n    }\n    setExpandedPhases(newExpanded);\n  };\n\n  const completedResults = results.filter(r => r.status === 'completed');\n  const failedResults = results.filter(r => r.status === 'failed');\n  const runningResults = results.filter(r => r.status === 'running');\n\n  const totalProcessingTime = completedResults.reduce((sum, r) => sum + (r.duration || 0), 0);\n  const averageProcessingTime = completedResults.length > 0 ? totalProcessingTime / completedResults.length : 0;\n\n  // Get available tabs based on completed results\n  const availableTabs = [\n    { id: 'overview', label: 'Overview', icon: ChartBarIcon },\n    ...completedResults.filter(r => r.results?.mediaAnalysis).length > 0 \n      ? [{ id: 'media', label: 'Media Analysis', icon: EyeIcon }] : [],\n    ...completedResults.filter(r => r.results?.contentUnderstanding).length > 0 \n      ? [{ id: 'understanding', label: 'Content Understanding', icon: SparklesIcon }] : [],\n    ...completedResults.filter(r => r.results?.categorization).length > 0 \n      ? [{ id: 'categorization', label: 'Categorization', icon: TagIcon }] : [],\n    ...completedResults.filter(r => r.results?.synthesis).length > 0 \n      ? [{ id: 'synthesis', label: 'Synthesis', icon: DocumentTextIcon }] : []\n  ];\n\n  return (\n    <div className={cn('space-y-6', className)}>\n      {/* Header */}\n      <div className=\"flex items-center justify-between\">\n        <div>\n          <h2 className=\"text-2xl font-bold text-foreground\">Processing Results</h2>\n          <p className=\"text-muted-foreground\">Tweet ID: {tweetId}</p>\n        </div>\n        <div className=\"flex items-center gap-3\">\n          <StatusBadge \n            status={overallStatus as any} \n            animated={overallStatus === 'running'}\n          />\n          {onExportResults && (\n            <Button variant=\"outline\" size=\"sm\" onClick={onExportResults}>\n              <ClipboardDocumentIcon className=\"h-4 w-4 mr-2\" />\n              Export\n            </Button>\n          )}\n          {onReprocess && (\n            <Button variant=\"outline\" size=\"sm\" onClick={() => onReprocess()}>\n              <ArrowPathIcon className=\"h-4 w-4 mr-2\" />\n              Reprocess\n            </Button>\n          )}\n        </div>\n      </div>\n\n      {/* Overall Progress */}\n      <Card>\n        <CardContent className=\"p-4\">\n          <div className=\"space-y-4\">\n            <div className=\"flex items-center justify-between\">\n              <span className=\"text-sm font-medium text-foreground\">Overall Progress</span>\n              <span className=\"text-sm text-muted-foreground\">{overallProgress.toFixed(0)}%</span>\n            </div>\n            <ProgressBar\n              value={overallProgress}\n              variant={overallStatus === 'failed' ? 'error' : overallStatus === 'completed' ? 'success' : 'default'}\n              animated={overallStatus === 'running'}\n              striped={overallStatus === 'running'}\n            />\n            \n            {/* Summary Stats */}\n            <div className=\"grid grid-cols-2 md:grid-cols-4 gap-4 text-sm\">\n              <div className=\"text-center\">\n                <div className=\"text-lg font-bold text-green-600\">{completedResults.length}</div>\n                <div className=\"text-muted-foreground\">Completed</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-lg font-bold text-blue-600\">{runningResults.length}</div>\n                <div className=\"text-muted-foreground\">Running</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-lg font-bold text-red-600\">{failedResults.length}</div>\n                <div className=\"text-muted-foreground\">Failed</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-lg font-bold text-purple-600\">\n                  {averageProcessingTime > 0 ? formatDuration(averageProcessingTime) : 'N/A'}\n                </div>\n                <div className=\"text-muted-foreground\">Avg Time</div>\n              </div>\n            </div>\n          </div>\n        </CardContent>\n      </Card>\n\n      {/* Tab Navigation */}\n      <div className=\"flex items-center gap-1 border-b border-white/10\">\n        {availableTabs.map((tab) => {\n          const Icon = tab.icon;\n          return (\n            <button\n              key={tab.id}\n              onClick={() => setActiveTab(tab.id)}\n              className={cn(\n                'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg transition-all',\n                activeTab === tab.id\n                  ? 'bg-primary/20 text-primary border-b-2 border-primary'\n                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'\n              )}\n            >\n              <Icon className=\"h-4 w-4\" />\n              {tab.label}\n            </button>\n          );\n        })}\n      </div>\n\n      {/* Tab Content */}\n      <div className=\"space-y-4\">\n        {/* Overview Tab */}\n        {activeTab === 'overview' && (\n          <div className=\"space-y-4\">\n            {results.map((result) => {\n              const Icon = getPhaseIcon(result.phase);\n              const StatusIcon = getStatusIcon(result.status);\n              const isExpanded = expandedPhases.has(result.phase);\n              \n              return (\n                <Card key={result.phase}>\n                  <CardHeader \n                    className=\"cursor-pointer\" \n                    onClick={() => togglePhaseExpansion(result.phase)}\n                  >\n                    <CardTitle className=\"flex items-center justify-between\">\n                      <div className=\"flex items-center gap-3\">\n                        <Icon className=\"h-5 w-5 text-primary\" />\n                        <div>\n                          <div className=\"flex items-center gap-2\">\n                            {result.phaseName}\n                            <StatusBadge \n                              status={result.status as any} \n                              size=\"sm\"\n                              animated={result.status === 'running'}\n                            />\n                          </div>\n                          {result.aiModelUsed && (\n                            <div className=\"text-sm text-muted-foreground mt-1\">\n                              Model: {result.aiModelUsed} \n                              {result.isRealAI ? ' (Real AI)' : ' (Simulated)'}\n                            </div>\n                          )}\n                        </div>\n                      </div>\n                      \n                      <div className=\"flex items-center gap-2\">\n                        {result.duration && (\n                          <span className=\"text-sm text-muted-foreground\">\n                            {formatDuration(result.duration)}\n                          </span>\n                        )}\n                        <StatusIcon className={cn(\n                          'h-5 w-5',\n                          result.status === 'completed' && 'text-green-500',\n                          result.status === 'failed' && 'text-red-500',\n                          result.status === 'running' && 'text-blue-500 animate-spin',\n                          result.status === 'pending' && 'text-gray-500'\n                        )} />\n                      </div>\n                    </CardTitle>\n                  </CardHeader>\n                  \n                  {isExpanded && (\n                    <CardContent>\n                      {result.status === 'running' && result.progress !== undefined && (\n                        <div className=\"mb-4\">\n                          <ProgressBar\n                            value={result.progress}\n                            variant=\"default\"\n                            animated\n                            striped\n                            showLabel\n                          />\n                        </div>\n                      )}\n                      \n                      {result.error && (\n                        <div className=\"mb-4 p-3 bg-red-50 border border-red-200 rounded-lg\">\n                          <div className=\"text-red-800 text-sm font-medium\">Error:</div>\n                          <div className=\"text-red-700 text-sm mt-1\">{result.error}</div>\n                        </div>\n                      )}\n                      \n                      {result.results && (\n                        <div className=\"space-y-4\">\n                          {/* Media Analysis Results */}\n                          {result.results.mediaAnalysis && (\n                            <div>\n                              <h4 className=\"font-medium text-foreground mb-2\">Media Analysis</h4>\n                              <div className=\"text-sm text-muted-foreground\">\n                                {result.results.mediaAnalysis.items.length} media items analyzed\n                                using {result.results.mediaAnalysis.model}\n                              </div>\n                            </div>\n                          )}\n                          \n                          {/* Content Understanding Results */}\n                          {result.results.contentUnderstanding && (\n                            <div>\n                              <h4 className=\"font-medium text-foreground mb-2\">Content Understanding</h4>\n                              <div className=\"text-sm text-muted-foreground mb-2\">\n                                Sentiment: {result.results.contentUnderstanding.sentiment.overall} \n                                ({(result.results.contentUnderstanding.sentiment.confidence * 100).toFixed(0)}% confidence)\n                              </div>\n                              <div className=\"text-sm\">\n                                {result.results.contentUnderstanding.summary.substring(0, 200)}...\n                              </div>\n                            </div>\n                          )}\n                          \n                          {/* Categorization Results */}\n                          {result.results.categorization && (\n                            <div>\n                              <h4 className=\"font-medium text-foreground mb-2\">Categorization</h4>\n                              <div className=\"flex items-center gap-2\">\n                                <span className=\"text-sm px-2 py-1 bg-primary/20 text-primary rounded-full\">\n                                  {result.results.categorization.mainCategory}\n                                </span>\n                                {result.results.categorization.subCategory && (\n                                  <span className=\"text-sm px-2 py-1 bg-gray-500/20 text-gray-500 rounded-full\">\n                                    {result.results.categorization.subCategory}\n                                  </span>\n                                )}\n                                <span className=\"text-xs text-muted-foreground\">\n                                  {(result.results.categorization.confidence * 100).toFixed(0)}% confidence\n                                </span>\n                              </div>\n                            </div>\n                          )}\n                        </div>\n                      )}\n                    </CardContent>\n                  )}\n                </Card>\n              );\n            })}\n          </div>\n        )}\n\n        {/* Media Analysis Tab */}\n        {activeTab === 'media' && (\n          <div className=\"space-y-4\">\n            {completedResults\n              .filter(r => r.results?.mediaAnalysis)\n              .map(result => (\n                <MediaAnalysisVisualization\n                  key={result.phase}\n                  analysis={result.results!.mediaAnalysis!}\n                  onCopy={handleCopy}\n                  copiedText={copiedText}\n                />\n              ))\n            }\n          </div>\n        )}\n\n        {/* Content Understanding Tab */}\n        {activeTab === 'understanding' && (\n          <div className=\"space-y-4\">\n            {completedResults\n              .filter(r => r.results?.contentUnderstanding)\n              .map(result => (\n                <ContentUnderstandingDisplay\n                  key={result.phase}\n                  understanding={result.results!.contentUnderstanding!}\n                  onCopy={handleCopy}\n                  copiedText={copiedText}\n                />\n              ))\n            }\n          </div>\n        )}\n\n        {/* Other tabs would be implemented similarly */}\n      </div>\n    </div>\n  );\n};"
+import React, { useState } from 'react';
+import { 
+  SparklesIcon, 
+  EyeIcon, 
+  TagIcon, 
+  DocumentTextIcon,
+  ChartBarIcon,
+  ClipboardDocumentIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
+import { GlassCard } from '../ui/GlassCard';
+import { LiquidButton } from '../ui/LiquidButton';
+import { StatusBadge } from '../ui/StatusBadge';
+import { ProgressBar } from '../ui/ProgressBar';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { cn } from '../../utils/cn';
+
+export interface ProcessingResult {
+  phase: string;
+  phaseName: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress?: number;
+  startTime?: string;
+  endTime?: string;
+  duration?: number;
+  aiModelUsed?: string;
+  isRealAI?: boolean;
+  results?: {
+    mediaAnalysis?: {
+      items: Array<{
+        mediaId: string;
+        mediaType: string;
+        analysis: string;
+        confidence: number;
+        detectedObjects?: string[];
+        extractedText?: string;
+        visualDescription: string;
+        technicalDetails?: string;
+        emotionalTone?: string;
+      }>;
+      model: string;
+      processingTime: number;
+    };
+    contentUnderstanding?: {
+      summary: string;
+      keyInsights: string[];
+      mainTopics: string[];
+      technicalConcepts?: string[];
+      sentiment: {
+        overall: 'positive' | 'negative' | 'neutral';
+        confidence: number;
+        aspects: Array<{
+          aspect: string;
+          sentiment: string;
+          confidence: number;
+        }>;
+      };
+      complexity: {
+        level: 'low' | 'medium' | 'high';
+        score: number;
+        factors: string[];
+      };
+      model: string;
+      processingTime: number;
+    };
+    categorization?: {
+      mainCategory: string;
+      subCategory?: string;
+      confidence: number;
+      alternativeCategories: Array<{
+        category: string;
+        confidence: number;
+      }>;
+      tags: string[];
+      model: string;
+      processingTime: number;
+    };
+    synthesis?: {
+      document: string;
+      relatedContent: Array<{
+        id: string;
+        title: string;
+        relevanceScore: number;
+      }>;
+      keyConnections: string[];
+      model: string;
+      processingTime: number;
+    };
+    embeddings?: {
+      vector: number[];
+      dimensions: number;
+      model: string;
+      processingTime: number;
+    };
+  };
+  error?: string;
+}
+
+export interface ProcessingResultsProps {
+  results: ProcessingResult[];
+  overallStatus: 'pending' | 'running' | 'completed' | 'failed';
+  overallProgress: number;
+  tweetId: string;
+  onReprocess?: (phases?: string[]) => void;
+  onExportResults?: () => void;
+  className?: string;
+}
+
+const getPhaseIcon = (phase: string) => {
+  switch (phase) {
+    case 'phase_3_1': return EyeIcon;
+    case 'phase_3_2': return SparklesIcon;
+    case 'phase_3_3': return TagIcon;
+    case 'phase_4': return DocumentTextIcon;
+    case 'phase_5': return ChartBarIcon;
+    default: return DocumentTextIcon;
+  }
+};
+
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'completed': return CheckCircleIcon;
+    case 'failed': return XCircleIcon;
+    case 'running': return ArrowPathIcon;
+    default: return ClockIcon;
+  }
+};
+
+const formatDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+};
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    return false;
+  }
+};
+
+export const ProcessingResults: React.FC<ProcessingResultsProps> = ({
+  results,
+  overallStatus,
+  overallProgress,
+  tweetId,
+  onReprocess,
+  onExportResults,
+  className
+}) => {
+  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  const handleCopy = async (text: string, label: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopiedText(label);
+      setTimeout(() => setCopiedText(null), 2000);
+    }
+  };
+
+  const togglePhaseExpansion = (phase: string) => {
+    const newExpanded = new Set(expandedPhases);
+    if (newExpanded.has(phase)) {
+      newExpanded.delete(phase);
+    } else {
+      newExpanded.add(phase);
+    }
+    setExpandedPhases(newExpanded);
+  };
+
+  const completedResults = results.filter(r => r.status === 'completed');
+  const failedResults = results.filter(r => r.status === 'failed');
+  const runningResults = results.filter(r => r.status === 'running');
+
+  const totalProcessingTime = completedResults.reduce((sum, r) => sum + (r.duration || 0), 0);
+  const averageProcessingTime = completedResults.length > 0 ? totalProcessingTime / completedResults.length : 0;
+
+  // Get available tabs based on completed results
+  const availableTabs = [
+    { id: 'overview', label: 'Overview', icon: ChartBarIcon },
+    ...(completedResults.filter(r => r.results?.mediaAnalysis).length > 0 
+      ? [{ id: 'media', label: 'Media Analysis', icon: EyeIcon }] : []),
+    ...(completedResults.filter(r => r.results?.contentUnderstanding).length > 0 
+      ? [{ id: 'understanding', label: 'Content Understanding', icon: SparklesIcon }] : []),
+    ...(completedResults.filter(r => r.results?.categorization).length > 0 
+      ? [{ id: 'categorization', label: 'Categorization', icon: TagIcon }] : []),
+    ...(completedResults.filter(r => r.results?.synthesis).length > 0 
+      ? [{ id: 'synthesis', label: 'Synthesis', icon: DocumentTextIcon }] : [])
+  ];
+
+  return (
+    <div className={cn('space-y-6', className)}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Processing Results</h2>
+          <p className="text-muted-foreground">Tweet ID: {tweetId}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <StatusBadge 
+            status={overallStatus} 
+            animated={overallStatus === 'running'}
+          />
+          {onExportResults && (
+            <LiquidButton variant="outline" size="sm" onClick={onExportResults}>
+              <ClipboardDocumentIcon className="h-4 w-4 mr-2" />
+              Export
+            </LiquidButton>
+          )}
+          {onReprocess && (
+            <LiquidButton variant="outline" size="sm" onClick={() => onReprocess()}>
+              <ArrowPathIcon className="h-4 w-4 mr-2" />
+              Reprocess
+            </LiquidButton>
+          )}
+        </div>
+      </div>
+
+      {/* Overall Progress */}
+      <GlassCard variant="primary">
+        <div className="p-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Overall Progress</span>
+              <span className="text-sm text-muted-foreground">{overallProgress.toFixed(0)}%</span>
+            </div>
+            <ProgressBar
+              value={overallProgress}
+              variant={overallStatus === 'failed' ? 'error' : overallStatus === 'completed' ? 'success' : 'default'}
+              animated={overallStatus === 'running'}
+              striped={overallStatus === 'running'}
+            />
+            
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">{completedResults.length}</div>
+                <div className="text-muted-foreground">Completed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-blue-600">{runningResults.length}</div>
+                <div className="text-muted-foreground">Running</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-red-600">{failedResults.length}</div>
+                <div className="text-muted-foreground">Failed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-purple-600">
+                  {averageProcessingTime > 0 ? formatDuration(averageProcessingTime) : 'N/A'}
+                </div>
+                <div className="text-muted-foreground">Avg Time</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-1 border-b border-white/10">
+        {availableTabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg transition-all',
+                activeTab === tab.id
+                  ? 'bg-primary/20 text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-4">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-4">
+            {results.map((result) => {
+              const Icon = getPhaseIcon(result.phase);
+              const StatusIcon = getStatusIcon(result.status);
+              const isExpanded = expandedPhases.has(result.phase);
+              
+              return (
+                <GlassCard key={result.phase} variant="secondary">
+                  <div 
+                    className="p-6 cursor-pointer" 
+                    onClick={() => togglePhaseExpansion(result.phase)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-5 w-5 text-primary" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            {result.phaseName}
+                            <StatusBadge 
+                              status={result.status} 
+                              size="sm"
+                              animated={result.status === 'running'}
+                            />
+                          </div>
+                          {result.aiModelUsed && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Model: {result.aiModelUsed} 
+                              {result.isRealAI ? ' (Real AI)' : ' (Simulated)'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {result.duration && (
+                          <span className="text-sm text-muted-foreground">
+                            {formatDuration(result.duration)}
+                          </span>
+                        )}
+                        <StatusIcon className={cn(
+                          'h-5 w-5',
+                          result.status === 'completed' && 'text-green-500',
+                          result.status === 'failed' && 'text-red-500',
+                          result.status === 'running' && 'text-blue-500 animate-spin',
+                          result.status === 'pending' && 'text-gray-500'
+                        )} />
+                      </div>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        {result.status === 'running' && result.progress !== undefined && (
+                          <div className="mb-4">
+                            <ProgressBar
+                              value={result.progress}
+                              variant="default"
+                              animated
+                              striped
+                              showLabel
+                            />
+                          </div>
+                        )}
+                        
+                        {result.error && (
+                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="text-red-800 text-sm font-medium">Error:</div>
+                            <div className="text-red-700 text-sm mt-1">{result.error}</div>
+                          </div>
+                        )}
+                        
+                        {result.results && (
+                          <div className="space-y-4">
+                            {/* Media Analysis Results */}
+                            {result.results.mediaAnalysis && (
+                              <div>
+                                <h4 className="font-medium text-foreground mb-2">Media Analysis</h4>
+                                <div className="text-sm text-muted-foreground">
+                                  {result.results.mediaAnalysis.items.length} media items analyzed
+                                  using {result.results.mediaAnalysis.model}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Content Understanding Results */}
+                            {result.results.contentUnderstanding && (
+                              <div>
+                                <h4 className="font-medium text-foreground mb-2">Content Understanding</h4>
+                                <div className="text-sm text-muted-foreground mb-2">
+                                  Sentiment: {result.results.contentUnderstanding.sentiment.overall} 
+                                  ({(result.results.contentUnderstanding.sentiment.confidence * 100).toFixed(0)}% confidence)
+                                </div>
+                                <div className="text-sm">
+                                  {result.results.contentUnderstanding.summary.substring(0, 200)}...
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Categorization Results */}
+                            {result.results.categorization && (
+                              <div>
+                                <h4 className="font-medium text-foreground mb-2">Categorization</h4>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm px-2 py-1 bg-primary/20 text-primary rounded-full">
+                                    {result.results.categorization.mainCategory}
+                                  </span>
+                                  {result.results.categorization.subCategory && (
+                                    <span className="text-sm px-2 py-1 bg-gray-500/20 text-gray-500 rounded-full">
+                                      {result.results.categorization.subCategory}
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    {(result.results.categorization.confidence * 100).toFixed(0)}% confidence
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </GlassCard>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Other tabs would be implemented here */}
+        {activeTab !== 'overview' && (
+          <GlassCard variant="tertiary">
+            <div className="p-6 text-center">
+              <p className="text-muted-foreground">
+                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} view implementation in progress...
+              </p>
+            </div>
+          </GlassCard>
+        )}
+      </div>
+    </div>
+  );
+};

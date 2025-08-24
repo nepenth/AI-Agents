@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Menu, Bell, Search, X } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { LiquidButton } from '@/components/ui/LiquidButton';
+import { GlassInput } from '@/components/ui/GlassInput';
+import { GlassPanel } from '@/components/ui/GlassPanel';
 import { WebSocketIndicator } from '@/components/ui/WebSocketIndicator';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -27,20 +28,23 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { connectionStatus, lastConnected, reconnectAttempts, reconnect } = useWebSocket();
 
   return (
-    <header className="bg-glass-bg-navbar border-glass-border-secondary border-b backdrop-blur-glass-xl shadow-glass-lg sticky top-0 z-40">
+    <GlassPanel 
+      variant="navbar" 
+      className="border-b-0 border-l-0 border-r-0 rounded-none sticky top-0 z-40"
+    >
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className="flex items-center justify-between h-14 sm:h-16 relative z-10">
           {/* Left Section */}
           <div className="flex items-center gap-3">
             {/* Mobile Menu Button */}
-            <Button
+            <LiquidButton
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               className="lg:hidden"
               onClick={onMenuClick}
             >
               <Menu className="h-5 w-5" />
-            </Button>
+            </LiquidButton>
 
             {/* Page Title */}
             <div className="flex items-center gap-3">
@@ -71,44 +75,46 @@ export function Header({ onMenuClick }: HeaderProps) {
               {searchOpen ? (
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <div className="relative flex-1 sm:w-64">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-20" />
+                    <GlassInput
+                      variant="tertiary"
+                      size="sm"
                       placeholder="Search..."
                       className="pl-10 pr-4 text-sm"
                       autoFocus
                     />
                   </div>
-                  <Button
+                  <LiquidButton
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     className="sm:hidden"
                     onClick={() => setSearchOpen(false)}
                   >
                     <X className="h-4 w-4" />
-                  </Button>
+                  </LiquidButton>
                 </div>
               ) : (
                 <>
                   {/* Desktop Search */}
                   <div className="hidden sm:block relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-20" />
+                    <GlassInput
+                      variant="tertiary"
+                      size="sm"
                       placeholder="Search..."
                       className="pl-10 pr-4 w-64 text-sm"
                     />
                   </div>
                   
                   {/* Mobile Search Button */}
-                  <Button
+                  <LiquidButton
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     className="sm:hidden"
                     onClick={() => setSearchOpen(true)}
                   >
                     <Search className="h-4 w-4" />
-                  </Button>
+                  </LiquidButton>
                 </>
               )}
             </div>
@@ -117,10 +123,10 @@ export function Header({ onMenuClick }: HeaderProps) {
             <ThemeSwitcher />
 
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative">
+            <LiquidButton variant="ghost" size="icon-sm" className="relative">
               <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
-            </Button>
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full shadow-glass-tertiary" />
+            </LiquidButton>
 
             {/* Connection Status - Mobile */}
             <div className="sm:hidden">
@@ -136,6 +142,6 @@ export function Header({ onMenuClick }: HeaderProps) {
           </div>
         </div>
       </div>
-    </header>
+    </GlassPanel>
   );
 }

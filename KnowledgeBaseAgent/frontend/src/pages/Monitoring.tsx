@@ -180,19 +180,67 @@ function ResourceMonitor() {
 function LogViewer() {
   const { systemLogs, systemLogsLoading, loadSystemLogs } = useAgentStore();
   const [isAutoScroll, setIsAutoScroll] = React.useState(true);
+  const [selectedChannel, setSelectedChannel] = React.useState<string>('all');
+  const [selectedLevel, setSelectedLevel] = React.useState<string>('all');
+  const [filteredLogs, setFilteredLogs] = React.useState(systemLogs);
   const logEndRef = React.useRef<HTMLDivElement>(null);
 
+  // Available channels and levels
+  const logChannels = [
+    { value: 'all', label: 'All Logs', color: 'text-gray-400' },
+    { value: 'job_logs', label: 'Job Logs', color: 'text-blue-400' },
+    { value: 'system_logs', label: 'System Logs', color: 'text-green-400' },
+    { value: 'error_logs', label: 'Error Logs', color: 'text-red-400' },
+    { value: 'debug_logs', label: 'Debug Logs', color: 'text-purple-400' },
+    { value: 'audit_logs', label: 'Audit Logs', color: 'text-orange-400' },
+  ];
+
+  const logLevels = [
+    { value: 'all', label: 'All Levels' },
+    { value: 'DEBUG', label: 'Debug' },
+    { value: 'INFO', label: 'Info' },
+    { value: 'WARNING', label: 'Warning' },
+    { value: 'ERROR', label: 'Error' },
+    { value: 'CRITICAL', label: 'Critical' },
+  ];
+
   React.useEffect(() => {
-    loadSystemLogs();
-    const interval = setInterval(loadSystemLogs, 10000); // Refresh logs every 10 seconds
+    const loadLogsWithFilters = () => {
+      const params: any = {};
+      if (selectedChannel !== 'all') {
+        params.channel = selectedChannel;
+      }
+      if (selectedLevel !== 'all') {
+        params.level = selectedLevel;
+      }
+      loadSystemLogs(params);
+    };
+    
+    loadLogsWithFilters();
+    const interval = setInterval(loadLogsWithFilters, 10000); // Refresh logs every 10 seconds
     return () => clearInterval(interval);
-  }, [loadSystemLogs]);
+  }, [loadSystemLogs, selectedChannel, selectedLevel]);
+
+  // Filter logs based on selected filters
+  React.useEffect(() => {
+    let filtered = systemLogs;
+    
+    if (selectedChannel !== 'all') {
+      filtered = filtered.filter(log => log.channel === selectedChannel);
+    }
+    
+    if (selectedLevel !== 'all') {
+      filtered = filtered.filter(log => log.level === selectedLevel);
+    }
+    
+    setFilteredLogs(filtered);
+  }, [systemLogs, selectedChannel, selectedLevel]);
 
   React.useEffect(() => {
     if (isAutoScroll && logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [systemLogs, isAutoScroll]);
+  }, [filteredLogs, isAutoScroll]);
 
   const getLevelColor = (level: string) => {
     switch (level.toUpperCase()) {
@@ -216,9 +264,14 @@ function LogViewer() {
     }
   }
 
+  const getChannelColor = (channel: string) => {
+    const channelInfo = logChannels.find(ch => ch.value === channel);
+    return channelInfo?.color || 'text-gray-400';
+  };
+
   const logCounts = React.useMemo(() => {
-    const counts = { INFO: 0, WARNING: 0, ERROR: 0, DEBUG: 0, SUCCESS: 0, OTHER: 0 };
-    systemLogs.forEach(log => {
+    const counts = { INFO: 0, WARNING: 0, ERROR: 0, DEBUG: 0, SUCCESS: 0, CRITICAL: 0, OTHER: 0 };
+    filteredLogs.forEach(log => {
       const level = log.level.toUpperCase();
       if (counts.hasOwnProperty(level)) {
         counts[level as keyof typeof counts]++;
@@ -227,7 +280,7 @@ function LogViewer() {
       }
     });
     return counts;
-  }, [systemLogs]);
+  }, [filteredLogs]);
 
   return (
     <GlassPanel variant="secondary" className="p-6 backdrop-blur-glass-medium">
@@ -237,6 +290,32 @@ function LogViewer() {
           System Logs
         </h3>
         <div className="flex items-center gap-2">
+          {/* Channel Selector */}
+          <select
+            value={selectedChannel}
+            onChange={(e) => setSelectedChannel(e.target.value)}
+            className="px-3 py-1 rounded-lg text-xs bg-glass-bg-tertiary text-foreground border border-glass-border-tertiary hover:bg-glass-bg-secondary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            {logChannels.map((channel) => (
+              <option key={channel.value} value={channel.value}>
+                {channel.label}
+              </option>
+            ))}
+          </select>
+          
+          {/* Level Selector */}
+          <select
+            value={selectedLevel}
+            onChange={(e) => setSelectedLevel(e.target.value)}
+            className="px-3 py-1 rounded-lg text-xs bg-glass-bg-tertiary text-foreground border border-glass-border-tertiary hover:bg-glass-bg-secondary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            {logLevels.map((level) => (
+              <option key={level.value} value={level.value}>
+                {level.label}
+              </option>
+            ))}
+          </select>
+          
           <button
             onClick={() => setIsAutoScroll(!isAutoScroll)}
             className={cn(
@@ -249,7 +328,7 @@ function LogViewer() {
             Auto-scroll {isAutoScroll ? 'ON' : 'OFF'}
           </button>
           <button
-            onClick={() => loadSystemLogs()}
+            onClick={() => loadSystemLogs({ channel: selectedChannel !== 'all' ? selectedChannel : undefined, level: selectedLevel !== 'all' ? selectedLevel : undefined })}
             className="p-2 rounded-full bg-glass-bg-tertiary hover:bg-glass-bg-secondary transition-all duration-200"
           >
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
@@ -277,14 +356,14 @@ function LogViewer() {
           </div>
         )}
         
-        {systemLogs.length === 0 && !systemLogsLoading && (
+        {filteredLogs.length === 0 && !systemLogsLoading && (
           <div className="text-center py-8 text-muted-foreground">
             <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No logs available</p>
+            <p>No logs available{selectedChannel !== 'all' ? ` for ${logChannels.find(ch => ch.value === selectedChannel)?.label}` : ''}</p>
           </div>
         )}
 
-        {systemLogs.map((log, i) => (
+        {filteredLogs.map((log, i) => (
           <div key={i} className="py-2 hover:bg-white/5 rounded px-3 transition-colors border-l-2 border-transparent hover:border-primary/30">
             <div className="flex gap-3 items-start">
               <span className="text-muted-foreground/60 text-[10px] mt-0.5 min-w-[70px] font-mono">
@@ -296,6 +375,16 @@ function LogViewer() {
               )}>
                 {log.level}
               </span>
+              {/* Channel Indicator */}
+              {log.channel && (
+                <span className={cn(
+                  "text-[9px] mt-0.5 px-2 py-0.5 rounded-full font-medium",
+                  "bg-glass-bg-secondary border border-glass-border-secondary",
+                  getChannelColor(log.channel)
+                )}>
+                  {logChannels.find(ch => ch.value === log.channel)?.label || log.channel}
+                </span>
+              )}
               <div className="flex-1 space-y-1">
                 <div className="text-foreground/90 text-[11px] leading-relaxed">
                   {log.message}

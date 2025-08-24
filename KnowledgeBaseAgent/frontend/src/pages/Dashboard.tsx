@@ -5,6 +5,7 @@ import { GlassPanel } from '@/components/ui/GlassPanel';
 import { LiquidButton } from '@/components/ui/LiquidButton';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ResponsiveGrid, ResponsiveStack } from '@/components/ui/ResponsiveGrid';
+import { PageLayout, PageHeader, PageSection } from '@/components/layout/PageLayout';
 import { useResponsive } from '@/hooks/useResponsive';
 import { cn } from '@/utils/cn';
 
@@ -46,18 +47,23 @@ function PhaseDisplay({ phaseName, status }: { phaseName: string; status: PhaseS
   const { Icon, color, label } = statusConfig[status];
 
   return (
-    <GlassPanel variant="tertiary" className={cn(
-      "flex items-center gap-3 p-3",
-      "touch-manipulation", // Better touch targets on mobile
-      isMobile && "p-4" // Larger padding on mobile
-    )}>
+    <GlassPanel 
+      variant={status === 'running' ? 'interactive' : 'tertiary'}
+      size={isMobile ? 'lg' : 'md'}
+      elevated={status === 'running'}
+      className={cn(
+        "flex items-center gap-3",
+        "touch-manipulation cursor-pointer", // Better touch targets on mobile
+        status === 'running' && 'hover:scale-105'
+      )}
+    >
       <div className={cn(
-        "flex-shrink-0 flex items-center justify-center rounded-full",
+        "flex-shrink-0 flex items-center justify-center rounded-full relative z-10",
         isMobile ? "h-10 w-10" : "h-8 w-8",
-        status === 'running' && 'bg-primary/10',
-        status === 'completed' && 'bg-green-500/10',
-        status === 'failed' && 'bg-destructive/10',
-        status === 'pending' && 'bg-muted/50'
+        status === 'running' && 'bg-primary/15 shadow-glass-tertiary',
+        status === 'completed' && 'bg-green-500/15 shadow-glass-tertiary',
+        status === 'failed' && 'bg-destructive/15 shadow-glass-tertiary',
+        status === 'pending' && 'bg-muted/10'
       )}>
         {Icon ? (
           <Icon className={cn(
@@ -68,7 +74,7 @@ function PhaseDisplay({ phaseName, status }: { phaseName: string; status: PhaseS
           <div className={isMobile ? "h-6 w-6" : "h-5 w-5"} />
         )}
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 relative z-10">
         <p className={cn(
           "font-medium text-foreground truncate",
           isMobile ? "text-base" : "text-sm"
@@ -92,7 +98,20 @@ function PipelineControls() {
 
   const handleStart = () => {
     // TODO: Open modal to get config
-    startAgent({ config: {} });
+    const defaultConfig = {
+      sources: {
+        twitter_enabled: true,
+        web_scraping_enabled: true,
+        file_upload_enabled: true,
+      },
+      processing: {
+        ai_backend: 'openai',
+        model: 'gpt-4',
+        batch_size: 10,
+      },
+      categories: ['general', 'technology', 'science'],
+    };
+    startAgent(defaultConfig);
   };
 
   const controls = [
@@ -101,14 +120,14 @@ function PipelineControls() {
       icon: Play,
       onClick: handleStart,
       disabled: isRunning,
-      variant: 'default' as const
+      variant: 'interactive' as const
     },
     {
       label: 'Stop',
       icon: Square,
       onClick: () => stopAgent(),
       disabled: !isRunning,
-      variant: 'destructive' as const
+      variant: 'secondary' as const
     },
     {
       label: 'Pause',
@@ -134,8 +153,9 @@ function PipelineControls() {
             key={control.label}
             onClick={control.onClick}
             disabled={control.disabled}
-            variant="glass"
+            variant={control.variant}
             size="sm"
+            elevated
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             <control.icon className="h-4 w-4" />
@@ -157,8 +177,9 @@ function PipelineControls() {
           key={control.label}
           onClick={control.onClick}
           disabled={control.disabled}
-          variant="glass"
+          variant={control.variant}
           size={isMobile ? 'sm' : 'default'}
+          elevated
         >
           <control.icon className="h-4 w-4 mr-2" />
           {control.label}
@@ -220,45 +241,25 @@ function PipelineStatus() {
 }
 
 export function Dashboard() {
-  const { isMobile } = useResponsive();
-
   return (
-    <div className="container mx-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-      <div className={cn(
-        "space-y-4",
-        "sm:space-y-6",
-        "pb-20 lg:pb-0" // Extra padding for mobile bottom nav
-      )}>
-      {/* Header */}
-      <div className={cn(isMobile && "text-center")}>
-        <h2 className={cn(
-          "font-bold tracking-tight text-foreground",
-          isMobile ? "text-xl" : "text-2xl"
-        )}>
-          Dashboard
-        </h2>
-        <p className={cn(
-          "text-muted-foreground mt-1",
-          isMobile ? "text-sm" : "text-base"
-        )}>
-          Control the AI agent and monitor its progress.
-        </p>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title="Dashboard"
+        description="Control the AI agent and monitor its progress."
+      />
+      
+      <PageSection>
+        <GlassPanel variant="secondary" className="p-6">
+          <h3 className="font-semibold text-foreground mb-4 text-lg">
+            Agent Controls
+          </h3>
+          <PipelineControls />
+        </GlassPanel>
+      </PageSection>
 
-      {/* Controls */}
-      <GlassPanel variant="secondary" className={cn("p-6", isMobile && "p-4")}>
-        <h3 className={cn(
-          "font-semibold text-foreground mb-4",
-          isMobile ? "text-base" : "text-lg"
-        )}>
-          Agent Controls
-        </h3>
-        <PipelineControls />
-      </GlassPanel>
-
-      {/* Status */}
-      <PipelineStatus />
-      </div>
-    </div>
+      <PageSection>
+        <PipelineStatus />
+      </PageSection>
+    </PageLayout>
   );
 }

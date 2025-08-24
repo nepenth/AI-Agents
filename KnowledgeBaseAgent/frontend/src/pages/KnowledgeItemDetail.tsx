@@ -1,16 +1,75 @@
 import * as React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useKnowledgeStore } from '@/stores';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { LiquidButton } from '@/components/ui/LiquidButton';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
-import { ExternalLinkIcon } from 'lucide-react';
+import { PageLayout, PageHeader, PageSection, PageContent } from '@/components/layout/PageLayout';
+import { ExternalLinkIcon, ArrowLeftIcon, CopyIcon, CalendarIcon, TagIcon } from 'lucide-react';
+import { cn } from '@/utils/cn';
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function ItemMetadata({ item }: { item: any }) {
+  const metadata = [
+    {
+      label: 'Created',
+      value: new Date(item.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      icon: CalendarIcon
+    },
+    item.content_item_id && {
+      label: 'Source ID',
+      value: item.content_item_id,
+      icon: TagIcon
+    }
+  ].filter(Boolean);
+
+  return (
+    <div className="flex flex-wrap gap-4 text-sm">
+      {metadata.map((meta, index) => {
+        const Icon = meta!.icon;
+        return (
+          <div key={index} className="flex items-center gap-2 text-muted-foreground">
+            <Icon className="h-4 w-4" />
+            <span className="font-medium">{meta!.label}:</span>
+            <span>{meta!.value}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContentSection({ title, children, icon: Icon, onCopy }: { 
+  title: string; 
+  children: React.ReactNode;
+  icon?: React.ComponentType<{ className?: string }>;
+  onCopy?: () => void;
+}) {
   return (
     <div className="py-6 border-b border-white/10 last:border-b-0">
-      <h3 className="text-lg font-semibold text-foreground mb-3">{title}</h3>
-      <div className="prose prose-invert max-w-none text-muted-foreground">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+          )}
+          <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        </div>
+        {onCopy && (
+          <LiquidButton variant="ghost" size="sm" onClick={onCopy}>
+            <CopyIcon className="h-4 w-4 mr-2" />
+            Copy
+          </LiquidButton>
+        )}
+      </div>
+      <div className="prose prose-invert max-w-none text-muted-foreground leading-relaxed">
         {children}
       </div>
     </div>
@@ -19,6 +78,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function KnowledgeItemDetail() {
   const { itemId } = useParams<{ itemId: string }>();
+  const navigate = useNavigate();
   const {
     currentKnowledgeItem: item,
     loadKnowledgeItem,
@@ -32,56 +92,76 @@ export function KnowledgeItemDetail() {
     }
   }, [itemId, loadKnowledgeItem]);
 
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Could add a toast notification here
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
   if (loading || !item) {
-    return <div className="flex justify-center items-center h-64"><LoadingSpinner /></div>;
+    return (
+      <PageLayout>
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner size="lg" />
+        </div>
+      </PageLayout>
+    );
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <PageLayout>
+        <Alert variant="destructive">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </PageLayout>
     );
   }
 
-  // Assuming `item.raw_data` holds the original tweet info, based on design docs.
-  const originalTweetUrl = `https://twitter.com/user/status/${item.source_id}`;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">{item.display_title}</h2>
-        <div className="text-sm text-muted-foreground mt-2">
-          <span>{item.main_category} / {item.sub_category}</span>
-          <a href={originalTweetUrl} target="_blank" rel="noopener noreferrer" className="ml-4 inline-flex items-center gap-1 hover:text-primary">
-            View Original <ExternalLinkIcon className="h-3 w-3" />
-          </a>
-        </div>
-      </div>
+    <PageLayout maxWidth="2xl" spacing="lg">
+      <PageHeader
+        title={item.display_title}
+        actions={
+          <LiquidButton variant="outline" onClick={() => navigate('/knowledge')}>
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Back to Knowledge Base
+          </LiquidButton>
+        }
+      >
+        <ItemMetadata item={item} />
+      </PageHeader>
 
-      <GlassCard className="p-6">
-        {item.summary && (
-          <Section title="AI Summary">
-            <p>{item.summary}</p>
-          </Section>
-        )}
+      <PageContent layout="single" gap="lg">
+        <GlassCard variant="primary" className="p-6">
+          {item.summary && (
+            <ContentSection 
+              title="AI Summary" 
+              onCopy={() => handleCopy(item.summary!)}
+            >
+              <p className="whitespace-pre-wrap">{item.summary}</p>
+            </ContentSection>
+          )}
 
-        {item.enhanced_content && (
-          <Section title="Enhanced Content">
-            {/* This could be rendered as markdown in a real scenario */}
-            <p>{item.enhanced_content}</p>
-          </Section>
-        )}
+          {item.enhanced_content && (
+            <ContentSection 
+              title="Enhanced Content" 
+              onCopy={() => handleCopy(item.enhanced_content!)}
+            >
+              <div 
+                className="prose prose-invert max-w-none" 
+                dangerouslySetInnerHTML={{ __html: item.enhanced_content }} 
+              />
+            </ContentSection>
+          )}
 
-        {item.content_item?.raw_data && (
-           <Section title="Original Content">
-             <blockquote className="border-l-2 border-muted pl-4 italic">
-              {item.content_item.raw_data.text}
-             </blockquote>
-           </Section>
-        )}
-      </GlassCard>
-    </div>
+          {/* Additional content sections could be added here based on actual data structure */}
+        </GlassCard>
+      </PageContent>
+    </PageLayout>
   );
 }

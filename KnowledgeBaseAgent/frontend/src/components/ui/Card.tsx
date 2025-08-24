@@ -3,15 +3,23 @@ import { cn } from '../../utils/cn';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
+  variant?: 'glass' | 'solid';
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, variant = 'glass', ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
-          'rounded-lg border border-gray-200 bg-white shadow-sm',
+          'rounded-xl border transition-all duration-500 ease-out relative overflow-hidden',
+          variant === 'glass' ? [
+            'bg-glass-primary border-glass-border-primary shadow-glass-primary backdrop-blur-glass-primary',
+            'hover:shadow-glass-secondary hover:scale-[1.01] hover:backdrop-blur-glass-secondary',
+            'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/8 before:to-transparent before:pointer-events-none'
+          ] : [
+            'bg-card border-border shadow-sm'
+          ],
           className
         )}
         {...props}
@@ -33,7 +41,7 @@ export const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
     return (
       <div
         ref={ref}
-        className={cn('flex flex-col space-y-1.5 p-6', className)}
+        className={cn('flex flex-col space-y-1.5 p-6 relative z-10', className)}
         {...props}
       >
         {children}
@@ -53,7 +61,7 @@ export const CardTitle = React.forwardRef<HTMLParagraphElement, CardTitleProps>(
     return (
       <h3
         ref={ref}
-        className={cn('font-semibold leading-none tracking-tight', className)}
+        className={cn('font-semibold leading-none tracking-tight text-foreground relative z-10', className)}
         {...props}
       >
         {children}
@@ -73,7 +81,7 @@ export const CardDescription = React.forwardRef<HTMLParagraphElement, CardDescri
     return (
       <p
         ref={ref}
-        className={cn('text-sm text-gray-600', className)}
+        className={cn('text-sm text-muted-foreground relative z-10', className)}
         {...props}
       >
         {children}
@@ -93,7 +101,7 @@ export const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
     return (
       <div
         ref={ref}
-        className={cn('p-6 pt-0', className)}
+        className={cn('p-6 pt-0 relative z-10', className)}
         {...props}
       >
         {children}
@@ -113,7 +121,7 @@ export const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
     return (
       <div
         ref={ref}
-        className={cn('flex items-center p-6 pt-0', className)}
+        className={cn('flex items-center p-6 pt-0 relative z-10', className)}
         {...props}
       >
         {children}

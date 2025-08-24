@@ -1,1 +1,315 @@
-import React, { useState } from 'react';\nimport { \n  SparklesIcon, \n  CpuChipIcon, \n  ArrowsRightLeftIcon,\n  CheckCircleIcon,\n  XCircleIcon,\n  ClockIcon,\n  ChartBarIcon,\n  EyeIcon,\n  DocumentTextIcon,\n  TagIcon,\n  ClipboardDocumentIcon\n} from '@heroicons/react/24/outline';\nimport { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';\nimport { Button } from '../ui/Button';\nimport { StatusBadge } from '../ui/StatusBadge';\nimport { ProgressBar } from '../ui/ProgressBar';\nimport { cn } from '../../utils/cn';\nimport type { ProcessingResult } from './ProcessingResults';\n\nexport interface ComparisonData {\n  realAI: ProcessingResult[];\n  simulated: ProcessingResult[];\n  metrics: {\n    realAI: {\n      totalTime: number;\n      averageTime: number;\n      successRate: number;\n      accuracy?: number;\n    };\n    simulated: {\n      totalTime: number;\n      averageTime: number;\n      successRate: number;\n      accuracy?: number;\n    };\n  };\n}\n\nexport interface ComparisonViewProps {\n  comparison: ComparisonData;\n  onCopy?: (text: string, label: string) => void;\n  copiedText?: string | null;\n  className?: string;\n}\n\nconst formatDuration = (ms: number): string => {\n  if (ms < 1000) return `${ms}ms`;\n  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;\n  return `${(ms / 60000).toFixed(1)}m`;\n};\n\nconst getComparisonColor = (realValue: number, simulatedValue: number, higherIsBetter: boolean = true) => {\n  const realIsBetter = higherIsBetter ? realValue > simulatedValue : realValue < simulatedValue;\n  return realIsBetter ? 'text-green-600' : 'text-red-600';\n};\n\nconst getPhaseIcon = (phase: string) => {\n  switch (phase) {\n    case 'phase_3_1': return EyeIcon;\n    case 'phase_3_2': return SparklesIcon;\n    case 'phase_3_3': return TagIcon;\n    case 'phase_4': return DocumentTextIcon;\n    case 'phase_5': return ChartBarIcon;\n    default: return DocumentTextIcon;\n  }\n};\n\nexport const ComparisonView: React.FC<ComparisonViewProps> = ({\n  comparison,\n  onCopy,\n  copiedText,\n  className\n}) => {\n  const [activeComparison, setActiveComparison] = useState<'overview' | 'phases' | 'results'>('overview');\n  const [selectedPhase, setSelectedPhase] = useState<string | null>(null);\n\n  // Get phases that exist in both real and simulated results\n  const commonPhases = comparison.realAI\n    .filter(realPhase => \n      comparison.simulated.some(simPhase => simPhase.phase === realPhase.phase)\n    )\n    .map(phase => phase.phase);\n\n  const getPhaseComparison = (phase: string) => {\n    const realPhase = comparison.realAI.find(p => p.phase === phase);\n    const simulatedPhase = comparison.simulated.find(p => p.phase === phase);\n    return { real: realPhase, simulated: simulatedPhase };\n  };\n\n  return (\n    <div className={cn('space-y-6', className)}>\n      {/* Header */}\n      <div className=\"flex items-center justify-between\">\n        <div>\n          <h2 className=\"text-2xl font-bold text-foreground\">AI vs Simulated Comparison</h2>\n          <p className=\"text-muted-foreground\">\n            Compare real AI processing results with simulated outputs\n          </p>\n        </div>\n        <div className=\"flex items-center gap-2\">\n          <div className=\"flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm\">\n            <SparklesIcon className=\"h-4 w-4\" />\n            <span>Real AI</span>\n          </div>\n          <ArrowsRightLeftIcon className=\"h-4 w-4 text-muted-foreground\" />\n          <div className=\"flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm\">\n            <CpuChipIcon className=\"h-4 w-4\" />\n            <span>Simulated</span>\n          </div>\n        </div>\n      </div>\n\n      {/* Metrics Overview */}\n      <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6\">\n        {/* Real AI Metrics */}\n        <Card>\n          <CardHeader>\n            <CardTitle className=\"flex items-center gap-2\">\n              <SparklesIcon className=\"h-5 w-5 text-green-600\" />\n              <span>Real AI Performance</span>\n            </CardTitle>\n          </CardHeader>\n          <CardContent>\n            <div className=\"grid grid-cols-2 gap-4\">\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-green-600\">\n                  {formatDuration(comparison.metrics.realAI.totalTime)}\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Total Time</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-green-600\">\n                  {formatDuration(comparison.metrics.realAI.averageTime)}\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Avg Time</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-green-600\">\n                  {(comparison.metrics.realAI.successRate * 100).toFixed(0)}%\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Success Rate</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-green-600\">\n                  {comparison.metrics.realAI.accuracy ? \n                    `${(comparison.metrics.realAI.accuracy * 100).toFixed(0)}%` : 'N/A'\n                  }\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Accuracy</div>\n              </div>\n            </div>\n          </CardContent>\n        </Card>\n\n        {/* Simulated Metrics */}\n        <Card>\n          <CardHeader>\n            <CardTitle className=\"flex items-center gap-2\">\n              <CpuChipIcon className=\"h-5 w-5 text-blue-600\" />\n              <span>Simulated Performance</span>\n            </CardTitle>\n          </CardHeader>\n          <CardContent>\n            <div className=\"grid grid-cols-2 gap-4\">\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-blue-600\">\n                  {formatDuration(comparison.metrics.simulated.totalTime)}\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Total Time</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-blue-600\">\n                  {formatDuration(comparison.metrics.simulated.averageTime)}\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Avg Time</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-blue-600\">\n                  {(comparison.metrics.simulated.successRate * 100).toFixed(0)}%\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Success Rate</div>\n              </div>\n              <div className=\"text-center\">\n                <div className=\"text-2xl font-bold text-blue-600\">\n                  {comparison.metrics.simulated.accuracy ? \n                    `${(comparison.metrics.simulated.accuracy * 100).toFixed(0)}%` : 'N/A'\n                  }\n                </div>\n                <div className=\"text-sm text-muted-foreground\">Accuracy</div>\n              </div>\n            </div>\n          </CardContent>\n        </Card>\n      </div>\n\n      {/* Performance Comparison Chart */}\n      <Card>\n        <CardHeader>\n          <CardTitle className=\"flex items-center gap-2\">\n            <ChartBarIcon className=\"h-5 w-5 text-primary\" />\n            <span>Performance Comparison</span>\n          </CardTitle>\n        </CardHeader>\n        <CardContent>\n          <div className=\"space-y-4\">\n            {/* Processing Time Comparison */}\n            <div className=\"space-y-2\">\n              <div className=\"flex items-center justify-between text-sm\">\n                <span className=\"text-muted-foreground\">Processing Time</span>\n                <div className=\"flex items-center gap-4\">\n                  <span className={cn(\n                    'font-medium',\n                    getComparisonColor(comparison.metrics.simulated.averageTime, comparison.metrics.realAI.averageTime, false)\n                  )}>\n                    Real AI: {formatDuration(comparison.metrics.realAI.averageTime)}\n                  </span>\n                  <span className={cn(\n                    'font-medium',\n                    getComparisonColor(comparison.metrics.realAI.averageTime, comparison.metrics.simulated.averageTime, false)\n                  )}>\n                    Simulated: {formatDuration(comparison.metrics.simulated.averageTime)}\n                  </span>\n                </div>\n              </div>\n              <div className=\"grid grid-cols-2 gap-2\">\n                <ProgressBar\n                  value={(comparison.metrics.realAI.averageTime / Math.max(comparison.metrics.realAI.averageTime, comparison.metrics.simulated.averageTime)) * 100}\n                  variant=\"success\"\n                  size=\"sm\"\n                />\n                <ProgressBar\n                  value={(comparison.metrics.simulated.averageTime / Math.max(comparison.metrics.realAI.averageTime, comparison.metrics.simulated.averageTime)) * 100}\n                  variant=\"default\"\n                  size=\"sm\"\n                />\n              </div>\n            </div>\n\n            {/* Success Rate Comparison */}\n            <div className=\"space-y-2\">\n              <div className=\"flex items-center justify-between text-sm\">\n                <span className=\"text-muted-foreground\">Success Rate</span>\n                <div className=\"flex items-center gap-4\">\n                  <span className={cn(\n                    'font-medium',\n                    getComparisonColor(comparison.metrics.realAI.successRate, comparison.metrics.simulated.successRate)\n                  )}>\n                    Real AI: {(comparison.metrics.realAI.successRate * 100).toFixed(0)}%\n                  </span>\n                  <span className={cn(\n                    'font-medium',\n                    getComparisonColor(comparison.metrics.simulated.successRate, comparison.metrics.realAI.successRate)\n                  )}>\n                    Simulated: {(comparison.metrics.simulated.successRate * 100).toFixed(0)}%\n                  </span>\n                </div>\n              </div>\n              <div className=\"grid grid-cols-2 gap-2\">\n                <ProgressBar\n                  value={comparison.metrics.realAI.successRate * 100}\n                  variant=\"success\"\n                  size=\"sm\"\n                />\n                <ProgressBar\n                  value={comparison.metrics.simulated.successRate * 100}\n                  variant=\"default\"\n                  size=\"sm\"\n                />\n              </div>\n            </div>\n\n            {/* Accuracy Comparison (if available) */}\n            {comparison.metrics.realAI.accuracy && comparison.metrics.simulated.accuracy && (\n              <div className=\"space-y-2\">\n                <div className=\"flex items-center justify-between text-sm\">\n                  <span className=\"text-muted-foreground\">Accuracy</span>\n                  <div className=\"flex items-center gap-4\">\n                    <span className={cn(\n                      'font-medium',\n                      getComparisonColor(comparison.metrics.realAI.accuracy, comparison.metrics.simulated.accuracy)\n                    )}>\n                      Real AI: {(comparison.metrics.realAI.accuracy * 100).toFixed(0)}%\n                    </span>\n                    <span className={cn(\n                      'font-medium',\n                      getComparisonColor(comparison.metrics.simulated.accuracy, comparison.metrics.realAI.accuracy)\n                    )}>\n                      Simulated: {(comparison.metrics.simulated.accuracy * 100).toFixed(0)}%\n                    </span>\n                  </div>\n                </div>\n                <div className=\"grid grid-cols-2 gap-2\">\n                  <ProgressBar\n                    value={comparison.metrics.realAI.accuracy * 100}\n                    variant=\"success\"\n                    size=\"sm\"\n                  />\n                  <ProgressBar\n                    value={comparison.metrics.simulated.accuracy * 100}\n                    variant=\"default\"\n                    size=\"sm\"\n                  />\n                </div>\n              </div>\n            )}\n          </div>\n        </CardContent>\n      </Card>\n\n      {/* Phase-by-Phase Comparison */}\n      <Card>\n        <CardHeader>\n          <CardTitle className=\"flex items-center gap-2\">\n            <ArrowsRightLeftIcon className=\"h-5 w-5 text-primary\" />\n            <span>Phase-by-Phase Comparison</span>\n          </CardTitle>\n        </CardHeader>\n        <CardContent>\n          <div className=\"space-y-4\">\n            {commonPhases.map(phase => {\n              const { real, simulated } = getPhaseComparison(phase);\n              const PhaseIcon = getPhaseIcon(phase);\n              \n              if (!real || !simulated) return null;\n              \n              return (\n                <div key={phase} className=\"border rounded-lg p-4\">\n                  <div className=\"flex items-center justify-between mb-4\">\n                    <div className=\"flex items-center gap-3\">\n                      <PhaseIcon className=\"h-5 w-5 text-primary\" />\n                      <div>\n                        <div className=\"font-medium text-foreground\">{real.phaseName}</div>\n                        <div className=\"text-sm text-muted-foreground\">{phase}</div>\n                      </div>\n                    </div>\n                    <Button\n                      variant=\"ghost\"\n                      size=\"sm\"\n                      onClick={() => setSelectedPhase(selectedPhase === phase ? null : phase)}\n                    >\n                      {selectedPhase === phase ? 'Hide Details' : 'Show Details'}\n                    </Button>\n                  </div>\n                  \n                  <div className=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n                    {/* Real AI Results */}\n                    <div className=\"space-y-2\">\n                      <div className=\"flex items-center gap-2\">\n                        <SparklesIcon className=\"h-4 w-4 text-green-600\" />\n                        <span className=\"text-sm font-medium text-green-600\">Real AI</span>\n                        <StatusBadge status={real.status as any} size=\"sm\" />\n                      </div>\n                      <div className=\"text-xs text-muted-foreground space-y-1\">\n                        <div>Duration: {real.duration ? formatDuration(real.duration) : 'N/A'}</div>\n                        <div>Model: {real.aiModelUsed || 'N/A'}</div>\n                      </div>\n                    </div>\n                    \n                    {/* Simulated Results */}\n                    <div className=\"space-y-2\">\n                      <div className=\"flex items-center gap-2\">\n                        <CpuChipIcon className=\"h-4 w-4 text-blue-600\" />\n                        <span className=\"text-sm font-medium text-blue-600\">Simulated</span>\n                        <StatusBadge status={simulated.status as any} size=\"sm\" />\n                      </div>\n                      <div className=\"text-xs text-muted-foreground space-y-1\">\n                        <div>Duration: {simulated.duration ? formatDuration(simulated.duration) : 'N/A'}</div>\n                        <div>Model: {simulated.aiModelUsed || 'Simulated'}</div>\n                      </div>\n                    </div>\n                  </div>\n                  \n                  {/* Detailed Comparison */}\n                  {selectedPhase === phase && (\n                    <div className=\"mt-4 pt-4 border-t border-gray-200\">\n                      <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6\">\n                        {/* Real AI Results Detail */}\n                        <div className=\"space-y-3\">\n                          <h4 className=\"font-medium text-green-600 flex items-center gap-2\">\n                            <SparklesIcon className=\"h-4 w-4\" />\n                            Real AI Results\n                          </h4>\n                          \n                          {real.results && (\n                            <div className=\"space-y-2 text-sm\">\n                              {real.results.mediaAnalysis && (\n                                <div className=\"p-2 bg-green-50 rounded border\">\n                                  <div className=\"font-medium\">Media Analysis</div>\n                                  <div className=\"text-xs text-muted-foreground\">\n                                    {real.results.mediaAnalysis.items.length} items analyzed\n                                  </div>\n                                </div>\n                              )}\n                              \n                              {real.results.contentUnderstanding && (\n                                <div className=\"p-2 bg-green-50 rounded border\">\n                                  <div className=\"font-medium\">Content Understanding</div>\n                                  <div className=\"text-xs text-muted-foreground\">\n                                    Sentiment: {real.results.contentUnderstanding.sentiment.overall}\n                                  </div>\n                                </div>\n                              )}\n                              \n                              {real.results.categorization && (\n                                <div className=\"p-2 bg-green-50 rounded border\">\n                                  <div className=\"font-medium\">Categorization</div>\n                                  <div className=\"text-xs text-muted-foreground\">\n                                    {real.results.categorization.mainCategory}\n                                  </div>\n                                </div>\n                              )}\n                            </div>\n                          )}\n                          \n                          {real.error && (\n                            <div className=\"p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700\">\n                              Error: {real.error}\n                            </div>\n                          )}\n                        </div>\n                        \n                        {/* Simulated Results Detail */}\n                        <div className=\"space-y-3\">\n                          <h4 className=\"font-medium text-blue-600 flex items-center gap-2\">\n                            <CpuChipIcon className=\"h-4 w-4\" />\n                            Simulated Results\n                          </h4>\n                          \n                          {simulated.results && (\n                            <div className=\"space-y-2 text-sm\">\n                              {simulated.results.mediaAnalysis && (\n                                <div className=\"p-2 bg-blue-50 rounded border\">\n                                  <div className=\"font-medium\">Media Analysis</div>\n                                  <div className=\"text-xs text-muted-foreground\">\n                                    {simulated.results.mediaAnalysis.items.length} items analyzed\n                                  </div>\n                                </div>\n                              )}\n                              \n                              {simulated.results.contentUnderstanding && (\n                                <div className=\"p-2 bg-blue-50 rounded border\">\n                                  <div className=\"font-medium\">Content Understanding</div>\n                                  <div className=\"text-xs text-muted-foreground\">\n                                    Sentiment: {simulated.results.contentUnderstanding.sentiment.overall}\n                                  </div>\n                                </div>\n                              )}\n                              \n                              {simulated.results.categorization && (\n                                <div className=\"p-2 bg-blue-50 rounded border\">\n                                  <div className=\"font-medium\">Categorization</div>\n                                  <div className=\"text-xs text-muted-foreground\">\n                                    {simulated.results.categorization.mainCategory}\n                                  </div>\n                                </div>\n                              )}\n                            </div>\n                          )}\n                          \n                          {simulated.error && (\n                            <div className=\"p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700\">\n                              Error: {simulated.error}\n                            </div>\n                          )}\n                        </div>\n                      </div>\n                    </div>\n                  )}\n                </div>\n              );\n            })}\n          </div>\n        </CardContent>\n      </Card>\n\n      {/* Summary and Recommendations */}\n      <Card>\n        <CardHeader>\n          <CardTitle className=\"flex items-center gap-2\">\n            <CheckCircleIcon className=\"h-5 w-5 text-primary\" />\n            <span>Summary & Recommendations</span>\n          </CardTitle>\n        </CardHeader>\n        <CardContent>\n          <div className=\"space-y-4\">\n            <div className=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n              {/* Advantages */}\n              <div className=\"space-y-3\">\n                <h4 className=\"font-medium text-green-600\">Real AI Advantages</h4>\n                <ul className=\"space-y-1 text-sm text-muted-foreground\">\n                  <li className=\"flex items-start gap-2\">\n                    <CheckCircleIcon className=\"h-4 w-4 text-green-500 mt-0.5 flex-shrink-0\" />\n                    <span>Higher accuracy and nuanced understanding</span>\n                  </li>\n                  <li className=\"flex items-start gap-2\">\n                    <CheckCircleIcon className=\"h-4 w-4 text-green-500 mt-0.5 flex-shrink-0\" />\n                    <span>Better context awareness and reasoning</span>\n                  </li>\n                  <li className=\"flex items-start gap-2\">\n                    <CheckCircleIcon className=\"h-4 w-4 text-green-500 mt-0.5 flex-shrink-0\" />\n                    <span>More sophisticated sentiment analysis</span>\n                  </li>\n                </ul>\n              </div>\n              \n              <div className=\"space-y-3\">\n                <h4 className=\"font-medium text-blue-600\">Simulated Advantages</h4>\n                <ul className=\"space-y-1 text-sm text-muted-foreground\">\n                  <li className=\"flex items-start gap-2\">\n                    <CheckCircleIcon className=\"h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0\" />\n                    <span>Faster processing times</span>\n                  </li>\n                  <li className=\"flex items-start gap-2\">\n                    <CheckCircleIcon className=\"h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0\" />\n                    <span>More predictable and consistent results</span>\n                  </li>\n                  <li className=\"flex items-start gap-2\">\n                    <CheckCircleIcon className=\"h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0\" />\n                    <span>Lower computational costs</span>\n                  </li>\n                </ul>\n              </div>\n            </div>\n            \n            <div className=\"pt-4 border-t border-gray-200\">\n              <h4 className=\"font-medium text-foreground mb-2\">Recommendation</h4>\n              <p className=\"text-sm text-muted-foreground\">\n                {comparison.metrics.realAI.successRate > comparison.metrics.simulated.successRate\n                  ? \"Real AI processing shows superior results and is recommended for production use when accuracy is critical.\"\n                  : \"Simulated processing offers good performance with faster execution times, suitable for high-volume scenarios.\"\n                }\n              </p>\n            </div>\n          </div>\n        </CardContent>\n      </Card>\n    </div>\n  );\n};"
+import React, { useState } from 'react';
+import { 
+  SparklesIcon, 
+  CpuChipIcon, 
+  ArrowsRightLeftIcon,
+  CheckCircleIcon,
+  ChartBarIcon,
+  EyeIcon,
+  DocumentTextIcon,
+  TagIcon
+} from '@heroicons/react/24/outline';
+import { GlassCard } from '../ui/GlassCard';
+import { LiquidButton } from '../ui/LiquidButton';
+import { StatusBadge } from '../ui/StatusBadge';
+import { cn } from '../../utils/cn';
+
+export interface ProcessingResult {
+  phase: string;
+  phaseName: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  duration?: number;
+  aiModelUsed?: string;
+  isRealAI?: boolean;
+  results?: {
+    mediaAnalysis?: any;
+    contentUnderstanding?: any;
+    categorization?: any;
+  };
+  error?: string;
+}
+
+export interface ComparisonData {
+  realAI: ProcessingResult[];
+  simulated: ProcessingResult[];
+  metrics: {
+    realAI: {
+      totalTime: number;
+      averageTime: number;
+      successRate: number;
+      accuracy?: number;
+    };
+    simulated: {
+      totalTime: number;
+      averageTime: number;
+      successRate: number;
+      accuracy?: number;
+    };
+  };
+}
+
+export interface ComparisonViewProps {
+  comparison: ComparisonData;
+  onCopy?: (text: string, label: string) => void;
+  copiedText?: string | null;
+  className?: string;
+}
+
+const formatDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+};
+
+const getPhaseIcon = (phase: string) => {
+  switch (phase) {
+    case 'phase_3_1': return EyeIcon;
+    case 'phase_3_2': return SparklesIcon;
+    case 'phase_3_3': return TagIcon;
+    case 'phase_4': return DocumentTextIcon;
+    case 'phase_5': return ChartBarIcon;
+    default: return DocumentTextIcon;
+  }
+};
+
+export const ComparisonView: React.FC<ComparisonViewProps> = ({
+  comparison,
+  onCopy: _onCopy,
+  copiedText: _copiedText,
+  className
+}) => {
+  const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
+
+  // Get phases that exist in both real and simulated results
+  const commonPhases = comparison.realAI
+    .filter(realPhase => 
+      comparison.simulated.some(simPhase => simPhase.phase === realPhase.phase)
+    )
+    .map(phase => phase.phase);
+
+  return (
+    <div className={cn('space-y-6', className)}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">AI vs Simulated Comparison</h2>
+          <p className="text-muted-foreground">
+            Compare real AI processing results with simulated outputs
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+            <SparklesIcon className="h-4 w-4" />
+            <span>Real AI</span>
+          </div>
+          <ArrowsRightLeftIcon className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+            <CpuChipIcon className="h-4 w-4" />
+            <span>Simulated</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Real AI Metrics */}
+        <GlassCard variant="secondary">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <SparklesIcon className="h-5 w-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-foreground">Real AI Performance</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {formatDuration(comparison.metrics.realAI.totalTime)}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Time</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {formatDuration(comparison.metrics.realAI.averageTime)}
+                </div>
+                <div className="text-sm text-muted-foreground">Avg Time</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {(comparison.metrics.realAI.successRate * 100).toFixed(0)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Success Rate</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {comparison.metrics.realAI.accuracy ? 
+                    `${(comparison.metrics.realAI.accuracy * 100).toFixed(0)}%` : 'N/A'
+                  }
+                </div>
+                <div className="text-sm text-muted-foreground">Accuracy</div>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Simulated Metrics */}
+        <GlassCard variant="secondary">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <CpuChipIcon className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-foreground">Simulated Performance</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {formatDuration(comparison.metrics.simulated.totalTime)}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Time</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {formatDuration(comparison.metrics.simulated.averageTime)}
+                </div>
+                <div className="text-sm text-muted-foreground">Avg Time</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {(comparison.metrics.simulated.successRate * 100).toFixed(0)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Success Rate</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {comparison.metrics.simulated.accuracy ? 
+                    `${(comparison.metrics.simulated.accuracy * 100).toFixed(0)}%` : 'N/A'
+                  }
+                </div>
+                <div className="text-sm text-muted-foreground">Accuracy</div>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+
+      {/* Phase-by-Phase Comparison */}
+      <GlassCard variant="primary">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ArrowsRightLeftIcon className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold text-foreground">Phase-by-Phase Comparison</h3>
+          </div>
+          
+          <div className="space-y-4">
+            {commonPhases.map(phase => {
+              const realPhase = comparison.realAI.find(p => p.phase === phase);
+              const simulatedPhase = comparison.simulated.find(p => p.phase === phase);
+              const PhaseIcon = getPhaseIcon(phase);
+              
+              if (!realPhase || !simulatedPhase) return null;
+              
+              return (
+                <div key={phase} className="border border-white/10 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <PhaseIcon className="h-5 w-5 text-primary" />
+                      <div>
+                        <div className="font-medium text-foreground">{realPhase.phaseName}</div>
+                        <div className="text-sm text-muted-foreground">{phase}</div>
+                      </div>
+                    </div>
+                    <LiquidButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedPhase(selectedPhase === phase ? null : phase)}
+                    >
+                      {selectedPhase === phase ? 'Hide Details' : 'Show Details'}
+                    </LiquidButton>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Real AI Results */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <SparklesIcon className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-600">Real AI</span>
+                        <StatusBadge status={realPhase.status} size="sm" />
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>Duration: {realPhase.duration ? formatDuration(realPhase.duration) : 'N/A'}</div>
+                        <div>Model: {realPhase.aiModelUsed || 'N/A'}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Simulated Results */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CpuChipIcon className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-600">Simulated</span>
+                        <StatusBadge status={simulatedPhase.status} size="sm" />
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>Duration: {simulatedPhase.duration ? formatDuration(simulatedPhase.duration) : 'N/A'}</div>
+                        <div>Model: {simulatedPhase.aiModelUsed || 'Simulated'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Summary and Recommendations */}
+      <GlassCard variant="tertiary">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircleIcon className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold text-foreground">Summary & Recommendations</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Advantages */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-green-600">Real AI Advantages</h4>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>Higher accuracy and nuanced understanding</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>Better context awareness and reasoning</span>
+                  </li>
+                </ul>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="font-medium text-blue-600">Simulated Advantages</h4>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span>Faster processing times</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span>More predictable results</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="pt-4 border-t border-white/10">
+              <h4 className="font-medium text-foreground mb-2">Recommendation</h4>
+              <p className="text-sm text-muted-foreground">
+                {comparison.metrics.realAI.successRate > comparison.metrics.simulated.successRate
+                  ? "Real AI processing shows superior results and is recommended for production use when accuracy is critical."
+                  : "Simulated processing offers good performance with faster execution times, suitable for high-volume scenarios."
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+    </div>
+  );
+};

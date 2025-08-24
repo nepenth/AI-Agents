@@ -26,11 +26,14 @@ interface AgentState {
     level: string;
     message: string;
     module: string;
+    channel?: string;
     task_id?: string;
     pipeline_phase?: string;
     details?: Record<string, any>;
   }>;
   systemLogsLoading: boolean;
+  logChannelStats?: Record<string, number>;
+  availableLogChannels?: string[];
 
   // Loading states
   loading: boolean;
@@ -210,6 +213,8 @@ export const useAgentStore = create<AgentState>()(
           });
           set({
             systemLogs: response.logs || [],
+            logChannelStats: response.channel_stats,
+            availableLogChannels: response.available_channels,
             systemLogsLoading: false,
           });
         } catch (error) {

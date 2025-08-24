@@ -51,7 +51,13 @@ async def lifespan(app: FastAPI):
         await pubsub_manager.subscribe_to_channel("task_updates")
         await pubsub_manager.subscribe_to_channel("system_status")
         await pubsub_manager.subscribe_to_channel("notifications")
+        
+        # Subscribe to all log channels
         await pubsub_manager.subscribe_to_channel("system_logs")
+        await pubsub_manager.subscribe_to_channel("job_logs")
+        await pubsub_manager.subscribe_to_channel("error_logs")
+        await pubsub_manager.subscribe_to_channel("debug_logs")
+        await pubsub_manager.subscribe_to_channel("audit_logs")
         
         logging.info("WebSocket PubSub initialized")
     except Exception as e:

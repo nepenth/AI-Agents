@@ -36,45 +36,69 @@
     --radius: 0.75rem;
     --radius-xl: calc(var(--radius) + 6px);
 
-    /* Enhanced Glass Morphism for Light Theme */
+    /* Apple-style Glass Morphism System for Light Theme */
     --glass-saturate: saturate(180%);
-
-    /* Light Theme Glass Backgrounds - More visible */
-    --glass-bg-primary: rgba(255, 255, 255, 0.85);
-    --glass-bg-secondary: rgba(255, 255, 255, 0.75);
-    --glass-bg-tertiary: rgba(255, 255, 255, 0.65);
-    --glass-bg-navbar: rgba(255, 255, 255, 0.90);
-
-    /* Light Theme Glass Borders - More defined */
-    --glass-border-primary: rgba(255, 255, 255, 0.8);
-    --glass-border-secondary: rgba(255, 255, 255, 0.6);
-    --glass-border-tertiary: rgba(255, 255, 255, 0.4);
-
-    /* Enhanced Glass Blurs */
-    --glass-blur-subtle: blur(10px);
-    --glass-blur-light: blur(15px);
-    --glass-blur-medium: blur(20px);
-    --glass-blur-strong: blur(25px);
-    --glass-blur-xl: blur(60px);
-
-    /* Enhanced Glass Shadows for Light Theme */
-    --glass-shadow-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.1), 0 1px 3px -1px rgba(0, 0, 0, 0.1);
-    --glass-shadow-md: 0 4px 12px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-    --glass-shadow-lg: 0 8px 25px -5px rgba(0, 0, 0, 0.2), 0 4px 10px -3px rgba(0, 0, 0, 0.15);
-
-    /* Enhanced Button Glass Effects */
-    --glass-button-bg: rgba(255, 255, 255, 0.3);
-    --glass-button-border: rgba(255, 255, 255, 0.5);
-    --glass-button-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    --glass-button-hover-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    --glass-button-blur: blur(12px);
-    --glass-button-hover-blur: blur(16px);
-
-    /* Enhanced Card Glass Effects */
-    --glass-card-bg: rgba(255, 255, 255, 0.4);
-    --glass-card-border: rgba(255, 255, 255, 0.6);
-    --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    --glass-card-blur: blur(10px);
+    --glass-brightness: brightness(1.1);
+    
+    /* Primary Glass Surface - For main content areas */
+    --glass-bg-primary: rgba(255, 255, 255, 0.7);
+    --glass-border-primary: rgba(255, 255, 255, 0.3);
+    --glass-blur-primary: blur(20px);
+    --glass-shadow-primary: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    
+    /* Secondary Glass Surface - For secondary content areas */
+    --glass-bg-secondary: rgba(255, 255, 255, 0.55);
+    --glass-border-secondary: rgba(255, 255, 255, 0.25);
+    --glass-blur-secondary: blur(16px);
+    --glass-shadow-secondary: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    
+    /* Tertiary Glass Surface - For subtle backgrounds */
+    --glass-bg-tertiary: rgba(255, 255, 255, 0.4);
+    --glass-border-tertiary: rgba(255, 255, 255, 0.2);
+    --glass-blur-tertiary: blur(12px);
+    --glass-shadow-tertiary: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    
+    /* Navigation Glass - For sidebars and navigation */
+    --glass-bg-navbar: rgba(255, 255, 255, 0.8);
+    --glass-border-navbar: rgba(255, 255, 255, 0.4);
+    --glass-blur-navbar: blur(24px);
+    --glass-shadow-navbar: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+    
+    /* Interactive Glass - For buttons and interactive elements */
+    --glass-bg-interactive: rgba(255, 255, 255, 0.25);
+    --glass-border-interactive: rgba(255, 255, 255, 0.4);
+    --glass-blur-interactive: blur(16px);
+    --glass-shadow-interactive: 0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --glass-shadow-interactive-hover: 0 8px 24px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    
+    /* Overlay Glass - For modals and overlays */
+    --glass-bg-overlay: rgba(255, 255, 255, 0.9);
+    --glass-border-overlay: rgba(255, 255, 255, 0.5);
+    --glass-blur-overlay: blur(40px);
+    --glass-shadow-overlay: 0 16px 64px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.1);
+    
+    /* Legacy compatibility - will be phased out */
+    --glass-blur-subtle: var(--glass-blur-tertiary);
+    --glass-blur-light: var(--glass-blur-secondary);
+    --glass-blur-medium: var(--glass-blur-primary);
+    --glass-blur-strong: blur(28px);
+    --glass-blur-xl: var(--glass-blur-overlay);
+    
+    --glass-shadow-sm: var(--glass-shadow-tertiary);
+    --glass-shadow-md: var(--glass-shadow-secondary);
+    --glass-shadow-lg: var(--glass-shadow-primary);
+    
+    --glass-button-bg: var(--glass-bg-interactive);
+    --glass-button-border: var(--glass-border-interactive);
+    --glass-button-shadow: var(--glass-shadow-interactive);
+    --glass-button-hover-shadow: var(--glass-shadow-interactive-hover);
+    --glass-button-blur: var(--glass-blur-interactive);
+    --glass-button-hover-blur: blur(20px);
+    
+    --glass-card-bg: var(--glass-bg-secondary);
+    --glass-card-border: var(--glass-border-secondary);
+    --glass-card-shadow: var(--glass-shadow-secondary);
+    --glass-card-blur: var(--glass-blur-secondary);
 
     /* Animation System */
     --duration-fast: 0.15s;
@@ -110,32 +134,59 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 220 100% 60%;
 
-    /* Enhanced Dark Theme Glass Morphism */
-    --glass-bg-primary: rgba(15, 15, 20, 0.8);
-    --glass-bg-secondary: rgba(25, 25, 35, 0.7);
-    --glass-bg-tertiary: rgba(35, 35, 45, 0.6);
-    --glass-bg-navbar: rgba(10, 10, 15, 0.85);
-
-    /* Dark Theme Glass Borders - More visible */
+    /* Apple-style Dark Theme Glass Morphism */
+    --glass-brightness: brightness(1.2);
+    
+    /* Primary Glass Surface - For main content areas */
+    --glass-bg-primary: rgba(30, 30, 35, 0.8);
     --glass-border-primary: rgba(255, 255, 255, 0.15);
-    --glass-border-secondary: rgba(255, 255, 255, 0.1);
-    --glass-border-tertiary: rgba(255, 255, 255, 0.08);
-
-    /* Enhanced Dark Theme Shadows */
-    --glass-shadow-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.3), 0 1px 3px -1px rgba(0, 0, 0, 0.2);
-    --glass-shadow-md: 0 4px 12px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-    --glass-shadow-lg: 0 8px 25px -5px rgba(0, 0, 0, 0.5), 0 4px 10px -3px rgba(0, 0, 0, 0.4);
-
-    /* Dark Theme Button Glass Effects */
-    --glass-button-bg: rgba(40, 45, 60, 0.4);
-    --glass-button-border: rgba(255, 255, 255, 0.12);
-    --glass-button-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    --glass-button-hover-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-
-    /* Dark Theme Card Glass Effects */
-    --glass-card-bg: rgba(30, 35, 50, 0.5);
-    --glass-card-border: rgba(255, 255, 255, 0.1);
-    --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --glass-blur-primary: blur(20px);
+    --glass-shadow-primary: 0 8px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    
+    /* Secondary Glass Surface - For secondary content areas */
+    --glass-bg-secondary: rgba(25, 25, 30, 0.7);
+    --glass-border-secondary: rgba(255, 255, 255, 0.12);
+    --glass-blur-secondary: blur(16px);
+    --glass-shadow-secondary: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    
+    /* Tertiary Glass Surface - For subtle backgrounds */
+    --glass-bg-tertiary: rgba(20, 20, 25, 0.6);
+    --glass-border-tertiary: rgba(255, 255, 255, 0.1);
+    --glass-blur-tertiary: blur(12px);
+    --glass-shadow-tertiary: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    
+    /* Navigation Glass - For sidebars and navigation */
+    --glass-bg-navbar: rgba(15, 15, 20, 0.85);
+    --glass-border-navbar: rgba(255, 255, 255, 0.18);
+    --glass-blur-navbar: blur(24px);
+    --glass-shadow-navbar: 0 8px 32px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.6);
+    
+    /* Interactive Glass - For buttons and interactive elements */
+    --glass-bg-interactive: rgba(40, 45, 55, 0.4);
+    --glass-border-interactive: rgba(255, 255, 255, 0.15);
+    --glass-blur-interactive: blur(16px);
+    --glass-shadow-interactive: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --glass-shadow-interactive-hover: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    
+    /* Overlay Glass - For modals and overlays */
+    --glass-bg-overlay: rgba(20, 20, 25, 0.9);
+    --glass-border-overlay: rgba(255, 255, 255, 0.2);
+    --glass-blur-overlay: blur(40px);
+    --glass-shadow-overlay: 0 16px 64px rgba(0, 0, 0, 0.9), 0 4px 16px rgba(0, 0, 0, 0.7);
+    
+    /* Legacy compatibility updates */
+    --glass-shadow-sm: var(--glass-shadow-tertiary);
+    --glass-shadow-md: var(--glass-shadow-secondary);
+    --glass-shadow-lg: var(--glass-shadow-primary);
+    
+    --glass-button-bg: var(--glass-bg-interactive);
+    --glass-button-border: var(--glass-border-interactive);
+    --glass-button-shadow: var(--glass-shadow-interactive);
+    --glass-button-hover-shadow: var(--glass-shadow-interactive-hover);
+    
+    --glass-card-bg: var(--glass-bg-secondary);
+    --glass-card-border: var(--glass-border-secondary);
+    --glass-card-shadow: var(--glass-shadow-secondary);
 
     --liquid-button-text-color: var(--foreground);
   }
@@ -175,22 +226,53 @@
   }
 
   [data-increase-contrast="true"] {
-     /* Increase contrast */
-    --glass-bg-alpha: 0.85;
-    --glass-border-alpha: 0.5;
+    /* Increase contrast for better accessibility */
+    --glass-bg-primary: rgba(255, 255, 255, 0.85);
+    --glass-bg-secondary: rgba(255, 255, 255, 0.75);
+    --glass-bg-tertiary: rgba(255, 255, 255, 0.65);
+    --glass-border-primary: rgba(255, 255, 255, 0.5);
+    --glass-border-secondary: rgba(255, 255, 255, 0.4);
+    --glass-border-tertiary: rgba(255, 255, 255, 0.3);
+  }
+
+  [data-theme="dark"][data-increase-contrast="true"] {
+    --glass-bg-primary: rgba(40, 40, 45, 0.9);
+    --glass-bg-secondary: rgba(35, 35, 40, 0.8);
+    --glass-bg-tertiary: rgba(30, 30, 35, 0.7);
+    --glass-border-primary: rgba(255, 255, 255, 0.25);
+    --glass-border-secondary: rgba(255, 255, 255, 0.2);
+    --glass-border-tertiary: rgba(255, 255, 255, 0.15);
   }
 
   [data-reduce-transparency="true"] {
-    /* Reduce transparency */
-    --glass-bg-alpha: 1;
-    --glass-blur: 0px;
-    --glass-border-color: 210 20% 85%;
-    --glass-border-alpha: 0.5;
+    /* Reduce transparency for accessibility */
+    --glass-bg-primary: rgba(255, 255, 255, 1);
+    --glass-bg-secondary: rgba(255, 255, 255, 1);
+    --glass-bg-tertiary: rgba(255, 255, 255, 1);
+    --glass-bg-navbar: rgba(255, 255, 255, 1);
+    --glass-bg-interactive: rgba(255, 255, 255, 1);
+    --glass-bg-overlay: rgba(255, 255, 255, 1);
+    --glass-blur-primary: blur(0px);
+    --glass-blur-secondary: blur(0px);
+    --glass-blur-tertiary: blur(0px);
+    --glass-blur-navbar: blur(0px);
+    --glass-blur-interactive: blur(0px);
+    --glass-blur-overlay: blur(0px);
+    --glass-border-primary: hsl(214.3 31.8% 85%);
+    --glass-border-secondary: hsl(214.3 31.8% 85%);
+    --glass-border-tertiary: hsl(214.3 31.8% 85%);
   }
+
   [data-theme="dark"][data-reduce-transparency="true"] {
-    --glass-bg-color: 220 15% 20%;
-    --glass-border-color: 210 15% 50%;
-    --glass-border-alpha: 0.3;
+    --glass-bg-primary: hsl(220 15% 20%);
+    --glass-bg-secondary: hsl(220 15% 20%);
+    --glass-bg-tertiary: hsl(220 15% 20%);
+    --glass-bg-navbar: hsl(220 15% 20%);
+    --glass-bg-interactive: hsl(220 15% 20%);
+    --glass-bg-overlay: hsl(220 15% 20%);
+    --glass-border-primary: hsl(210 15% 50%);
+    --glass-border-secondary: hsl(210 15% 50%);
+    --glass-border-tertiary: hsl(210 15% 50%);
   }
 
   * {
@@ -326,7 +408,7 @@
     }
   }
 
-  /* Accessibility styles */
+  /* Accessibility utility classes */
   .sr-only {
     position: absolute;
     width: 1px;
@@ -339,7 +421,7 @@
     border: 0;
   }
 
-  .clip-path-inset-50 {
+  .clip-path-inset {
     clip-path: inset(50%);
   }
 
