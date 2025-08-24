@@ -9,7 +9,7 @@ export interface WebSocketIndicatorProps {
   className?: string
   showLabel?: boolean
   size?: 'sm' | 'md' | 'lg'
-  lastConnected?: Date
+  lastConnected?: Date | null
   reconnectAttempts?: number
   onReconnect?: () => void
 }
@@ -63,7 +63,8 @@ export const WebSocketIndicator: React.FC<WebSocketIndicatorProps> = ({
     lg: 'px-4 py-2 text-base'
   }
   
-  const formatLastConnected = (date: Date) => {
+  const formatLastConnected = (date: Date | null) => {
+    if (!date) return 'Never'
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const minutes = Math.floor(diff / 60000)

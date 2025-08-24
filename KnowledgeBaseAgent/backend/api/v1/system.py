@@ -99,11 +99,12 @@ async def get_system_logs(
     level: Optional[str] = Query(None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
     module: Optional[str] = Query(None, description="Filter by module name"),
     task_id: Optional[str] = Query(None, description="Filter by task ID"),
+    channel: Optional[str] = Query(None, description="Filter by log channel (job_logs, system_logs, error_logs, debug_logs, audit_logs)"),
     limit: int = Query(100, description="Maximum number of logs to return", ge=1, le=1000),
     offset: int = Query(0, description="Number of logs to skip", ge=0),
     since: Optional[str] = Query(None, description="Get logs since this timestamp (ISO format)")
 ):
-    """Get system logs with optional filtering."""
+    """Get system logs with optional filtering and channel selection."""
     try:
         log_service = get_log_service()
         
@@ -120,6 +121,7 @@ async def get_system_logs(
             level=level,
             module=module,
             task_id=task_id,
+            channel=channel,
             limit=limit,
             offset=offset,
             since=since_datetime
@@ -130,27 +132,21 @@ async def get_system_logs(
             level=level,
             module=module,
             task_id=task_id,
+            channel=channel,
             since=since_datetime
         )
         
-        # Convert to response format
-        log_entries = []
-        for log in logs:
-            log_entries.append({
-                "timestamp": log.timestamp.isoformat(),
-                "level": log.level,
-                "message": log.message,
-                "module": log.module,
-                "task_id": log.task_id,
-                "pipeline_phase": log.pipeline_phase,
-                "details": log.details or {}
-            })
+        # Get channel statistics
+        channel_stats = log_service.get_channel_stats()
+        available_channels = log_service.get_available_channels()
         
         return {
-            "logs": log_entries,
+            "logs": [log.to_dict() for log in logs],
             "total": total,
             "limit": limit,
             "offset": offset,
+            "channel_stats": channel_stats,
+            "available_channels": available_channels,
             "timestamp": datetime.utcnow().isoformat()
         }
         

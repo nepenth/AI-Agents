@@ -58,6 +58,7 @@ export class AgentService {
     level?: string;
     module?: string;
     task_id?: string;
+    channel?: string;
     limit?: number;
     offset?: number;
     since?: string;
@@ -67,6 +68,7 @@ export class AgentService {
       level: string;
       message: string;
       module: string;
+      channel?: string;
       task_id?: string;
       pipeline_phase?: string;
       details?: Record<string, any>;
@@ -74,6 +76,8 @@ export class AgentService {
     total: number;
     limit: number;
     offset: number;
+    channel_stats?: Record<string, number>;
+    available_channels?: string[];
   }> {
     return apiService.get('/system/logs', params);
   }
