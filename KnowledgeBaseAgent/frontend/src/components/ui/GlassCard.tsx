@@ -3,42 +3,42 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/utils/cn';
 
 const glassCardVariants = cva(
-  'rounded-xl border transition-all duration-500 ease-out relative overflow-hidden',
+  'rounded-xl border transition-all duration-300 ease-out relative overflow-hidden backdrop-blur-md',
   {
     variants: {
       variant: {
         primary: [
-          'bg-glass-primary border-glass-border-primary shadow-glass-primary backdrop-blur-glass-primary',
-          'hover:shadow-glass-secondary hover:scale-[1.02] hover:backdrop-blur-glass-secondary',
+          'bg-glass-primary border-glass-border-primary shadow-glass-primary',
+          'hover:shadow-glass-secondary hover:scale-[1.02]',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/10 before:to-transparent before:pointer-events-none'
         ],
         secondary: [
-          'bg-glass-secondary border-glass-border-secondary shadow-glass-secondary backdrop-blur-glass-secondary',
-          'hover:shadow-glass-primary hover:scale-[1.01] hover:backdrop-blur-glass-primary',
+          'bg-glass-secondary border-glass-border-secondary shadow-glass-secondary',
+          'hover:shadow-glass-primary hover:scale-[1.01]',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/5 before:to-transparent before:pointer-events-none'
         ],
         tertiary: [
-          'bg-glass-tertiary border-glass-border-tertiary shadow-glass-tertiary backdrop-blur-glass-tertiary',
-          'hover:shadow-glass-secondary hover:backdrop-blur-glass-secondary',
+          'bg-glass-tertiary border-glass-border-tertiary shadow-glass-tertiary',
+          'hover:shadow-glass-secondary',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/3 before:to-transparent before:pointer-events-none'
         ],
         interactive: [
-          'bg-glass-interactive border-glass-border-interactive shadow-glass-interactive backdrop-blur-glass-interactive',
-          'hover:shadow-glass-interactive-hover hover:scale-105 hover:backdrop-blur-glass-overlay cursor-pointer',
+          'bg-glass-interactive border-glass-border-interactive shadow-glass-interactive',
+          'hover:shadow-glass-interactive-hover hover:scale-105 cursor-pointer',
           'active:scale-[1.02] transition-transform',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/8 before:to-transparent before:pointer-events-none'
         ],
         // Legacy variants for backward compatibility
         default: [
-          'bg-glass-primary border-glass-border-primary shadow-glass-primary backdrop-blur-glass-primary',
+          'bg-glass-primary border-glass-border-primary shadow-glass-primary',
           'hover:shadow-glass-secondary hover:scale-[1.02]'
         ],
         subtle: [
-          'bg-glass-tertiary border-glass-border-tertiary shadow-glass-tertiary backdrop-blur-glass-tertiary',
+          'bg-glass-tertiary border-glass-border-tertiary shadow-glass-tertiary',
           'hover:shadow-glass-secondary'
         ],
         strong: [
-          'bg-glass-secondary border-glass-border-secondary shadow-glass-secondary backdrop-blur-glass-secondary',
+          'bg-glass-secondary border-glass-border-secondary shadow-glass-secondary',
           'hover:shadow-glass-primary'
         ]
       },

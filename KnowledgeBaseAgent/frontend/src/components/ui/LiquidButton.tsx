@@ -4,45 +4,45 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/utils/cn';
 
 const liquidButtonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap text-sm font-semibold ring-offset-background transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 relative overflow-hidden',
+  'inline-flex items-center justify-center whitespace-nowrap text-sm font-semibold ring-offset-background transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 relative overflow-hidden backdrop-blur-md',
   {
     variants: {
       variant: {
         primary: [
-          'bg-glass-primary border border-glass-border-primary shadow-glass-primary backdrop-blur-glass-primary text-foreground',
-          'hover:shadow-glass-secondary hover:scale-105 hover:backdrop-blur-glass-secondary hover:border-glass-border-secondary',
+          'bg-glass-primary border border-glass-border-primary shadow-glass-primary text-foreground',
+          'hover:shadow-glass-secondary hover:scale-105 hover:border-glass-border-secondary',
           'active:scale-[1.02] active:shadow-glass-tertiary',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/10 before:to-transparent before:pointer-events-none',
           'rounded-2xl'
         ],
         secondary: [
-          'bg-glass-secondary border border-glass-border-secondary shadow-glass-secondary backdrop-blur-glass-secondary text-foreground',
-          'hover:shadow-glass-primary hover:scale-[1.03] hover:backdrop-blur-glass-primary hover:border-glass-border-primary',
+          'bg-glass-secondary border border-glass-border-secondary shadow-glass-secondary text-foreground',
+          'hover:shadow-glass-primary hover:scale-[1.03] hover:border-glass-border-primary',
           'active:scale-[1.01] active:shadow-glass-tertiary',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/8 before:to-transparent before:pointer-events-none',
           'rounded-2xl'
         ],
         interactive: [
-          'bg-glass-interactive border border-glass-border-interactive shadow-glass-interactive backdrop-blur-glass-interactive text-white',
-          'hover:shadow-glass-interactive-hover hover:scale-110 hover:backdrop-blur-glass-overlay',
+          'bg-glass-interactive border border-glass-border-interactive shadow-glass-interactive text-primary-foreground',
+          'hover:shadow-glass-interactive-hover hover:scale-110 backdrop-blur-xl',
           'active:scale-105 active:shadow-glass-secondary transition-transform',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/15 before:to-transparent before:pointer-events-none',
           'rounded-3xl'
         ],
         glass: [
-          'bg-glass-interactive border border-glass-border-interactive shadow-glass-interactive backdrop-blur-glass-interactive text-white',
-          'hover:scale-105 hover:shadow-glass-interactive-hover hover:backdrop-blur-glass-overlay',
+          'bg-glass-interactive border border-glass-border-interactive shadow-glass-interactive text-primary-foreground',
+          'hover:scale-105 hover:shadow-glass-interactive-hover backdrop-blur-xl',
           'active:scale-[1.02] transition-transform',
           'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/12 before:to-transparent before:pointer-events-none',
           'rounded-3xl'
         ],
         ghost: [
-          'text-foreground hover:bg-glass-tertiary hover:backdrop-blur-glass-tertiary',
+          'text-foreground hover:bg-glass-tertiary backdrop-blur-sm',
           'hover:scale-[1.02] active:scale-[0.98]',
           'rounded-xl'
         ],
         outline: [
-          'border-2 border-glass-border-secondary bg-transparent backdrop-blur-glass-tertiary text-foreground',
+          'border-2 border-glass-border-secondary bg-transparent backdrop-blur-sm text-foreground',
           'hover:bg-glass-tertiary hover:border-glass-border-primary hover:scale-[1.02]',
           'active:scale-[0.98] active:bg-glass-secondary',
           'rounded-xl'
