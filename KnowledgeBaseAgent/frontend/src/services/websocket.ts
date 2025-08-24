@@ -128,6 +128,17 @@ export class WebSocketService {
   }
 
   private handleMessage(message: WebSocketMessage): void {
+    // Handle system log messages with channel information
+    if (message.type === 'notification' && message.payload?.type === 'system_log') {
+      const logData = message.payload.log;
+      const channel = message.payload.channel || 'system_logs';
+      
+      // Emit to both specific channel and general system_log handlers
+      this.emit(`system_log_${channel}`, logData);
+      this.emit('system_log', { ...logData, channel });
+    }
+    
+    // Handle regular message types
     const handlers = this.eventHandlers.get(message.type) || [];
     handlers.forEach(handler => {
       try {
@@ -268,6 +279,26 @@ export class WebSocketService {
     this.connect().catch(error => {
       console.error('Force reconnect failed:', error);
     });
+  }
+
+  // Subscribe to specific log channel
+  subscribeToLogChannel(channel: string, handler: WebSocketEventHandler): () => void {
+    return this.subscribe(`system_log_${channel}`, handler);
+  }
+
+  // Subscribe to all system logs
+  subscribeToSystemLogs(handler: WebSocketEventHandler): () => void {
+    return this.subscribe('system_log', handler);
+  }
+
+  // Send subscription request to server
+  subscribeToChannel(channel: string): boolean {
+    return this.send('subscribe', { channel });
+  }
+
+  // Send unsubscription request to server
+  unsubscribeFromChannel(channel: string): boolean {
+    return this.send('unsubscribe', { channel });
   }
 
   // Test connection with different URLs

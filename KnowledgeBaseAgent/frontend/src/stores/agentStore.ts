@@ -285,3 +285,16 @@ websocketService.subscribe('task_status', (data: Task) => {
 websocketService.subscribe('system_metrics', (data: SystemMetrics) => {
   useAgentStore.setState({ systemMetrics: data });
 });
+
+// Set up real-time log streaming
+websocketService.subscribeToSystemLogs((logData: any) => {
+  const currentState = useAgentStore.getState();
+  const newLogs = [...currentState.systemLogs, logData];
+  
+  // Keep only the last 1000 logs to prevent memory issues
+  const trimmedLogs = newLogs.slice(-1000);
+  
+  useAgentStore.setState({ 
+    systemLogs: trimmedLogs 
+  });
+});

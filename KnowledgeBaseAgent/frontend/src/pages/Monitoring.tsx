@@ -1,8 +1,11 @@
 import * as React from 'react';
 import { useAgentStore } from '@/stores';
+import { useRealTimeLogs } from '@/hooks/useRealTimeLogs';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { WebSocketIndicator } from '@/components/ui/WebSocketIndicator';
+import { VirtualizedLogContainer } from '@/components/monitoring/VirtualizedLogContainer';
 import { cn } from '@/utils/cn';
 import { 
   Gauge, 
@@ -16,7 +19,9 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
-  Cpu
+  Cpu,
+  Search,
+  X
 } from 'lucide-react';
 
 function ResourceMonitor() {
@@ -178,12 +183,32 @@ function ResourceMonitor() {
 }
 
 function LogViewer() {
-  const { systemLogs, systemLogsLoading, loadSystemLogs } = useAgentStore();
   const [isAutoScroll, setIsAutoScroll] = React.useState(true);
   const [selectedChannel, setSelectedChannel] = React.useState<string>('all');
   const [selectedLevel, setSelectedLevel] = React.useState<string>('all');
-  const [filteredLogs, setFilteredLogs] = React.useState(systemLogs);
+  const [searchQuery, setSearchQuery] = React.useState<string>('');
   const logEndRef = React.useRef<HTMLDivElement>(null);
+  
+  // Use the new real-time logs hook
+  const {
+    logs: filteredLogs,
+    isConnected,
+    connectionError,
+    getLogStats,
+    loadHistoricalLogs,
+    clearLogs,
+    searchLogs
+  } = useRealTimeLogs({
+    filters: {
+      channel: selectedChannel !== 'all' ? selectedChannel : undefined,
+      level: selectedLevel !== 'all' ? selectedLevel : undefined
+    }
+  });
+  
+  // Search functionality
+  const searchedLogs = React.useMemo(() => {
+    return searchQuery.trim() ? searchLogs(searchQuery) : filteredLogs;
+  }, [filteredLogs, searchQuery, searchLogs]);
 
   // Available channels and levels
   const logChannels = [
@@ -204,43 +229,12 @@ function LogViewer() {
     { value: 'CRITICAL', label: 'Critical' },
   ];
 
-  React.useEffect(() => {
-    const loadLogsWithFilters = () => {
-      const params: any = {};
-      if (selectedChannel !== 'all') {
-        params.channel = selectedChannel;
-      }
-      if (selectedLevel !== 'all') {
-        params.level = selectedLevel;
-      }
-      loadSystemLogs(params);
-    };
-    
-    loadLogsWithFilters();
-    const interval = setInterval(loadLogsWithFilters, 10000); // Refresh logs every 10 seconds
-    return () => clearInterval(interval);
-  }, [loadSystemLogs, selectedChannel, selectedLevel]);
-
-  // Filter logs based on selected filters
-  React.useEffect(() => {
-    let filtered = systemLogs;
-    
-    if (selectedChannel !== 'all') {
-      filtered = filtered.filter(log => log.channel === selectedChannel);
-    }
-    
-    if (selectedLevel !== 'all') {
-      filtered = filtered.filter(log => log.level === selectedLevel);
-    }
-    
-    setFilteredLogs(filtered);
-  }, [systemLogs, selectedChannel, selectedLevel]);
-
+  // Auto-scroll to bottom when new logs arrive
   React.useEffect(() => {
     if (isAutoScroll && logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [filteredLogs, isAutoScroll]);
+  }, [searchedLogs, isAutoScroll]);
 
   const getLevelColor = (level: string) => {
     switch (level.toUpperCase()) {
@@ -269,9 +263,10 @@ function LogViewer() {
     return channelInfo?.color || 'text-gray-400';
   };
 
+  const logStats = getLogStats();
   const logCounts = React.useMemo(() => {
     const counts = { INFO: 0, WARNING: 0, ERROR: 0, DEBUG: 0, SUCCESS: 0, CRITICAL: 0, OTHER: 0 };
-    filteredLogs.forEach(log => {
+    searchedLogs.forEach(log => {
       const level = log.level.toUpperCase();
       if (counts.hasOwnProperty(level)) {
         counts[level as keyof typeof counts]++;
@@ -280,16 +275,39 @@ function LogViewer() {
       }
     });
     return counts;
-  }, [filteredLogs]);
+  }, [searchedLogs]);
 
   return (
     <GlassPanel variant="secondary" className="p-6 backdrop-blur-glass-medium">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
-          System Logs
-        </h3>
         <div className="flex items-center gap-2">
+          <Activity className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-foreground">System Logs</h3>
+          {/* Connection Status */}
+          <WebSocketIndicator showText size="sm" />
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-7 pr-8 py-1 rounded-lg text-xs bg-glass-bg-tertiary text-foreground border border-glass-border-tertiary hover:bg-glass-bg-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 w-40"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          
           {/* Channel Selector */}
           <select
             value={selectedChannel}
@@ -327,11 +345,21 @@ function LogViewer() {
           >
             Auto-scroll {isAutoScroll ? 'ON' : 'OFF'}
           </button>
+          
           <button
-            onClick={() => loadSystemLogs({ channel: selectedChannel !== 'all' ? selectedChannel : undefined, level: selectedLevel !== 'all' ? selectedLevel : undefined })}
+            onClick={() => loadHistoricalLogs()}
             className="p-2 rounded-full bg-glass-bg-tertiary hover:bg-glass-bg-secondary transition-all duration-200"
+            title="Refresh logs"
           >
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          </button>
+          
+          <button
+            onClick={clearLogs}
+            className="p-2 rounded-full bg-glass-bg-tertiary hover:bg-glass-bg-secondary transition-all duration-200 text-red-400"
+            title="Clear logs"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -348,66 +376,29 @@ function LogViewer() {
         ))}
       </div>
 
-      {/* Logs Container */}
-      <div className="h-96 overflow-y-auto bg-black/30 backdrop-blur-sm rounded-xl p-4 font-mono text-xs border border-glass-border-tertiary">
-        {systemLogsLoading && (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner />
-          </div>
-        )}
-        
-        {filteredLogs.length === 0 && !systemLogsLoading && (
+      {/* Logs Container with Virtual Scrolling */}
+      <VirtualizedLogContainer
+        logs={searchedLogs}
+        height={384} // 96 * 4 = 384px (h-96)
+        itemHeight={60}
+        isAutoScroll={isAutoScroll}
+        logChannels={logChannels}
+        getLevelBadgeColor={getLevelBadgeColor}
+        getChannelColor={getChannelColor}
+        emptyState={
           <div className="text-center py-8 text-muted-foreground">
             <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No logs available{selectedChannel !== 'all' ? ` for ${logChannels.find(ch => ch.value === selectedChannel)?.label}` : ''}</p>
+            <p>
+              {searchQuery ? `No logs found matching "${searchQuery}"` : 
+               selectedChannel !== 'all' ? `No logs available for ${logChannels.find(ch => ch.value === selectedChannel)?.label}` :
+               'No logs available'}
+            </p>
+            {!isConnected && (
+              <p className="text-xs mt-2 text-red-400">WebSocket disconnected - logs may not be up to date</p>
+            )}
           </div>
-        )}
-
-        {filteredLogs.map((log, i) => (
-          <div key={i} className="py-2 hover:bg-white/5 rounded px-3 transition-colors border-l-2 border-transparent hover:border-primary/30">
-            <div className="flex gap-3 items-start">
-              <span className="text-muted-foreground/60 text-[10px] mt-0.5 min-w-[70px] font-mono">
-                {new Date(log.timestamp).toLocaleTimeString()}
-              </span>
-              <span className={cn(
-                "font-bold min-w-[60px] text-[10px] mt-0.5 px-2 py-0.5 rounded-full",
-                getLevelBadgeColor(log.level)
-              )}>
-                {log.level}
-              </span>
-              {/* Channel Indicator */}
-              {log.channel && (
-                <span className={cn(
-                  "text-[9px] mt-0.5 px-2 py-0.5 rounded-full font-medium",
-                  "bg-glass-bg-secondary border border-glass-border-secondary",
-                  getChannelColor(log.channel)
-                )}>
-                  {logChannels.find(ch => ch.value === log.channel)?.label || log.channel}
-                </span>
-              )}
-              <div className="flex-1 space-y-1">
-                <div className="text-foreground/90 text-[11px] leading-relaxed">
-                  {log.message}
-                </div>
-                <div className="flex gap-4 text-[9px] text-muted-foreground/70">
-                  <span>📦 {log.module}</span>
-                  {log.task_id && <span>🔧 Task: {log.task_id.substring(0, 8)}...</span>}
-                  {log.pipeline_phase && <span>⚡ Phase: {log.pipeline_phase}</span>}
-                </div>
-                {log.details && Object.keys(log.details).length > 0 && (
-                  <details className="text-[9px] text-muted-foreground/60 mt-1">
-                    <summary className="cursor-pointer hover:text-muted-foreground">Details</summary>
-                    <pre className="mt-1 ml-2 p-2 bg-black/20 rounded text-[8px] overflow-x-auto">
-                      {JSON.stringify(log.details, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-        <div ref={logEndRef} />
-      </div>
+        }
+      />
     </GlassPanel>
   );
 }
