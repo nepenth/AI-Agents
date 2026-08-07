@@ -1,1 +1,18 @@
 knowledge-base/instance/knowledge_base.db-shm
+
+# Runtime data and local credentials
+*.db
+*.db-*
+*.sqlite
+*.sqlite*
+*.log
+**/logs/
+knowledge-base_v2/data/
+knowledge-base/instance/
+**/debug_screenshots/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
